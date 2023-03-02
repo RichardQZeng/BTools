@@ -1,0 +1,6 @@
+{
+  "verbose_mode": true,
+  "working_directory": "D:\\BERA_Tools\\LeastCostPath\\example\\test_data\\30_30\\",
+  "compress_rasters": false,
+  "max_procs": -1
+}

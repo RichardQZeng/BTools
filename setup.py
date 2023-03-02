@@ -18,8 +18,8 @@ setup_requirements = [ ]
 test_requirements = [ ]
 
 setup(
-    author="Qiusheng Wu",
-    author_email='giswqs@gmail.com',
+    author="AppliedGRG",
+    author_email='appliedgrg@gmail.com',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
@@ -33,7 +33,7 @@ setup(
     description="An advanced geospatial data analysis platform ",
     entry_points={
         'console_scripts': [
-            'whitebox=whitebox.cli:main',
+            'BERATools=BERATools.cli:main',
         ],
     },
     install_requires=requirements,
@@ -42,11 +42,11 @@ setup(
     include_package_data=True,
     keywords='whitebox',
     name='whitebox',
-    packages=find_packages(include=['whitebox']),
+    packages=find_packages(include=['BERATools']),
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/giswqs/whitebox',
-    version='2.2.0',
+    url='https://github.com/appliedgrg/BERATools',
+    version='0.1',
     zip_safe=False,
 )

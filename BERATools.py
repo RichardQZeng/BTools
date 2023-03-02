@@ -1,3 +1,0 @@
-import whitebox
-
-whitebox.Runner()
