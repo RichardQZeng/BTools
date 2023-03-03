@@ -1,0 +1,6 @@
+click
+future
+pillow
+qgis
+setuptools
+Pillow
