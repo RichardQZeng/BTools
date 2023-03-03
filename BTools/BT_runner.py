@@ -740,7 +740,8 @@ class BTRunner(tk.Frame):
         # BERA tool list
         self.get_bera_tool_list()
         self.toolbox_list = self.get_bera_toolboxes()
-        self.lower_toolboxes = self.toolbox_list
+        self.sort_toolboxes()
+        # self.lower_toolboxes = self.toolbox_list
 
         #Icons to be used in tool treeview
         self.tool_icon = tk.PhotoImage(file = self.script_dir + '//img//tool.gif')  
@@ -987,8 +988,10 @@ class BTRunner(tk.Frame):
                 self.lower_toolboxes.append(toolbox)
             else:    # Contains a subtoolbox
                 self.lower_toolboxes.append(toolbox)    # add to only the lower toolbox list
-        self.upper_toolboxes = sorted(self.upper_toolboxes)    # sort both lists alphabetically
-        self.lower_toolboxes = sorted(self.lower_toolboxes)
+
+        # Disable sorting
+        # self.upper_toolboxes = sorted(self.upper_toolboxes)    # sort both lists alphabetically
+        # self.lower_toolboxes = sorted(self.lower_toolboxes)
 
     def sort_tools_by_toolbox(self): 
         self.sorted_tools = [[] for i in range(len(self.lower_toolboxes))]    # One list for each lower toolbox
