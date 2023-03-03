@@ -755,33 +755,39 @@ class BTRunner(tk.Frame):
         self.tool_tree = ttk.Treeview(self.tools_frame, height = 21)    
         #Set up layout
         self.tool_tree.grid(row=0, column=0, sticky=tk.NSEW)
-        self.tool_tree.column("#0", width = 280)    #Set width so all tools are readable within the frame
+        self.tool_tree.column("#0", width=280)    #Set width so all tools are readable within the frame
         self.tools_frame.grid(row=0, column=0, sticky=tk.NSEW)
         self.tools_frame.columnconfigure(0, weight=10)
         self.tools_frame.columnconfigure(1, weight=1)
         self.tools_frame.rowconfigure(0, weight=10)
         self.tools_frame.rowconfigure(1, weight=1)
 
-        #Add toolboxes and tools to treeview
+        # Add toolboxes and tools to treeview
         index = 0
         for toolbox in self.lower_toolboxes:
-            if toolbox.find('/') != (-1):    #toolboxes 
-                self.tool_tree.insert(toolbox[:toolbox.find('/')], 0, text = "  " + toolbox[toolbox.find('/') + 1:], iid = toolbox[toolbox.find('/') + 1:], tags = 'toolbox', image = self.closed_toolbox_icon)
-                for tool in self.sorted_tools[index]:    #add tools within toolbox
-                    self.tool_tree.insert(toolbox[toolbox.find('/') + 1:], 'end', text = "  " + tool, tags = 'tool', iid = tool, image = self.tool_icon)       
-            else:    #subtoolboxes
-                self.tool_tree.insert('', 'end', text = "  " + toolbox, iid = toolbox, tags = 'toolbox', image = self.closed_toolbox_icon)                         
+            if toolbox.find('/') != (-1):    # toolboxes
+                self.tool_tree.insert(toolbox[:toolbox.find('/')], 0, text="  " + toolbox[toolbox.find('/') + 1:],
+                                      iid=toolbox[toolbox.find('/') + 1:],tags='toolbox', image=self.closed_toolbox_icon)
+                for tool in self.sorted_tools[index]:    # add tools within toolbox
+                    self.tool_tree.insert(toolbox[toolbox.find('/') + 1:], 'end', text="  " + tool,
+                                          tags='tool', iid=tool, image=self.tool_icon)
+            else:    # subtoolboxes
+                self.tool_tree.insert('', 'end', text="  " + toolbox, iid=toolbox, tags='toolbox', image=self.closed_toolbox_icon)
                 for tool in self.sorted_tools[index]:  #add tools within subtoolbox
-                    self.tool_tree.insert(toolbox, 'end', text = "  " + tool, iid = tool, tags = 'tool', image = self.tool_icon) 
-            index = index + 1 
-        #bind tools in treeview to self.tree_update_tool_help function and toolboxes to self.update_toolbox_icon function
-        #TODO: BERA tool help
+                    self.tool_tree.insert(toolbox, 'end', text="  " + tool, iid=tool, tags='tool', image=self.tool_icon)
+            index = index + 1
+
+        # bind tools in treeview to self.tree_update_tool_help function
+        # and toolboxes to self.update_toolbox_icon function
+        # TODO: BERA tool help
         self.tool_tree.tag_bind('tool', "<<TreeviewSelect>>", self.tree_update_tool_help)
-        self.tool_tree.tag_bind('toolbox', "<<TreeviewSelect>>", self.update_toolbox_icon)  
-        #Add vertical scrollbar to treeview frame
+        self.tool_tree.tag_bind('toolbox', "<<TreeviewSelect>>", self.update_toolbox_icon)
+
+        # Add vertical scrollbar to treeview frame
         s = ttk.Scrollbar(self.tools_frame, orient=tk.VERTICAL,command=self.tool_tree.yview)    
         s.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.tool_tree['yscrollcommand'] = s.set
+
         #########################################################
         #                     Search Bar                        #
         #########################################################
@@ -976,25 +982,25 @@ class BTRunner(tk.Frame):
         self.upper_toolboxes = []
         self.lower_toolboxes = []
         for toolbox in self.toolbox_list:
-            if toolbox.find('/') == (-1):    #Does not contain a subtoolbox, i.e. does not contain '/'
-                self.upper_toolboxes.append(toolbox)    #add to both upper toolbox list and lower toolbox list
+            if toolbox.find('/') == (-1):    # Does not contain a subtoolbox, i.e. does not contain '/'
+                self.upper_toolboxes.append(toolbox)    # add to both upper toolbox list and lower toolbox list
                 self.lower_toolboxes.append(toolbox)
-            else:    #Contains a subtoolbox
-                self.lower_toolboxes.append(toolbox)    #add to only the lower toolbox list  
-        self.upper_toolboxes = sorted(self.upper_toolboxes)    #sort both lists alphabetically
+            else:    # Contains a subtoolbox
+                self.lower_toolboxes.append(toolbox)    # add to only the lower toolbox list
+        self.upper_toolboxes = sorted(self.upper_toolboxes)    # sort both lists alphabetically
         self.lower_toolboxes = sorted(self.lower_toolboxes)
 
     def sort_tools_by_toolbox(self): 
-        self.sorted_tools = [[] for i in range(len(self.lower_toolboxes))]    #One list for each lower toolbox
+        self.sorted_tools = [[] for i in range(len(self.lower_toolboxes))]    # One list for each lower toolbox
         count = 1
         for toolAndToolbox in self.tools_and_toolboxes.split('\n'):
             if toolAndToolbox.strip():
-                tool = toolAndToolbox.strip().split(':')[0].strip().replace("TIN", "Tin").replace("KS", "Ks").replace("FD", "Fd")    #current tool
+                tool = toolAndToolbox.strip().split(':')[0].strip().replace("TIN", "Tin").replace("KS", "Ks").replace("FD", "Fd")  # current tool
                 itemToolbox = toolAndToolbox.strip().split(':')[1].strip()    #current toolbox
                 index = 0
-                for toolbox in self.lower_toolboxes:    #find which toolbox the current tool belongs to
+                for toolbox in self.lower_toolboxes:    # find which toolbox the current tool belongs to
                     if toolbox == itemToolbox:
-                        self.sorted_tools[index].append(tool)    #add current tool to list at appropriate index
+                        self.sorted_tools[index].append(tool)    # add current tool to list at appropriate index
                         break
                     index = index + 1
                 count = count + 1
@@ -1004,11 +1010,11 @@ class BTRunner(tk.Frame):
         selected_item = -1
         for item in bt.list_tools().keys():
             if item:
-                value = to_camelcase(item).replace("TIN", "Tin").replace("KS", "Ks").replace("FD", "Fd")    #format tool name
-                self.tools_list.append(value)    #add tool to list
-                if item == self.tool_name:    #update selected_item it tool found
+                value = to_camelcase(item).replace("TIN", "Tin").replace("KS", "Ks").replace("FD", "Fd")    # format tool name
+                self.tools_list.append(value)    # add tool to list
+                if item == self.tool_name:    # update selected_item it tool found
                     selected_item = len(self.tools_list) - 1
-        if selected_item == -1:    #set self.tool_name as default tool
+        if selected_item == -1:    # set self.tool_name as default tool
             selected_item = 0
             self.tool_name = self.tools_list[0]
 
@@ -1250,12 +1256,14 @@ class BTRunner(tk.Frame):
         index = 0
         for toolbox in self.lower_toolboxes:
             if toolbox.find('/') != (-1):    # toolboxes
-                self.tool_tree.insert(toolbox[:toolbox.find('/')], 0, text = "  " + toolbox[toolbox.find('/') + 1:], iid = toolbox[toolbox.find('/') + 1:], tags = 'toolbox', image = self.closed_toolbox_icon)
+                self.tool_tree.insert(toolbox[:toolbox.find('/')], 0, text="  " + toolbox[toolbox.find('/') + 1:],
+                                      iid=toolbox[toolbox.find('/') + 1:], tags='toolbox', image=self.closed_toolbox_icon)
                 for tool in self.sorted_tools[index]:    # add tools within toolbox
-                    self.tool_tree.insert(toolbox[toolbox.find('/') + 1:], 'end', text = "  " + tool, tags = 'tool', iid = tool, image = self.tool_icon)       
+                    self.tool_tree.insert(toolbox[toolbox.find('/') + 1:], 'end', text="  " + tool,
+                                          tags='tool', iid=tool, image=self.tool_icon)
             else:    # subtoolboxes
-                self.tool_tree.insert('', 'end', text = "  " + toolbox, iid = toolbox, tags = 'toolbox', image = self.closed_toolbox_icon)                         
-                for tool in self.sorted_tools[index]:  #add tools within subtoolbox
+                self.tool_tree.insert('', 'end', text="  " + toolbox, iid=toolbox, tags='toolbox', image=self.closed_toolbox_icon)
+                for tool in self.sorted_tools[index]:  # add tools within subtoolbox
                     self.tool_tree.insert(toolbox, 'end', text = "  " + tool, iid = tool, tags = 'tool', image = self.tool_icon) 
             index = index + 1 
         # Update label
