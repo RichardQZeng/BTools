@@ -35,7 +35,6 @@ bt = BERATools()
 class FileSelector(tk.Frame):
     def __init__(self, json_str, runner, master=None):
         # first make sure that the json data has the correct fields
-        super().__init__(master)
         j = json.loads(json_str)
         self.name = j['name']
         self.description = j['description']
@@ -661,7 +660,6 @@ class DataInput(tk.Frame):
 
 class BTRunner(tk.Frame):
     def __init__(self, tool_name=None, master=None):
-        super().__init__(master)
         self.descriptionList = None
         self.search_string = None
         self.toolbox_open = None
@@ -681,7 +679,7 @@ class BTRunner(tk.Frame):
         self.help_button = None
         self.quit_button = None
         self.run_button = None
-        self.arg_scroll_frame = None
+        # self.arg_scroll_frame = None
         self.view_code_button = None
         self.current_tool_lbl = None
         self.current_tool_frame = None
