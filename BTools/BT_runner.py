@@ -160,7 +160,8 @@ class FileSelector(tk.Frame):
 
             v = path.normpath(v)
 
-            return "{}='{}'".format(self.flag, v)
+            # return "{}='{}'".format(self.flag, v)
+            return self.flag, v
         else:
             t = "file"
             if self.parameter_type == "Directory":
@@ -311,7 +312,8 @@ class FileOrFloat(tk.Frame):
 
             v = path.normpath(v)
 
-            return "{}='{}'".format(self.flag, v)
+            # return "{}='{}'".format(self.flag, v)
+            return self.flag, v
         elif self.value2.get():
             v = self.value2.get()
             if self.RepresentsFloat(v):
@@ -441,7 +443,8 @@ class MultifileSelector(tk.Frame):
                     else:
                         s += "{}".format(v)
 
-                return "{}='{}'".format(self.flag, s)
+                # return "{}='{}'".format(self.flag, s)
+                return self.flag, v
             else:
                 if not self.optional:
                     messagebox.showinfo(
@@ -492,7 +495,7 @@ class BooleanInput(tk.Frame):
 
     def get_value(self):
         if self.value.get() == 1:
-            return self.flag
+            return self.flag # FIXME: return tuple
         else:
             return None
 
@@ -551,7 +554,8 @@ class OptionsInput(tk.Frame):
 
     def get_value(self):
         if self.value:
-            return "{}='{}'".format(self.flag, self.value)
+            # return "{}='{}'".format(self.flag, self.value)
+            return self.flag, self.value
         else:
             if not self.optional:
                 messagebox.showinfo(
@@ -632,21 +636,25 @@ class DataInput(tk.Frame):
         if v:
             if "Integer" in self.parameter_type:
                 if self.RepresentsInt(self.value.get()):
-                    return "{}={}".format(self.flag, self.value.get())
+                    # return "{}={}".format(self.flag, self.value.get())
+                    return self.flag, self.value.get()
                 else:
                     messagebox.showinfo("Error", "Error converting parameter {} to type Integer.".format(self.flag))
             elif "Float" in self.parameter_type:
                 if self.RepresentsFloat(self.value.get()):
-                    return "{}={}".format(self.flag, self.value.get())
+                    # return "{}={}".format(self.flag, self.value.get())
+                    return self.flag, self.value.get()
                 else:
                     messagebox.showinfo("Error", "Error converting parameter {} to type Float.".format(self.flag))
             elif "Double" in self.parameter_type:
                 if self.RepresentsFloat(self.value.get()):
-                    return "{}={}".format(self.flag, self.value.get())
+                    # return "{}={}".format(self.flag, self.value.get())
+                    return self.flag, self.value.get()
                 else:
                     messagebox.showinfo("Error", "Error converting parameter {} to type Double.".format(self.flag))
             else:  # String or StringOrNumber types
-                return "{}='{}'".format(self.flag, self.value.get())
+                # return "{}='{}'".format(self.flag, self.value.get())
+                return self.flag, self.value.get()
         else:
             if not self.optional:
                 messagebox.showinfo("Error", "Unspecified non-optional parameter {}.".format(self.flag))
@@ -1281,11 +1289,11 @@ class BTRunner(tk.Frame):
         bt.set_working_dir(self.working_dir)
         # args = shlex.split(self.args_value.get())
 
-        args = []
+        args = {}
         for widget in self.arg_scroll_frame.winfo_children():
             v = widget.get_value()
-            if v:
-                args.append(v)
+            if v and len(v)==2:
+                args[v[0]] = v[1]
             elif not widget.optional:
                 messagebox.showinfo(
                     "Error", "Non-optional tool parameter not specified.")
