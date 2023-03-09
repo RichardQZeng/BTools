@@ -200,7 +200,7 @@
                     "name": "Center Line",
                     "info": "Determines the least cost path between vertices of the input lines.",
                     "multiprocessing": true,
-                    "scriptFile": "Scripts.FLM_CenterLine",
+                    "scriptFile": "centerline",
                     "paramFile": "\\Scripts\\FLM_CL_params.txt",
                     "image": "../Images/FLM_IO_CenterLine.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/Centerline.html",

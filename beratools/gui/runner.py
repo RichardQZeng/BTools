@@ -7,6 +7,7 @@
 
 import __future__
 import sys
+
 if sys.version_info[0] < 3:
     raise Exception("Must be using Python 3")
 import json
@@ -27,9 +28,9 @@ from tkinter import PhotoImage
 import webbrowser
 from PIL import Image, ImageTk
 
-from .bera_tools import BERATools, to_camelcase
+from ..tools.beratools import BeraTools, to_camelcase
 
-bt = BERATools()
+bt = BeraTools()
 
 
 class FileSelector(tk.Frame):
@@ -244,10 +245,10 @@ class FileOrFloat(tk.Frame):
             result = self.value.get()
             file_types = [('All files', '*.*')]
             if 'RasterAndVector' in self.file_type:
-                file_types = [("Shapefiles", "*.shp"), ('Raster files', ('*.dep', '*.tif','*.tiff', '*.bil',
+                file_types = [("Shapefiles", "*.shp"), ('Raster files', ('*.dep', '*.tif', '*.tiff', '*.bil',
                                                                          '*.flt', '*.sdat', '*.rdc', '*.asc'))]
             elif 'Raster' in self.file_type:
-                file_types = [('Raster files', ('*.dep', '*.tif','*.tiff', '*.bil',
+                file_types = [('Raster files', ('*.dep', '*.tif', '*.tiff', '*.bil',
                                                 '*.flt', '*.sdat', '*.rdc', '*.asc'))]
             elif 'Lidar' in self.file_type:
                 file_types = [("LiDAR files", ('*.las', '*.zlidar', '*.laz', '*.zip'))]
@@ -401,7 +402,7 @@ class MultifileSelector(tk.Frame):
                                                                          '*.flt', '*.sdat', '*.rdc', '*.asc'))]
             elif 'Raster' in self.file_type:
                 file_types = [('Raster files', ('*.dep', '*.tif', '*.tiff', '*.bil',
-                                                '*.flt','*.sdat', '*.rdc', '*.asc'))]
+                                                '*.flt', '*.sdat', '*.rdc', '*.asc'))]
             elif 'Lidar' in self.file_type:
                 file_types = [("LiDAR files", ('*.las', '*.zlidar', '*.laz', '*.zip'))]
             elif 'Vector' in self.file_type:
@@ -495,7 +496,7 @@ class BooleanInput(tk.Frame):
 
     def get_value(self):
         if self.value.get() == 1:
-            return self.flag # FIXME: return tuple
+            return self.flag  # FIXME: return tuple
         else:
             return None
 
@@ -666,7 +667,7 @@ class DataInput(tk.Frame):
         return 'break'
 
 
-class BTRunner(tk.Frame):
+class MainGui(tk.Frame):
     def __init__(self, tool_name=None, master=None):
         self.descriptionList = None
         self.search_string = None
@@ -702,6 +703,8 @@ class BTRunner(tk.Frame):
         self.toolbox_list = None
         self.tools_and_toolboxes = None
         self.out_text = None
+        self.current_tool_api = None
+
         if platform.system() == 'Windows':
             self.ext = '.exe'
         else:
@@ -710,7 +713,7 @@ class BTRunner(tk.Frame):
         exe_name = "BERA_tools{}".format(self.ext)
 
         # Load BERA Tools from json file
-        tools = open(r'BTools\flm_tools.json')
+        tools = open(r'beratools\tools\beratools.json')
         self.bera_tools = json.load(tools)
 
         self.exe_path = path.dirname(path.abspath(__file__))
@@ -720,7 +723,7 @@ class BTRunner(tk.Frame):
                 self.exe_path = path.dirname(path.abspath(filename))
                 break
 
-        bt.set_BERA_dir(self.exe_path)
+        bt.set_bera_dir(self.exe_path)
 
         ttk.Frame.__init__(self, master)
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -988,8 +991,8 @@ class BTRunner(tk.Frame):
         count = 1
         for toolAndToolbox in self.tools_and_toolboxes.split('\n'):
             if toolAndToolbox.strip():
-                tool = toolAndToolbox.strip().split(':')[0].strip().replace("TIN", "Tin")\
-                       .replace("KS", "Ks").replace("FD", "Fd")  # current tool
+                tool = toolAndToolbox.strip().split(':')[0].strip().replace("TIN", "Tin") \
+                    .replace("KS", "Ks").replace("FD", "Fd")  # current tool
                 itemToolbox = toolAndToolbox.strip().split(':')[1].strip()  # current toolbox
                 index = 0
                 for toolbox in self.lower_toolboxes:  # find which toolbox the current tool belongs to
@@ -1050,6 +1053,7 @@ class BTRunner(tk.Frame):
         for toolbox in self.bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool_name == tool['name']:
+                    self.current_tool_api = tool['scriptFile']
                     # convert json format for parameters
                     for param in tool['parameters']:
                         new_param = {'name': param['parameter']}
@@ -1285,14 +1289,12 @@ class BTRunner(tk.Frame):
                 "Warning", "Could not find WhiteboxTools executable file.")
 
     def run_tool(self):
-        # wd_str = self.wd.get_value()
         bt.set_working_dir(self.working_dir)
-        # args = shlex.split(self.args_value.get())
 
         args = {}
         for widget in self.arg_scroll_frame.winfo_children():
             v = widget.get_value()
-            if v and len(v)==2:
+            if v and len(v) == 2:
                 args[v[0]] = v[1]
             elif not widget.optional:
                 messagebox.showinfo(
@@ -1300,10 +1302,11 @@ class BTRunner(tk.Frame):
                 return
 
         self.print_line_to_output("")
-        # self.print_line_to_output("Tool arguments:{}".format(args))
-        # self.print_line_to_output("")
+        self.print_line_to_output("Tool arguments:{}".format(args))
+        self.print_line_to_output("")
+
         # Run the tool and check the return value for an error
-        if bt.run_tool(self.tool_name, args, self.custom_callback) == 1:
+        if bt.run_tool(self.current_tool_api, args, self.custom_callback) == 1:
             print("Error running {}".format(self.tool_name))
 
         else:
@@ -1390,7 +1393,7 @@ def Runner():
     tool_name = None
     if len(sys.argv) > 1:
         tool_name = str(sys.argv[1])
-    btr = BTRunner(tool_name)
+    btr = MainGui(tool_name)
 
     ico = Image.open(r'img\BERALogo.png')
     photo = ImageTk.PhotoImage(ico)

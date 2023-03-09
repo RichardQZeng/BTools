@@ -1,7 +1,7 @@
-from BTools import BT_runner
+from beratools.gui import runner
 
-def Runner():
-    BT_runner.Runner()
+def bt_runner():
+    runner.Runner()
 
 if __name__ == '__main__':
-    Runner()
+    bt_runner()
