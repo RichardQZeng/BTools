@@ -1,9 +1,12 @@
 import time
 
-def centerline(**kwargs):
+def centerline(callback, **kwargs):
     for x in kwargs:
-        print(x)
-        
+        callback(x)
+
+    progress = 0
     for i in range(10):
         time.sleep(1.0)
-        print(time.time())
+        callback(r'%{}'.format(progress))
+        progress += 10
+        callback(time.time())

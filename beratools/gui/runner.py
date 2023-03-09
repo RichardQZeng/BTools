@@ -1359,6 +1359,7 @@ class MainGui(tk.Frame):
         """
         A custom callback for dealing with tool output.
         """
+        value = str(value)
         if "%" in value:
             try:
                 str_array = value.split(" ")

@@ -19,7 +19,8 @@ import platform
 import re
 import json
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
-from operator import methodcaller
+
+from .centerline import *
 
 running_windows = platform.system() == 'Windows'
 
@@ -302,11 +303,11 @@ class BeraTools(object):
             os.chdir(self.exe_path)
 
             if self.verbose:
-                cl = tool_name + " ".join(args2)
+                cl = tool_name + " ".join(args)
                 callback(cl.strip() + "\n")
 
-            call_tool = methodcaller(tool_name, **args)
-            call_tool()
+            current_tool = globals()[tool_name]
+            current_tool(callback, **args)
 
         except (OSError, ValueError, CalledProcessError) as err:
             callback(str(err))
