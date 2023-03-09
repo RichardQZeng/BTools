@@ -1,2 +1,4 @@
 /.idea
-/BTools/__pycache__/*.pyc
+/beratools/__pycache__
+/beratools/tools/__pycache__
+/beratools/gui/__pycache__
