@@ -35,7 +35,7 @@ def task(identifier):
 # protect the entry point
 def execute():
     # create and configure the process pool
-    data = [[random() for n in range(100)] for i in range(100)]
+    data = [[random() for n in range(100)] for i in range(300)]
     try:
         with Pool() as pool:
             # execute tasks in order, process results out of order

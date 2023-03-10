@@ -341,6 +341,7 @@ class BeraTools(object):
                     else:
                         self.cancel_op = False
                         proc.terminate()
+                        callback('Tool operation terminated.')
                         return 2
 
                 else:

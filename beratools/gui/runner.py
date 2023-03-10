@@ -1325,7 +1325,7 @@ class MainGui(tk.Frame):
 
     def cancel_operation(self):
         bt.cancel_op = True
-        self.print_line_to_output("Cancelling operation...")
+        self.print_line_to_output("Tool operation cancelling...")
         self.progress.update_idletasks()
 
     def view_code(self):
