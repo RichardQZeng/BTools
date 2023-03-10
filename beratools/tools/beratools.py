@@ -306,14 +306,51 @@ class BeraTools(object):
                 cl = tool_name + " ".join(args)
                 callback(cl.strip() + "\n")
 
-            current_tool = globals()[tool_name]
-            current_tool(callback, **args)
+            # current_tool = globals()[tool_name]
+            # current_tool(callback, **args)
 
         except (OSError, ValueError, CalledProcessError) as err:
             callback(str(err))
             return 1
         finally:
             os.chdir(work_dir)
+
+        # Call script using new process to make GUI responsive
+        try:
+            proc = None
+            args_string = str(args).replace("'", '"')
+            args_tool = ['python' , os.path.join(r'..\tools', tool_name+'.py'), '--input', args_string]
+
+            if running_windows and self.start_minimized == True:
+                si = STARTUPINFO()
+                si.dwFlags = STARTF_USESHOWWINDOW
+                si.wShowWindow = 7  # Set window minimized and not activated
+                proc = Popen(args_tool, shell=False, stdout=PIPE,
+                             stderr=STDOUT, bufsize=1, universal_newlines=True,
+                             startupinfo=si)
+            else:
+                proc = Popen(args_tool, shell=False, stdout=PIPE,
+                             stderr=STDOUT, bufsize=1, universal_newlines=True)
+
+            while proc is not None:
+                line = proc.stdout.readline()
+                sys.stdout.flush()
+                if line != '':
+                    if not self.cancel_op:
+                        callback(line.strip())
+                    else:
+                        self.cancel_op = False
+                        proc.terminate()
+                        return 2
+
+                else:
+                    break
+
+            return 0
+        except (OSError, ValueError, CalledProcessError) as err:
+            callback(str(err))
+            return 1
+
 
     def help(self):
         """ 
