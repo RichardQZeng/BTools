@@ -73,14 +73,13 @@ class BeraTools(object):
         self.__compress_rasters = False
         self.__max_procs = -1
 
-        setting_file = 'beratools\gui\settings.json'
-        if os.path.isfile(setting_file):
+        self.setting_file = os.path.join(self.exe_path, '..\gui\settings.json')
+        if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
-            with open(setting_file, 'r') as settings_file:
-                data = settings_file.read()
+            with open(self.setting_file, 'r') as settings_file:
+                settings = json.load(settings_file)
 
             # parse file
-            settings = json.loads(data)
             self.work_dir = str(settings['working_directory'])
             self.verbose = str(settings['verbose_mode'])
             self.__compress_rasters = settings['compress_rasters']
@@ -125,52 +124,17 @@ class BeraTools(object):
         """
         self.verbose = val
 
-        try:
-            callback = self.default_callback
+        if os.path.isfile(self.setting_file):
+            # read the settings.json file if it exists
+            with open(self.setting_file, 'r') as read_settings_file:
+                settings = json.load(read_settings_file)
 
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args2 = []
-            args2.append("." + path.sep + self.exe_name)
-
-            if self.verbose:
-                args2.append("-v")
-            else:
-                args2.append("-v=false")
-
-            proc = None
-
-            if running_windows and self.start_minimized == True:
-                si = STARTUPINFO()
-                si.dwFlags = STARTF_USESHOWWINDOW
-                si.wShowWindow = 7  # Set window minimized and not activated
-                proc = Popen(args2, shell=False, stdout=PIPE,
-                             stderr=STDOUT, bufsize=1, universal_newlines=True,
-                             startupinfo=si)
-            else:
-                proc = Popen(args2, shell=False, stdout=PIPE,
-                             stderr=STDOUT, bufsize=1, universal_newlines=True)
-
-            while proc is not None:
-                line = proc.stdout.readline()
-                sys.stdout.flush()
-                if line != '':
-                    if not self.cancel_op:
-                        callback(line.strip())
-                    else:
-                        self.cancel_op = False
-                        proc.terminate()
-                        return 2
-
-                else:
-                    break
-
-            return 0
-        except (OSError, ValueError, CalledProcessError) as err:
-            callback(str(err))
-            return 1
-        finally:
-            os.chdir(work_dir)
+            # parse file
+            settings['verbose_mode'] = self.verbose
+            with open(self.setting_file, 'w') as write_settings_file:
+                json.dump(settings, write_settings_file, indent=4)
+        else:
+            print("Settings.json not exist.")
 
     def set_default_callback(self, callback_func):
         """
@@ -240,49 +204,17 @@ class BeraTools(object):
         """
         self.__max_procs = val
 
-        try:
-            callback = self.default_callback
+        if os.path.isfile(self.setting_file):
+            # read the settings.json file if it exists
+            with open(self.setting_file, 'r') as read_settings_file:
+                settings = json.load(read_settings_file)
 
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args2 = []
-            args2.append("." + path.sep + self.exe_name)
-
-            args2.append(f"--max_procs={val}")
-
-            proc = None
-
-            if running_windows and self.start_minimized == True:
-                si = STARTUPINFO()
-                si.dwFlags = STARTF_USESHOWWINDOW
-                si.wShowWindow = 7  # Set window minimized and not activated
-                proc = Popen(args2, shell=False, stdout=PIPE,
-                             stderr=STDOUT, bufsize=1, universal_newlines=True,
-                             startupinfo=si)
-            else:
-                proc = Popen(args2, shell=False, stdout=PIPE,
-                             stderr=STDOUT, bufsize=1, universal_newlines=True)
-
-            while proc is not None:
-                line = proc.stdout.readline()
-                sys.stdout.flush()
-                if line != '':
-                    if not self.cancel_op:
-                        callback(line.strip())
-                    else:
-                        self.cancel_op = False
-                        proc.terminate()
-                        return 2
-
-                else:
-                    break
-
-            return 0
-        except (OSError, ValueError, CalledProcessError) as err:
-            callback(str(err))
-            return 1
-        finally:
-            os.chdir(work_dir)
+            # parse file
+            settings['max_procs'] = self.__max_procs
+            with open(self.setting_file, 'w') as write_settings_file:
+                json.dump(settings, write_settings_file, indent=4)
+        else:
+            print("Settings.json not exist.")
 
     def get_max_procs(self):
         return self.__max_procs

@@ -27,6 +27,7 @@ from tkinter import messagebox
 from tkinter import PhotoImage
 import webbrowser
 from PIL import Image, ImageTk
+import multiprocessing
 
 from ..tools.beratools import BeraTools, to_camelcase
 
@@ -714,7 +715,7 @@ class MainGui(tk.Frame):
 
         # Load BERA Tools from json file
         tools = open(r'beratools\tools\beratools.json')
-        self.bera_tools = json.load(tools)
+        self.get_bera_tools = json.load(tools)
 
         self.exe_path = path.dirname(path.abspath(__file__))
         os.chdir(self.exe_path)
@@ -870,7 +871,7 @@ class MainGui(tk.Frame):
         # Retrieve and insert the text for the current tool
 
         # BERA Tools help text
-        k = self.bera_tool_help(self.tool_name)
+        k = self.get_bera_tool_help()
 
         self.out_text.insert(tk.END, k)
         # Define layout of the frame
@@ -927,7 +928,6 @@ class MainGui(tk.Frame):
         self.filemenu.add_command(label="Set Num. Processors", command=self.set_procs)
 
         self.filemenu.add_separator()
-        self.filemenu.add_separator()
         self.filemenu.add_command(label="Exit", command=self.quit)
         menubar.add_cascade(label="File", menu=self.filemenu)
 
@@ -947,10 +947,10 @@ class MainGui(tk.Frame):
     def update_verbose(self):
         if bt.get_verbose_mode():
             bt.set_verbose_mode(False)
-            self.filemenu.entryconfig(3, label="Print Tool Output")
+            self.filemenu.entryconfig(2, label="Print Tool Output")
         else:
             bt.set_verbose_mode(True)
-            self.filemenu.entryconfig(3, label="Do Not Print Tool Output")
+            self.filemenu.entryconfig(2, label="Do Not Print Tool Output")
 
     def update_compress(self):
         if bt.get_compress_rasters():
@@ -964,13 +964,6 @@ class MainGui(tk.Frame):
 
         self.refresh_tools()
 
-    def get_toolboxes(self):
-        toolboxes = set()
-        for item in bt.toolbox().splitlines():  # run bt.toolbox with no tool specified--returns all
-            if item:
-                tb = item.split(":")[1].strip()
-                toolboxes.add(tb)
-        return sorted(toolboxes)
 
     def sort_toolboxes(self):
         self.upper_toolboxes = []
@@ -982,25 +975,6 @@ class MainGui(tk.Frame):
             else:  # Contains a sub toolbox
                 self.lower_toolboxes.append(toolbox)  # add to only the lower toolbox list
 
-        # Disable sorting
-        # self.upper_toolboxes = sorted(self.upper_toolboxes)    # sort both lists alphabetically
-        # self.lower_toolboxes = sorted(self.lower_toolboxes)
-
-    def sort_tools_by_toolbox(self):
-        self.sorted_tools = [[] for i in range(len(self.lower_toolboxes))]  # One list for each lower toolbox
-        count = 1
-        for toolAndToolbox in self.tools_and_toolboxes.split('\n'):
-            if toolAndToolbox.strip():
-                tool = toolAndToolbox.strip().split(':')[0].strip().replace("TIN", "Tin") \
-                    .replace("KS", "Ks").replace("FD", "Fd")  # current tool
-                itemToolbox = toolAndToolbox.strip().split(':')[1].strip()  # current toolbox
-                index = 0
-                for toolbox in self.lower_toolboxes:  # find which toolbox the current tool belongs to
-                    if toolbox == itemToolbox:
-                        self.sorted_tools[index].append(tool)  # add current tool to list at appropriate index
-                        break
-                    index = index + 1
-                count = count + 1
 
     def get_tools_list(self):
         self.tools_list = []
@@ -1018,7 +992,7 @@ class MainGui(tk.Frame):
 
     def get_bera_toolboxes(self):
         toolboxes = list()
-        for toolbox in self.bera_tools['toolbox']:
+        for toolbox in self.get_bera_tools['toolbox']:
             tb = toolbox['category']
             toolboxes.append(tb)
         return toolboxes
@@ -1027,7 +1001,7 @@ class MainGui(tk.Frame):
         self.tools_list = []
         self.sorted_tools = []
         selected_item = -1
-        for toolbox in self.bera_tools['toolbox']:
+        for toolbox in self.get_bera_tools['toolbox']:
             category = []
             for item in toolbox['tools']:
                 if item['name']:
@@ -1042,18 +1016,21 @@ class MainGui(tk.Frame):
             selected_item = 0
             self.tool_name = self.tools_list[0]
 
-    def bera_tool_help(self, tool_name):
-        for toolbox in self.bera_tools['toolbox']:
+    def get_bera_tool_help(self):
+        for toolbox in self.get_bera_tools['toolbox']:
             for tool in toolbox['tools']:
-                if tool_name == tool['name']:
+                if tool['name'] == self.tool_name:
                     return tool['info']
 
-    def bera_tool_parameters(self, tool_name):
+    def get_bera_tool_parameters(self, tool_name):
         new_params = {'parameters': []}
-        for toolbox in self.bera_tools['toolbox']:
+
+        for toolbox in self.get_bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool_name == tool['name']:
                     self.current_tool_api = tool['scriptFile']
+                    new_params['tech_link'] = tool['tech_link']
+
                     # convert json format for parameters
                     for param in tool['parameters']:
                         new_param = {'name': param['parameter']}
@@ -1096,6 +1073,9 @@ class MainGui(tk.Frame):
 
         return new_params
 
+    def get_current_tool_parameters(self):
+        return self.get_bera_tool_parameters(self.tool_name)
+
     # read selection when tool selected from treeview then call self.update_tool_help
     def tree_update_tool_help(self, event):
         curItem = self.tool_tree.focus()
@@ -1113,10 +1093,10 @@ class MainGui(tk.Frame):
         for widget in self.arg_scroll_frame.winfo_children():
             widget.destroy()
 
-        k = self.bera_tool_help(self.tool_name)
+        k = self.get_bera_tool_help()
         self.print_to_output(k)
 
-        j = self.bera_tool_parameters(self.tool_name)
+        j = self.get_current_tool_parameters()
 
         param_num = 0
         for p in j['parameters']:
@@ -1187,31 +1167,8 @@ class MainGui(tk.Frame):
             self.descriptionList.append(t[1])  # second entry in tool dictionary is the description
 
     def tool_help_button(self):
-        index = 0
-        found = False
-
-        # find toolbox corresponding to the current tool
-        for toolbox in self.lower_toolboxes:
-            for tool in self.sorted_tools[index]:
-                if tool == self.tool_name:
-                    self.toolbox_name = toolbox
-                    found = True
-                    break
-            if found:
-                break
-            index = index + 1
-
-        # change LiDAR to Lidar
-        if index == 10:
-            self.toolbox_name = to_camelcase(self.toolbox_name)
-
-        # format sub toolboxes as for URLs
-        self.toolbox_name = self.camel_to_snake(self.toolbox_name).replace('/', '').replace(' ', '')
-
         # open the user manual section for the current tool
-        webbrowser.open_new_tab(
-            "https://www.whiteboxgeo.com/manual/wbt_book/available_tools/"
-            + self.toolbox_name + ".html#" + self.tool_name)
+        webbrowser.open_new_tab(self.get_current_tool_parameters()['tech_link'])
 
     def camel_to_snake(self, s):  # taken from tools_info.py
         _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
@@ -1222,7 +1179,6 @@ class MainGui(tk.Frame):
     def refresh_tools(self):
         # refresh lists
         self.tools_and_toolboxes = bt.toolbox('')
-        self.sort_tools_by_toolbox()
         self.get_tools_list()
         # clear self.tool_tree
         self.tool_tree.delete(*self.tool_tree.get_children())
@@ -1269,11 +1225,14 @@ class MainGui(tk.Frame):
 
     def set_procs(self):
         try:
-            self.__max_procs = askinteger(
-                "max_proc",
-                "Set the maximum number of processors used (-1 for all):",
-                parent=self)
-            bt.set_max_procs(self.__max_procs)
+            max_cpu_cores = multiprocessing.cpu_count()
+            max_procs = askinteger(
+                title="Max CPU Used",
+                prompt="Set the number of processors to be used (maximum: {}, -1: all):".format(max_cpu_cores),
+                parent=self, initialvalue=bt.get_max_procs(), minvalue=-1, maxvalue=max_cpu_cores)
+            if max_procs:
+                self.__max_procs = max_procs
+                bt.set_max_procs(self.__max_procs)
         except:
             messagebox.showinfo(
                 "Warning", "Could not set the number of processors.")
@@ -1329,7 +1288,7 @@ class MainGui(tk.Frame):
         self.progress.update_idletasks()
 
     def view_code(self):
-        webbrowser.open_new_tab(bt.view_code(self.tool_name).strip())
+        webbrowser.open_new_tab(self.get_current_tool_parameters()['tech_link'])
 
     def update_args_box(self):
         s = ""
@@ -1337,7 +1296,7 @@ class MainGui(tk.Frame):
             self.tool_name)
         # self.spacer['width'] = width=(35-len(self.tool_name))
         # for item in bt.tool_help(self.tool_name).splitlines():
-        for item in self.bera_tool_help(self.tool_name).splitlines():
+        for item in self.get_bera_tool_help().splitlines():
             if item.startswith("-"):
                 k = item.split(" ")
                 if "--" in k[1]:
