@@ -300,7 +300,7 @@ class BeraTools(object):
         finally:
             os.chdir(work_dir)
 
-    def license(self, toolname=None):
+    def license(self, tool_name=None):
         """ 
         Retrieves the license information for BERA Tools.
         """
@@ -309,7 +309,7 @@ class BeraTools(object):
         os.chdir(self.exe_path)
 
         try:
-            with open('LICENSE.txt', 'r') as f:
+            with open(os.path.join(self.exe_path, r'..\..\LICENSE.txt'), 'r') as f:
                 ret = f.read()
 
             return ret
