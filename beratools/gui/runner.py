@@ -1227,7 +1227,7 @@ class MainGui(tk.Frame):
         try:
             max_cpu_cores = multiprocessing.cpu_count()
             max_procs = askinteger(
-                title="Max CPU Used",
+                title="Max CPU cores used",
                 prompt="Set the number of processors to be used (maximum: {}, -1: all):".format(max_cpu_cores),
                 parent=self, initialvalue=bt.get_max_procs(), minvalue=-1, maxvalue=max_cpu_cores)
             if max_procs:
