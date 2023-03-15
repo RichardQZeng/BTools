@@ -125,12 +125,12 @@
                     "name": "Canopy Cost Raster",
                     "info": "Creates a canopy raster and a cost raster from a CHM input raster. The output rasters are used for subsequent FLM tools.",
                     "multiprocessing": false,
-                    "scriptFile": "Scripts.FLM_CanopyCost",
+                    "scriptFile": "canopycostraster",
                     "paramFile": "\\Scripts\\FLM_CC_params.txt",
                     "image": "../Images/FLM_IO_CanopyCostRaster.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/CanopyCostRaster.html",
                     "parameters":[
-                        {
+                        {   "variable": "in_chm",
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input CHM raster file used as basis for mapping forest lines and their footprint. This layer should be projected in any Universal Transverse Mercator (UTM) coordinate system. The data should be preferably derived from high resolution LiDAR or photogrammetry (>25 pts/m²).",
                             "type": ".tif",
@@ -138,7 +138,7 @@
                             "default": "",
                             "output": false
                         },
-                        {
+                        {   "variable": "canopy_ht_threshold",
                             "parameter": "Canopy Height Threshold",
                             "description": "Height threshold in meters above which CHM pixels are considered canopy.",
                             "type": "number",
@@ -146,7 +146,7 @@
                             "default": "0.5",
                             "output": false
                         },
-                        {
+                        {   "variable": "tree_radius",
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
@@ -154,7 +154,7 @@
                             "default": "1.5",
                             "output": false
                         },
-                        {
+                        {   "variable": "max_line_dist",
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
@@ -162,7 +162,7 @@
                             "default": "1.5",
                             "output": false
                         },
-                        {
+                        {   "variable": "canopy_avoid",
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
@@ -170,7 +170,7 @@
                             "default": "0.0",
                             "output": false
                         },
-                        {
+                        {   "variable": "exponent",
                             "parameter": "Cost Raster Exponent",
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
@@ -178,7 +178,7 @@
                             "default": "1",
                             "output": false
                         },
-                        {
+                        {   "variable": "out_CanopyR",
                             "parameter": "Output Canopy Raster",
                             "description": "Output raster classified as canopy (1) and non-canopy (0).",
                             "type": ".tif",
@@ -186,7 +186,7 @@
                             "default": "",
                             "output": true
                         },
-                        {
+                        {   "variable": "out_CostR",
                             "parameter": "Output Cost Raster",
                             "description": "Output cost raster used in subsequent FLM tools for least-cost analysis.",
                             "type": ".tif",
