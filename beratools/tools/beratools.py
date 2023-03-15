@@ -142,61 +142,6 @@ class BeraTools(object):
         """
         self.default_callback = callback_func
 
-    def set_compress_rasters(self, val=True):
-        """ 
-        Sets the flag used by BERA Tools to determine whether to use compression for output rasters.
-        """
-        self.__compress_rasters = val
-
-        try:
-            callback = self.default_callback
-
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args2 = []
-            args2.append("." + path.sep + self.exe_name)
-
-            if self.__compress_rasters:
-                args2.append("--compress_rasters=true")
-            else:
-                args2.append("--compress_rasters=false")
-
-            proc = None
-
-            if running_windows and self.start_minimized == True:
-                si = STARTUPINFO()
-                si.dwFlags = STARTF_USESHOWWINDOW
-                si.wShowWindow = 7  # Set window minimized and not activated
-                proc = Popen(args2, shell=False, stdout=PIPE,
-                             stderr=STDOUT, bufsize=1, universal_newlines=True,
-                             startupinfo=si)
-            else:
-                proc = Popen(args2, shell=False, stdout=PIPE,
-                             stderr=STDOUT, bufsize=1, universal_newlines=True)
-
-            while proc is not None:
-                line = proc.stdout.readline()
-                sys.stdout.flush()
-                if line != '':
-                    if not self.cancel_op:
-                        callback(line.strip())
-                    else:
-                        self.cancel_op = False
-                        proc.terminate()
-                        return 2
-
-                else:
-                    break
-
-            return 0
-        except (OSError, ValueError, CalledProcessError) as err:
-            callback(str(err))
-            return 1
-        finally:
-            os.chdir(work_dir)
-
-    def get_compress_rasters(self):
-        return self.__compress_rasters
 
     def set_max_procs(self, val=-1):
         """ 
@@ -285,7 +230,7 @@ class BeraTools(object):
             return 1
 
 
-    def help(self):
+    def about(self):
         """ 
         Retrieves the help description for BERA Tools.
         """
