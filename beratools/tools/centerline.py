@@ -37,13 +37,18 @@ def execute():
     # create and configure the process pool
     data = [[random() for n in range(100)] for i in range(300)]
     try:
+        total_steps = 300
         with Pool() as pool:
+            step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(task, data):
                 print(f'Got result: {result}', flush=True)
-                if result > 0.9:
-                    print('Pool terminated.')
-                    raise OperationCancelledException()
+                step += 1
+                print(step)
+                print('%{}'.format(step/total_steps*100))
+                # if result > 0.9:
+                #     print('Pool terminated.')
+                #     raise OperationCancelledException()
 
     except OperationCancelledException:
         print("Operation cancelled")

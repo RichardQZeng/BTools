@@ -26,10 +26,12 @@ from tkinter.simpledialog import askinteger
 from tkinter import messagebox
 from tkinter import PhotoImage
 import webbrowser
-from PIL import Image, ImageTk
 import multiprocessing
 
 from ..tools.beratools import BeraTools, to_camelcase
+from .tooltip import *
+
+from PIL import Image, ImageTk
 
 bt = BeraTools()
 
@@ -850,14 +852,27 @@ class MainGui(tk.Frame):
         #
         # Create the elements of the buttons frame
         buttons_frame = ttk.Frame(overall_frame, padding='0.1i')
+        self.mpc_label = ttk.Label(buttons_frame, text="Use CPU Cores:")
+        maxCores = multiprocessing.cpu_count()
+        self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=maxCores, length=180,
+                                  orient='horizontal', command=self.update_procs)
         self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=self.run_tool)
         self.quit_button = ttk.Button(buttons_frame, text="Cancel", width=8, command=self.cancel_operation)
         self.help_button = ttk.Button(buttons_frame, text="Help", width=8, command=self.tool_help_button)
 
+        # multiprocessing core slide
+        CreateToolTip(self.mpc_label,
+                      "The number of CPU cores to be used in parallel processes. Not all FLM tools use "
+                      "multiprocessing.\nFor the most part a larger number of cores will decrease processing time. "
+                      "Small application \nareas (<100 hectares) may work best with a smaller number of cores.")
+        self.mpc_scale.set(bt.get_max_procs())
+
         # Define layout of the frame
-        self.run_button.grid(row=0, column=0)
-        self.quit_button.grid(row=0, column=1)
-        self.help_button.grid(row=0, column=2)
+        self.mpc_label.grid(row=0, column=0, padx=4)
+        self.mpc_scale.grid(row=0, column=1, padx=5, ipady=10)
+        self.run_button.grid(row=0, column=2)
+        self.quit_button.grid(row=0, column=3)
+        self.help_button.grid(row=0, column=4)
         buttons_frame.grid(row=2, column=0, columnspan=2, sticky=tk.E)
 
         #########################################################
@@ -938,7 +953,7 @@ class MainGui(tk.Frame):
         menubar.add_cascade(label="Edit ", menu=editmenu)
 
         helpmenu = tk.Menu(menubar, tearoff=0)
-        helpmenu.add_command(label="About", command=self.help)
+        helpmenu.add_command(label="About", command=self.about)
         helpmenu.add_command(label="License", command=self.license)
         menubar.add_cascade(label="Help ", menu=helpmenu)
 
@@ -951,18 +966,6 @@ class MainGui(tk.Frame):
         else:
             bt.set_verbose_mode(True)
             self.filemenu.entryconfig(2, label="Do Not Print Tool Output")
-
-    def update_compress(self):
-        if bt.get_compress_rasters():
-            bt.set_compress_rasters(False)
-            self.filemenu.entryconfig(3, label="Compress Output TIFFs")
-        else:
-            bt.set_compress_rasters(True)
-            self.filemenu.entryconfig(3, label="Do Not Compress Output TIFFs")
-
-    def install_extension(self):
-
-        self.refresh_tools()
 
 
     def sort_toolboxes(self):
@@ -1207,9 +1210,9 @@ class MainGui(tk.Frame):
 
     #########################################################
     #               Functions (original)
-    def help(self):
+    def about(self):
         self.out_text.delete('1.0', tk.END)
-        self.print_to_output(bt.help())
+        self.print_to_output(bt.about())
 
     def license(self):
         self.out_text.delete('1.0', tk.END)
@@ -1231,11 +1234,15 @@ class MainGui(tk.Frame):
                 prompt="Set the number of processors to be used (maximum: {}, -1: all):".format(max_cpu_cores),
                 parent=self, initialvalue=bt.get_max_procs(), minvalue=-1, maxvalue=max_cpu_cores)
             if max_procs:
-                self.__max_procs = max_procs
-                bt.set_max_procs(self.__max_procs)
+                self.update_procs(max_procs)
+                self.mpc_scale.set(max_procs)
         except:
             messagebox.showinfo(
                 "Warning", "Could not set the number of processors.")
+
+    def update_procs(self, value):
+        self.__max_procs = int(value)
+        bt.set_max_procs(self.__max_procs)
 
     def select_exe(self):
         try:
