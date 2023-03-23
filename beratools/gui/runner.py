@@ -24,9 +24,9 @@ from tkinter.scrolledtext import ScrolledText
 from tkinter import filedialog
 from tkinter.simpledialog import askinteger
 from tkinter import messagebox
-from tkinter import PhotoImage
 import webbrowser
 import multiprocessing
+from pathlib import Path
 
 from ..tools.beratools import BeraTools, to_camelcase
 from .tooltip import *
@@ -42,7 +42,7 @@ class FileSelector(tk.Frame):
         j = json.loads(json_str)
         self.name = j['name']
         self.description = j['description']
-        self.flag = j['flags']
+        self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         self.file_type = ""
         if "ExistingFile" in self.parameter_type:
@@ -187,7 +187,7 @@ class FileOrFloat(tk.Frame):
         j = json.loads(json_str)
         self.name = j['name']
         self.description = j['description']
-        self.flag = j['flags']
+        self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         self.file_type = j['parameter_type']['ExistingFileOrFloat']
         self.optional = j['optional']
@@ -343,7 +343,7 @@ class MultifileSelector(tk.Frame):
         j = json.loads(json_str)
         self.name = j['name']
         self.description = j['description']
-        self.flag = j['flags']
+        self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         self.file_type = ""
         self.file_type = j['parameter_type']['FileList']
@@ -467,7 +467,7 @@ class BooleanInput(tk.Frame):
         j = json.loads(json_str)
         self.name = j['name']
         self.description = j['description']
-        self.flag = j['flags']
+        self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         # just for quality control. BooleanInputs are always optional.
         self.optional = True
@@ -511,7 +511,7 @@ class OptionsInput(tk.Frame):
         j = json.loads(json_str)
         self.name = j['name']
         self.description = j['description']
-        self.flag = j['flags']
+        self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         self.optional = j['optional']
         default_value = j['default_value']
@@ -537,7 +537,6 @@ class OptionsInput(tk.Frame):
         values = ()
         for v in option_list:
             values += (v,)
-            # opt.insert(tk.END, v)
             if v == default_value:
                 default_index = i - 1
             i = i + 1
@@ -579,7 +578,7 @@ class DataInput(tk.Frame):
         j = json.loads(json_str)
         self.name = j['name']
         self.description = j['description']
-        self.flag = j['flags']
+        self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         self.optional = j['optional']
         default_value = j['default_value']
@@ -689,7 +688,7 @@ class MainGui(tk.Frame):
         self.progress_var = None
         self.progress_label = None
         self.help_button = None
-        self.quit_button = None
+        self.cancel_button = None
         self.run_button = None
         # self.arg_scroll_frame = None
         self.view_code_button = None
@@ -833,6 +832,7 @@ class MainGui(tk.Frame):
         self.current_tool_lbl = ttk.Label(self.current_tool_frame, text="Current Tool: {}".format(self.tool_name),
                                           justify=tk.LEFT)  # , font=("Helvetica", 12, "bold")
         self.view_code_button = ttk.Button(self.current_tool_frame, text="View Code", width=12, command=self.view_code)
+        CreateToolTip(self.view_code_button, 'Go to the tool code web page')
 
         # Define layout of the frame
         self.view_code_button.grid(row=0, column=1, sticky=tk.E)
@@ -856,23 +856,26 @@ class MainGui(tk.Frame):
         maxCores = multiprocessing.cpu_count()
         self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=maxCores, length=180,
                                   orient='horizontal', command=self.update_procs)
+        self.reset_button = ttk.Button(buttons_frame, text="Reset", width=8, command=self.reset_tool)
         self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=self.run_tool)
-        self.quit_button = ttk.Button(buttons_frame, text="Cancel", width=8, command=self.cancel_operation)
+        self.cancel_button = ttk.Button(buttons_frame, text="Cancel", width=8, command=self.cancel_operation)
         self.help_button = ttk.Button(buttons_frame, text="Help", width=8, command=self.tool_help_button)
+        CreateToolTip(self.reset_button, 'Reset tool parameters to default')
+        CreateToolTip(self.cancel_button, 'Cancel tool operation')
+        CreateToolTip(self.run_button, 'Run the tool')
+        CreateToolTip(self.help_button, 'Go to the tool help web page')
 
         # multiprocessing core slide
-        CreateToolTip(self.mpc_label,
-                      "The number of CPU cores to be used in parallel processes. Not all FLM tools use "
-                      "multiprocessing.\nFor the most part a larger number of cores will decrease processing time. "
-                      "Small application \nareas (<100 hectares) may work best with a smaller number of cores.")
+        CreateToolTip(self.mpc_label, 'The number of CPU cores to be used in parallel processes')
         self.mpc_scale.set(bt.get_max_procs())
 
         # Define layout of the frame
         self.mpc_label.grid(row=0, column=0, padx=4)
         self.mpc_scale.grid(row=0, column=1, padx=5, ipady=10)
-        self.run_button.grid(row=0, column=2)
-        self.quit_button.grid(row=0, column=3)
-        self.help_button.grid(row=0, column=4)
+        self.reset_button.grid(row=0, column=2)
+        self.run_button.grid(row=0, column=3)
+        self.cancel_button.grid(row=0, column=4)
+        self.help_button.grid(row=0, column=5)
         buttons_frame.grid(row=2, column=0, columnspan=2, sticky=tk.E)
 
         #########################################################
@@ -913,6 +916,8 @@ class MainGui(tk.Frame):
         self.progress_var = tk.DoubleVar()
         self.progress = ttk.Progressbar(progress_frame, orient="horizontal", variable=self.progress_var, length=200,
                                         maximum=100)
+        CreateToolTip(self.progress_label, 'Show tool operation progress')
+        CreateToolTip(self.progress, 'Show tool operation progress')
 
         # Define layout of the frame
         self.progress_label.grid(row=0, column=0, sticky=tk.E, padx=5)
@@ -1025,6 +1030,43 @@ class MainGui(tk.Frame):
                 if tool['name'] == self.tool_name:
                     return tool['info']
 
+    def save_tool_parameter(self):
+        data_path = Path(__file__).resolve().cwd().parent.parent.joinpath(r'.data')
+        if not data_path.exists():
+            data_path.mkdir()
+        json_file = data_path.joinpath(data_path, 'saved_tool_parameters.json')
+
+        # Retrieve tool parameters from GUI
+        args = self.get_widgets_arguments()
+
+        tool_params = {}
+        if json_file.exists():
+            with open(json_file, 'r') as open_file:
+                data = json.load(open_file)
+                if data:
+                    tool_params = data
+
+        with open(json_file, 'w') as new_file:
+            tool_params[self.current_tool_api] = args
+            json.dump(tool_params, new_file, indent=4)
+
+    def get_saved_tool_parameter(self, tool, variable):
+        data_path = Path(__file__).resolve().cwd().parent.parent.joinpath(r'.data')
+        if not data_path.exists():
+            data_path.mkdir()
+
+        json_file = data_path.joinpath(data_path, 'saved_tool_parameters.json')
+        if json_file.exists():
+            with open(json_file) as open_file:
+                saved_parameters = json.load(open_file)
+                if tool in list(saved_parameters.keys()):
+                    tool_params = saved_parameters[tool]
+                    if variable in tool_params.keys():
+                        saved_value = tool_params[variable]
+                        return saved_value
+
+        return None
+
     def get_bera_tool_parameters(self, tool_name):
         new_params = {'parameters': []}
 
@@ -1038,9 +1080,10 @@ class MainGui(tk.Frame):
                     for param in tool['parameters']:
                         new_param = {'name': param['parameter']}
                         if 'variable' in param.keys():
-                            new_param['flags'] = param['variable']
+                            new_param['flag'] = param['variable']
+                            new_param['saved_value'] = self.get_saved_tool_parameter(tool['scriptFile'], param['variable'])
                         else:
-                            new_param['flags'] = 'FIXME'
+                            new_param['flag'] = 'FIXME'
 
                         if not param['output']:
                             if param['typelab'] == 'text':
@@ -1072,6 +1115,7 @@ class MainGui(tk.Frame):
 
                         new_param['default_value'] = param['default']
                         new_param['optional'] = False
+
                         new_params['parameters'].append(new_param)
 
         return new_params
@@ -1100,41 +1144,50 @@ class MainGui(tk.Frame):
         self.print_to_output(k)
 
         j = self.get_current_tool_parameters()
-
         param_num = 0
         for p in j['parameters']:
-            json_str = json.dumps(
-                p, sort_keys=True, indent=2, separators=(',', ': '))
+            json_str = json.dumps(p, sort_keys=True, indent=2, separators=(',', ': '))
             pt = p['parameter_type']
+            widget = None
+
             if 'ExistingFileOrFloat' in pt:
-                ff = FileOrFloat(json_str, self, self.arg_scroll_frame)
-                ff.grid(row=param_num, column=0, sticky=tk.NSEW)
+                widget = FileOrFloat(json_str, self, self.arg_scroll_frame)
+                widget.grid(row=param_num, column=0, sticky=tk.NSEW)
                 param_num = param_num + 1
             elif 'ExistingFile' in pt or 'NewFile' in pt or 'Directory' in pt:
-                fs = FileSelector(json_str, self, self.arg_scroll_frame)
-                fs.grid(row=param_num, column=0, sticky=tk.NSEW)
+                widget = FileSelector(json_str, self, self.arg_scroll_frame)
+                widget.grid(row=param_num, column=0, sticky=tk.NSEW)
                 param_num = param_num + 1
             elif 'FileList' in pt:
-                b = MultifileSelector(json_str, self, self.arg_scroll_frame)
-                b.grid(row=param_num, column=0, sticky=tk.W)
+                widget = MultifileSelector(json_str, self, self.arg_scroll_frame)
+                widget.grid(row=param_num, column=0, sticky=tk.W)
                 param_num = param_num + 1
             elif 'Boolean' in pt:
-                b = BooleanInput(json_str, self.arg_scroll_frame)
-                b.grid(row=param_num, column=0, sticky=tk.W)
+                widget = BooleanInput(json_str, self.arg_scroll_frame)
+                widget.grid(row=param_num, column=0, sticky=tk.W)
                 param_num = param_num + 1
             elif 'OptionList' in pt:
-                b = OptionsInput(json_str, self.arg_scroll_frame)
-                b.grid(row=param_num, column=0, sticky=tk.W)
+                widget = OptionsInput(json_str, self.arg_scroll_frame)
+                widget.grid(row=param_num, column=0, sticky=tk.W)
                 param_num = param_num + 1
             elif ('Float' in pt or 'Integer' in pt or
                   'Text' in pt or 'String' in pt or 'StringOrNumber' in pt or
                   'StringList' in pt or 'VectorAttributeField' in pt):
-                b = DataInput(json_str, self.arg_scroll_frame)
-                b.grid(row=param_num, column=0, sticky=tk.NSEW)
+                widget = DataInput(json_str, self.arg_scroll_frame)
+                widget.grid(row=param_num, column=0, sticky=tk.NSEW)
                 param_num = param_num + 1
             else:
                 messagebox.showinfo(
                     "Error", "Unsupported parameter type: {}.".format(pt))
+
+            saved_value = None
+            if 'saved_value' in p.keys():
+                saved_value = p['saved_value']
+            if type(widget) is OptionsInput:
+                widget.value = saved_value
+            elif widget and saved_value:
+                widget.value.set(saved_value)
+
         self.update_args_box()
         self.out_text.see("%d.%d" % (1, 0))
 
@@ -1254,9 +1307,7 @@ class MainGui(tk.Frame):
             messagebox.showinfo(
                 "Warning", "Could not find WhiteboxTools executable file.")
 
-    def run_tool(self):
-        bt.set_working_dir(self.working_dir)
-
+    def get_widgets_arguments(self):
         args = {}
         for widget in self.arg_scroll_frame.winfo_children():
             v = widget.get_value()
@@ -1267,9 +1318,26 @@ class MainGui(tk.Frame):
                     "Error", "Non-optional tool parameter not specified.")
                 return
 
+        return args
+
+    def reset_tool(self):
+        for widget in self.arg_scroll_frame.winfo_children():
+            args = self.get_bera_tool_parameters(self.tool_name)
+            for param in args['parameters']:
+                default_value = param['default_value']
+                if widget.flag == param['flag']:
+                    if type(widget) is OptionsInput:
+                        widget.value = default_value
+                    else:
+                        widget.value.set(default_value)
+    def run_tool(self):
+        bt.set_working_dir(self.working_dir)
+
+        args = self.get_widgets_arguments()
         self.print_line_to_output("")
         self.print_line_to_output("Tool arguments:{}".format(args))
         self.print_line_to_output("")
+        self.save_tool_parameter()
 
         # Run the tool and check the return value for an error
         if bt.run_tool(self.current_tool_api, args, self.custom_callback) == 1:
