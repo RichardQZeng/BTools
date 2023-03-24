@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-""" This file is intended to be a helper for running BERA-tools plugins from a Python script.
+""" This file is intended to be a helper for running BERA tools from a Python script.
 """
 
 # This script is part of the BERA Tools geospatial library.
-# Authors: Dr. John Lindsay
+# Original Authors: Dr. John Lindsay
 # Created: 28/11/2017
-# Last Modified: 09/12/2019
+# Modified: 23/03/2023
+# Author: Richard Zeng
 # License: MIT
 
 from __future__ import print_function
@@ -17,10 +18,9 @@ from os import path
 import sys
 import platform
 import re
-import json
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
-from .centerline import *
+from centerline import *
 
 running_windows = platform.system() == 'Windows'
 

@@ -742,11 +742,10 @@ class MainGui(tk.Frame):
         #              Overall/Top level Frame
         #
         # define left-side frame (left_frame) and right-side frame (right_frame)
-        container = self
-        container.pack(fill="both", expand=True)
-        container.rowconfigure(0, weight=1)
-        container.columnconfigure(0, weight=1)
-        container.columnconfigure(1, weight=1)
+        self.pack(fill="both", expand=True)
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
 
         left_frame = ttk.Frame(self, padding='0.1i')
         right_frame = ttk.Frame(self, padding='0.1i')
@@ -779,8 +778,6 @@ class MainGui(tk.Frame):
 
         #########################################################
         #                  Toolboxes Frame
-        # FIXME: change width or make horizontally scrollable
-        #
         # define tools_frame and tool_tree
         self.tools_frame = ttk.LabelFrame(left_frame, text="{} Available Tools".format(len(self.tools_list)),
                                           padding='0.1i')
