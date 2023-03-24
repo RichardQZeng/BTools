@@ -314,8 +314,6 @@ class FileOrFloat(tk.Frame):
                 v = v + ext
 
             v = path.normpath(v)
-
-            # return "{}='{}'".format(self.flag, v)
             return self.flag, v
         elif self.value2.get():
             v = self.value2.get()
@@ -909,8 +907,8 @@ class MainGui(tk.Frame):
 
         # BERA Tools help text
         k = self.get_bera_tool_help()
-
         self.out_text.insert(tk.END, k)
+
         # Define layout of the frame
         output_frame.grid(row=3, column=0, columnspan=2, sticky=tk.NSEW)  # inside right_frame
 
@@ -918,11 +916,7 @@ class MainGui(tk.Frame):
         self.out_text.grid(row=1, column=0, sticky=tk.NSEW)
         output_scrollbar.grid(row=2, column=0, sticky=tk.EW)
 
-        # Configure rows and columns of the frame
-        # output_frame.rowconfigure(0, weight=1)
         output_frame.rowconfigure(1, weight=1)
-        # output_frame.rowconfigure(2, weight=1)
-
         output_frame.columnconfigure(0, weight=1)
 
         # Add the binding
@@ -1015,8 +1009,8 @@ class MainGui(tk.Frame):
         selected_item = -1
         for item in bt.list_tools().keys():
             if item:
-                value = to_camelcase(item).replace("TIN", "Tin").replace("KS", "Ks").replace("FD",
-                                                                                             "Fd")  # format tool name
+                # format tool name
+                value = to_camelcase(item).replace("TIN", "Tin").replace("KS", "Ks").replace("FD", "Fd")
                 self.tools_list.append(value)  # add tool to list
                 if item == self.tool_name:  # update selected_item it tool found
                     selected_item = len(self.tools_list) - 1
