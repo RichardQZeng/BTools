@@ -171,8 +171,7 @@ class FileSelector(tk.Frame):
             if self.parameter_type == "Directory":
                 t = "directory"
             if not self.optional:
-                messagebox.showinfo(
-                    "Error", "Unspecified {} parameter {}.".format(t, self.flag))
+                messagebox.showinfo("Error", "FileSelector: Unspecified {} parameter {}.".format(t, self.flag))
 
         return None
 
@@ -451,8 +450,7 @@ class MultifileSelector(tk.Frame):
                 return self.flag, v
             else:
                 if not self.optional:
-                    messagebox.showinfo(
-                        "Error", "Unspecified non-optional parameter {}.".format(self.flag))
+                    print("Error", "Unspecified non-optional parameter {}.".format(self.flag))
 
         except:
             messagebox.showinfo(
@@ -561,8 +559,7 @@ class OptionsInput(tk.Frame):
             return self.flag, self.value
         else:
             if not self.optional:
-                messagebox.showinfo(
-                    "Error", "Unspecified non-optional parameter {}.".format(self.flag))
+                print("Error", "Unspecified non-optional parameter {}.".format(self.flag))
 
         return None
 
@@ -905,6 +902,9 @@ class MainGui(tk.Frame):
         self.out_text = ScrolledText(output_frame, width=63, height=15, wrap=tk.NONE, padx=7, pady=7, exportselection=0)
         output_scrollbar = ttk.Scrollbar(output_frame, orient=tk.HORIZONTAL, command=self.out_text.xview)
         self.out_text['xscrollcommand'] = output_scrollbar.set
+
+        # color theme for text output
+        self.out_text.tag_config('missing', foreground='red')
         # Retrieve and insert the text for the current tool
 
         # BERA Tools help text
@@ -1009,7 +1009,6 @@ class MainGui(tk.Frame):
                 self.lower_toolboxes.append(toolbox)
             else:  # Contains a sub toolbox
                 self.lower_toolboxes.append(toolbox)  # add to only the lower toolbox list
-
 
     def get_tools_list(self):
         self.tools_list = []
@@ -1169,6 +1168,7 @@ class MainGui(tk.Frame):
 
         k = self.get_bera_tool_help()
         self.print_to_output(k)
+        self.print_to_output('\n')
 
         j = self.get_current_tool_parameters()
         param_num = 0
@@ -1204,8 +1204,7 @@ class MainGui(tk.Frame):
                 widget.grid(row=param_num, column=0, sticky=tk.NSEW)
                 param_num = param_num + 1
             else:
-                messagebox.showinfo(
-                    "Error", "Unsupported parameter type: {}.".format(pt))
+                messagebox.showinfo("Error", "Unsupported parameter type: {}.".format(pt))
 
             saved_value = None
             if 'saved_value' in p.keys():
@@ -1219,10 +1218,10 @@ class MainGui(tk.Frame):
         self.out_text.see("%d.%d" % (1, 0))
 
     def update_toolbox_icon(self, event):
-        curItem = self.tool_tree.focus()
-        dictTool = self.tool_tree.item(curItem)  # retrieve the toolbox name
-        self.toolbox_name = dictTool.get('text').replace("  ", "")  # delete the space between the icon and text
-        self.toolbox_open = dictTool.get('open')  # retrieve whether the toolbox is open or not
+        cur_item = self.tool_tree.focus()
+        dict_tool = self.tool_tree.item(cur_item)  # retrieve the toolbox name
+        self.toolbox_name = dict_tool.get('text').replace("  ", "")  # delete the space between the icon and text
+        self.toolbox_open = dict_tool.get('open')  # retrieve whether the toolbox is open or not
         if self.toolbox_open:  # set image accordingly
             self.tool_tree.item(self.toolbox_name, image=self.open_toolbox_icon)
         else:
@@ -1234,8 +1233,8 @@ class MainGui(tk.Frame):
         self.search_results_listbox.delete(0, 'end')  # empty the search results
         num_results = 0
         for tool in self.tools_list:  # search tool names
-            toolLower = tool.lower()
-            if toolLower.find(self.search_string) != (-1):  # search string found within tool name
+            tool_lower = tool.lower()
+            if tool_lower.find(self.search_string) != (-1):  # search string found within tool name
                 num_results = num_results + 1
                 self.search_results_listbox.insert(num_results,
                                                    tool)  # tool added to listbox and to search results string
@@ -1245,8 +1244,8 @@ class MainGui(tk.Frame):
     def get_descriptions(self):
         self.descriptionList = []
         tools = bt.list_tools()
-        toolsItems = tools.items()
-        for t in toolsItems:
+        tools_items = tools.items()
+        for t in tools_items:
             self.descriptionList.append(t[1])  # second entry in tool dictionary is the description
 
     def tool_help_button(self):
@@ -1303,8 +1302,7 @@ class MainGui(tk.Frame):
             self.working_dir = filedialog.askdirectory(initialdir=self.working_dir)
             bt.set_working_dir(self.working_dir)
         except:
-            messagebox.showinfo(
-                "Warning", "Could not set the working directory.")
+            messagebox.showinfo("Warning", "Could not set the working directory.")
 
     def set_procs(self):
         try:
@@ -1317,8 +1315,7 @@ class MainGui(tk.Frame):
                 self.update_procs(max_procs)
                 self.mpc_scale.set(max_procs)
         except:
-            messagebox.showinfo(
-                "Warning", "Could not set the number of processors.")
+            messagebox.showinfo("Warning", "Could not set the number of processors.")
 
     def update_procs(self, value):
         self.__max_procs = int(value)
@@ -1331,19 +1328,21 @@ class MainGui(tk.Frame):
             bt.set_whitebox_dir(self.exe_path)
             self.refresh_tools()
         except:
-            messagebox.showinfo(
-                "Warning", "Could not find WhiteboxTools executable file.")
+            messagebox.showinfo("Warning", "Could not find WhiteboxTools executable file.")
 
     def get_widgets_arguments(self):
         args = {}
+        param_missing = False
         for widget in self.arg_scroll_frame.winfo_children():
             v = widget.get_value()
             if v and len(v) == 2:
                 args[v[0]] = v[1]
             elif not widget.optional:
-                messagebox.showinfo(
-                    "Error", "Non-optional tool parameter not specified.")
-                return
+                self.print_line_to_output('[Missing argument]:'+widget.name+": parameter not specified.", 'missing')
+                param_missing = True
+
+        if param_missing:
+            args = None
 
         return args
 
@@ -1362,6 +1361,9 @@ class MainGui(tk.Frame):
         bt.set_working_dir(self.working_dir)
 
         args = self.get_widgets_arguments()
+        if not args:
+            raise Exception('Please check the parameters.')
+
         self.print_line_to_output("")
         self.print_line_to_output("Tool arguments:{}".format(args))
         self.print_line_to_output("")
@@ -1381,8 +1383,8 @@ class MainGui(tk.Frame):
         self.out_text.insert(tk.END, value)
         self.out_text.see(tk.END)
 
-    def print_line_to_output(self, value):
-        self.out_text.insert(tk.END, value + "\n")
+    def print_line_to_output(self, value, tag=None):
+        self.out_text.insert(tk.END, value + "\n", tag)
         self.out_text.see(tk.END)
 
     def cancel_operation(self):
@@ -1452,7 +1454,7 @@ class JsonPayload(object):
         self.__dict__ = json.loads(j)
 
 
-def runner():
+def main_runner():
     tool_name = None
     if len(sys.argv) > 1:
         tool_name = str(sys.argv[1])
@@ -1466,4 +1468,4 @@ def runner():
 
 
 if __name__ == '__main__':
-    runner()
+    main_runner()
