@@ -5,3 +5,5 @@
 /.data
 /.spyproject
 beratools/gui/settings.json
+beratools/gui/symbology-style.db
+beratools/gui/settings.json
