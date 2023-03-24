@@ -10,9 +10,6 @@
 # License: MIT
 
 from __future__ import print_function
-import urllib.request
-import zipfile
-import shutil
 import os
 from os import path
 import sys
@@ -23,7 +20,6 @@ from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 from centerline import *
 
 running_windows = platform.system() == 'Windows'
-
 if running_windows:
     from subprocess import STARTUPINFO, STARTF_USESHOWWINDOW
 

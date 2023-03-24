@@ -803,7 +803,7 @@ class MainGui(tk.Frame):
 
         # Add vertical scrollbar to treeview frame
         s = ttk.Scrollbar(self.tools_frame, orient=tk.VERTICAL, command=self.tool_tree.yview)
-        s.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        s.grid(row=0, column=1, sticky=tk.NS)
         self.tool_tree['yscrollcommand'] = s.set
 
         #########################################################
@@ -831,7 +831,7 @@ class MainGui(tk.Frame):
         self.search_label.grid(row=0, column=0, sticky=tk.NW)
         self.search_bar.grid(row=0, column=1, sticky=tk.NE)
         self.search_results_listbox.grid(row=1, column=0, columnspan=2, sticky=tk.NSEW, pady=5)
-        self.search_scroll.grid(row=1, column=2, sticky=(tk.N, tk.S))
+        self.search_scroll.grid(row=1, column=2, sticky=tk.NS)
 
         # Configure rows and columns of the frame
         self.search_frame.columnconfigure(0, weight=1)
@@ -913,7 +913,7 @@ class MainGui(tk.Frame):
 
         out_label.grid(row=0, column=0, sticky=tk.NW)
         self.out_text.grid(row=1, column=0, sticky=tk.NSEW)
-        output_scrollbar.grid(row=2, column=0, sticky=(tk.W, tk.E))
+        output_scrollbar.grid(row=2, column=0, sticky=tk.EW)
 
         # Configure rows and columns of the frame
         # output_frame.rowconfigure(0, weight=1)
@@ -1149,8 +1149,8 @@ class MainGui(tk.Frame):
 
     # read selection when tool selected from treeview then call self.update_tool_help
     def tree_update_tool_help(self, event):
-        curItem = self.tool_tree.focus()
-        self.tool_name = self.tool_tree.item(curItem).get('text').replace("  ", "")
+        cur_item = self.tool_tree.focus()
+        self.tool_name = self.tool_tree.item(cur_item).get('text').replace("  ", "")
         self.update_tool_help()
 
     # read selection when tool selected from search results then call self.update_tool_help
@@ -1354,6 +1354,7 @@ class MainGui(tk.Frame):
                         widget.value = default_value
                     else:
                         widget.value.set(default_value)
+
     def run_tool(self):
         bt.set_working_dir(self.working_dir)
 
@@ -1448,7 +1449,7 @@ class JsonPayload(object):
         self.__dict__ = json.loads(j)
 
 
-def Runner():
+def runner():
     tool_name = None
     if len(sys.argv) > 1:
         tool_name = str(sys.argv[1])
@@ -1462,4 +1463,4 @@ def Runner():
 
 
 if __name__ == '__main__':
-    Runner()
+    runner()
