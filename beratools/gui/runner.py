@@ -741,13 +741,31 @@ class MainGui(tk.Frame):
         #########################################################
         #              Overall/Top level Frame
         #
-        # define left-side frame (toplevel_frame) and right-side frame (overall_frame)
-        toplevel_frame = ttk.Frame(self, padding='0.1i')
-        overall_frame = ttk.Frame(self, padding='0.1i')
+        # define left-side frame (left_frame) and right-side frame (right_frame)
+        container = self
+        container.pack(fill="both", expand=True)
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
+        container.columnconfigure(1, weight=1)
+
+        left_frame = ttk.Frame(self, padding='0.1i')
+        right_frame = ttk.Frame(self, padding='0.1i')
 
         # set-up layout
-        overall_frame.grid(row=0, column=1, sticky=tk.NSEW)
-        toplevel_frame.grid(row=0, column=0, sticky=tk.NSEW)
+        left_frame.grid(row=0, column=0, sticky=tk.NSEW)
+        right_frame.grid(row=0, column=1, sticky=tk.NSEW)
+
+        left_frame.rowconfigure(0, weight=10)
+        left_frame.rowconfigure(1, weight=1)
+        left_frame.columnconfigure(0, weight=1)
+
+        # right_frame.rowconfigure(0, weight=1)
+        # right_frame.rowconfigure(1, weight=1)
+        # right_frame.rowconfigure(2, weight=1)
+        right_frame.rowconfigure(3, weight=1)
+        # right_frame.rowconfigure(4, weight=1)
+
+        right_frame.columnconfigure(0, weight=1)
 
         # BERA tool list
         self.get_bera_tool_list()
@@ -764,7 +782,7 @@ class MainGui(tk.Frame):
         # FIXME: change width or make horizontally scrollable
         #
         # define tools_frame and tool_tree
-        self.tools_frame = ttk.LabelFrame(toplevel_frame, text="{} Available Tools".format(len(self.tools_list)),
+        self.tools_frame = ttk.LabelFrame(left_frame, text="{} Available Tools".format(len(self.tools_list)),
                                           padding='0.1i')
         self.tool_tree = ttk.Treeview(self.tools_frame, height=21)
 
@@ -798,7 +816,7 @@ class MainGui(tk.Frame):
         self.search_text = tk.StringVar()
 
         # Create the elements of the search frame
-        self.search_frame = ttk.LabelFrame(toplevel_frame, padding='0.1i',
+        self.search_frame = ttk.LabelFrame(left_frame, padding='0.1i',
                                            text="{} Tools Found".format(len(self.search_list)))
         self.search_label = ttk.Label(self.search_frame, text="Search: ")
         self.search_bar = ttk.Entry(self.search_frame, width=30, textvariable=self.search_text)
@@ -828,7 +846,7 @@ class MainGui(tk.Frame):
         #########################################################
         #                 Current Tool Frame
         # Create the elements of the current tool frame
-        self.current_tool_frame = ttk.Frame(overall_frame, padding='0.01i')
+        self.current_tool_frame = ttk.Frame(right_frame, padding='0.01i')
         self.current_tool_lbl = ttk.Label(self.current_tool_frame, text="Current Tool: {}".format(self.tool_name),
                                           justify=tk.LEFT)  # , font=("Helvetica", 12, "bold")
         self.view_code_button = ttk.Button(self.current_tool_frame, text="View Code", width=12, command=self.view_code)
@@ -843,7 +861,7 @@ class MainGui(tk.Frame):
         self.current_tool_frame.columnconfigure(0, weight=1)
         self.current_tool_frame.columnconfigure(1, weight=1)
 
-        self.arg_scroll_frame = ttk.Frame(overall_frame, padding='0.0i')
+        self.arg_scroll_frame = ttk.Frame(right_frame, padding='0.0i')
         self.arg_scroll_frame.grid(row=1, column=0, sticky=tk.NSEW)
         self.arg_scroll_frame.columnconfigure(0, weight=1)
 
@@ -851,7 +869,7 @@ class MainGui(tk.Frame):
         #                   Buttons Frame
         #
         # Create the elements of the buttons frame
-        buttons_frame = ttk.Frame(overall_frame, padding='0.1i')
+        buttons_frame = ttk.Frame(right_frame, padding='0.1i')
         self.mpc_label = ttk.Label(buttons_frame, text="Use CPU Cores:")
         maxCores = multiprocessing.cpu_count()
         self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=maxCores, length=180,
@@ -877,11 +895,12 @@ class MainGui(tk.Frame):
         self.cancel_button.grid(row=0, column=4)
         self.help_button.grid(row=0, column=5)
         buttons_frame.grid(row=2, column=0, columnspan=2, sticky=tk.E)
+        buttons_frame.rowconfigure(2, weight=1)
 
         #########################################################
         #                  Output Frame
         # Create the elements of the output frame
-        output_frame = ttk.Frame(overall_frame)
+        output_frame = ttk.Frame(right_frame)
         out_label = ttk.Label(output_frame, text="Output:", justify=tk.LEFT)
         self.out_text = ScrolledText(output_frame, width=63, height=15, wrap=tk.NONE, padx=7, pady=7, exportselection=0)
         output_scrollbar = ttk.Scrollbar(output_frame, orient=tk.HORIZONTAL, command=self.out_text.xview)
@@ -893,14 +912,19 @@ class MainGui(tk.Frame):
 
         self.out_text.insert(tk.END, k)
         # Define layout of the frame
+        output_frame.grid(row=3, column=0, columnspan=2, sticky=tk.NSEW)  # inside right_frame
+
         out_label.grid(row=0, column=0, sticky=tk.NW)
         self.out_text.grid(row=1, column=0, sticky=tk.NSEW)
-        output_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.NS, tk.E))
         output_scrollbar.grid(row=2, column=0, sticky=(tk.W, tk.E))
 
         # Configure rows and columns of the frame
-        self.out_text.columnconfigure(0, weight=1)
+        # output_frame.rowconfigure(0, weight=1)
+        output_frame.rowconfigure(1, weight=1)
+        # output_frame.rowconfigure(2, weight=1)
+
         output_frame.columnconfigure(0, weight=1)
+
         # Add the binding
         if _platform == "darwin":
             self.out_text.bind("<Command-Key-a>", self.select_all)
@@ -911,7 +935,7 @@ class MainGui(tk.Frame):
         #                  Progress Frame
         #
         # Create the elements of the progress frame
-        progress_frame = ttk.Frame(overall_frame, padding='0.1i')
+        progress_frame = ttk.Frame(right_frame, padding='0.1i')
         self.progress_label = ttk.Label(progress_frame, text="Progress:", justify=tk.LEFT)
         self.progress_var = tk.DoubleVar()
         self.progress = ttk.Progressbar(progress_frame, orient="horizontal", variable=self.progress_var, length=200,
@@ -923,6 +947,9 @@ class MainGui(tk.Frame):
         self.progress_label.grid(row=0, column=0, sticky=tk.E, padx=5)
         self.progress.grid(row=0, column=1, sticky=tk.E)
         progress_frame.grid(row=4, column=0, columnspan=2, sticky=tk.SE)
+
+        progress_frame.rowconfigure(4, weight=1)
+        progress_frame.columnconfigure(0, weight=1)
 
         #########################################################
         #                  Tool Selection
