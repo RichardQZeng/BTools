@@ -1457,7 +1457,7 @@ def Runner():
     ico = Image.open(r'img\BERALogo.png')
     photo = ImageTk.PhotoImage(ico)
     btr._root().wm_iconphoto(False, photo)
-
+    btr._root().eval('tk::PlaceWindow . center')
     btr.mainloop()
 
 

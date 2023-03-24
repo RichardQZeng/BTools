@@ -4,3 +4,8 @@ pillow
 qgis
 setuptools
 Pillow
+fiona
+numpy
+rasterio
+shapely
+pyqt
