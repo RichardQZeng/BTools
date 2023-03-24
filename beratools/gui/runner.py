@@ -737,6 +737,9 @@ class MainGui(tk.Frame):
         self.create_widgets()
         self.working_dir = bt.get_working_dir()  # str(Path.home())
 
+    def root(self):
+        return self._root()
+
     def create_widgets(self):
         #########################################################
         #              Overall/Top level Frame
@@ -1457,8 +1460,8 @@ def runner():
 
     ico = Image.open(r'img\BERALogo.png')
     photo = ImageTk.PhotoImage(ico)
-    btr._root().wm_iconphoto(False, photo)
-    btr._root().eval('tk::PlaceWindow . center')
+    btr.root().wm_iconphoto(False, photo)
+    btr.root().eval('tk::PlaceWindow . center')
     btr.mainloop()
 
 
