@@ -885,9 +885,9 @@ class MainGui(tk.Frame):
         self.mpc_scale.set(bt.get_max_procs())
 
         # Define layout of the frame
-        self.mpc_label.grid(row=0, column=0, padx=4)
-        self.mpc_scale.grid(row=0, column=1, padx=5, ipady=10)
-        self.reset_button.grid(row=0, column=2)
+        self.reset_button.grid(row=0, column=0, padx=4)
+        self.mpc_label.grid(row=0, column=1, padx=4)
+        self.mpc_scale.grid(row=0, column=2, padx=5, ipady=10)
         self.run_button.grid(row=0, column=3)
         self.cancel_button.grid(row=0, column=4)
         self.help_button.grid(row=0, column=5)
