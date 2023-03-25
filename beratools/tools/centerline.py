@@ -48,10 +48,13 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
     out_fields = MinCostPathHelper.create_fields()
 
     # Process lines
-    feature = None
+    features = []
     for line in input_lines:
         feature = process_algorithm(line, line_radius, in_cost_raster,
                                     cost_raster, cost_raster_band, fields=out_fields)
+
+        if feature:
+            features.append(feature)
 
     # Save lines to shapefile
     out_feature = {
@@ -71,7 +74,8 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
     driver = 'ESRI Shapefile'
 
     out_line_file = fiona.open(out_center_line, 'w', driver, schema, crs)
-    out_line_file.write(out_feature)
+    for feat in features:
+        out_line_file.write(feat)
     del out_line_file
 
     # execute()
