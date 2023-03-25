@@ -102,8 +102,9 @@ class FileSelector(tk.Frame):
                                                                              '*.bil', '*.flt', '*.sdat',
                                                                              '*.rdc', '*.asc', '*grd'))]
                 elif 'Raster' in self.file_type:
-                    file_types = [('Raster files', ('*.dep', '*.tif', '*.tiff', '*.bil', '*.flt',
-                                                    '*.sdat', '*.rdc', '*.asc', '*.grd'))]
+                    file_types = [('Tiff raster files', ('*.tif', '*.tiff')),
+                                  ('Other raster files', ('*.dep', '*.bil', '*.flt',
+                                                          '*.sdat', '*.rdc', '*.asc', '*.grd'))]
                 elif 'Lidar' in self.file_type:
                     file_types = [("LiDAR files", ('*.las', '*.zlidar', '*.laz', '*.zip'))]
                 elif 'Vector' in self.file_type:
@@ -126,19 +127,21 @@ class FileSelector(tk.Frame):
                     # append suffix when not
                     # TODO: more consideration for multiple formats
                     if result != '':
+                        break_loop = False
                         file_path = Path(result)
-                        for item in file_types:
-                            if type(item[1]) is str:
-                                if '*'+file_path.suffix == item[1]:
-                                    continue
-                                else:
-                                    file_path = file_path.with_suffix(Path(item[1]).suffix)
-                            elif type(item[1]) is tuple:
-                                for file_suffix in item[1]:
-                                    if '*' + file_path.suffix == file_suffix:
-                                        continue
-                                    else:
-                                        file_path = file_path.with_suffix(Path(file_suffix).suffix)
+                        for file_filter in file_types:
+                            if break_loop:
+                                break
+                            if type(file_filter[1]) is str:
+                                if '*'+file_path.suffix != file_filter[1]:
+                                    file_path = file_path.with_suffix(Path(file_filter[1]).suffix)
+                                break
+                            elif type(file_filter[1]) is tuple and len(file_filter[1]) > 0:
+                                for file_suffix in file_filter[1]:
+                                    if '*' + file_path.suffix != file_suffix:
+                                        file_path = file_path.with_suffix(Path(file_filter[1][0]).suffix)
+                                    break_loop = True
+                                    break
                         result = str(file_path)
 
             # elif "NewFile" in self.parameter_type:
