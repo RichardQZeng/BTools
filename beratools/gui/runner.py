@@ -138,10 +138,14 @@ class FileSelector(tk.Frame):
                                 break
                             elif type(file_filter[1]) is tuple and len(file_filter[1]) > 0:
                                 for file_suffix in file_filter[1]:
-                                    if '*' + file_path.suffix != file_suffix:
-                                        file_path = file_path.with_suffix(Path(file_filter[1][0]).suffix)
-                                    break_loop = True
-                                    break
+                                    if '*' + file_path.suffix == file_suffix:
+                                        break_loop = True
+                                        break
+                                # no matched suffix found, use the first one
+                                # no knowing which filter selected, so use the very first one
+                        if not break_loop:
+                            file_path = file_path.with_suffix(Path(file_types[0][1][0]).suffix)
+
                         result = str(file_path)
 
             # elif "NewFile" in self.parameter_type:
