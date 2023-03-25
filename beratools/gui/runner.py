@@ -95,7 +95,7 @@ class FileSelector(tk.Frame):
             result = self.value.get()
             if self.parameter_type == "Directory":
                 result = filedialog.askdirectory(initialdir=self.runner.working_dir, title="Select directory")
-            elif "ExistingFile" in self.parameter_type:
+            elif "ExistingFile" in self.parameter_type or "NewFile" in self.parameter_type:
                 file_types = [('All files', '*.*')]
                 if 'RasterAndVector' in self.file_type:
                     file_types = [("Shapefiles", "*.shp"), ('Raster files', ('*.dep', '*.tif', '*.tiff',
@@ -117,15 +117,37 @@ class FileSelector(tk.Frame):
                 elif 'Html' in self.file_type:
                     file_types = [("HTML files", "*.html")]
 
-                result = filedialog.askopenfilename(
-                    initialdir=self.runner.working_dir, title="Select file", filetypes=file_types)
+                if "ExistingFile" in self.parameter_type:
+                    result = filedialog.askopenfilename(
+                        initialdir=self.runner.working_dir, title="Select file", filetypes=file_types)
+                else:
+                    result = filedialog.asksaveasfilename(title="Save file", filetypes=file_types)
 
-            elif "NewFile" in self.parameter_type:
-                result = filedialog.asksaveasfilename()
+                    # append suffix when not
+                    # TODO: more consideration for multiple formats
+                    if result != '':
+                        file_path = Path(result)
+                        for item in file_types:
+                            if type(item[1]) is str:
+                                if '*'+file_path.suffix == item[1]:
+                                    continue
+                                else:
+                                    file_path = file_path.with_suffix(Path(item[1]).suffix)
+                            elif type(item[1]) is tuple:
+                                for file_suffix in item[1]:
+                                    if '*' + file_path.suffix == file_suffix:
+                                        continue
+                                    else:
+                                        file_path = file_path.with_suffix(Path(file_suffix).suffix)
+                        result = str(file_path)
+
+            # elif "NewFile" in self.parameter_type:
+            #    result = filedialog.asksaveasfilename()
 
             self.value.set(result)
-            # update the working directory
-            self.runner.working_dir = os.path.dirname(result)
+            # update the working
+            if result != '':
+                self.runner.working_dir = os.path.dirname(result)
 
         except:
             t = "file"
@@ -685,7 +707,7 @@ class MainGui(tk.Frame):
         self.help_button = None
         self.cancel_button = None
         self.run_button = None
-        # self.arg_scroll_frame = None
+        self.arg_scroll_frame = None
         self.view_code_button = None
         self.current_tool_lbl = None
         self.current_tool_frame = None
@@ -1203,10 +1225,11 @@ class MainGui(tk.Frame):
             saved_value = None
             if 'saved_value' in p.keys():
                 saved_value = p['saved_value']
-            if type(widget) is OptionsInput:
-                widget.value = saved_value
-            elif widget and saved_value:
-                widget.value.set(saved_value)
+            if saved_value:
+                if type(widget) is OptionsInput:
+                    widget.value = saved_value
+                elif widget:
+                    widget.value.set(saved_value)
 
         self.update_args_box()
         self.out_text.see("%d.%d" % (1, 0))
