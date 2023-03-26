@@ -216,8 +216,8 @@ def process_algorithm(line, line_radius, in_raster, cost_raster, cost_raster_ban
         raise Exception
 
     line_buffer = shape(line).buffer(float(line_radius))
-    pt_start = line.coordinates[0]
-    pt_end = line.coordinates[-1]
+    pt_start = line['coordinates'][0]
+    pt_end = line['coordinates'][-1]
     geom_start = QgsGeometry.fromPointXY(QgsPointXY(pt_start[0], pt_start[1]))
     geom_end = QgsGeometry.fromPointXY(QgsPointXY(pt_end[0], pt_end[1]))
 
@@ -256,6 +256,12 @@ def process_algorithm(line, line_radius, in_raster, cost_raster, cost_raster_ban
 
     if contains_negative:
         raise Exception('ERROR: Raster has negative values.')
+
+    # get row col for points
+    ras_transform = rasterio.transform.AffineTransformer(out_transform)
+    start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), QgsPointXY(pt_start[0], pt_start[1]), 0)]
+    end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), QgsPointXY(pt_end[0], pt_end[1]), 0)]
+    start_tuple = start_tuples[0]
 
     print("Searching least cost path...")
     result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
