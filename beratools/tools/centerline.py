@@ -7,22 +7,14 @@ import fiona
 import numpy as np
 import rasterio
 import rasterio.mask
-from shapely.geometry import shape, mapping
+from shapely.geometry import shape, mapping, LineString
 
-from math import floor
 from collections import OrderedDict
-from fiona.crs import from_epsg
+from fiona.crs import CRS
 
-from PyQt5.QtCore import QVariant
 from qgis.core import (
-    QgsFeature,
-    QgsGeometry,
     QgsPoint,
-    QgsPointXY,
-    QgsField,
-    QgsFields,
-    QgsWkbTypes,
-    QgsRasterLayer
+    QgsPointXY
 )
 
 from dijkstra_algorithm import *
@@ -33,8 +25,8 @@ class OperationCancelledException(Exception):
 
 
 def centerline(callback, in_line, in_cost_raster, line_radius, process_segments, out_center_line):
-    cost_raster = QgsRasterLayer(in_cost_raster)
-    cost_raster_band = 1
+    # cost_raster = QgsRasterLayer(in_cost_raster)
+    # cost_raster_band = 1
 
     # Read input line features
     input_lines = []
@@ -45,22 +37,23 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
     if process_segments:
         pass
 
-    out_fields = MinCostPathHelper.create_fields()
+    out_fields_list = ["start_pt_id", "end_pt_id", "total_cost"]
 
     # Process lines
     features = []
     for line in input_lines:
-        feature = process_algorithm(line, line_radius, in_cost_raster,
-                                    cost_raster, cost_raster_band, fields=out_fields)
+        feat_geometry, feat_attributes = process_algorithm(line, line_radius, in_cost_raster)
+        if feat_geometry and feat_attributes:
+            features.append((feat_geometry, feat_attributes))
 
-        if feature:
-            features.append(feature)
-
-    # Save lines to shapefile
-    out_feature = {
-        'geometry': mapping(feature.geometry()),
-        'properties': OrderedDict(list(zip(feature.fields().names(), feature.attributes())))
-    }
+    fiona_features = []
+    for feature in features:
+        # Save lines to shapefile
+        out_feature = {
+            'geometry': mapping(LineString(feature[0])),
+            'properties': OrderedDict(list(zip(out_fields_list, feature[1])))
+        }
+        fiona_features.append(out_feature)
 
     schema = {
         'geometry': 'LineString',
@@ -70,12 +63,14 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
             ('total_cost', 'float')
         ])
     }
-    crs = from_epsg(2956)
+
+    crs = CRS.from_epsg(2956)
+
     driver = 'ESRI Shapefile'
 
     out_line_file = fiona.open(out_center_line, 'w', driver, schema, crs)
-    for feat in features:
-        out_line_file.write(feat)
+    for feature in fiona_features:
+        out_line_file.write(feature)
     del out_line_file
 
     # execute()
@@ -85,95 +80,105 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
 class MinCostPathHelper:
 
     @staticmethod
-    def _point_to_row_col(pointxy, raster_layer):
-        xres = raster_layer.rasterUnitsPerPixelX()
-        yres = raster_layer.rasterUnitsPerPixelY()
-        extent = raster_layer.dataProvider().extent()
+    def _point_to_row_col(pointxy, ras_transform):
+        # xres = raster_layer.rasterUnitsPerPixelX()
+        # yres = raster_layer.rasterUnitsPerPixelY()
+        # extent = raster_layer.dataProvider().extent()
+        #
+        # col = floor((pointxy.x() - extent.xMinimum()) / xres)
+        # row = floor((extent.yMaximum() - pointxy.y()) / yres)
 
-        col = floor((pointxy.x() - extent.xMinimum()) / xres)
-        row = floor((extent.yMaximum() - pointxy.y()) / yres)
+        col, row = ras_transform.rowcol(pointxy.x(), pointxy.y())
 
         return row, col
 
     @staticmethod
-    def _row_col_to_point(row_col, raster_layer):
-        xres = raster_layer.rasterUnitsPerPixelX()
-        yres = raster_layer.rasterUnitsPerPixelY()
-        extent = raster_layer.dataProvider().extent()
+    def _row_col_to_point(row_col, ras_transform):
+        # xres = raster_layer.rasterUnitsPerPixelX()
+        # yres = raster_layer.rasterUnitsPerPixelY()
+        # extent = raster_layer.dataProvider().extent()
 
-        x = (row_col[1] + 0.5) * xres + extent.xMinimum()
-        y = extent.yMaximum() - (row_col[0] + 0.5) * yres
-        return QgsPoint(x, y)
+        # x = (row_col[1] + 0.5) * xres + extent.xMinimum()
+        # y = extent.yMaximum() - (row_col[0] + 0.5) * yres
+        x, y = ras_transform.xy(row_col[0], row_col[1])
+        return x, y
 
     @staticmethod
-    def create_points_from_path(cost_raster, min_cost_path, start_point, end_point):
-        path_points = list(map(lambda row_col: MinCostPathHelper._row_col_to_point(row_col, cost_raster),
+    def create_points_from_path(ras_transform, min_cost_path, start_point, end_point):
+        path_points = list(map(lambda row_col: MinCostPathHelper._row_col_to_point(row_col, ras_transform),
                                min_cost_path))
-        path_points[0].setX(start_point.x())
-        path_points[0].setY(start_point.y())
-        path_points[-1].setX(end_point.x())
-        path_points[-1].setY(end_point.y())
+        # path_points[0].setX(start_point.x())
+        # path_points[0].setY(start_point.y())
+        # path_points[-1].setX(end_point.x())
+        # path_points[-1].setY(end_point.y())
+
+        path_points[0] = (start_point.x(), start_point.y())
+        path_points[-1] = (end_point.x(), end_point.y())
         return path_points
 
-    @staticmethod
-    def create_fields():
-        start_field = QgsField("start_pt_id", QVariant.Int, "int")
-        end_field = QgsField("end_pt_id", QVariant.Int, "int")
-        cost_field = QgsField("total_cost", QVariant.Double, "double", 10, 3)
-        fields = QgsFields()
-        fields.append(start_field)
-        fields.append(end_field)
-        fields.append(cost_field)
-        return fields
+    # @staticmethod
+    # def create_fields():
+    #     start_field = QgsField("start_pt_id", QVariant.Int, "int")
+    #     end_field = QgsField("end_pt_id", QVariant.Int, "int")
+    #     cost_field = QgsField("total_cost", QVariant.Double, "double", 10, 3)
+    #     fields = QgsFields()
+    #     fields.append(start_field)
+    #     fields.append(end_field)
+    #     fields.append(cost_field)
+    #     return fields
 
     @staticmethod
-    def create_path_feature_from_points(path_points, attr_vals, fields):
-        polyline = QgsGeometry.fromPolyline(path_points)
-        feature = QgsFeature(fields)
+    def create_path_feature_from_points(path_points, attr_vals):
+        # polyline = QgsGeometry.fromPolyline(path_points)
+        # feature = QgsFeature(fields)
+        #
+        # start_index = feature.fieldNameIndex("start_pt_id")
+        # end_index = feature.fieldNameIndex("end_pt_id")
+        # cost_index = feature.fieldNameIndex("total_cost")
+        # feature.setAttribute(start_index, attr_vals[0])
+        # feature.setAttribute(end_index, attr_vals[1])
+        # feature.setAttribute(cost_index, attr_vals[2])  # cost
+        # feature.setGeometry(polyline)
 
-        start_index = feature.fieldNameIndex("start_pt_id")
-        end_index = feature.fieldNameIndex("end_pt_id")
-        cost_index = feature.fieldNameIndex("total_cost")
-        feature.setAttribute(start_index, attr_vals[0])
-        feature.setAttribute(end_index, attr_vals[1])
-        feature.setAttribute(cost_index, attr_vals[2])  # cost
-        feature.setGeometry(polyline)
-        return feature
+        path_points_raw = [[pt.x(), pt.y()] for pt in path_points]
 
-    @staticmethod
-    def features_to_tuples(point_features, raster_layer):
-        row_cols = []
+        return LineString(path_points_raw), attr_vals
 
-        extent = raster_layer.dataProvider().extent()
+    # @staticmethod
+    # def features_to_tuples(point_features, raster_layer):
+    #     row_cols = []
+    #
+    #     extent = raster_layer.dataProvider().extent()
+    #
+    #     for point_feature in point_features:
+    #         if point_feature.hasGeometry():
+    #             point_geom = point_feature.geometry()
+    #
+    #             if point_geom.wkbType() == QgsWkbTypes.MultiPoint:
+    #                 multi_points = point_geom.asMultiPoint()
+    #                 for pointxy in multi_points:
+    #                     if extent.contains(pointxy):
+    #                         row_col = MinCostPathHelper._point_to_row_col(pointxy, raster_layer)
+    #                         row_cols.append((row_col, pointxy, point_feature.id()))
+    #             elif point_geom.wkbType() == QgsWkbTypes.Point:
+    #                 pointxy = point_geom.asPoint()
+    #                 if extent.contains(pointxy):
+    #                     row_col = MinCostPathHelper._point_to_row_col(pointxy, raster_layer)
+    #                     row_cols.append((row_col, pointxy, point_feature.id()))
+    #
+    #     return row_cols
 
-        for point_feature in point_features:
-            if point_feature.hasGeometry():
-                point_geom = point_feature.geometry()
-
-                if point_geom.wkbType() == QgsWkbTypes.MultiPoint:
-                    multi_points = point_geom.asMultiPoint()
-                    for pointxy in multi_points:
-                        if extent.contains(pointxy):
-                            row_col = MinCostPathHelper._point_to_row_col(pointxy, raster_layer)
-                            row_cols.append((row_col, pointxy, point_feature.id()))
-                elif point_geom.wkbType() == QgsWkbTypes.Point:
-                    pointxy = point_geom.asPoint()
-                    if extent.contains(pointxy):
-                        row_col = MinCostPathHelper._point_to_row_col(pointxy, raster_layer)
-                        row_cols.append((row_col, pointxy, point_feature.id()))
-
-        return row_cols
-
-    @staticmethod
-    def get_all_block(raster_layer, band_num):
-        provider = raster_layer.dataProvider()
-        extent = provider.extent()
-
-        xres = raster_layer.rasterUnitsPerPixelX()
-        yres = raster_layer.rasterUnitsPerPixelY()
-        width = floor((extent.xMaximum() - extent.xMinimum()) / xres)
-        height = floor((extent.yMaximum() - extent.yMinimum()) / yres)
-        return provider.block(band_num, extent, width, height)
+    # TODO: not in use
+    # @staticmethod
+    # def get_all_block(raster_layer, band_num):
+    #     provider = raster_layer.dataProvider()
+    #     extent = provider.extent()
+    #
+    #     xres = raster_layer.rasterUnitsPerPixelX()
+    #     yres = raster_layer.rasterUnitsPerPixelY()
+    #     width = floor((extent.xMaximum() - extent.xMinimum()) / xres)
+    #     height = floor((extent.yMaximum() - extent.yMinimum()) / yres)
+    #     return provider.block(band_num, extent, width, height)
 
     @staticmethod
     def block2matrix(block):
@@ -205,31 +210,32 @@ class MinCostPathHelper:
         return matrix, contains_negative
 
 
-def process_algorithm(line, line_radius, in_raster, cost_raster, cost_raster_band,
-                      find_nearest=True, output_linear_reference=False, fields=None):
-    if cost_raster is None:
-        raise Exception('Cost raster is not valid')
-    if cost_raster_band is None:
-        raise Exception('Cost raster band is not valid')
-
-    if cost_raster.rasterType() not in [cost_raster.Multiband, cost_raster.GrayOrUndefined]:
-        raise Exception
+def process_algorithm(line, line_radius, in_raster,
+                      find_nearest=True, output_linear_reference=False):
+    # if cost_raster is None:
+    #     raise Exception('Cost raster is not valid')
+    # if cost_raster_band is None:
+    #     raise Exception('Cost raster band is not valid')
+    #
+    # if cost_raster.rasterType() not in [cost_raster.Multiband, cost_raster.GrayOrUndefined]:
+    #     raise Exception
 
     line_buffer = shape(line).buffer(float(line_radius))
     pt_start = line['coordinates'][0]
     pt_end = line['coordinates'][-1]
-    geom_start = QgsGeometry.fromPointXY(QgsPointXY(pt_start[0], pt_start[1]))
-    geom_end = QgsGeometry.fromPointXY(QgsPointXY(pt_end[0], pt_end[1]))
 
-    feat_start = QgsFeature(fields)
-    feat_start.setId(0)
-    feat_start.setGeometry(geom_start)
-    feat_end = QgsFeature(fields)
-    feat_end.setId(1)
-    feat_end.setGeometry(geom_end)
+    # geom_start = QgsGeometry.fromPointXY(QgsPointXY(pt_start[0], pt_start[1]))
+    # geom_end = QgsGeometry.fromPointXY(QgsPointXY(pt_end[0], pt_end[1]))
 
-    start_features = [feat_start]
-    end_features = [feat_end]
+    # feat_start = QgsFeature(fields)
+    # feat_start.setId(0)
+    # feat_start.setGeometry(geom_start)
+    # feat_end = QgsFeature(fields)
+    # feat_end.setId(1)
+    # feat_end.setGeometry(geom_end)
+    #
+    # start_features = [feat_start]
+    # end_features = [feat_end]
 
     # start_features = list(start_source.getFeatures())
     # print(str(len(start_features)))
@@ -237,22 +243,23 @@ def process_algorithm(line, line_radius, in_raster, cost_raster, cost_raster_ban
     # end_features = list(end_source.getFeatures())
     # print(str(len(end_features)))
 
-    start_tuples = MinCostPathHelper.features_to_tuples(start_features, cost_raster)
-    if len(start_tuples) == 0:
-        raise Exception("ERROR: The start-point layer contains no legal point.")
-    start_tuple = start_tuples[0]
+    # start_tuples = MinCostPathHelper.features_to_tuples(start_features, cost_raster, ras_transform)
+    # if len(start_tuples) == 0:
+    #     raise Exception("ERROR: The start-point layer contains no legal point.")
+    # start_tuple = start_tuples[0]
+    #
+    # end_tuples = MinCostPathHelper.features_to_tuples(end_features, cost_raster, ras_transform)
+    # if len(end_tuples) == 0:
+    #     raise Exception("ERROR: The end-point layer contains no legal point.")
+    # # end_tuple = end_tuples[0]
 
-    end_tuples = MinCostPathHelper.features_to_tuples(end_features, cost_raster)
-    if len(end_tuples) == 0:
-        raise Exception("ERROR: The end-point layer contains no legal point.")
-    # end_tuple = end_tuples[0]
+    # block = MinCostPathHelper.get_all_block(cost_raster, cost_raster_band)
 
-    block = MinCostPathHelper.get_all_block(cost_raster, cost_raster_band)
     # buffer clip
     with(rasterio.open(in_raster)) as raster_file:
         out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True)
     matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], raster_file.meta['nodata'])
-    print("The size of cost raster is: {}x{}".format(block.height(), block.width()))
+    # print("The size of cost raster is: {}x{}".format(block.height(), block.width()))
 
     if contains_negative:
         raise Exception('ERROR: Raster has negative values.')
@@ -274,7 +281,7 @@ def process_algorithm(line, line_radius, in_raster, cost_raster, cost_raster_ban
 
     for path, costs, end_tuples in result:
         for end_tuple in end_tuples:
-            path_points = MinCostPathHelper.create_points_from_path(cost_raster, path,
+            path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
                                                                     start_tuple[1], end_tuple[1])
             if output_linear_reference:
                 # add linear reference
@@ -282,11 +289,10 @@ def process_algorithm(line, line_radius, in_raster, cost_raster, cost_raster_ban
                     point.addMValue(cost)
 
             total_cost = costs[-1]
-            path_feature = None
-            path_feature = MinCostPathHelper.create_path_feature_from_points(path_points,
-                                                                             (start_tuple[2], end_tuple[2], total_cost),
-                                                                             fields)
-    return path_feature
+            # feat_geom, feat_attr = MinCostPathHelper.create_path_feature_from_points(path_points,
+            #                                                                  (start_tuple[2], end_tuple[2], total_cost))
+    feat_attr = (start_tuple[2], end_tuple[2], total_cost)
+    return path_points, feat_attr
 
 
 # task executed in a worker process
