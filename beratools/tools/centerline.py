@@ -7,15 +7,10 @@ import fiona
 import numpy as np
 import rasterio
 import rasterio.mask
-from shapely.geometry import shape, mapping, LineString
+from shapely.geometry import shape, mapping, LineString, Point
 
 from collections import OrderedDict
 from fiona.crs import CRS
-
-from qgis.core import (
-    QgsPoint,
-    QgsPointXY
-)
 
 from dijkstra_algorithm import *
 
@@ -25,9 +20,6 @@ class OperationCancelledException(Exception):
 
 
 def centerline(callback, in_line, in_cost_raster, line_radius, process_segments, out_center_line):
-    # cost_raster = QgsRasterLayer(in_cost_raster)
-    # cost_raster_band = 1
-
     # Read input line features
     input_lines = []
     with fiona.open(in_line) as open_line_file:
@@ -81,25 +73,12 @@ class MinCostPathHelper:
 
     @staticmethod
     def _point_to_row_col(pointxy, ras_transform):
-        # xres = raster_layer.rasterUnitsPerPixelX()
-        # yres = raster_layer.rasterUnitsPerPixelY()
-        # extent = raster_layer.dataProvider().extent()
-        #
-        # col = floor((pointxy.x() - extent.xMinimum()) / xres)
-        # row = floor((extent.yMaximum() - pointxy.y()) / yres)
-
         col, row = ras_transform.rowcol(pointxy.x(), pointxy.y())
 
         return row, col
 
     @staticmethod
     def _row_col_to_point(row_col, ras_transform):
-        # xres = raster_layer.rasterUnitsPerPixelX()
-        # yres = raster_layer.rasterUnitsPerPixelY()
-        # extent = raster_layer.dataProvider().extent()
-
-        # x = (row_col[1] + 0.5) * xres + extent.xMinimum()
-        # y = extent.yMaximum() - (row_col[0] + 0.5) * yres
         x, y = ras_transform.xy(row_col[0], row_col[1])
         return x, y
 
@@ -107,78 +86,15 @@ class MinCostPathHelper:
     def create_points_from_path(ras_transform, min_cost_path, start_point, end_point):
         path_points = list(map(lambda row_col: MinCostPathHelper._row_col_to_point(row_col, ras_transform),
                                min_cost_path))
-        # path_points[0].setX(start_point.x())
-        # path_points[0].setY(start_point.y())
-        # path_points[-1].setX(end_point.x())
-        # path_points[-1].setY(end_point.y())
-
-        path_points[0] = (start_point.x(), start_point.y())
-        path_points[-1] = (end_point.x(), end_point.y())
+        path_points[0] = (start_point.x, start_point.y)
+        path_points[-1] = (end_point.x, end_point.y)
         return path_points
-
-    # @staticmethod
-    # def create_fields():
-    #     start_field = QgsField("start_pt_id", QVariant.Int, "int")
-    #     end_field = QgsField("end_pt_id", QVariant.Int, "int")
-    #     cost_field = QgsField("total_cost", QVariant.Double, "double", 10, 3)
-    #     fields = QgsFields()
-    #     fields.append(start_field)
-    #     fields.append(end_field)
-    #     fields.append(cost_field)
-    #     return fields
 
     @staticmethod
     def create_path_feature_from_points(path_points, attr_vals):
-        # polyline = QgsGeometry.fromPolyline(path_points)
-        # feature = QgsFeature(fields)
-        #
-        # start_index = feature.fieldNameIndex("start_pt_id")
-        # end_index = feature.fieldNameIndex("end_pt_id")
-        # cost_index = feature.fieldNameIndex("total_cost")
-        # feature.setAttribute(start_index, attr_vals[0])
-        # feature.setAttribute(end_index, attr_vals[1])
-        # feature.setAttribute(cost_index, attr_vals[2])  # cost
-        # feature.setGeometry(polyline)
-
-        path_points_raw = [[pt.x(), pt.y()] for pt in path_points]
+        path_points_raw = [[pt.x, pt.y] for pt in path_points]
 
         return LineString(path_points_raw), attr_vals
-
-    # @staticmethod
-    # def features_to_tuples(point_features, raster_layer):
-    #     row_cols = []
-    #
-    #     extent = raster_layer.dataProvider().extent()
-    #
-    #     for point_feature in point_features:
-    #         if point_feature.hasGeometry():
-    #             point_geom = point_feature.geometry()
-    #
-    #             if point_geom.wkbType() == QgsWkbTypes.MultiPoint:
-    #                 multi_points = point_geom.asMultiPoint()
-    #                 for pointxy in multi_points:
-    #                     if extent.contains(pointxy):
-    #                         row_col = MinCostPathHelper._point_to_row_col(pointxy, raster_layer)
-    #                         row_cols.append((row_col, pointxy, point_feature.id()))
-    #             elif point_geom.wkbType() == QgsWkbTypes.Point:
-    #                 pointxy = point_geom.asPoint()
-    #                 if extent.contains(pointxy):
-    #                     row_col = MinCostPathHelper._point_to_row_col(pointxy, raster_layer)
-    #                     row_cols.append((row_col, pointxy, point_feature.id()))
-    #
-    #     return row_cols
-
-    # TODO: not in use
-    # @staticmethod
-    # def get_all_block(raster_layer, band_num):
-    #     provider = raster_layer.dataProvider()
-    #     extent = provider.extent()
-    #
-    #     xres = raster_layer.rasterUnitsPerPixelX()
-    #     yres = raster_layer.rasterUnitsPerPixelY()
-    #     width = floor((extent.xMaximum() - extent.xMinimum()) / xres)
-    #     height = floor((extent.yMaximum() - extent.yMinimum()) / yres)
-    #     return provider.block(band_num, extent, width, height)
 
     @staticmethod
     def block2matrix(block):
@@ -212,62 +128,24 @@ class MinCostPathHelper:
 
 def process_algorithm(line, line_radius, in_raster,
                       find_nearest=True, output_linear_reference=False):
-    # if cost_raster is None:
-    #     raise Exception('Cost raster is not valid')
-    # if cost_raster_band is None:
-    #     raise Exception('Cost raster band is not valid')
-    #
-    # if cost_raster.rasterType() not in [cost_raster.Multiband, cost_raster.GrayOrUndefined]:
-    #     raise Exception
-
     line_buffer = shape(line).buffer(float(line_radius))
     pt_start = line['coordinates'][0]
     pt_end = line['coordinates'][-1]
-
-    # geom_start = QgsGeometry.fromPointXY(QgsPointXY(pt_start[0], pt_start[1]))
-    # geom_end = QgsGeometry.fromPointXY(QgsPointXY(pt_end[0], pt_end[1]))
-
-    # feat_start = QgsFeature(fields)
-    # feat_start.setId(0)
-    # feat_start.setGeometry(geom_start)
-    # feat_end = QgsFeature(fields)
-    # feat_end.setId(1)
-    # feat_end.setGeometry(geom_end)
-    #
-    # start_features = [feat_start]
-    # end_features = [feat_end]
-
-    # start_features = list(start_source.getFeatures())
-    # print(str(len(start_features)))
-    #
-    # end_features = list(end_source.getFeatures())
-    # print(str(len(end_features)))
-
-    # start_tuples = MinCostPathHelper.features_to_tuples(start_features, cost_raster, ras_transform)
-    # if len(start_tuples) == 0:
-    #     raise Exception("ERROR: The start-point layer contains no legal point.")
-    # start_tuple = start_tuples[0]
-    #
-    # end_tuples = MinCostPathHelper.features_to_tuples(end_features, cost_raster, ras_transform)
-    # if len(end_tuples) == 0:
-    #     raise Exception("ERROR: The end-point layer contains no legal point.")
-    # # end_tuple = end_tuples[0]
-
-    # block = MinCostPathHelper.get_all_block(cost_raster, cost_raster_band)
 
     # buffer clip
     with(rasterio.open(in_raster)) as raster_file:
         out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True)
     matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], raster_file.meta['nodata'])
-    # print("The size of cost raster is: {}x{}".format(block.height(), block.width()))
 
     if contains_negative:
         raise Exception('ERROR: Raster has negative values.')
 
     # get row col for points
     ras_transform = rasterio.transform.AffineTransformer(out_transform)
-    start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), QgsPointXY(pt_start[0], pt_start[1]), 0)]
-    end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), QgsPointXY(pt_end[0], pt_end[1]), 0)]
+
+    # TODO: the last element in tuple is point ID
+    start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
+    end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
     start_tuple = start_tuples[0]
 
     print("Searching least cost path...")
@@ -279,18 +157,19 @@ def process_algorithm(line, line_radius, in_raster,
     if len(result) == 0:
         raise Exception
 
+    path_points = None
     for path, costs, end_tuples in result:
         for end_tuple in end_tuples:
             path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
                                                                     start_tuple[1], end_tuple[1])
             if output_linear_reference:
+                # TODO: code not reached
                 # add linear reference
                 for point, cost in zip(path_points, costs):
                     point.addMValue(cost)
 
             total_cost = costs[-1]
-            # feat_geom, feat_attr = MinCostPathHelper.create_path_feature_from_points(path_points,
-            #                                                                  (start_tuple[2], end_tuple[2], total_cost))
+
     feat_attr = (start_tuple[2], end_tuple[2], total_cost)
     return path_points, feat_attr
 
