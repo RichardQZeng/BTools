@@ -68,6 +68,7 @@ class BeraTools(object):
         self.verbose = True
         self.__compress_rasters = False
         self.__max_procs = -1
+        self.recent_tool = None
 
         self.setting_file = os.path.join(self.exe_path, '..\gui\settings.json')
         if os.path.isfile(self.setting_file):
@@ -80,6 +81,7 @@ class BeraTools(object):
             self.verbose = str(settings['verbose_mode'])
             self.__compress_rasters = settings['compress_rasters']
             self.__max_procs = settings['max_procs']
+            self.recent_tool = settings['recent_tool']
         else:
             print("Settings.json not exist.")
 
@@ -159,6 +161,18 @@ class BeraTools(object):
 
     def get_max_procs(self):
         return self.__max_procs
+
+    def save_recent_tool(self):
+        if os.path.isfile(self.setting_file):
+            # read the settings.json file if it exists
+            with open(self.setting_file, 'r') as settings_file:
+                settings = json.load(settings_file)
+
+            if self.recent_tool not in settings['recent_tool']:
+                settings['recent_tool'] = self.recent_tool
+
+            with open(self.setting_file, 'w') as settings_file:
+                json.dump(settings, settings_file, indent=4)
 
     def run_tool(self, tool_name, args, callback=None):
         """ 

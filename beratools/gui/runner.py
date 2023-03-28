@@ -730,6 +730,7 @@ class MainGui(tk.Frame):
         self.tools_and_toolboxes = None
         self.out_text = None
         self.current_tool_api = None
+        self.search_tool_selected = None
 
         if platform.system() == 'Windows':
             self.ext = '.exe'
@@ -844,13 +845,13 @@ class MainGui(tk.Frame):
                                            text="{} Tools Found".format(len(self.search_list)))
         self.search_label = ttk.Label(self.search_frame, text="Search: ")
         self.search_bar = ttk.Entry(self.search_frame, width=30, textvariable=self.search_text)
-        self.search_results_listbox = tk.Listbox(self.search_frame, height=11)
+        self.search_results_listbox = tk.Listbox(self.search_frame, height=11, exportselection=False)
         self.search_scroll = ttk.Scrollbar(self.search_frame, orient=tk.VERTICAL,
                                            command=self.search_results_listbox.yview)
         self.search_results_listbox['yscrollcommand'] = self.search_scroll.set
 
         # Add bindings
-        self.search_results_listbox.bind("<<ListboxSelect>>", self.search_update_tool_help)
+        self.search_results_listbox.bind("<<ListboxSelect>>", self.update_search_tool_info)
         self.search_bar.bind('<Return>', self.update_search)
 
         # Define layout of the frame
@@ -866,6 +867,9 @@ class MainGui(tk.Frame):
         self.search_frame.columnconfigure(1, weight=1)
         self.search_frame.rowconfigure(0, weight=1)
         self.search_frame.rowconfigure(1, weight=10)
+
+        # add recent tools to search list
+        self.add_recent_tool_to_search()
 
         #########################################################
         #                 Current Tool Frame
@@ -935,7 +939,7 @@ class MainGui(tk.Frame):
         # Retrieve and insert the text for the current tool
 
         # BERA Tools help text
-        k = self.get_bera_tool_help()
+        k = self.get_bera_tool_info()
         self.out_text.insert(tk.END, k)
 
         # Define layout of the frame
@@ -1073,7 +1077,7 @@ class MainGui(tk.Frame):
             selected_item = 0
             self.tool_name = self.tools_list[0]
 
-    def get_bera_tool_help(self):
+    def get_bera_tool_info(self):
         for toolbox in self.get_bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool['name'] == self.tool_name:
@@ -1176,20 +1180,24 @@ class MainGui(tk.Frame):
     def tree_update_tool_help(self, event):
         cur_item = self.tool_tree.focus()
         self.tool_name = self.tool_tree.item(cur_item).get('text').replace("  ", "")
-        self.update_tool_help()
+        self.update_tool_info()
 
     # read selection when tool selected from search results then call self.update_tool_help
-    def search_update_tool_help(self, event):
-        selection = self.search_results_listbox.curselection()
-        self.tool_name = self.search_results_listbox.get(selection[0])
-        self.update_tool_help()
+    def update_search_tool_info(self, event):
+        # selection = self.search_results_listbox.curselection()
+        # self.tool_name = self.search_results_listbox.get(selection[0])
+        self.search_tool_selected = event.widget.curselection()
+        self.tool_name = event.widget.get(self.search_tool_selected[0])
 
-    def update_tool_help(self):
+        self.update_tool_info()
+        print("Index {} selected".format(self.search_tool_selected[0]))
+
+    def update_tool_info(self):
         self.out_text.delete('1.0', tk.END)
         for widget in self.arg_scroll_frame.winfo_children():
             widget.destroy()
 
-        k = self.get_bera_tool_help()
+        k = self.get_bera_tool_info()
         self.print_to_output(k)
         self.print_to_output('\n')
 
@@ -1258,19 +1266,24 @@ class MainGui(tk.Frame):
         num_results = 0
         for tool in self.tools_list:  # search tool names
             tool_lower = tool.lower()
-            if tool_lower.find(self.search_string) != (-1):  # search string found within tool name
+            # search string found within tool name
+            if tool_lower.find(self.search_string) != (-1):
                 num_results = num_results + 1
-                self.search_results_listbox.insert(num_results,
-                                                   tool)  # tool added to listbox and to search results string
+                # tool added to listbox and to search results string
+                self.search_results_listbox.insert(num_results, tool)
                 self.search_list.append(tool)
         index = 0
+
+        # update label to show tools found
+        self.search_frame.config(text="{} Tools Found".format(len(self.search_list)))
 
     def get_descriptions(self):
         self.descriptionList = []
         tools = bt.list_tools()
         tools_items = tools.items()
         for t in tools_items:
-            self.descriptionList.append(t[1])  # second entry in tool dictionary is the description
+            # second entry in tool dictionary is the description
+            self.descriptionList.append(t[1])
 
     def tool_help_button(self):
         # open the user manual section for the current tool
@@ -1310,6 +1323,15 @@ class MainGui(tk.Frame):
                 for tool in self.sorted_tools[index]:  # add tools within sub toolbox
                     self.tool_tree.insert(toolbox, 'end', text="  " + tool, iid=tool, tags='tool', image=self.tool_icon)
             index = index + 1
+
+    def add_recent_tool_to_search(self):
+        if bt.recent_tool:
+            self.search_results_listbox.delete(0, 'end')
+            self.search_list.append(bt.recent_tool)
+            self.search_results_listbox.insert(END, bt.recent_tool)
+
+        self.search_frame.config(text='Recent used tool')
+        self.tool_name = self.search_results_listbox.get(0)
 
     #########################################################
     #               Functions (original)
@@ -1392,6 +1414,8 @@ class MainGui(tk.Frame):
         self.print_line_to_output("Tool arguments:{}".format(args))
         self.print_line_to_output("")
         self.save_tool_parameter()
+        bt.recent_tool = self.tool_name
+        bt.save_recent_tool()
 
         # Run the tool and check the return value for an error
         if bt.run_tool(self.current_tool_api, args, self.custom_callback) == 1:
@@ -1425,7 +1449,7 @@ class MainGui(tk.Frame):
             self.tool_name)
         # self.spacer['width'] = width=(35-len(self.tool_name))
         # for item in bt.tool_help(self.tool_name).splitlines():
-        for item in self.get_bera_tool_help().splitlines():
+        for item in self.get_bera_tool_info().splitlines():
             if item.startswith("-"):
                 k = item.split(" ")
                 if "--" in k[1]:
