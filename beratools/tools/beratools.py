@@ -77,11 +77,16 @@ class BeraTools(object):
                 settings = json.load(settings_file)
 
             # parse file
-            self.work_dir = str(settings['working_directory'])
-            self.verbose = str(settings['verbose_mode'])
-            self.__compress_rasters = settings['compress_rasters']
-            self.__max_procs = settings['max_procs']
-            self.recent_tool = settings['recent_tool']
+            if 'working_directory' in settings.keys():
+                self.work_dir = str(settings['working_directory'])
+            if 'verbose_mode' in settings.keys():
+                self.verbose = str(settings['verbose_mode'])
+            if 'compress_rasters' in settings.keys():
+                self.__compress_rasters = settings['compress_rasters']
+            if 'max_procs' in settings.keys():
+                self.__max_procs = settings['max_procs']
+            if 'recent_tool' in settings.keys():
+                self.recent_tool = settings['recent_tool']
         else:
             print("Settings.json not exist.")
 
@@ -103,6 +108,21 @@ class BeraTools(object):
         specify the file name rather than the complete file path.
         """
         self.work_dir = path.normpath(path_str)
+        settings = {}
+
+        if os.path.isfile(self.setting_file):
+            # read the settings.json file if it exists
+            with open(self.setting_file, 'r') as read_settings_file:
+                settings = json.load(read_settings_file)
+                if not settings:
+                    settings = {}
+        else:
+            print("Settings.json not exist, creat one.")
+
+        if self.work_dir:
+            settings['working_directory'] = self.work_dir
+        with open(self.setting_file, 'w') as write_settings_file:
+            json.dump(settings, write_settings_file, indent=4)
 
     def get_working_dir(self):
         return self.work_dir
@@ -121,18 +141,21 @@ class BeraTools(object):
         messages are suppressed and tools run as background processes.
         """
         self.verbose = val
+        settings = {}
 
         if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
             with open(self.setting_file, 'r') as read_settings_file:
                 settings = json.load(read_settings_file)
 
-            # parse file
-            settings['verbose_mode'] = self.verbose
-            with open(self.setting_file, 'w') as write_settings_file:
-                json.dump(settings, write_settings_file, indent=4)
+            if not settings:
+                settings = {}
         else:
-            print("Settings.json not exist.")
+            print("Settings.json not exist, create one.")
+
+        settings['verbose_mode'] = self.verbose
+        with open(self.setting_file, 'w') as write_settings_file:
+            json.dump(settings, write_settings_file, indent=4)
 
     def set_default_callback(self, callback_func):
         """
@@ -146,31 +169,36 @@ class BeraTools(object):
         Sets the flag used by BERA Tools to determine whether to use compression for output rasters.
         """
         self.__max_procs = val
-
+        settings = {}
         if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
             with open(self.setting_file, 'r') as read_settings_file:
                 settings = json.load(read_settings_file)
 
-            # parse file
-            settings['max_procs'] = self.__max_procs
-            with open(self.setting_file, 'w') as write_settings_file:
-                json.dump(settings, write_settings_file, indent=4)
+            if not settings:
+                settings = {}
         else:
-            print("Settings.json not exist.")
+            print("Settings.json not exist, creat one.")
+
+        if self.__max_procs:
+            settings['max_procs'] = self.__max_procs
+        with open(self.setting_file, 'w') as write_settings_file:
+            json.dump(settings, write_settings_file, indent=4)
 
     def get_max_procs(self):
         return self.__max_procs
 
     def save_recent_tool(self):
+        settings = {}
         if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
             with open(self.setting_file, 'r') as settings_file:
                 settings = json.load(settings_file)
+        else:
+            print("Settings.json not exist, creat one.")
 
-            if self.recent_tool not in settings['recent_tool']:
-                settings['recent_tool'] = self.recent_tool
-
+        if self.recent_tool and len(self.recent_tool) > 0:
+            settings['recent_tool'] = self.recent_tool
             with open(self.setting_file, 'w') as settings_file:
                 json.dump(settings, settings_file, indent=4)
 

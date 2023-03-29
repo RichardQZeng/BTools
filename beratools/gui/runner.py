@@ -940,7 +940,8 @@ class MainGui(tk.Frame):
 
         # BERA Tools help text
         k = self.get_bera_tool_info()
-        self.out_text.insert(tk.END, k)
+        if k:
+            self.out_text.insert(tk.END, k)
 
         # Define layout of the frame
         output_frame.grid(row=3, column=0, columnspan=2, sticky=tk.NSEW)  # inside right_frame
@@ -1184,10 +1185,10 @@ class MainGui(tk.Frame):
 
     # read selection when tool selected from search results then call self.update_tool_help
     def update_search_tool_info(self, event):
-        # selection = self.search_results_listbox.curselection()
-        # self.tool_name = self.search_results_listbox.get(selection[0])
-        self.search_tool_selected = event.widget.curselection()
-        self.tool_name = event.widget.get(self.search_tool_selected[0])
+        selection = self.search_results_listbox.curselection()
+        self.tool_name = self.search_results_listbox.get(selection[0])
+        # self.search_tool_selected = event.widget.curselection()
+        # self.tool_name = event.widget.get(self.search_tool_selected[0])
 
         self.update_tool_info()
         print("Index {} selected".format(self.search_tool_selected[0]))
@@ -1330,8 +1331,8 @@ class MainGui(tk.Frame):
             self.search_list.append(bt.recent_tool)
             self.search_results_listbox.insert(END, bt.recent_tool)
 
-        self.search_frame.config(text='Recent used tool')
-        self.tool_name = self.search_results_listbox.get(0)
+            self.search_frame.config(text='Recent used tool')
+            self.tool_name = self.search_results_listbox.get(0)
 
     #########################################################
     #               Functions (original)
