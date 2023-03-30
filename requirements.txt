@@ -13,3 +13,5 @@ numba
 xarray
 rioxarray
 scikit-image
+sphinx
+sphinx-tabs
