@@ -37,7 +37,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig'
+    'sphinx.ext.ifconfig',
+    'sphinx_tabs.tabs'
 ]
 
 
@@ -54,8 +55,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Forest Line Mapper'
-copyright = u'2021, FLM authors'
+project = u'BERA Tools'
+copyright = u'2023, BERA Tools authors'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -255,8 +256,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'FLM', u'FLM Documentation',
-   u'FLM authors', 'FLM', 'Tools for high-resolution mapping and studying of forest lines via processing CHM.',
+  ('index', 'BERA Tools', u'BERA Tools Documentation',
+   u'BERA Tools authors', 'BERA Tools', 'Tools for high-resolution mapping and studying of forest lines via processing CHM.',
    'Miscellaneous'),
 ]
 
