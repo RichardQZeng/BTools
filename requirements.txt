@@ -1,7 +1,6 @@
 click
 future
 pillow
-qgis
 setuptools
 Pillow
 fiona
@@ -9,3 +8,8 @@ numpy
 rasterio
 shapely
 pyqt
+scipy
+numba
+xarray
+rioxarray
+scikit-image
