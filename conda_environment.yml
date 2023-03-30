@@ -1,0 +1,21 @@
+# run: conda env create --file conda_environment.yml
+# see also https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file
+name: bera
+channels:
+  - conda-forge
+dependencies:
+  - pip
+  - numpy
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - astropy
+  - numba
+  - netcdf4
+  - h5py
+  - gitpython
+  - git-lfs
+  - sphinx=1.8.5
+  - pip:
+    - sphinx-rtd-theme
+variables:
