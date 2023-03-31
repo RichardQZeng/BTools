@@ -121,9 +121,9 @@ class FileSelector(tk.Frame):
 
                 if "ExistingFile" in self.parameter_type:
                     result = filedialog.askopenfilename(
-                        initialdir=self.runner.working_dir, title="Select file", filetypes=file_types)
+                        initialdir=self.runner.working_dir, title="Select "+self.name, filetypes=file_types)
                 else:
-                    result = filedialog.asksaveasfilename(title="Save file", filetypes=file_types)
+                    result = filedialog.asksaveasfilename(title="Save "+self.name, filetypes=file_types)
 
                     # append suffix when not
                     # TODO: more consideration for multiple formats
