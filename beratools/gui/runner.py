@@ -17,6 +17,7 @@ import platform
 import re  # Added by Rachel for snake_to_camel function
 import glob
 from sys import platform as _platform
+import threading
 
 import tkinter as tk
 from tkinter import ttk
@@ -903,7 +904,8 @@ class MainGui(tk.Frame):
         self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=maxCores, length=180,
                                   orient='horizontal', command=self.update_procs)
         self.reset_button = ttk.Button(buttons_frame, text="Reset", width=8, command=self.reset_tool)
-        self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=self.run_tool)
+        # self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=self.run_tool)
+        self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=lambda: self.start_run_tool_thread())
         self.cancel_button = ttk.Button(buttons_frame, text="Cancel", width=8, command=self.cancel_operation)
         self.help_button = ttk.Button(buttons_frame, text="Help", width=8, command=self.tool_help_button)
         CreateToolTip(self.reset_button, 'Reset tool parameters to default')
@@ -1404,6 +1406,11 @@ class MainGui(tk.Frame):
                     else:
                         widget.value.set(default_value)
 
+    def start_run_tool_thread(self):
+        t = threading.Thread(target=self.run_tool, args=())
+        t.start()
+        # t.join()
+
     def run_tool(self):
         bt.set_working_dir(self.working_dir)
 
@@ -1427,6 +1434,8 @@ class MainGui(tk.Frame):
             self.progress_var.set(0)
             self.progress_label['text'] = "Progress:"
             self.progress.update_idletasks()
+
+        return
 
     def print_to_output(self, value):
         self.out_text.insert(tk.END, value)
