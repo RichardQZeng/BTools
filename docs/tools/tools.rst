@@ -18,9 +18,9 @@ BERA Tools provide tools for enhanced delineation and attribution of linear dist
 .. toctree::
   :maxdepth: 1
 
-  Mapping/CanopyCostRaster.rst
-  Mapping/Centerline.rst
-  Mapping/LineFootprint.rst
+  CanopyCostRaster.rst
+  Centerline.rst
+  LineFootprint.rst
 
 **Attributes**
 
