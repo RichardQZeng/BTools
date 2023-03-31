@@ -14,6 +14,8 @@ from fiona.crs import CRS
 
 from dijkstra_algorithm import *
 
+USE_MULTI_PROCESSING = False
+
 
 class OperationCancelledException(Exception):
     pass
@@ -32,20 +34,27 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
     out_fields_list = ["start_pt_id", "end_pt_id", "total_cost"]
 
     # Process lines
-    features = []
-    for line in input_lines:
-        feat_geometry, feat_attributes = process_algorithm(line, line_radius, in_cost_raster)
-        if feat_geometry and feat_attributes:
-            features.append((feat_geometry, feat_attributes))
-
     fiona_features = []
-    for feature in features:
-        # Save lines to shapefile
-        out_feature = {
-            'geometry': mapping(LineString(feature[0])),
-            'properties': OrderedDict(list(zip(out_fields_list, feature[1])))
-        }
-        fiona_features.append(out_feature)
+    all_lines = []
+    for line in input_lines:
+        all_lines.append((line, line_radius, in_cost_raster))
+
+    if USE_MULTI_PROCESSING:
+        execute(all_lines)
+    else:
+        features = []
+        for line in all_lines:
+            feat_geometry, feat_attributes = process_algorithm(line)
+            if feat_geometry and feat_attributes:
+                features.append((feat_geometry, feat_attributes))
+
+        for feature in features:
+            # Save lines to shapefile
+            out_feature = {
+                'geometry': mapping(LineString(feature[0])),
+                'properties': OrderedDict(list(zip(out_fields_list, feature[1])))
+            }
+            fiona_features.append(out_feature)
 
     schema = {
         'geometry': 'LineString',
@@ -65,7 +74,6 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
         out_line_file.write(feature)
     del out_line_file
 
-    # execute()
     callback('Centerline tool done.')
 
 
@@ -126,8 +134,11 @@ class MinCostPathHelper:
         return matrix, contains_negative
 
 
-def process_algorithm(line, line_radius, in_raster,
-                      find_nearest=True, output_linear_reference=False):
+def process_algorithm(line_args, find_nearest=True, output_linear_reference=False):
+    line = line_args[0]
+    line_radius = line_args[1]
+    in_raster = line_args[2]
+
     line_buffer = shape(line).buffer(float(line_radius))
     pt_start = line['coordinates'][0]
     pt_end = line['coordinates'][-1]
@@ -197,7 +208,7 @@ def process_line(line, input_raster):
 
 
 # protect the entry point
-def execute():
+def execute(line_args):
     # create and configure the process pool
     data = [[random() for n in range(100)] for i in range(300)]
     try:
