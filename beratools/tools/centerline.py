@@ -14,7 +14,7 @@ from fiona.crs import CRS
 
 from dijkstra_algorithm import *
 
-USE_MULTI_PROCESSING = False
+USE_MULTI_PROCESSING = True
 
 
 class OperationCancelledException(Exception):
@@ -36,25 +36,25 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
     # Process lines
     fiona_features = []
     all_lines = []
+    features = []
     for line in input_lines:
         all_lines.append((line, line_radius, in_cost_raster))
 
     if USE_MULTI_PROCESSING:
-        execute(all_lines)
+        features = execute(all_lines)
     else:
-        features = []
         for line in all_lines:
             feat_geometry, feat_attributes = process_algorithm(line)
             if feat_geometry and feat_attributes:
                 features.append((feat_geometry, feat_attributes))
 
-        for feature in features:
-            # Save lines to shapefile
-            out_feature = {
-                'geometry': mapping(LineString(feature[0])),
-                'properties': OrderedDict(list(zip(out_fields_list, feature[1])))
-            }
-            fiona_features.append(out_feature)
+    for feature in features:
+        # Save lines to shapefile
+        single_feature = {
+            'geometry': mapping(LineString(feature[0])),
+            'properties': OrderedDict(list(zip(out_fields_list, feature[1])))
+        }
+        fiona_features.append(single_feature)
 
     schema = {
         'geometry': 'LineString',
@@ -65,11 +65,12 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
         ])
     }
 
-    crs = CRS.from_epsg(2956)
+    # TODO correct EPSG code
+    layer_crs = CRS.from_epsg(2956)
 
     driver = 'ESRI Shapefile'
 
-    out_line_file = fiona.open(out_center_line, 'w', driver, schema, crs)
+    out_line_file = fiona.open(out_center_line, 'w', driver, schema, layer_crs.to_proj4())
     for feature in fiona_features:
         out_line_file.write(feature)
     del out_line_file
@@ -209,24 +210,25 @@ def process_line(line, input_raster):
 
 # protect the entry point
 def execute(line_args):
-    # create and configure the process pool
-    data = [[random() for n in range(100)] for i in range(300)]
     try:
-        total_steps = 300
+        total_steps = len(line_args)
+        features = []
         with Pool() as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_line, data):
+            for result in pool.imap_unordered(process_algorithm, line_args):
                 print('Got result: {}'.format(result), flush=True)
+                features.append(result)
                 step += 1
                 print(step)
                 print('%{}'.format(step/total_steps*100))
                 # if result > 0.9:
                 #     print('Pool terminated.')
                 #     raise OperationCancelledException()
-
+        return features
     except OperationCancelledException:
         print("Operation cancelled")
+        return None
 
 
 if __name__ == '__main__':
