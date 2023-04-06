@@ -462,12 +462,12 @@
                     "name": "Forest Line Attributes",
                     "info": "Calculates a series of attributes related to forest line shape, size and microtopography. Line-derived attributes include: length, bearing, orientation and sinuosity; Polygon-derived attributes include: area, average width, perimeter and perimeter-area ratio; CHM-derived attributes include: average vegetation height, vegetation volume and vegetation roughness.",
                     "multiprocessing": true,
-                    "scriptFile": "Scripts.FLM_ForestLineAttributes",
+                    "scriptFile": "ForestLineAttributes",
                     "paramFile": "\\Scripts\\FLM_FLA_params.txt",
                     "image": "../Images/FLM_IO_ForestLineAttributes.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Attribution/ForestLineAttributes.html",
                     "parameters":[
-                        {
+                        {   "variable": "in_cl",
                             "parameter": "Input Lines",
                             "description": "Input forest line center shapefile which will be segmented and attributed.",
                             "type": ".shp",
@@ -475,7 +475,7 @@
                             "default": "",
                             "output": false
                         },
-                        {
+                        {   "variable": "in_fp",
                             "parameter": "Input Footprint Polygons",
                             "description": "Input forest line footprint shapefile used to derive spatial attributes.",
                             "type": ".shp",
@@ -483,7 +483,7 @@
                             "default": "",
                             "output": false
                         },
-                        {
+                        {   "variable": "in_CHMR",
                             "parameter": "Input Raster CHM",
                             "description": "Input canopy height model raster used to derive microtopography attributes.",
                             "type": ".tif",
@@ -491,7 +491,7 @@
                             "default": "",
                             "output": false
                         },
-                        {
+                        {   "variable": "sampling_type",
                             "parameter": "Sampling Type",
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
                             "type": "list:IN-FEATURES,WHOLE-LINE,LINE-CROSSINGS,ARBITRARY",
@@ -499,7 +499,7 @@
                             "default": "LINE-CROSSINGS",
                             "output": false
                         },
-                        {
+                        {   "variable": "seg_len",
                             "parameter": "Segment Length",
                             "description": "Arbitrary segment length (m). If the Sampling Type field is not set as ARBITRARY this field is ignored.",
                             "type": "number",
@@ -507,7 +507,7 @@
                             "default": "50",
                             "output": false
                         },
-                        {
+                        {   "variable": "ln_split_Tol",
                             "parameter": "Line Split Tolerance",
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
@@ -515,7 +515,7 @@
                             "default": "3",
                             "output": false
                         },
-                        {
+                        {   "variable": "Max_ln_width",
                             "parameter": "Maximum Line Width",
                             "description": "Maximum line width (m) used to search for surrounding footprint.",
                             "type": "number",
@@ -523,7 +523,7 @@
                             "default": "25",
                             "output": false
                         },
-                        {
+                        {   "variable": "Out_AttSeg",
                             "parameter": "Output Attributed Segments",
                             "description": "Output features that will be created.",
                             "type": ".shp",
