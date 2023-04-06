@@ -66,6 +66,7 @@ class BeraTools(object):
 
         self.work_dir = ""
         self.verbose = True
+        self.show_advanced = False
         self.__compress_rasters = False
         self.__max_procs = -1
         self.recent_tool = None

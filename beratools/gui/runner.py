@@ -717,6 +717,7 @@ class MainGui(tk.Frame):
         self.run_button = None
         self.arg_scroll_frame = None
         self.view_code_button = None
+        self.show_advanced_button = None
         self.current_tool_lbl = None
         self.current_tool_frame = None
         self.search_scroll = None
@@ -878,11 +879,15 @@ class MainGui(tk.Frame):
         self.current_tool_frame = ttk.Frame(right_frame, padding='0.01i')
         self.current_tool_lbl = ttk.Label(self.current_tool_frame, text="Current Tool: {}".format(self.tool_name),
                                           justify=tk.LEFT)  # , font=("Helvetica", 12, "bold")
+        self.show_advanced_button = ttk.Button(self.current_tool_frame, text="Show Advanced Options",
+                                               width=24, command=self.show_advanced)
+        CreateToolTip(self.show_advanced_button, 'Show/hide tool advanced options')
         self.view_code_button = ttk.Button(self.current_tool_frame, text="View Code", width=12, command=self.view_code)
         CreateToolTip(self.view_code_button, 'Go to the tool code web page')
 
         # Define layout of the frame
-        self.view_code_button.grid(row=0, column=1, sticky=tk.E)
+        self.show_advanced_button.grid(row=0, column=1, sticky=tk.E)
+        self.view_code_button.grid(row=0, column=2, sticky=tk.E)
         self.current_tool_lbl.grid(row=0, column=0, sticky=tk.W)
         self.current_tool_frame.grid(row=0, column=0, columnspan=2, sticky=tk.NSEW)
 
@@ -1029,7 +1034,6 @@ class MainGui(tk.Frame):
             bt.set_verbose_mode(True)
             self.filemenu.entryconfig(2, label="Do Not Print Tool Output")
 
-
     def sort_toolboxes(self):
         self.upper_toolboxes = []
         self.lower_toolboxes = []
@@ -1170,7 +1174,10 @@ class MainGui(tk.Frame):
                                 new_param['parameter_type'][i] = 'Vector'
 
                         new_param['default_value'] = param['default']
-                        new_param['optional'] = False
+                        if "optional" in param.keys():
+                            new_param['optional'] = param['optional']
+                        else:
+                            new_param['optional'] = False
 
                         new_params['parameters'].append(new_param)
 
@@ -1248,6 +1255,11 @@ class MainGui(tk.Frame):
                     widget.value = saved_value
                 elif widget:
                     widget.value.set(saved_value)
+
+            # hide optional widgets
+            if widget:
+                if widget.optional and not bt.show_advanced:
+                    widget.grid_forget()
 
         self.update_args_box()
         self.out_text.see("%d.%d" % (1, 0))
@@ -1449,6 +1461,24 @@ class MainGui(tk.Frame):
         bt.cancel_op = True
         self.print_line_to_output("Tool operation cancelling...")
         self.progress.update_idletasks()
+
+    def show_advanced(self):
+        if not self.show_advanced_button or len(self.arg_scroll_frame.winfo_children()) <= 0:
+            return
+
+        if bt.show_advanced:
+            bt.show_advanced = False
+        else:
+            bt.show_advanced = True
+
+        if bt.show_advanced:
+            self.show_advanced_button.config(text="Hide Advanced Options")
+            self.update_tool_info()
+        else:
+            self.show_advanced_button.config(text="Show Advanced Options")
+            for widget in self.arg_scroll_frame.winfo_children():
+                if widget.optional:
+                    widget.grid_forget()
 
     def view_code(self):
         webbrowser.open_new_tab(self.get_current_tool_parameters()['tech_link'])
