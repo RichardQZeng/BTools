@@ -15,8 +15,7 @@ rioxarray
 scikit-image
 sphinx
 sphinx-tabs
-Xarray-spatial
+xarray-spatial
 whitebox
 geopandas
-geojson
 
