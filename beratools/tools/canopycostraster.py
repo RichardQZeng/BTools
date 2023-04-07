@@ -9,10 +9,13 @@ import json
 import argparse
 import os
 import time
+from scipy import ndimage
 
-############# Rolling Statistics for grid data... an alternative###########
-################### by  Dan Patterson ##############################
-################### mod
+# TODO: Rolling Statistics for grid data... an alternative
+# by  Dan Patterson
+
+USE_SCIPY_DISTANCE = True
+
 def _check(a, r_c, subok=False):
     """Performs the array checks necessary for stride and block.
     : in_array   - Array or list.
@@ -35,7 +38,7 @@ def _check(a, r_c, subok=False):
     return a, r, c, tuple(r_c)
 
 
-def _pad(in_array,kernel):
+def _pad(in_array, kernel):
     """Pad a sliding array to allow for stats"""
     pad_x = int(kernel.shape[0]/2)
     pad_y = int(kernel.shape[0]/2)
@@ -43,7 +46,8 @@ def _pad(in_array,kernel):
 
     return result
 
-def stride(a,r_c):
+
+def stride(a, r_c):
     """Provide a 2D sliding/moving view of an array.
     :  There is no edge correction for outputs.
     :
@@ -84,19 +88,22 @@ def np_cc_map(out_CanopyR, chm, in_array, min_Ht):
     # print(band1.dtype, band1.shape, band1.size, band1.data)
     # print(cc_raster.dtype, cc_raster.shape, cc_raster.size, cc_raster.data)
 
+
 def fs_Raster(in_ndarray,kernel):
 
     print('Generating Canopy Closure Focal Statistic .......')
-    padded_array=_pad(in_ndarray,kernel)
+    padded_array=_pad(in_ndarray, kernel)
     a_s = stride(padded_array, kernel.shape)
     # TODO: np.where on large ndarray fail (allocate memory error)
-    a_s_masked=np.where(kernel==1,a_s,np.NaN)
+    a_s_masked=np.where(kernel==1, a_s, np.NaN)
     print("Calculating Canopy Closure's Focal Statistic-Mean .......")
-    mean_result = np.nanmean(a_s_masked, axis=(2,3))
+    mean_result = np.nanmean(a_s_masked, axis=(2, 3))
     print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
-    Stdev_result = np.nanstd(a_s_masked, axis=(2,3))
+    Stdev_result = np.nanstd(a_s_masked, axis=(2, 3))
     del a_s
-    return  mean_result,Stdev_result
+    return  mean_result, Stdev_result
+
+
 def fs_Rastermean(chm, in_ndarray, kernel):
     # This fuction using xrspatial whcih can handle large data but slow
     print("Calculating Canopy Closure's Focal Statistic-Mean .......")
@@ -111,7 +118,7 @@ def fs_Rastermean(chm, in_ndarray, kernel):
 
 
 def fs_Rasterstd(chm, in_ndarray, kernel):
-    #This fuction using xrspatial whcih can handle large data but slow
+    # This fuction using xrspatial whcih can handle large data but slow
     print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
 
     result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std'])
@@ -127,17 +134,24 @@ def smoothCost(in_raster, search_dist, out_path):
     wbt = whitebox.WhiteboxTools()
     print('Generating Cost Raster .......')
 
-    eucDist = out_path + '\\eucDist.tif'
+    eucDist_array = None
+    if USE_SCIPY_DISTANCE:
+        # scipy way to do Euclidean distance transform
+        with rasterio.open(in_raster) as in_image:
+            in_mat = in_image.read(1)
+            eucDist_array = ndimage.distance_transform_edt(np.logical_not(in_mat))
+    else:
+        eucDist = out_path + '\\eucDist.tif'
 
-    wbt.euclidean_distance(i=in_raster, output=eucDist)
-    # temp_smooth=out_path+'\\tmpsmooth.tif'
+        wbt.euclidean_distance(i=in_raster, output=eucDist)
+        # temp_smooth=out_path+'\\tmpsmooth.tif'
 
-    eucDist_array = rasterio.open(eucDist).read(1)
+        eucDist_array = rasterio.open(eucDist).read(1)
+        os.remove(eucDist)
+
     smooth1 = float(search_dist) - eucDist_array
     cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
     smoothCost_array = cond_smooth1 / float(search_dist)
-
-    os.remove(eucDist)
 
     return smoothCost_array
 
@@ -175,8 +189,6 @@ def main(callback,in_chm,canopy_ht_threshold,tree_radius,max_line_dist,canopy_av
     # out_CanopyR = args.get('out_CanopyR')
     # out_CostR = args.get('out_CostR')
 
-
-
     print('In CHM: ' + in_chm)
     chm = rasterio.open(in_chm)
     # chm_info = chm.transform
@@ -196,7 +208,7 @@ def main(callback,in_chm,canopy_ht_threshold,tree_radius,max_line_dist,canopy_av
     print(canopy_ndarray.shape[1]*cell_x)
     # Calculating focal statistic from canopy raster
     # TODO: the focal statistic function only can handle small raster, find alternative for handle large raster
-    if canopy_ndarray.shape[0]*cell_y<=100 and canopy_ndarray.shape[1]*cell_x<=100:
+    if canopy_ndarray.shape[0]*cell_y <= 100 and canopy_ndarray.shape[1]*cell_x <= 100:
         cc_mean, cc_std = fs_Raster(canopy_ndarray, kernel)
     else:
         cc_mean = fs_Rastermean(chm, canopy_ndarray, kernel)
@@ -211,8 +223,9 @@ def main(callback,in_chm,canopy_ht_threshold,tree_radius,max_line_dist,canopy_av
 
     print('Canopy Cost Raster Process finish in {} sec'.format(time.time() - start_time))
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
     args = parser.parse_args()
-    main(print,**args.input)
+    main(print, **args.input)
