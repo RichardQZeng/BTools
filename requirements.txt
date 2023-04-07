@@ -3,7 +3,7 @@ future
 pillow
 setuptools
 Pillow
-fiona > 1.9
+fiona > 1.9.2
 numpy
 rasterio
 shapely
