@@ -13,9 +13,16 @@ numba
 xarray
 rioxarray
 scikit-image
+scikit-learn
 sphinx
 sphinx-tabs
 xarray-spatial
 whitebox
 geopandas
-
+pip
+matplotlib
+astropy
+netcdf4
+h5py
+gitpython
+git-lfs

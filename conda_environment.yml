@@ -1,21 +1,37 @@
-# run: conda env create --file conda_environment.yml
+# run: conda env create -f conda_environment.yml
 # see also https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file
 name: bera
 channels:
   - conda-forge
 dependencies:
-  - pip
+  - click
+  - future
+  - pillow
+  - setuptools
+  - Pillow
+  - fiona > 1.9.2
   - numpy
+  - rasterio
+  - shapely
+  - pyqt
   - scipy
+  - numba
+  - xarray
+  - rioxarray
+  - scikit-image
   - scikit-learn
+  - sphinx=1.8.5
+  - sphinx-tabs
+  - xarray-spatial
+  - whitebox
+  - geopandas
+  - pip
   - matplotlib
   - astropy
-  - numba
   - netcdf4
   - h5py
   - gitpython
   - git-lfs
-  - sphinx=1.8.5
   - pip:
     - sphinx-rtd-theme
 variables:
