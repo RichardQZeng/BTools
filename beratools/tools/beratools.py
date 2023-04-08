@@ -70,6 +70,7 @@ class BeraTools(object):
         self.__compress_rasters = False
         self.__max_procs = -1
         self.recent_tool = None
+        self.ascii_art = None
 
         self.setting_file = os.path.join(self.exe_path, '..\gui\settings.json')
         if os.path.isfile(self.setting_file):
@@ -88,6 +89,11 @@ class BeraTools(object):
                 self.__max_procs = settings['max_procs']
             if 'recent_tool' in settings.keys():
                 self.recent_tool = settings['recent_tool']
+            if 'ascii_art' in settings.keys():
+                bera_art = ''
+                for line_of_art in settings['ascii_art']:
+                    bera_art += line_of_art
+                self.ascii_art = bera_art
         else:
             print("Settings.json not exist.")
 
@@ -277,7 +283,10 @@ class BeraTools(object):
             work_dir = os.getcwd()
             os.chdir(self.exe_path)
 
-            return 'BERA Tools provide a series of tools developed by AppliedGRG lab.'
+            about_text = 'BERA Tools provide a series of tools developed by AppliedGRG lab.\n\n'
+            about_text += self.ascii_art
+
+            return about_text
 
         except (OSError, ValueError, CalledProcessError) as err:
             return err
