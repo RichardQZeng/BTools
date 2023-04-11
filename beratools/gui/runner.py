@@ -1200,7 +1200,8 @@ class MainGui(tk.Frame):
         # self.tool_name = event.widget.get(self.search_tool_selected[0])
 
         self.update_tool_info()
-        print("Index {} selected".format(self.search_tool_selected[0]))
+        if self.search_tool_selected:
+            print("Index {} selected".format(self.search_tool_selected[0]))
 
     def update_tool_info(self):
         self.out_text.delete('1.0', tk.END)
