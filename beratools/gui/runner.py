@@ -1259,6 +1259,9 @@ class MainGui(tk.Frame):
 
             # hide optional widgets
             if widget:
+                if widget.optional and widget.label:
+                    widget.label.config(foreground='blue')
+
                 if widget.optional and not bt.show_advanced:
                     widget.grid_forget()
 
