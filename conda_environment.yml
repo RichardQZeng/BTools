@@ -6,7 +6,6 @@ channels:
 dependencies:
   - click
   - future
-  - pillow
   - setuptools
   - Pillow
   - fiona > 1.9.2
@@ -19,19 +18,12 @@ dependencies:
   - xarray
   - rioxarray
   - scikit-image
-  - scikit-learn
-  - sphinx=1.8.5
+  - sphinx
+  - sphinx-rtd-theme
   - sphinx-tabs
   - xarray-spatial
   - whitebox
   - geopandas
   - pip
   - matplotlib
-  - astropy
-  - netcdf4
-  - h5py
-  - gitpython
-  - git-lfs
-  - pip:
-    - sphinx-rtd-theme
 variables:
