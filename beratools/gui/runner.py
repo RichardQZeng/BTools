@@ -540,6 +540,7 @@ class OptionsInput(tk.Frame):
         self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         self.optional = j['optional']
+        self.data_type = j['data_type']
         default_value = j['default_value']
 
         ttk.Frame.__init__(self, master)
@@ -584,7 +585,16 @@ class OptionsInput(tk.Frame):
     def get_value(self):
         if self.value:
             # return "{}='{}'".format(self.flag, self.value)
-            return self.flag, self.value
+            value = self.value
+            # if 'Boolean' in self.data_type:
+            #     if value.lower() in ['true']:
+            #         value = True
+            #     else:
+            #         value = False
+            if 'Float' in self.parameter_type:
+                value = float(self.value)
+
+            return self.flag, value
         else:
             if not self.optional:
                 print("Error", "Unspecified non-optional parameter {}.".format(self.flag))
@@ -665,19 +675,19 @@ class DataInput(tk.Frame):
             if "Integer" in self.parameter_type:
                 if self.RepresentsInt(self.value.get()):
                     # return "{}={}".format(self.flag, self.value.get())
-                    return self.flag, self.value.get()
+                    return self.flag, int(self.value.get())
                 else:
                     messagebox.showinfo("Error", "Error converting parameter {} to type Integer.".format(self.flag))
             elif "Float" in self.parameter_type:
                 if self.RepresentsFloat(self.value.get()):
                     # return "{}={}".format(self.flag, self.value.get())
-                    return self.flag, self.value.get()
+                    return self.flag, float(self.value.get())
                 else:
                     messagebox.showinfo("Error", "Error converting parameter {} to type Float.".format(self.flag))
             elif "Double" in self.parameter_type:
                 if self.RepresentsFloat(self.value.get()):
                     # return "{}={}".format(self.flag, self.value.get())
-                    return self.flag, self.value.get()
+                    return self.flag, float(self.value.get())
                 else:
                     messagebox.showinfo("Error", "Error converting parameter {} to type Double.".format(self.flag))
             else:  # String or StringOrNumber types
@@ -1141,35 +1151,38 @@ class MainGui(tk.Frame):
                         new_param = {'name': param['parameter']}
                         if 'variable' in param.keys():
                             new_param['flag'] = param['variable']
+                            # restore saved parameters
                             new_param['saved_value'] = self.get_saved_tool_parameter(tool['scriptFile'], param['variable'])
                         else:
                             new_param['flag'] = 'FIXME'
 
                         if not param['output']:
-                            if param['typelab'] == 'text':
-                                if param['type'] == 'string':
-                                    new_param["parameter_type"] = 'StringOrNumber'
-                                elif 'list' in param['type']:
-                                    a = param['type'].lstrip('list:').split(',')
-                                    new_param["parameter_type"] = {"OptionList": a}
-                            elif param['typelab'] == 'number':
-                                if param['type'] == 'number':
-                                    new_param["parameter_type"] = 'Float'
-                                elif 'list' in param['type']:
-                                    a = param['type'].lstrip('list:').split(',')
-                                    new_param["parameter_type"] = {"OptionList": a}
-                            elif param['typelab'] == r'True/False':
-                                new_param["parameter_type"] = {"OptionList": ['True', 'False']}
+                            if type(param['typelab']) is list:
+                                new_param['parameter_type'] = {'OptionList': param['typelab']}
+                                if param['type'] == 'text':
+                                    new_param['data_type'] = 'String'
+                                elif param['type'] == 'number':
+                                    new_param['data_type'] = 'Float'
+                                elif param['type'] == 'bool':
+                                    new_param['data_type'] = 'Boolean'
+                            elif param['type'] == 'text':
+                                new_param['parameter_type'] = 'String'
+                            elif param['type'] == 'number':
+                                new_param['parameter_type'] = 'Float'
+                            elif param['type'] == 'bool':
+                                new_param['parameter_type'] = {'OptionList': ['True', 'False']}
+                                new_param['data_type'] = 'Boolean'
                             else:
                                 new_param['parameter_type'] = {'ExistingFile': ''}
                         else:
                             new_param["parameter_type"] = {'NewFile': ''}
+
                         new_param['description'] = param['description']
 
-                        if param['typelab'] == 'TIF':
+                        if param['type'] == 'raster':
                             for i in new_param["parameter_type"].keys():
                                 new_param['parameter_type'][i] = 'Raster'
-                        elif param['typelab'] == 'SHP':
+                        elif param['type'] == 'vector':
                             for i in new_param["parameter_type"].keys():
                                 new_param['parameter_type'][i] = 'Vector'
 
@@ -1248,14 +1261,18 @@ class MainGui(tk.Frame):
             else:
                 messagebox.showinfo("Error", "Unsupported parameter type: {}.".format(pt))
 
-            saved_value = None
+            param_value = None
             if 'saved_value' in p.keys():
-                saved_value = p['saved_value']
-            if saved_value:
+                param_value = p['saved_value']
+            if not param_value:
+                param_value = p['default_value']
+            if param_value is not None:
                 if type(widget) is OptionsInput:
-                    widget.value = saved_value
+                    widget.value = param_value
                 elif widget:
-                    widget.value.set(saved_value)
+                    widget.value.set(param_value)
+            else:
+                print('No default value found: {}'.format(p['name']))
 
             # hide optional widgets
             if widget:
@@ -1442,6 +1459,10 @@ class MainGui(tk.Frame):
         bt.save_recent_tool()
 
         # Run the tool and check the return value for an error
+        for key in args.keys():
+            if type(args[key]) is not str:
+                args[key] = str(args[key])
+
         if bt.run_tool(self.current_tool_api, args, self.custom_callback) == 1:
             print("Error running {}".format(self.tool_name))
 
