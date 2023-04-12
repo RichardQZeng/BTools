@@ -34,7 +34,7 @@ def compare_crs(in_line, in_cost_raster):
 
     if line_crs and ras_crs:
         if line_crs.IsSameGeogCS(ras_crs):
-            print('Same crs, continue.')
+            print('Check: Input file Spatial Reference are the same, continue.')
             return True
         else:
             line_crs_norm = pyproj.CRS(line_crs.ExportToWkt())
@@ -103,8 +103,6 @@ def centerline(callback, in_line, in_cost_raster, line_radius,
     for feature in fiona_features:
         out_line_file.write(feature)
     del out_line_file
-
-    callback('Centerline tool done.')
 
 
 class MinCostPathHelper:
@@ -228,7 +226,9 @@ def execute_multiprocessing(line_args, processes, verbose):
 
                 features.append(result)
                 step += 1
-                print(step)
+                if verbose:
+                    print("Loop {} done.".format(step))
+
                 print('%{}'.format(step/total_steps*100))
         return features
     except OperationCancelledException:

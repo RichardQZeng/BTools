@@ -236,13 +236,6 @@ class BeraTools(object):
             work_dir = os.getcwd()
             os.chdir(self.exe_path)
 
-            if self.verbose:
-                cl = tool_name + " ".join(args)
-                callback(cl.strip() + "\n")
-
-            # current_tool = globals()[tool_name]
-            # current_tool(callback, **args)
-
         except (OSError, ValueError, CalledProcessError) as err:
             callback(str(err))
             return 1
@@ -281,6 +274,10 @@ class BeraTools(object):
 
                 else:
                     break
+
+            callback('---------------------------')
+            callback('{} tool finished'.format(tool_name))
+            callback('---------------------------')
 
             return 0
         except (OSError, ValueError, CalledProcessError) as err:
