@@ -6,6 +6,7 @@ fiona > 1.9.2
 numpy
 rasterio
 shapely
+gdal
 pyqt
 scipy
 numba

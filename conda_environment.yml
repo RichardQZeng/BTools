@@ -12,6 +12,7 @@ dependencies:
   - numpy
   - rasterio
   - shapely
+  - gdal
   - pyqt
   - scipy
   - numba
