@@ -20,8 +20,17 @@ USE_MULTI_PROCESSING = True
 class OperationCancelledException(Exception):
     pass
 
+def check_crs(in_line, in_cost_raster):
+    with fiona.open(in_line) as in_lin_file:
+        line_crs = in_lin_file.crs
 
-def centerline(callback, in_line, in_cost_raster, line_radius, process_segments, out_center_line):
+    with rasterio.open(in_cost_raster) as cost_raster_file:
+        ras_crs = cost_raster_file.crs
+
+
+def centerline(callback, in_line, in_cost_raster, line_radius, process_segments, out_center_line, processes):
+    check_crs(in_line, in_cost_raster)
+
     # Read input line features
     input_lines = []
     with fiona.open(in_line) as open_line_file:
@@ -41,7 +50,7 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
         all_lines.append((line, line_radius, in_cost_raster))
 
     if USE_MULTI_PROCESSING:
-        features = execute_multiprocessing(all_lines)
+        features = execute_multiprocessing(all_lines, processes)
     else:
         for line in all_lines:
             feat_geometry, feat_attributes = process_single_line(line)
@@ -209,11 +218,11 @@ def process_line(line, input_raster):
 
 
 # protect the entry point
-def execute_multiprocessing(line_args):
+def execute_multiprocessing(line_args, processes):
     try:
         total_steps = len(line_args)
         features = []
-        with Pool() as pool:
+        with Pool(processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):
@@ -234,6 +243,7 @@ def execute_multiprocessing(line_args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
+    parser.add_argument('-p', '--processes')
     args = parser.parse_args()
 
-    centerline(print, **args.input)
+    centerline(print, **args.input, processes=int(args.processes))
