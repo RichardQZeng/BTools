@@ -1441,6 +1441,7 @@ class MainGui(tk.Frame):
 
     def start_run_tool_thread(self):
         t = threading.Thread(target=self.run_tool, args=())
+        t.daemon = True
         t.start()
         # t.join()
 
