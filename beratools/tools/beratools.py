@@ -241,9 +241,9 @@ class BeraTools(object):
         try:
             proc = None
             args_string = str(args).replace("'", '"')
-            args_tool = ['python' , os.path.join(r'..\tools', tool_name+'.py'), '--input', args_string]
+            args_tool = ['python', os.path.join(r'..\tools', tool_name+'.py'), '--input', args_string]
 
-            if running_windows and self.start_minimized == True:
+            if running_windows and self.start_minimized:
                 si = STARTUPINFO()
                 si.dwFlags = STARTF_USESHOWWINDOW
                 si.wShowWindow = 7  # Set window minimized and not activated
@@ -273,7 +273,6 @@ class BeraTools(object):
         except (OSError, ValueError, CalledProcessError) as err:
             callback(str(err))
             return 1
-
 
     def about(self):
         """ 
@@ -479,37 +478,3 @@ class BeraTools(object):
             return err
         finally:
             os.chdir(work_dir)
-
-    ########################################################################
-    # The following methods are convenience methods for each available tool.
-    # This needs updating whenever new tools are added to the library.
-    ########################################################################
-    def convert_raster_format(self, i, output, callback=None):
-        """Converts raster data from one format to another.
-
-        Keyword arguments:
-
-        i -- Input raster file.
-        output -- Output raster file.
-        callback -- Custom function for handling tool text outputs.
-        """
-        args = []
-        args.append("--input='{}'".format(i))
-        args.append("--output='{}'".format(output))
-        return self.run_tool('convert_raster_format', args, callback)  # returns 1 if error
-
-    def export_table_to_csv(self, i, output, headers=True, callback=None):
-        """Exports an attribute table to a CSV text file.
-
-        Keyword arguments:
-
-        i -- Input vector file.
-        output -- Output csv file.
-        headers -- Export field names as file header?.
-        callback -- Custom function for handling tool text outputs.
-        """
-        args = []
-        args.append("--input='{}'".format(i))
-        args.append("--output='{}'".format(output))
-        if headers: args.append("--headers")
-        return self.run_tool('export_table_to_csv', args, callback)  # returns 1 if error
