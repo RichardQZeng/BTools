@@ -242,7 +242,7 @@ class BeraTools(object):
             proc = None
             args_string = str(args).replace("'", '"')
             args_tool = ['python', os.path.join(r'..\tools', tool_name+'.py'),
-                         '-i', args_string, '-p', str(self.get_max_procs())]
+                         '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
 
             if running_windows and self.start_minimized:
                 si = STARTUPINFO()

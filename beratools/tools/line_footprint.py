@@ -20,7 +20,7 @@ class OperationCancelledException(Exception):
 
 
 def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field, CorridorTh_value,
-                   Max_ln_width, Exp_Shk_cell, proc_seg, out_footprint, processes):
+                   Max_ln_width, Exp_Shk_cell, proc_seg, out_footprint, processes, verbose):
 
     CorridorTh_value = float(CorridorTh_value)
     Max_ln_width = float(Max_ln_width)
@@ -393,7 +393,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
     parser.add_argument('-p', '--processes')
+    parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
 
-    line_footprint(print, **args.input, processes=int(args.processes))
+    if args.verbose == 'True':
+        verbose = True
+    else:
+        verbose = False
+
+    line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
 
