@@ -17,7 +17,7 @@
                         {
                             "parameter": "Input Lines",
                             "description": "Input forest line center shapefile which will be segmented and attributed.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -26,7 +26,7 @@
                         {
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input CHM raster file used as basis for mapping forest lines and their footprint. This layer should be projected in any Universal Transverse Mercator (UTM) coordinate system. The data should be preferably derived from high resolution LiDAR or photogrammetry (>25 pts/m²).",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -35,7 +35,7 @@
                         {
                             "parameter": "Canopy Raster",
                             "description": "Input raster image used to exclude canopy from line footprint.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -44,7 +44,7 @@
                         {
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the cost corridor.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -53,7 +53,7 @@
                         {
                             "parameter": "Input LiDAR Coverage with Year",
                             "description": "Polygons of different LiDAR sources coverage with acquisition year",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -64,14 +64,14 @@
                             "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "35",
+                            "default": 35,
                             "output": false,
                             "optional": true
                         },
                         {
                             "parameter": "Output Tagged Line",
                             "description": "Output features that will be tagged.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -91,7 +91,7 @@
                         {
                             "parameter": "Forest Lines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -100,7 +100,7 @@
                         {
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the least cost path.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -111,14 +111,14 @@
                             "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "35",
+                            "default": 35,
                             "output": false,
                             "optional": true
                         },
                         {
                             "parameter": "Output Center-Line",
                             "description": "Output optimized center-line shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -144,7 +144,7 @@
                         {   "variable": "in_chm",
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input CHM raster file used as basis for mapping forest lines and their footprint. This layer should be projected in any Universal Transverse Mercator (UTM) coordinate system. The data should be preferably derived from high resolution LiDAR or photogrammetry (>25 pts/m²).",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -155,7 +155,7 @@
                             "description": "Height threshold in meters above which CHM pixels are considered canopy.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0.5",
+                            "default": 0.5,
                             "output": false,
                             "optional": true
                         },
@@ -164,7 +164,7 @@
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -173,7 +173,7 @@
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -182,7 +182,7 @@
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0.0",
+                            "default": 0.0,
                             "output": false,
                             "optional": true
                         },
@@ -191,14 +191,14 @@
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1",
+                            "default": 1,
                             "output": false,
                             "optional": true
                         },
                         {   "variable": "out_CanopyR",
                             "parameter": "Output Canopy Raster",
                             "description": "Output raster classified as canopy (1) and non-canopy (0).",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": true,
@@ -207,7 +207,7 @@
                         {   "variable": "out_CostR",
                             "parameter": "Output Cost Raster",
                             "description": "Output cost raster used in subsequent FLM tools for least-cost analysis.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": true,
@@ -228,7 +228,7 @@
 							"variable": "in_line",
                             "parameter": "Forest Lines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -238,7 +238,7 @@
 							"variable": "in_cost_raster",
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the least cost path.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -250,7 +250,7 @@
                             "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "15",
+                            "default": 15,
                             "output": false,
                             "optional": true
                         },
@@ -268,7 +268,7 @@
 							"variable": "out_center_line",
                             "parameter": "Output Center-Line",
                             "description": "Output center-line shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -288,7 +288,7 @@
                         {   "variable": "in_cl",
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -297,7 +297,7 @@
                         {   "variable": "in_CanopyR",
                             "parameter": "Canopy Raster",
                             "description": "Input raster image used to exclude canopy from line footprint.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -306,7 +306,7 @@
                         {   "variable": "in_CostR",
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the least cost corridor.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -315,7 +315,7 @@
                         {   "variable": "CorridorTh_field",
                             "parameter": "Corridor Threshold Field",
                             "description": "Name of the field (within the input lines) that indicates the least cost corridor thresholds (LCCT).",
-                            "type": "string",
+                            "type": "text",
                             "typelab": "text",
                             "default": "CorridorTh",
                             "output": false,
@@ -326,7 +326,7 @@
                             "description": "The least cost corridor thresholds (LCCT).",
                             "type": "number",
                             "typelab": "number",
-                            "default": "3",
+                            "default": 3,
                             "output": false,
                             "optional": true
                         },
@@ -335,7 +335,7 @@
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "32",
+                            "default": 32,
                             "output": false,
                             "optional": true
                         },
@@ -344,7 +344,7 @@
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0",
+                            "default": 0,
                             "output": false,
                             "optional": true
                         },
@@ -352,15 +352,15 @@
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
                             "type": "bool",
-                            "typelab": "True/False",
-                            "default": "False",
+                            "typelab": [true, false],
+                            "default": false,
                             "output": false,
                             "optional": false
                         },
                         {   "variable": "out_footprint",
                             "parameter": "Output Shapefile",
                             "description": "Output footprint polygons.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -380,7 +380,7 @@
                         {
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -389,7 +389,7 @@
                         {
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input raster image used calculate the surrounding forest elevation percentile, create canopy and cost raster.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -400,7 +400,7 @@
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "32",
+                            "default": 32,
                             "output": false,
                             "optional": true
                         },
@@ -409,7 +409,7 @@
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0",
+                            "default": 0,
                             "output": false,
                             "optional": true
                         },
@@ -425,7 +425,7 @@
                         {
                             "parameter": "Output Shapefile",
                             "description": "Output footprint polygons.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -436,16 +436,16 @@
                             "description": "Offset distance from input lines.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "10",
+                            "default": 10,
                             "output": false,
                             "optional": true
                         },
                         {
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
-                            "type": "list:50,55,60,65,70,75,80,85,90,95",
-                            "typelab": "number",
-                            "default": "90",
+                            "type": "number",
+                            "typelab": [50,55,60,65,70,75,80,85,90,95],
+                            "default": 90,
                             "output": false,
                             "optional": true
                         },
@@ -454,7 +454,7 @@
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "50",
+                            "default": 50,
                             "output": false,
                             "optional": true
                         },
@@ -463,7 +463,7 @@
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -472,7 +472,7 @@
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -481,7 +481,7 @@
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0.0",
+                            "default": 0.0,
                             "output": false,
                             "optional": true
                         },
@@ -490,7 +490,7 @@
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1",
+                            "default": 1,
                             "output": false,
                             "optional": true
                         }
@@ -516,7 +516,7 @@
                         {   "variable": "in_cl",
                             "parameter": "Input Lines",
                             "description": "Input forest line center shapefile which will be segmented and attributed.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -525,7 +525,7 @@
                         {   "variable": "in_fp",
                             "parameter": "Input Footprint Polygons",
                             "description": "Input forest line footprint shapefile used to derive spatial attributes.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -534,7 +534,7 @@
                         {   "variable": "in_CHMR",
                             "parameter": "Input Raster CHM",
                             "description": "Input canopy height model raster used to derive microtopography attributes.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -543,8 +543,8 @@
                         {   "variable": "sampling_type",
                             "parameter": "Sampling Type",
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
-                            "type": "list:IN-FEATURES,WHOLE-LINE,LINE-CROSSINGS,ARBITRARY",
-                            "typelab": "text",
+                            "type": "text",
+                            "typelab": ["IN-FEATURES","WHOLE-LINE", "LINE-CROSSINGS", "ARBITRARY"],
                             "default": "LINE-CROSSINGS",
                             "output": false,
                             "optional": false
@@ -554,7 +554,7 @@
                             "description": "Arbitrary segment length (m). If the Sampling Type field is not set as ARBITRARY this field is ignored.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "50",
+                            "default": 50,
                             "output": false,
                             "optional": true
                         },
@@ -563,7 +563,7 @@
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "3",
+                            "default": 3,
                             "output": false,
                             "optional": true
                         },
@@ -572,14 +572,14 @@
                             "description": "Maximum line width (m) used to search for surrounding footprint.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "25",
+                            "default": 25,
                             "output": false,
                             "optional": true
                         },
                         {   "variable": "Out_AttSeg",
                             "parameter": "Output Attributed Segments",
                             "description": "Output features that will be created.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -599,7 +599,7 @@
                         {
                             "parameter": "Input Lines",
                             "description": "Input forest line center shapefile which will be segmented and attributed.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -608,7 +608,7 @@
                         {
                             "parameter": "Input Raster Variable",
                             "description": "Input raster image that will be sampled to attribute the input lines.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -617,8 +617,8 @@
                         {
                             "parameter": "Sampling Type",
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
-                            "type": "list:IN-FEATURES,WHOLE-LINE,LINE-CROSSINGS,ARBITRARY",
-                            "typelab": "text",
+                            "type": "text",
+                            "typelab": ["IN-FEATURES", "WHOLE-LINE", "LINE-CROSSINGS", "ARBITRARY"],
                             "default": "LINE-CROSSINGS",
                             "output": false,
                             "optional": false
@@ -628,7 +628,7 @@
                             "description": "Sampling interval along input lines in meters.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "5",
+                            "default": 5,
                             "output": false,
                             "optional": true
                         },
@@ -637,7 +637,7 @@
                             "description": "Arbitrary segment length (m). If the Sampling Type field is not set as ARBITRARY this field is ignored.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "50",
+                            "default": 50,
                             "output": false,
                             "optional": true
                         },
@@ -646,15 +646,15 @@
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "3",
+                            "default": 3,
                             "output": false,
                             "optional": true
                         },
                         {
                             "parameter": "Sampling Method",
                             "description": "Method used to handle samples when attributing lines: Minimum, Maximum, Mean, Standard Deviation, Median, Mode, or Range.",
-                            "type": "list:Minimum,Maximum,Mean,Standard Deviation,Median,Mode,Range",
-                            "typelab": "text",
+                            "type": "text",
+                            "typelab": ["Minimum", "Maximum", "Mean", "Standard Deviation", "Median", "Mode", "Range"],
                             "default": "Mean",
                             "output": false,
                             "optional": false
@@ -662,7 +662,7 @@
                         {
                             "parameter": "Output Attributed Segments",
                             "description": "Output features that will be created.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -688,7 +688,7 @@
                         {
                             "parameter": "Shapefile",
                             "description": "Input features to be clipped.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -697,7 +697,7 @@
                         {
                             "parameter": "Clip Raster",
                             "description": "Input raster used to clip the input features.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -708,14 +708,14 @@
                             "description": "Number of cells to shrink in order to avoid raster edge contact.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1",
+                            "default": 1,
                             "output": false,
                             "optional": false
                         },
                         {
                             "parameter": "Output Shapefile",
                             "description": "Output features that will be created.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -735,7 +735,7 @@
                         {
                             "parameter": "Input Lines",
                             "description": "Input polyline shapefile to be split.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -744,7 +744,7 @@
                         {
                             "parameter": "Split Polygons",
                             "description": "Input polygon shapefile that is used to split the input lines.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -753,7 +753,7 @@
                         {
                             "parameter": "Output Lines",
                             "description": "Output features that will be created.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -773,7 +773,7 @@
                         {
                             "parameter": "Input Lines",
                             "description": "Input polyline shapefile for which each feature will be assigned an unique corridor threshold.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -782,7 +782,7 @@
                         {
                             "parameter": "Corridor Threshold Field",
                             "description": "Name of the field (within the input lines) that indicates the corridor thresholds.",
-                            "type": "string",
+                            "type": "text",
                             "typelab": "text",
                             "default": "CorridorTh",
                             "output": false,
@@ -791,7 +791,7 @@
                         {
                             "parameter": "Canopy Raster",
                             "description": "Input canopy raster used to estimate canopy density.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -802,7 +802,7 @@
                             "description": "Search radius around line features where zonal statistics are calculated.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "20",
+                            "default": 20,
                             "output": false,
                             "optional": true
                         },
@@ -811,7 +811,7 @@
                             "description": "Minimum value for corridor threshold.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "4",
+                            "default": 4,
                             "output": false,
                             "optional": true
                         },
@@ -820,14 +820,14 @@
                             "description": "Maximum value for corridor threshold.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "20",
+                            "default": 20,
                             "output": false,
                             "optional": true
                         },
                         {
                             "parameter": "Output Lines",
                             "description": "Output features that will be created.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -847,7 +847,7 @@
                         {
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -856,7 +856,7 @@
                         {
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input raster image used calculate the surrounding forest elevation percentile, create canopy and cost raster.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -876,16 +876,16 @@
                             "description": "Offset distance from input lines.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "10",
+                            "default": 10,
                             "output": false,
                             "optional": true
                         },
                         {
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
-                            "type": "list:50,55,60,65,70,75,80,85,90,95",
-                            "typelab": "number",
-                            "default": "90",
+                            "type": "number",
+                            "typelab": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95],
+                            "default": 90,
                             "output": false,
                             "optional": true
                         },
@@ -894,7 +894,7 @@
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "50",
+                            "default": 50,
                             "output": false,
                             "optional": true
                         },
@@ -903,7 +903,7 @@
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -912,7 +912,7 @@
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -921,7 +921,7 @@
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0.0",
+                            "default": 0.0,
                             "output": false,
                             "optional": true
                         },
@@ -930,7 +930,7 @@
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1",
+                            "default": 1,
                             "output": false,
                             "optional": true
                         }
@@ -949,7 +949,7 @@
                         {
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -958,7 +958,7 @@
                         {
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input raster image used calculate the surrounding forest elevation percentile, create canopy and cost raster.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -969,7 +969,7 @@
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "32",
+                            "default": 32,
                             "output": false,
                             "optional": true
                         },
@@ -978,7 +978,7 @@
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0",
+                            "default": 0,
                             "output": false,
                             "optional": true
                         },
@@ -994,7 +994,7 @@
                         {
                             "parameter": "Output Shapefile",
                             "description": "Output footprint polygons.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
@@ -1005,7 +1005,7 @@
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -1014,7 +1014,7 @@
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1.5",
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
@@ -1023,7 +1023,7 @@
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0.0",
+                            "default": 0.0,
                             "output": false,
                             "optional": true
                         },
@@ -1032,7 +1032,7 @@
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "1",
+                            "default": 1,
                             "output": false,
                             "optional": true
                         }
@@ -1057,7 +1057,7 @@
                         {
                             "parameter": "Centerlines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -1066,7 +1066,7 @@
                         {
                             "parameter": "Canopy Raster",
                             "description": "Input raster image used to exclude canopy from line footprint.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -1075,7 +1075,7 @@
                         {
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the cost corridor.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -1086,7 +1086,7 @@
                             "description": "Maximum processing width for each line. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "32",
+                            "default": 32,
                             "output": false,
                             "optional": true
                         },
@@ -1102,7 +1102,7 @@
                         {
                             "parameter": "Output Raster File",
                             "description": "Output corridor raster name.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": true,
@@ -1122,7 +1122,7 @@
                         {
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": false,
@@ -1131,7 +1131,7 @@
                         {
                             "parameter": "Canopy Raster",
                             "description": "Input raster image used to exclude canopy from line footprint.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -1140,7 +1140,7 @@
                         {
                             "parameter": "Corridor Raster",
                             "description": "Input corridor raster image where a threshold is applied to generate footprints.",
-                            "type": ".tif",
+                            "type": "raster",
                             "typelab": "TIF",
                             "default": "",
                             "output": false,
@@ -1149,7 +1149,7 @@
                         {
                             "parameter": "Corridor Threshold Field",
                             "description": "Name of the field (within the input lines) that indicates the least cost corridor thresholds (LCCT).",
-                            "type": "string",
+                            "type": "text",
                             "typelab": "text",
                             "default": "CorridorTh",
                             "output": false,
@@ -1160,7 +1160,7 @@
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "32",
+                            "default": 32,
                             "output": false,
                             "optional": true
                         },
@@ -1169,14 +1169,14 @@
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts. If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
                             "typelab": "number",
-                            "default": "0",
+                            "default": 0,
                             "output": false,
                             "optional": true
                         },
                         {
                             "parameter": "Output Shapefile",
                             "description": "Output footprint polygons.",
-                            "type": ".shp",
+                            "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
