@@ -41,10 +41,10 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
         all_lines.append((line, line_radius, in_cost_raster))
 
     if USE_MULTI_PROCESSING:
-        features = execute(all_lines)
+        features = execute_multiprocessing(all_lines)
     else:
         for line in all_lines:
-            feat_geometry, feat_attributes = process_algorithm(line)
+            feat_geometry, feat_attributes = process_single_line(line)
             if feat_geometry and feat_attributes:
                 features.append((feat_geometry, feat_attributes))
 
@@ -135,7 +135,7 @@ class MinCostPathHelper:
         return matrix, contains_negative
 
 
-def process_algorithm(line_args, find_nearest=True, output_linear_reference=False):
+def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
     line = line_args[0]
     line_radius = line_args[1]
     in_raster = line_args[2]
@@ -186,7 +186,7 @@ def process_algorithm(line_args, find_nearest=True, output_linear_reference=Fals
     return path_points, feat_attr
 
 
-# task executed in a worker process
+# TODO: not in use
 def process_line(line, input_raster):
     line_geom = shape(line)
     buffer = line_geom.buffer(line_radius)
@@ -209,14 +209,14 @@ def process_line(line, input_raster):
 
 
 # protect the entry point
-def execute(line_args):
+def execute_multiprocessing(line_args):
     try:
         total_steps = len(line_args)
         features = []
         with Pool() as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_algorithm, line_args):
+            for result in pool.imap_unordered(process_single_line, line_args):
                 print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
