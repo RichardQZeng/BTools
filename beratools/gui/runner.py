@@ -1453,7 +1453,8 @@ class MainGui(tk.Frame):
             raise Exception('Please check the parameters.')
 
         self.print_line_to_output("")
-        self.print_line_to_output("Tool arguments:{}".format(args))
+        self.print_line_to_output("Tool arguments:")
+        self.print_line_to_output(json.dumps(args, indent=4))
         self.print_line_to_output("")
         self.save_tool_parameter()
         bt.recent_tool = self.tool_name
