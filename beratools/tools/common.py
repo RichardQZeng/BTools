@@ -8,5 +8,23 @@
 # License: MIT
 
 # constants
+
+import os
+import json
+
 USE_MULTI_PROCESSING = True
 USE_SCIPY_DISTANCE = True
+
+
+def get_settings(setting_file):
+    settings = {}
+    if os.path.isfile(setting_file):
+        # read the settings.json file if it exists
+        with open(setting_file, 'r') as settings_file:
+            gui_settings = json.load(settings_file)
+    else:
+        print("Settings.json not exist, creat one.")
+        return None
+
+    return settings
+
