@@ -916,8 +916,14 @@ class MainGui(tk.Frame):
         buttons_frame = ttk.Frame(right_frame, padding='0.1i')
         self.mpc_label = ttk.Label(buttons_frame, text="Use CPU Cores:")
         maxCores = multiprocessing.cpu_count()
+        if bt.get_max_procs() <= 0:
+            bt.set_max_procs(maxCores)
         self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=maxCores, length=180,
                                   orient='horizontal', command=self.update_procs)
+        # multiprocessing core slide
+        CreateToolTip(self.mpc_label, 'The number of CPU cores to be used in parallel processes')
+        self.mpc_scale.set(bt.get_max_procs())
+
         self.reset_button = ttk.Button(buttons_frame, text="Reset", width=8, command=self.reset_tool)
         # self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=self.run_tool)
         self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=lambda: self.start_run_tool_thread())
@@ -927,10 +933,6 @@ class MainGui(tk.Frame):
         CreateToolTip(self.cancel_button, 'Cancel tool operation')
         CreateToolTip(self.run_button, 'Run the tool')
         CreateToolTip(self.help_button, 'Go to the tool help web page')
-
-        # multiprocessing core slide
-        CreateToolTip(self.mpc_label, 'The number of CPU cores to be used in parallel processes')
-        self.mpc_scale.set(bt.get_max_procs())
 
         # Define layout of the frame
         self.reset_button.grid(row=0, column=0, padx=4)
