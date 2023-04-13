@@ -139,6 +139,9 @@ class BeraTools(object):
             print("Settings.json not exist, creat one.")
 
         if self.work_dir:
+            if 'gui_parameters' not in settings.keys():
+                settings['gui_parameters'] = {}
+
             settings['gui_parameters']['working_directory'] = self.work_dir
         with open(self.setting_file, 'w') as write_settings_file:
             json.dump(settings, write_settings_file, indent=4)
