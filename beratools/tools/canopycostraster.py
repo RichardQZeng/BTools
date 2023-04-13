@@ -177,6 +177,7 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
     return
 
 
+# TODO: deal with NODATA
 def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_line_dist,
                        canopy_avoid, exponent, out_CanopyR, out_CostR, processes, verbose):
     start_time = time.time()
