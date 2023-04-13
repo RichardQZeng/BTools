@@ -154,7 +154,7 @@
                             "parameter": "Canopy Height Threshold",
                             "description": "Height threshold in meters above which CHM pixels are considered canopy.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 0.5,
                             "output": false,
                             "optional": true
@@ -163,7 +163,7 @@
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -172,7 +172,7 @@
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -181,7 +181,7 @@
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 0.0,
                             "output": false,
                             "optional": true
@@ -190,7 +190,7 @@
                             "parameter": "Cost Raster Exponent",
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 1,
                             "output": false,
                             "optional": true
@@ -249,8 +249,8 @@
                             "parameter": "Line Processing Radius",
                             "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 15,
+                            "typelab": "float",
+                            "default": 15.0,
                             "output": false,
                             "optional": true
                         },
@@ -325,8 +325,8 @@
                             "parameter": "Corridor Threshold",
                             "description": "The least cost corridor thresholds (LCCT).",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 3,
+                            "typelab": "float",
+                            "default": 3.0,
                             "output": false,
                             "optional": true
                         },
@@ -334,8 +334,8 @@
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 32,
+                            "typelab": "float",
+                            "default": 32.0,
                             "output": false,
                             "optional": true
                         },
@@ -343,7 +343,7 @@
                             "parameter": "Expand And Shrink Cell Range",
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 0,
                             "output": false,
                             "optional": true
@@ -399,8 +399,8 @@
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 32,
+                            "typelab": "float",
+                            "default": 32.0,
                             "output": false,
                             "optional": true
                         },
@@ -408,7 +408,7 @@
                             "parameter": "Expand And Shrink Cell Range",
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 0,
                             "output": false,
                             "optional": true
@@ -435,8 +435,8 @@
                             "parameter": "Offset Line Distance",
                             "description": "Offset distance from input lines.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 10,
+                            "typelab": "float",
+                            "default": 10.0,
                             "output": false,
                             "optional": true
                         },
@@ -453,7 +453,7 @@
                             "parameter": "Canopy Threshold Percentage",
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 50,
                             "output": false,
                             "optional": true
@@ -462,7 +462,7 @@
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -471,7 +471,7 @@
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -480,7 +480,7 @@
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 0.0,
                             "output": false,
                             "optional": true
@@ -489,7 +489,7 @@
                             "parameter": "Cost Raster Exponent",
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 1,
                             "output": false,
                             "optional": true
@@ -553,8 +553,8 @@
                             "parameter": "Segment Length",
                             "description": "Arbitrary segment length (m). If the Sampling Type field is not set as ARBITRARY this field is ignored.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 50,
+                            "typelab": "float",
+                            "default": 50.0,
                             "output": false,
                             "optional": true
                         },
@@ -562,8 +562,8 @@
                             "parameter": "Line Split Tolerance",
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 3,
+                            "typelab": "float",
+                            "default": 3.0,
                             "output": false,
                             "optional": true
                         },
@@ -571,8 +571,8 @@
                             "parameter": "Maximum Line Width",
                             "description": "Maximum line width (m) used to search for surrounding footprint.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 25,
+                            "typelab": "float",
+                            "default": 25.0,
                             "output": false,
                             "optional": true
                         },
@@ -627,8 +627,8 @@
                             "parameter": "Sampling Interval",
                             "description": "Sampling interval along input lines in meters.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 5,
+                            "typelab": "float",
+                            "default": 5.0,
                             "output": false,
                             "optional": true
                         },
@@ -636,8 +636,8 @@
                             "parameter": "Segment Length",
                             "description": "Arbitrary segment length (m). If the Sampling Type field is not set as ARBITRARY this field is ignored.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 50,
+                            "typelab": "float",
+                            "default": 50.0,
                             "output": false,
                             "optional": true
                         },
@@ -645,8 +645,8 @@
                             "parameter": "Line Split Tolerance",
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 3,
+                            "typelab": "float",
+                            "default": 3.0,
                             "output": false,
                             "optional": true
                         },
@@ -707,7 +707,7 @@
                             "parameter": "Shrink Size",
                             "description": "Number of cells to shrink in order to avoid raster edge contact.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 1,
                             "output": false,
                             "optional": false
@@ -801,8 +801,8 @@
                             "parameter": "Canopy Search Radius",
                             "description": "Search radius around line features where zonal statistics are calculated.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 20,
+                            "typelab": "float",
+                            "default": 20.0,
                             "output": false,
                             "optional": true
                         },
@@ -810,8 +810,8 @@
                             "parameter": "Minimum Value",
                             "description": "Minimum value for corridor threshold.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 4,
+                            "typelab": "float",
+                            "default": 4.0,
                             "output": false,
                             "optional": true
                         },
@@ -819,8 +819,8 @@
                             "parameter": "Maximum Value",
                             "description": "Maximum value for corridor threshold.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 20,
+                            "typelab": "float",
+                            "default": 20.0,
                             "output": false,
                             "optional": true
                         },
@@ -875,8 +875,8 @@
                             "parameter": "Offset Line Distance",
                             "description": "Offset distance from input lines.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 10,
+                            "typelab": "float",
+                            "default": 10.0,
                             "output": false,
                             "optional": true
                         },
@@ -893,8 +893,8 @@
                             "parameter": "Canopy Threshold Percentage",
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 50,
+                            "typelab": "float",
+                            "default": 50.0,
                             "output": false,
                             "optional": true
                         },
@@ -902,7 +902,7 @@
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -911,7 +911,7 @@
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -920,7 +920,7 @@
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 0.0,
                             "output": false,
                             "optional": true
@@ -929,7 +929,7 @@
                             "parameter": "Cost Raster Exponent",
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 1,
                             "output": false,
                             "optional": true
@@ -968,8 +968,8 @@
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 32,
+                            "typelab": "float",
+                            "default": 32.0,
                             "output": false,
                             "optional": true
                         },
@@ -977,7 +977,7 @@
                             "parameter": "Expand And Shrink Cell Range",
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 0,
                             "output": false,
                             "optional": true
@@ -1004,7 +1004,7 @@
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -1013,7 +1013,7 @@
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 1.5,
                             "output": false,
                             "optional": true
@@ -1022,7 +1022,7 @@
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "float",
                             "default": 0.0,
                             "output": false,
                             "optional": true
@@ -1031,7 +1031,7 @@
                             "parameter": "Cost Raster Exponent",
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 1,
                             "output": false,
                             "optional": true
@@ -1085,8 +1085,8 @@
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for each line. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 32,
+                            "typelab": "float",
+                            "default": 32.0,
                             "output": false,
                             "optional": true
                         },
@@ -1159,8 +1159,8 @@
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
-                            "typelab": "number",
-                            "default": 32,
+                            "typelab": "float",
+                            "default": 32.0,
                             "output": false,
                             "optional": true
                         },
@@ -1168,7 +1168,7 @@
                             "parameter": "Expand And Shrink Cell Range",
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts. If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 0,
                             "output": false,
                             "optional": true

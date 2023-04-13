@@ -1,10 +1,10 @@
 /.idea
+/.vscode
+/.data
+/.spyproject
 /beratools/__pycache__
 /beratools/tools/__pycache__
 /beratools/gui/__pycache__
-/.data
-/.spyproject
-/beratools/gui/settings.json
-/beratools/gui/symbology-style.db
-/beratools/gui/settings.json
-/.vscode
+
+
+

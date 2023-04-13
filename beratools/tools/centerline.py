@@ -1,30 +1,61 @@
-from random import random
-from multiprocessing.pool import Pool
 import json
 import argparse
-
-import fiona
+from collections import OrderedDict
+from multiprocessing.pool import Pool
 import numpy as np
+
+import pyproj
+import fiona
 import rasterio
 import rasterio.mask
+from osgeo import gdal, ogr
 from shapely.geometry import shape, mapping, LineString, Point
 
-from collections import OrderedDict
-from fiona.crs import CRS
-
 from dijkstra_algorithm import *
-
-USE_MULTI_PROCESSING = True
+from common import *
 
 
 class OperationCancelledException(Exception):
     pass
 
 
-def centerline(callback, in_line, in_cost_raster, line_radius, process_segments, out_center_line):
+def compare_crs(in_line, in_cost_raster):
+    line_crs = None
+    ras_crs = None
+    in_lin_file = ogr.Open(in_line)
+    line_crs = in_lin_file.GetLayer().GetSpatialRef()
+
+    cost_raster_file = gdal.Open(in_cost_raster)
+    ras_crs = cost_raster_file.GetSpatialRef()
+
+    del in_lin_file
+    del cost_raster_file
+
+    if line_crs and ras_crs:
+        if line_crs.IsSameGeogCS(ras_crs):
+            print('Check: Input file Spatial Reference are the same, continue.')
+            return True
+        else:
+            line_crs_norm = pyproj.CRS(line_crs.ExportToWkt())
+            ras_crs_norm = pyproj.CRS(ras_crs.ExportToWkt())
+            if ras_crs_norm.name == line_crs_norm.name:
+                print('Same crs, continue.')
+                return True
+
+    return False
+
+
+def centerline(callback, in_line, in_cost_raster, line_radius,
+               process_segments, out_center_line, processes, verbose):
+    if not compare_crs(in_line, in_cost_raster):
+        print("Line and CHM spatial references are not same, please check.")
+        return
+
     # Read input line features
+    layer_crs = None
     input_lines = []
     with fiona.open(in_line) as open_line_file:
+        layer_crs = open_line_file.crs
         for line in open_line_file:
             input_lines.append(line['geometry'])
 
@@ -41,7 +72,7 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
         all_lines.append((line, line_radius, in_cost_raster))
 
     if USE_MULTI_PROCESSING:
-        features = execute_multiprocessing(all_lines)
+        features = execute_multiprocessing(all_lines, processes, verbose)
     else:
         for line in all_lines:
             feat_geometry, feat_attributes = process_single_line(line)
@@ -65,17 +96,12 @@ def centerline(callback, in_line, in_cost_raster, line_radius, process_segments,
         ])
     }
 
-    # TODO correct EPSG code
-    layer_crs = CRS.from_epsg(2956)
-
     driver = 'ESRI Shapefile'
 
     out_line_file = fiona.open(out_center_line, 'w', driver, schema, layer_crs.to_proj4())
     for feature in fiona_features:
         out_line_file.write(feature)
     del out_line_file
-
-    callback('Centerline tool done.')
 
 
 class MinCostPathHelper:
@@ -186,45 +212,23 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     return path_points, feat_attr
 
 
-# TODO: not in use
-def process_line(line, input_raster):
-    line_geom = shape(line)
-    buffer = line_geom.buffer(line_radius)
-
-    with rasterio.open(input_raster) as src_raster:
-        out_image, out_transform = rasterio.mask.mask(src_raster, [buffer], crop=True)
-        out_meta = src_raster.meta
-
-    out_meta.update({"driver": "GTiff",
-                     "height": out_image.shape[1],
-                     "width": out_image.shape[2],
-                     "transform": out_transform})
-
-    # with rasterio.open("RGB.byte.masked.tif", "w", **out_meta) as dest:
-    #     dest.write(out_image)
-
-    # return the generated value
-    value = None
-    return value
-
-
-# protect the entry point
-def execute_multiprocessing(line_args):
+def execute_multiprocessing(line_args, processes, verbose):
     try:
         total_steps = len(line_args)
         features = []
-        with Pool() as pool:
+        with Pool(processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):
-                print('Got result: {}'.format(result), flush=True)
+                if verbose:
+                    print('Got result: {}'.format(result), flush=True)
+
                 features.append(result)
                 step += 1
-                print(step)
+                if verbose:
+                    print("Loop {} done.".format(step))
+
                 print('%{}'.format(step/total_steps*100))
-                # if result > 0.9:
-                #     print('Pool terminated.')
-                #     raise OperationCancelledException()
         return features
     except OperationCancelledException:
         print("Operation cancelled")
@@ -234,6 +238,12 @@ def execute_multiprocessing(line_args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
+    parser.add_argument('-p', '--processes')
+    parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
 
-    centerline(print, **args.input)
+    if args.verbose == 'True':
+        verbose = True
+    else:
+        verbose = False
+    centerline(print, **args.input, processes=int(args.processes), verbose=verbose)

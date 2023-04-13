@@ -65,33 +65,45 @@ class BeraTools(object):
         self.exe_path = path.dirname(path.abspath(__file__))
 
         self.work_dir = ""
-        self.verbose = True
+        self.verbose = False
         self.show_advanced = False
         self.__compress_rasters = False
         self.__max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
 
-        self.setting_file = os.path.join(self.exe_path, '..\gui\settings.json')
+        self.setting_file = os.path.join(self.exe_path, '..\..\.data\saved_tool_parameters.json')
         if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
             with open(self.setting_file, 'r') as settings_file:
                 settings = json.load(settings_file)
 
             # parse file
-            if 'working_directory' in settings.keys():
-                self.work_dir = str(settings['working_directory'])
-            if 'verbose_mode' in settings.keys():
-                self.verbose = str(settings['verbose_mode'])
-            if 'compress_rasters' in settings.keys():
-                self.__compress_rasters = settings['compress_rasters']
-            if 'max_procs' in settings.keys():
-                self.__max_procs = settings['max_procs']
-            if 'recent_tool' in settings.keys():
-                self.recent_tool = settings['recent_tool']
-            if 'ascii_art' in settings.keys():
+            if 'gui_parameters' in settings.keys():
+                gui_settings = settings['gui_parameters']
+                if 'working_directory' in gui_settings.keys():
+                    self.work_dir = str(gui_settings['working_directory'])
+                if 'verbose_mode' in gui_settings.keys():
+                    self.verbose = str(gui_settings['verbose_mode'])
+                if 'compress_rasters' in gui_settings.keys():
+                    self.__compress_rasters = gui_settings['compress_rasters']
+                if 'max_procs' in gui_settings.keys():
+                    self.__max_procs = gui_settings['max_procs']
+                if 'recent_tool' in gui_settings.keys():
+                    self.recent_tool = gui_settings['recent_tool']
+        else:
+            print("Settings.json not exist.")
+
+        self.gui_setting_file = os.path.join(self.exe_path, '..\gui\gui.json')
+        if os.path.isfile(self.gui_setting_file):
+            # read the settings.json file if it exists
+            with open(self.gui_setting_file, 'r') as gui_setting_file:
+                gui_settings = json.load(gui_setting_file)
+
+            # parse file
+            if 'ascii_art' in gui_settings.keys():
                 bera_art = ''
-                for line_of_art in settings['ascii_art']:
+                for line_of_art in gui_settings['ascii_art']:
                     bera_art += line_of_art
                 self.ascii_art = bera_art
         else:
@@ -127,7 +139,10 @@ class BeraTools(object):
             print("Settings.json not exist, creat one.")
 
         if self.work_dir:
-            settings['working_directory'] = self.work_dir
+            if 'gui_parameters' not in settings.keys():
+                settings['gui_parameters'] = {}
+
+            settings['gui_parameters']['working_directory'] = self.work_dir
         with open(self.setting_file, 'w') as write_settings_file:
             json.dump(settings, write_settings_file, indent=4)
 
@@ -160,7 +175,7 @@ class BeraTools(object):
         else:
             print("Settings.json not exist, create one.")
 
-        settings['verbose_mode'] = self.verbose
+        settings['gui_parameters']['verbose_mode'] = self.verbose
         with open(self.setting_file, 'w') as write_settings_file:
             json.dump(settings, write_settings_file, indent=4)
 
@@ -188,7 +203,7 @@ class BeraTools(object):
             print("Settings.json not exist, creat one.")
 
         if self.__max_procs:
-            settings['max_procs'] = self.__max_procs
+            settings['gui_parameters']['max_procs'] = self.__max_procs
         with open(self.setting_file, 'w') as write_settings_file:
             json.dump(settings, write_settings_file, indent=4)
 
@@ -196,18 +211,21 @@ class BeraTools(object):
         return self.__max_procs
 
     def save_recent_tool(self):
-        settings = {}
+        gui_settings = {}
         if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
             with open(self.setting_file, 'r') as settings_file:
-                settings = json.load(settings_file)
+                gui_settings = json.load(settings_file)
         else:
             print("Settings.json not exist, creat one.")
 
         if self.recent_tool and len(self.recent_tool) > 0:
-            settings['recent_tool'] = self.recent_tool
+            if 'gui_parameters' not in gui_settings.keys():
+                gui_settings['gui_parameters'] = {}
+
+            gui_settings['gui_parameters']['recent_tool'] = self.recent_tool
             with open(self.setting_file, 'w') as settings_file:
-                json.dump(settings, settings_file, indent=4)
+                json.dump(gui_settings, settings_file, indent=4)
 
     def run_tool(self, tool_name, args, callback=None):
         """ 
@@ -224,13 +242,6 @@ class BeraTools(object):
             work_dir = os.getcwd()
             os.chdir(self.exe_path)
 
-            if self.verbose:
-                cl = tool_name + " ".join(args)
-                callback(cl.strip() + "\n")
-
-            # current_tool = globals()[tool_name]
-            # current_tool(callback, **args)
-
         except (OSError, ValueError, CalledProcessError) as err:
             callback(str(err))
             return 1
@@ -241,7 +252,8 @@ class BeraTools(object):
         try:
             proc = None
             args_string = str(args).replace("'", '"')
-            args_tool = ['python', os.path.join(r'..\tools', tool_name+'.py'), '--input', args_string]
+            args_tool = ['python', os.path.join(r'..\tools', tool_name+'.py'),
+                         '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
 
             if running_windows and self.start_minimized:
                 si = STARTUPINFO()
@@ -268,6 +280,10 @@ class BeraTools(object):
 
                 else:
                     break
+
+            callback('---------------------------')
+            callback('{} tool finished'.format(tool_name))
+            callback('---------------------------')
 
             return 0
         except (OSError, ValueError, CalledProcessError) as err:

@@ -12,15 +12,15 @@ import argparse
 import json
 from multiprocessing.pool import Pool
 
-USE_MULTI_PROCESSING = True
+from common import *
 
 
 class OperationCancelledException(Exception):
     pass
 
 
-def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
-                   CorridorTh_value, Max_ln_width, Exp_Shk_cell, proc_seg, out_footprint):
+def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field, CorridorTh_value,
+                   Max_ln_width, Exp_Shk_cell, proc_seg, out_footprint, processes, verbose):
 
     CorridorTh_value = float(CorridorTh_value)
     Max_ln_width = float(Max_ln_width)
@@ -35,14 +35,10 @@ def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
     # pass single line one at a time for footprint
     footprint_list = []
     if USE_MULTI_PROCESSING:
-        footprint_list = execute_multiprocessing(list_dict_segment_all)
+        footprint_list = execute_multiprocessing(list_dict_segment_all, processes)
     else:
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
-
-    # Old multiprocessing
-    # pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-    # footprint_list = pool.map(process_single_line, list_dict_segment_all)
 
     print('Generating shapefile...........')
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list, ignore_index=False))
@@ -54,9 +50,6 @@ def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
     print('Finishing footprint processing @ {} (or in {} second)'
           .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), time.time()-start_time))
 
-    # Old multiprocessing pool call
-    # pool.close()
-    # pool.join()
 
 def PathFileName(path):
     return os.path.basename(path)
@@ -367,11 +360,11 @@ def lineprepare(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
     return list_dict_segment_all
 
 
-def execute_multiprocessing(line_args):
+def execute_multiprocessing(line_args, processes):
     try:
         total_steps = len(line_args)
         features = []
-        with Pool() as pool:
+        with Pool(processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):
@@ -395,7 +388,14 @@ if __name__ == '__main__':
     # Get tool arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
+    parser.add_argument('-p', '--processes')
+    parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
 
-    line_footprint(print, **args.input)
+    if args.verbose == 'True':
+        verbose = True
+    else:
+        verbose = False
+
+    line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
 

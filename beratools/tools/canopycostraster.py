@@ -11,10 +11,10 @@ import os
 import time
 from scipy import ndimage
 
+from common import *
+
 # TODO: Rolling Statistics for grid data... an alternative
 # by  Dan Patterson
-
-USE_SCIPY_DISTANCE = True
 
 def _check(a, r_c, subok=False):
     """Performs the array checks necessary for stride and block.
@@ -177,7 +177,8 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
     return
 
 
-def main(callback,in_chm,canopy_ht_threshold,tree_radius,max_line_dist,canopy_avoid,exponent,out_CanopyR,out_CostR):
+def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_line_dist,
+                       canopy_avoid, exponent, out_CanopyR, out_CostR, processes, verbose):
     start_time = time.time()
     #
     # in_chm = args.get('in_chm')
@@ -227,5 +228,13 @@ def main(callback,in_chm,canopy_ht_threshold,tree_radius,max_line_dist,canopy_av
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
+    parser.add_argument('-p', '--processes')
+    parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
-    main(print, **args.input)
+
+    if args.verbose == 'True':
+        verbose = True
+    else:
+        verbose = False
+
+    canopy_cost_raster(print, **args.input, processes=int(args.processes), verbose=verbose)
