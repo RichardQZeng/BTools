@@ -19,16 +19,17 @@ class OperationCancelledException(Exception):
     pass
 
 
-def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field, CorridorTh_value,
-                   Max_ln_width, Exp_Shk_cell, proc_seg, out_footprint, processes, verbose):
+def line_footprint(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field, corridor_th_value,
+                   max_ln_width, exp_shk_cell, proc_seg, out_footprint, processes, verbose):
 
-    CorridorTh_value = float(CorridorTh_value)
-    Max_ln_width = float(Max_ln_width)
-    Exp_Shk_cell = int(float(Exp_Shk_cell))
+    corridor_th_value = float(corridor_th_value)
+    max_ln_width = float(max_ln_width)
+    exp_shk_cell = int(exp_shk_cell)
+
     proc_seg = False if proc_seg == 'False' else True
 
-    list_dict_segment_all = lineprepare(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
-                   CorridorTh_value, Max_ln_width, Exp_Shk_cell, proc_seg, out_footprint)
+    list_dict_segment_all = line_prepare(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field,
+                                         corridor_th_value, max_ln_width, exp_shk_cell, proc_seg, out_footprint)
 
     total_steps = len(list_dict_segment_all)
 
@@ -51,20 +52,20 @@ def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field, Corr
           .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), time.time()-start_time))
 
 
-def PathFileName(path):
+def path_file_name(path):
     return os.path.basename(path)
 
 
-def FieldNameList(fc):
+def field_name_list(fc):
     # return a list of column name from shapefile
-    fieldlist = geopandas.read_file(fc).columns.array
-    return fieldlist
+    field_list = geopandas.read_file(fc).columns.array
+    return field_list
 
 
-def HasField(fc, fi):
+def has_field(fc, fi):
     # Check column name
-    fieldlist = FieldNameList(fc)
-    if fi in fieldlist:
+    field_list = field_name_list(fc)
+    if fi in field_list:
         print("column: {} is found".format(fi))
         return True
     elif fi == 'CorridorTh':
@@ -81,14 +82,14 @@ def HasField(fc, fi):
         return False
 
 
-def SpliteLine2(in_cl, proc_seg):
+def split_line2(in_cl, proc_seg):
     shapefile = geopandas.GeoDataFrame.from_file(in_cl)
     shapefile_proj = shapefile.crs
 
-    KeepFieldName = []
+    keep_field_name = []
     for col_name in shapefile.columns:
         if col_name != 'geometry':
-            KeepFieldName.append(col_name)
+            keep_field_name.append(col_name)
 
     list_of_segment = []
 
@@ -106,7 +107,6 @@ def SpliteLine2(in_cl, proc_seg):
 
             # process every segments
             if proc_seg:
-
                 for seg in segment_list:
                     feature_attributes = {}
                     feature_attributes['FID'] = i
@@ -116,7 +116,7 @@ def SpliteLine2(in_cl, proc_seg):
                     feature_attributes['geometry'] = seg
                     feature_attributes['Proj_crs'] = shapefile_proj
 
-                    for col_name in KeepFieldName:
+                    for col_name in keep_field_name:
                         feature_attributes[col_name] = shapefile.loc[row, col_name]
 
                     list_of_segment.append(feature_attributes)
@@ -128,7 +128,7 @@ def SpliteLine2(in_cl, proc_seg):
                 feature_attributes['Seg_leng'] = feat.length
                 feature_attributes['geometry'] = feat
                 feature_attributes['Proj_crs'] = shapefile_proj
-                for col_name in KeepFieldName:
+                for col_name in keep_field_name:
                     feature_attributes[col_name] = shapefile.loc[row, col_name]
                 list_of_segment.append(feature_attributes)
                 i = i + 1
@@ -137,7 +137,6 @@ def SpliteLine2(in_cl, proc_seg):
 
         # return a list of features Dictionary
         return list_of_segment
-
     else:
         print("Input line feature is corrupted, exit!")
         exit()
@@ -147,12 +146,12 @@ def process_single_line(dict_segment):
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
 
-    in_CanopyR = dict_segment['in_CanopyR']
-    in_CostR = dict_segment['in_CostR']
+    in_canopy_r = dict_segment['in_canopy_r']
+    in_cost_r = dict_segment['in_cost_r']
     # CorridorTh_field=dict_segment['CorridorTh_field']
-    CorridorTh_value = dict_segment['CorridorTh_value']
-    Max_ln_width = dict_segment['Max_ln_width']
-    Exp_Shk_cell = dict_segment['Exp_Shk_cell']
+    corridor_th_value = dict_segment['corridor_th_value']
+    max_ln_width = dict_segment['max_ln_width']
+    exp_shk_cell = dict_segment['exp_shk_cell']
     # out_footprint=dict_segment['out_footprint']
     shapefile_proj = dict_segment['Proj_crs']
     orginal_col_name_list = dict_segment['Orgi_col']
@@ -182,115 +181,117 @@ def process_single_line(dict_segment):
                    geopandas.GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
 
     # Buffer around line and clip cost raster and canopy raster
-    with rasterio.open(in_CostR) as src1:
-        clip_in_CostR, out_transform1 = rasterio.mask.mask(src1, [shapely.buffer(feat, Max_ln_width)], crop=True)
+    # TODO: deal with NODATA
+    with rasterio.open(in_cost_r) as src1:
+        clip_in_cost_r, out_transform1 = rasterio.mask.mask(src1, [shapely.buffer(feat, max_ln_width)], crop=True)
         out_meta = src1.meta
         crs = src1.crs
         crs_code = src1.meta['crs']
         crs_wkt = crs.wkt
-        cellSizex = src1.transform[0]
-        cellSizey = -src1.transform[4]
+        cell_size_x = src1.transform[0]
+        cell_size_y = -src1.transform[4]
 
     out_meta.update({"driver": "GTiff",
-                     "height": clip_in_CostR.shape[1],
-                     "width": clip_in_CostR.shape[2],
+                     "height": clip_in_cost_r.shape[1],
+                     "width": clip_in_cost_r.shape[2],
                      "transform": out_transform1})
 
     del src1
-    with rasterio.open(in_CanopyR) as src:
-        clip_in_CanopyR, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, Max_ln_width)], crop=True)
+    with rasterio.open(in_canopy_r) as src:
+        clip_in_canopy_r, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, max_ln_width)], crop=True)
         out_meta = src.meta
         crs = src.crs
 
     out_meta.update({"driver": "GTiff",
-                     "height": clip_in_CanopyR.shape[1],
-                     "width": clip_in_CanopyR.shape[2],
+                     "height": clip_in_canopy_r.shape[1],
+                     "width": clip_in_canopy_r.shape[2],
                      "transform": out_transform2})
     del src
 
     # Work out the corridor from both end of the centerline
     try:
-        clip_CostR = numpy.squeeze(clip_in_CostR, axis=0)
-        clip_CanopyR = numpy.squeeze(clip_in_CanopyR, axis=0)
+        clip_cost_r = numpy.squeeze(clip_in_cost_r, axis=0)
+        clip_canopy_r = numpy.squeeze(clip_in_canopy_r, axis=0)
 
-        numpy.place(clip_CostR, clip_CostR < 1, -9999)
+        numpy.place(clip_cost_r, clip_cost_r < 1, -9999)
 
         # Rasterize source point
-        rasterized_source = features.rasterize(origin, out_shape=clip_CostR.shape
+        rasterized_source = features.rasterize(origin, out_shape=clip_cost_r.shape
                                                , transform=out_transform1,
                                                out=None, fill=0, all_touched=True, default_value=1, dtype=None)
         source = numpy.transpose(numpy.nonzero(rasterized_source))
 
         # generate the cost raster to source point
-        mcp_source = MCP_Geometric(clip_CostR, sampling=(cellSizex, cellSizey))
-        source_cost_Acc = mcp_source.find_costs(source)[0]
+        mcp_source = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
+        source_cost_acc = mcp_source.find_costs(source)[0]
 
         del mcp_source
         # Rasterize destination point
-        rasterized_destination = features.rasterize(destination, out_shape=clip_CostR.shape,
+        rasterized_destination = features.rasterize(destination, out_shape=clip_cost_r.shape,
                                                     transform=out_transform1,
                                                     out=None, fill=0, all_touched=True, default_value=1, dtype=None)
         destination = numpy.transpose(numpy.nonzero(rasterized_destination))
 
         # generate the cost raster to destination point
-        mcp_Dest = MCP_Geometric(clip_CostR, sampling=(cellSizex, cellSizey))
-        dest_cost_Acc = mcp_Dest.find_costs(destination)[0]
+        mcp_dest = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
+        dest_cost_acc = mcp_dest.find_costs(destination)[0]
 
-        del mcp_Dest
+        del mcp_dest
 
         # Generate corridor raster
-        Corridor = numpy.add(source_cost_Acc, dest_cost_Acc)
-        nullcells = numpy.where(numpy.isinf(Corridor), True, False)
+        corridor = numpy.add(source_cost_acc, dest_cost_acc)
+        null_cells = numpy.where(numpy.isinf(corridor), True, False)
 
         # Calculate minimum value of corridor raster
-        if not numpy.min(Corridor) is None:
-            corrMin = float(numpy.min(Corridor))
+        if not numpy.min(corridor) is None:
+            corr_min = float(numpy.min(corridor))
         else:
-            corrMin = 0.0
+            corr_min = 0.0
 
         # Set minimum as zero and save minimum file
-        CorridorMin = numpy.where((Corridor - corrMin) > CorridorTh_value, 1, 0)
-        numpy.place(CorridorMin, nullcells, -9999)
+        corridor_min = numpy.where((corridor - corr_min) > corridor_th_value, 1, 0)
+        numpy.place(corridor_min, null_cells, -9999)
 
         # Process: Stamp CC and Max Line Width
 
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
-        RasterClass = numpy.where(clip_CanopyR + CorridorMin == 0, 0, 1)
+        raster_class = numpy.where(clip_canopy_r + corridor_min == 0, 0, 1)
 
         # BERA proposed Binary morphology
         # RasterClass_binary=numpy.where(RasterClass==0,False,True)
 
-        if Exp_Shk_cell > 0 and Exp_Shk_cell * cellSizex < 1:
+        if exp_shk_cell > 0 and exp_shk_cell * cell_size_x < 1:
             # Process: Expand
             # FLM original Expand equivalent
-            Expanded = ndimage.grey_dilation(RasterClass, size=(Exp_Shk_cell * 2 + 1, Exp_Shk_cell * 2 + 1))
+            expanded = ndimage.grey_dilation(raster_class, size=(exp_shk_cell * 2 + 1, exp_shk_cell * 2 + 1))
 
             # BERA proposed Binary morphology Expand
-            # Expanded = ndimage.binary_dilation(RasterClass_binary, iterations=Exp_Shk_cell,border_value=1)
+            # Expanded = ndimage.binary_dilation(RasterClass_binary, iterations=exp_shk_cell,border_value=1)
 
             # Process: Shrink
             # FLM original Shrink equivalent
-            fileShrink = ndimage.grey_erosion(Expanded, size=(Exp_Shk_cell * 2 + 1, Exp_Shk_cell * 2 + 1))
+            file_shrink = ndimage.grey_erosion(expanded, size=(exp_shk_cell * 2 + 1, exp_shk_cell * 2 + 1))
 
             # BERA proposed Binary morphology Shrink
             # fileShrink = ndimage.binary_erosion((Expanded),iterations=Exp_Shk_cell,border_value=1)
         else:
-            print('No Expand And Shrink cell perform.')
-            fileShrink = RasterClass
+            if BT_DEBUGGING:
+                print('No Expand And Shrink cell performed.')
+            file_shrink = raster_class
 
         # Process: Boundary Clean
-        cleanRaster = ndimage.gaussian_filter(fileShrink, sigma=0, mode='nearest')
+        clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode='nearest')
 
         # creat mask for non-polygon area
-        mask = numpy.where(cleanRaster == 0, True, False)
+        mask = numpy.where(clean_raster == 0, True, False)
 
         # Process: ndarray to shapely Polygon
-        Out_polygon = features.shapes(cleanRaster, mask=mask, transform=out_transform1)
+        out_polygon = features.shapes(clean_raster, mask=mask, transform=out_transform1)
 
         # create a shapely multipoly
         multi_polygon = []
-        for shape, value in Out_polygon:
+        for shape, value in out_polygon:
             # print(shape)
             multi_polygon.append(shapely.geometry.shape(shape))
         poly = shapely.geometry.MultiPolygon(multi_polygon)
@@ -316,21 +317,8 @@ def process_single_line(dict_segment):
         print(e)
 
 
-def lineprepare(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field, 
-                CorridorTh_value, Max_ln_width, Exp_Shk_cell, proc_seg, out_footprint):
-    # in_cl, in_CanopyR, in_CostR, CorridorTh_field, CorridorTh_value, Max_ln_width, Exp_Shk_cell,
-    # proc_seg, out_footprint
-
-    # CorridorTh_value = float(args['CorridorTh_value'])
-    # Max_ln_width = float(args['Max_ln_width'])
-    # Exp_Shk_cell = int(args['Exp_Shk_cell'])
-    # print("Preparing Lines............")
-    # print("Process every segments: {}".format(args['proc_seg']))
-    # if args['proc_seg'] == 'True':
-    #     args['proc_seg'] = True
-    # else:
-    #     args['proc_seg'] = False
-
+def line_prepare(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field,
+                 corridor_th_value, max_ln_width, exp_shk_cell, proc_seg, out_footprint):
     # Open shapefile -input centerlines and check existing Corridor threshold field
     # if threshold field is not found, it will be created and populate value of '3'
     # print('Check {} field in input feature.'.format(args['CorridorTh_field']))
@@ -338,20 +326,20 @@ def lineprepare(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
     #     pass
 
     # get the list of original columns names
-    fieldlist_col = FieldNameList(in_cl)
+    fieldlist_col = field_name_list(in_cl)
 
     # Split the input centerline and return a list of geodataframe
     print('Split line process.............')
-    list_dict_segment_all = SpliteLine2(in_cl, proc_seg)
+    list_dict_segment_all = split_line2(in_cl, proc_seg)
 
     # Add tools arguments into geodataframe record
     for record in list_dict_segment_all:
-        record['in_CanopyR'] = in_CanopyR
-        record['in_CostR'] = in_CostR
-        record['CorridorTh_field'] = CorridorTh_field
-        record['CorridorTh_value'] = CorridorTh_value
-        record['Max_ln_width'] = Max_ln_width
-        record['Exp_Shk_cell'] = Exp_Shk_cell
+        record['in_canopy_r'] = in_canopy_r
+        record['in_cost_r'] = in_cost_r
+        record['corridor_th_field'] = corridor_th_field
+        record['corridor_th_value'] = corridor_th_value
+        record['max_ln_width'] = max_ln_width
+        record['exp_shk_cell'] = exp_shk_cell
         record['proc_seg'] = proc_seg
         record['out_footprint'] = out_footprint
         record['Orgi_col'] = fieldlist_col
@@ -368,18 +356,16 @@ def execute_multiprocessing(line_args, processes):
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):
-                print('Got result: {}'.format(result), flush=True)
+                if BT_DEBUGGING:
+                    print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
-                print(step)
                 print('%{}'.format(step / total_steps * 100))
-                # if result > 0.9:
-                #     print('Pool terminated.')
-                #     raise OperationCancelledException()
         return features
     except OperationCancelledException:
         print("Operation cancelled")
         return None
+
 
 if __name__ == '__main__':
     start_time = time.time()

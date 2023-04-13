@@ -15,6 +15,7 @@ import json
 USE_MULTI_PROCESSING = True
 USE_SCIPY_DISTANCE = True
 BT_NODATA = -9999
+BT_DEBUGGING = False
 
 
 
