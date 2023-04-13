@@ -24,7 +24,7 @@ def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
 
     CorridorTh_value = float(CorridorTh_value)
     Max_ln_width = float(Max_ln_width)
-    Exp_Shk_cell = float(Exp_Shk_cell)
+    Exp_Shk_cell = int(float(Exp_Shk_cell))
     proc_seg = False if proc_seg == 'False' else True
 
     list_dict_segment_all = lineprepare(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field,
