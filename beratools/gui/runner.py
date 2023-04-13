@@ -6,18 +6,23 @@
 # License: MIT
 
 import __future__
+import os
 import sys
+
+from os import path
+from sys import platform as _platform
 
 if sys.version_info[0] < 3:
     raise Exception("Must be using Python 3")
-import json
-import os
-from os import path
-import platform
+
 import re  # Added by Rachel for snake_to_camel function
+import json
+import platform
 import glob
-from sys import platform as _platform
+
 import threading
+import signal
+from time import sleep
 
 import tkinter as tk
 from tkinter import ttk
@@ -1442,7 +1447,9 @@ class MainGui(tk.Frame):
         t = threading.Thread(target=self.run_tool, args=())
         t.daemon = True
         t.start()
-        # t.join()
+
+        # disable button
+        self.run_button.config(text='Running', state='disabled')
 
     def run_tool(self):
         bt.set_working_dir(self.working_dir)
@@ -1470,10 +1477,12 @@ class MainGui(tk.Frame):
             print("Error running {}".format(self.tool_name))
 
         else:
-            self.run_button["text"] = "Run"
             self.progress_var.set(0)
             self.progress_label['text'] = "Progress:"
             self.progress.update_idletasks()
+
+        # restore Run button
+        self.run_button.config(text='Run', state='enable')
 
         return
 
@@ -1571,11 +1580,26 @@ class JsonPayload(object):
         self.__dict__ = json.loads(j)
 
 
+# handle debugging exit signal and kill sub-process
+def handler(event):
+    # root.destroy()
+    print('Caught ^C')
+    bt.cancel_op = True
+    sleep(3000)
+
+
+def check(btr):
+    btr.root.after(1000, check)  # time in ms.
+
+
 def main_runner():
     tool_name = None
     if len(sys.argv) > 1:
         tool_name = str(sys.argv[1])
     btr = MainGui(tool_name)
+
+    signal.signal(signal.SIGINT, lambda x, y: print('terminal ^C') or handler(None))
+    btr.bind_all('<Control-c>', handler)
 
     ico = Image.open(r'img\BERALogo.png')
     photo = ImageTk.PhotoImage(ico)

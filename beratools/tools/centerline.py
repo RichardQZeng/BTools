@@ -172,8 +172,12 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
     # buffer clip
     with(rasterio.open(in_raster)) as raster_file:
-        out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True)
-    matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], raster_file.meta['nodata'])
+        out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True, nodata=BT_NODATA)
+
+    ras_nodata = raster_file.meta['nodata']
+    if not ras_nodata:
+        ras_nodata = BT_NODATA
+    matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
 
     if contains_negative:
         raise Exception('ERROR: Raster has negative values.')
