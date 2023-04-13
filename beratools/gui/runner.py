@@ -916,21 +916,22 @@ class MainGui(tk.Frame):
         buttons_frame = ttk.Frame(right_frame, padding='0.1i')
         self.mpc_label = ttk.Label(buttons_frame, text="Use CPU Cores:")
         maxCores = multiprocessing.cpu_count()
+        if bt.get_max_procs() <= 0:
+            bt.set_max_procs(maxCores)
         self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=maxCores, length=180,
                                   orient='horizontal', command=self.update_procs)
-        self.reset_button = ttk.Button(buttons_frame, text="Reset", width=8, command=self.reset_tool)
-        # self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=self.run_tool)
-        self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=lambda: self.start_run_tool_thread())
-        self.cancel_button = ttk.Button(buttons_frame, text="Cancel", width=8, command=self.cancel_operation)
-        self.help_button = ttk.Button(buttons_frame, text="Help", width=8, command=self.tool_help_button)
-        CreateToolTip(self.reset_button, 'Reset tool parameters to default')
-        CreateToolTip(self.cancel_button, 'Cancel tool operation')
-        CreateToolTip(self.run_button, 'Run the tool')
-        CreateToolTip(self.help_button, 'Go to the tool help web page')
-
         # multiprocessing core slide
         CreateToolTip(self.mpc_label, 'The number of CPU cores to be used in parallel processes')
         self.mpc_scale.set(bt.get_max_procs())
+
+        self.reset_button = ttk.Button(buttons_frame, text="Clear Arguments", width=16, command=self.reset_tool)
+        self.run_button = ttk.Button(buttons_frame, text="Run", width=8, command=lambda: self.start_run_tool_thread())
+        self.cancel_button = ttk.Button(buttons_frame, text="Cancel", width=8, command=self.cancel_operation)
+        self.help_button = ttk.Button(buttons_frame, text="Help", width=8, command=self.tool_help_button)
+        CreateToolTip(self.reset_button, 'Clear all tool arguments and set to default')
+        CreateToolTip(self.cancel_button, 'Cancel tool operation')
+        CreateToolTip(self.run_button, 'Run the tool')
+        CreateToolTip(self.help_button, 'Go to the tool help web page')
 
         # Define layout of the frame
         self.reset_button.grid(row=0, column=0, padx=4)
@@ -1209,8 +1210,6 @@ class MainGui(tk.Frame):
     def update_search_tool_info(self, event):
         selection = self.search_results_listbox.curselection()
         self.tool_name = self.search_results_listbox.get(selection[0])
-        # self.search_tool_selected = event.widget.curselection()
-        # self.tool_name = event.widget.get(self.search_tool_selected[0])
 
         self.update_tool_info()
         if self.search_tool_selected:
@@ -1419,7 +1418,7 @@ class MainGui(tk.Frame):
             v = widget.get_value()
             if v and len(v) == 2:
                 args[v[0]] = v[1]
-            elif not widget.optional:
+            else:
                 self.print_line_to_output('[Missing argument]:'+widget.name+": parameter not specified.", 'missing')
                 param_missing = True
 

@@ -65,7 +65,7 @@ class BeraTools(object):
         self.exe_path = path.dirname(path.abspath(__file__))
 
         self.work_dir = ""
-        self.verbose = True
+        self.verbose = False
         self.show_advanced = False
         self.__compress_rasters = False
         self.__max_procs = -1
@@ -139,6 +139,9 @@ class BeraTools(object):
             print("Settings.json not exist, creat one.")
 
         if self.work_dir:
+            if 'gui_parameters' not in settings.keys():
+                settings['gui_parameters'] = {}
+
             settings['gui_parameters']['working_directory'] = self.work_dir
         with open(self.setting_file, 'w') as write_settings_file:
             json.dump(settings, write_settings_file, indent=4)
@@ -208,18 +211,21 @@ class BeraTools(object):
         return self.__max_procs
 
     def save_recent_tool(self):
-        settings = {}
+        gui_settings = {}
         if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
             with open(self.setting_file, 'r') as settings_file:
-                settings = json.load(settings_file)
+                gui_settings = json.load(settings_file)
         else:
             print("Settings.json not exist, creat one.")
 
         if self.recent_tool and len(self.recent_tool) > 0:
-            settings['recent_tool'] = self.recent_tool
+            if 'gui_parameters' not in gui_settings.keys():
+                gui_settings['gui_parameters'] = {}
+
+            gui_settings['gui_parameters']['recent_tool'] = self.recent_tool
             with open(self.setting_file, 'w') as settings_file:
-                json.dump(settings, settings_file, indent=4)
+                json.dump(gui_settings, settings_file, indent=4)
 
     def run_tool(self, tool_name, args, callback=None):
         """ 
