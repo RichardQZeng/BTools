@@ -195,7 +195,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "out_CanopyR",
+                        {   "variable": "out_canopy_r",
                             "parameter": "Output Canopy Raster",
                             "description": "Output raster classified as canopy (1) and non-canopy (0).",
                             "type": "raster",
@@ -204,7 +204,7 @@
                             "output": true,
                             "optional": false
                         },
-                        {   "variable": "out_CostR",
+                        {   "variable": "out_cost_r",
                             "parameter": "Output Cost Raster",
                             "description": "Output cost raster used in subsequent FLM tools for least-cost analysis.",
                             "type": "raster",
