@@ -1174,7 +1174,10 @@ class MainGui(tk.Frame):
                             elif param['type'] == 'text':
                                 new_param['parameter_type'] = 'String'
                             elif param['type'] == 'number':
-                                new_param['parameter_type'] = 'Float'
+                                if param['typelab'] == 'int':
+                                    new_param['parameter_type'] = 'Integer'
+                                else:
+                                    new_param['parameter_type'] = 'Float'
                             elif param['type'] == 'bool':
                                 new_param['parameter_type'] = {'OptionList': ['True', 'False']}
                                 new_param['data_type'] = 'Boolean'
