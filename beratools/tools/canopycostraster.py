@@ -11,10 +11,10 @@ import os
 import time
 from scipy import ndimage
 
+from common import *
+
 # TODO: Rolling Statistics for grid data... an alternative
 # by  Dan Patterson
-
-USE_SCIPY_DISTANCE = True
 
 def _check(a, r_c, subok=False):
     """Performs the array checks necessary for stride and block.

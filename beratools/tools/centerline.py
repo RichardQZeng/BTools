@@ -12,8 +12,7 @@ from osgeo import gdal, ogr
 from shapely.geometry import shape, mapping, LineString, Point
 
 from dijkstra_algorithm import *
-
-USE_MULTI_PROCESSING = True
+from common import *
 
 
 class OperationCancelledException(Exception):

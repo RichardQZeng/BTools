@@ -12,7 +12,7 @@ import argparse
 import json
 from multiprocessing.pool import Pool
 
-USE_MULTI_PROCESSING = True
+from common import *
 
 
 class OperationCancelledException(Exception):
@@ -39,10 +39,6 @@ def line_footprint(callback, in_cl, in_CanopyR, in_CostR, CorridorTh_field, Corr
     else:
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
-
-    # Old multiprocessing
-    # pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-    # footprint_list = pool.map(process_single_line, list_dict_segment_all)
 
     print('Generating shapefile...........')
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list, ignore_index=False))
