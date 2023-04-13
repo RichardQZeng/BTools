@@ -888,7 +888,7 @@ class MainGui(tk.Frame):
         # Create the elements of the current tool frame
         self.current_tool_frame = ttk.Frame(right_frame, padding='0.01i')
         self.current_tool_lbl = ttk.Label(self.current_tool_frame, text="Current Tool: {}".format(self.tool_name),
-                                          justify=tk.LEFT)  # , font=("Helvetica", 12, "bold")
+                                          justify=tk.LEFT, font=("Helvetica", 11, "bold"))
         self.show_advanced_button = ttk.Button(self.current_tool_frame, text="Show Advanced Options",
                                                width=24, command=self.show_advanced)
         CreateToolTip(self.show_advanced_button, 'Show/hide tool advanced options')
@@ -1515,6 +1515,7 @@ class MainGui(tk.Frame):
         s = ""
         self.current_tool_lbl['text'] = "Current Tool: {}".format(
             self.tool_name)
+
         # self.spacer['width'] = width=(35-len(self.tool_name))
         # for item in bt.tool_help(self.tool_name).splitlines():
         for item in self.get_bera_tool_info().splitlines():

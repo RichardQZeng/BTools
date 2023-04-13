@@ -119,6 +119,28 @@ class BeraTools(object):
         """
         self.exe_path = path_str
 
+    def save_setting(self, key, value):
+        settings = {}
+
+        if os.path.isfile(self.setting_file):
+            # read the settings.json file if it exists
+            with open(self.setting_file, 'r') as read_settings_file:
+                settings = json.load(read_settings_file)
+
+            if not settings:
+                settings = {}
+        else:
+            print("Settings file not exist, creating one.")
+
+        if value:
+            if 'gui_parameters' not in settings.keys():
+                settings['gui_parameters'] = {}
+
+            settings['gui_parameters'][key] = value
+
+            with open(self.setting_file, 'w') as write_settings_file:
+                json.dump(settings, write_settings_file, indent=4)
+
     def set_working_dir(self, path_str):
         """ 
         Sets the working directory, i.e. the directory in which
@@ -127,24 +149,7 @@ class BeraTools(object):
         specify the file name rather than the complete file path.
         """
         self.work_dir = path.normpath(path_str)
-        settings = {}
-
-        if os.path.isfile(self.setting_file):
-            # read the settings.json file if it exists
-            with open(self.setting_file, 'r') as read_settings_file:
-                settings = json.load(read_settings_file)
-                if not settings:
-                    settings = {}
-        else:
-            print("Settings.json not exist, creat one.")
-
-        if self.work_dir:
-            if 'gui_parameters' not in settings.keys():
-                settings['gui_parameters'] = {}
-
-            settings['gui_parameters']['working_directory'] = self.work_dir
-        with open(self.setting_file, 'w') as write_settings_file:
-            json.dump(settings, write_settings_file, indent=4)
+        self.save_setting('working_directory', self.work_dir)
 
     def get_working_dir(self):
         return self.work_dir
@@ -163,21 +168,7 @@ class BeraTools(object):
         messages are suppressed and tools run as background processes.
         """
         self.verbose = val
-        settings = {}
-
-        if os.path.isfile(self.setting_file):
-            # read the settings.json file if it exists
-            with open(self.setting_file, 'r') as read_settings_file:
-                settings = json.load(read_settings_file)
-
-            if not settings:
-                settings = {}
-        else:
-            print("Settings.json not exist, create one.")
-
-        settings['gui_parameters']['verbose_mode'] = self.verbose
-        with open(self.setting_file, 'w') as write_settings_file:
-            json.dump(settings, write_settings_file, indent=4)
+        self.save_setting('verbose_mode', val)
 
     def set_default_callback(self, callback_func):
         """
@@ -191,21 +182,8 @@ class BeraTools(object):
         Sets the flag used by BERA Tools to determine whether to use compression for output rasters.
         """
         self.__max_procs = val
-        settings = {}
-        if os.path.isfile(self.setting_file):
-            # read the settings.json file if it exists
-            with open(self.setting_file, 'r') as read_settings_file:
-                settings = json.load(read_settings_file)
 
-            if not settings:
-                settings = {}
-        else:
-            print("Settings.json not exist, creat one.")
-
-        if self.__max_procs:
-            settings['gui_parameters']['max_procs'] = self.__max_procs
-        with open(self.setting_file, 'w') as write_settings_file:
-            json.dump(settings, write_settings_file, indent=4)
+        self.save_setting('max_procs', val)
 
     def get_max_procs(self):
         return self.__max_procs
