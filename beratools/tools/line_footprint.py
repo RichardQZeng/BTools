@@ -292,7 +292,6 @@ def process_single_line(dict_segment):
         # create a shapely multipoly
         multi_polygon = []
         for shape, value in out_polygon:
-            # print(shape)
             multi_polygon.append(shapely.geometry.shape(shape))
         poly = shapely.geometry.MultiPolygon(multi_polygon)
 
@@ -314,7 +313,7 @@ def process_single_line(dict_segment):
         return out_data
 
     except Exception as e:
-        print(e)
+        print('Exception: {}'.format(e))
 
 
 def line_prepare(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field,
@@ -326,7 +325,7 @@ def line_prepare(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field,
     #     pass
 
     # get the list of original columns names
-    fieldlist_col = field_name_list(in_cl)
+    field_list_col = field_name_list(in_cl)
 
     # Split the input centerline and return a list of geodataframe
     print('Split line process.............')
@@ -342,7 +341,7 @@ def line_prepare(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field,
         record['exp_shk_cell'] = exp_shk_cell
         record['proc_seg'] = proc_seg
         record['out_footprint'] = out_footprint
-        record['Orgi_col'] = fieldlist_col
+        record['Orgi_col'] = field_list_col
 
     # return list of geodataframe represents each line or segment
     return list_dict_segment_all
