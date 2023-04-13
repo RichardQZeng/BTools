@@ -1448,6 +1448,9 @@ class MainGui(tk.Frame):
         t.daemon = True
         t.start()
 
+        # disable button
+        self.run_button.config(text='Running', state='disabled')
+
     def run_tool(self):
         bt.set_working_dir(self.working_dir)
 
@@ -1474,10 +1477,12 @@ class MainGui(tk.Frame):
             print("Error running {}".format(self.tool_name))
 
         else:
-            self.run_button["text"] = "Run"
             self.progress_var.set(0)
             self.progress_label['text'] = "Progress:"
             self.progress.update_idletasks()
+
+        # restore Run button
+        self.run_button.config(text='Run', state='enable')
 
         return
 
