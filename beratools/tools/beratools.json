@@ -1103,10 +1103,40 @@
                         {
                             "parameter": "Output Tiling Project File",
                             "description": "Output tiling project file name.",
-                            "type": "json",
+                            "type": "file",
                             "typelab": "JSON",
                             "default": "",
                             "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Batch Processing",
+                    "info": "Batch Processing is the tool to do batch processing for BERA Tools",
+                    "multiprocessing": true,
+                    "scriptFile": "batch_processing",
+                    "paramFile": "\\Scripts\\FLM_CO_params.txt",
+                    "image": "../Images/FLM_IO_CO.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/workflows/batch_processing.html",
+                    "parameters":[
+                        {
+                            "parameter": "Tool",
+                            "description": "Select tool to do batch processing",
+                            "type": "text",
+                            "typelab": "list",
+                            "data": ["tool list"],
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "parameter": "Batch Processing Project File",
+                            "description": "Project file for batch processing",
+                            "type": "file",
+                            "typelab": "CSV",
+                            "default": "",
+                            "output": false,
                             "optional": false
                         }
                     ]
