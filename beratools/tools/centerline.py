@@ -246,8 +246,6 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
 
-    if args.verbose == 'True':
-        verbose = True
-    else:
-        verbose = False
+    verbose = True if args.verbose == 'True' else False
+
     centerline(print, **args.input, processes=int(args.processes), verbose=verbose)

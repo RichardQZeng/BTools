@@ -105,7 +105,7 @@ def fs_raster(in_ndarray, kernel):
 
 
 def fs_raster_mean(chm, in_ndarray, kernel):
-    # This fuction using xrspatial whcih can handle large data but slow
+    # This function uses xrspatial which can handle large data but slow
     print("Calculating Canopy Closure's Focal Statistic-Mean .......")
     result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['mean'])
 
@@ -118,7 +118,7 @@ def fs_raster_mean(chm, in_ndarray, kernel):
 
 
 def fs_raster_std(chm, in_ndarray, kernel):
-    # This fuction using xrspatial whcih can handle large data but slow
+    # This function uses xrspatial whcih can handle large data but slow
     print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
     result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std'])
 
@@ -221,9 +221,6 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
 
-    if args.verbose == 'True':
-        verbose = True
-    else:
-        verbose = False
+    verbose = True if args.verbose == 'True' else False
 
     canopy_cost_raster(print, **args.input, processes=int(args.processes), verbose=verbose)
