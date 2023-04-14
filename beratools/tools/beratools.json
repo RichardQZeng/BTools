@@ -1123,8 +1123,8 @@
                         {
                             "parameter": "Tool",
                             "description": "Select tool to do batch processing",
-                            "type": "text",
-                            "typelab": "list",
+                            "type": "list",
+                            "typelab": "text",
                             "data": ["tool list"],
                             "default": "",
                             "output": false,
