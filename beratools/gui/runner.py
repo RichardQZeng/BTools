@@ -457,7 +457,6 @@ class MultifileSelector(tk.Frame):
 
                 # update the working directory
                 self.runner.working_dir = os.path.dirname(result[0])
-
         except:
             messagebox.showinfo("Warning", "Could not find file")
 
@@ -484,7 +483,6 @@ class MultifileSelector(tk.Frame):
             else:
                 if not self.optional:
                     print("Error", "Unspecified non-optional parameter {}.".format(self.flag))
-
         except:
             messagebox.showinfo(
                 "Error", "Error formatting files for parameter {}".format(self.flag))
