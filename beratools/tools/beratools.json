@@ -1052,17 +1052,17 @@
             ]
         },
         {
-            "category": "Alternative",
-            "description":"Alternative options to some of the Mapping Tools.",
+            "category": "Workflows",
+            "description":"Workflows to automate complex works using BREA Tools.",
             "tools": [
                 {
-                    "name": "Corridor Raster",
-                    "info": "Creates a least cost corridor raster between vertices of the input lines. This step can be skipped with the 'Line Footprint' tool.",
+                    "name": "Tiler",
+                    "info": "Tiler is the tool dealing with large CHM rasters. Tiler makes tiling plan and split input CHM and lines into smaller tiles and make batch project to process all tiles",
                     "multiprocessing": true,
-                    "scriptFile": "Scripts.FLM_Corridor",
+                    "scriptFile": "tiler",
                     "paramFile": "\\Scripts\\FLM_CO_params.txt",
                     "image": "../Images/FLM_IO_CO.gif",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Alternative/CorridorRaster.html",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/workflows/tiler.html",
                     "parameters":[
                         {
                             "parameter": "Centerlines Feature Class",
@@ -1074,8 +1074,8 @@
                             "optional": false
                         },
                         {
-                            "parameter": "Canopy Raster",
-                            "description": "Input raster image used to exclude canopy from line footprint.",
+                            "parameter": "CHM Raster",
+                            "description": "Input CHM raster image.",
                             "type": "raster",
                             "typelab": "TIF",
                             "default": "",
@@ -1083,112 +1083,28 @@
                             "optional": false
                         },
                         {
-                            "parameter": "Cost Raster",
-                            "description": "Input raster image used to calculate the cost corridor.",
-                            "type": "raster",
-                            "typelab": "TIF",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "parameter": "Maximum Line Width",
-                            "description": "Maximum processing width for each line. A large value may increase processing times whereas a small value may cause undesired clipping.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 32.0,
-                            "output": false,
-                            "optional": true
-                        },
-                        {
-                            "parameter": "Process Each Segment Individually",
-                            "description": "If set to False, will process each line from start to end ignoring midpoints, if set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the user will manually correct centerlines before running this tool.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "parameter": "Output Raster File",
-                            "description": "Output corridor raster name.",
-                            "type": "raster",
-                            "typelab": "TIF",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
-                },
-                {
-                    "name": "Corridor Footprint",
-                    "info": "Creates footprint polygons for each input line based on a least cost corridor raster and individual line thresholds. This step can be skipped with the 'Line Footprint' tool.",
-                    "multiprocessing": true,
-                    "scriptFile": "Scripts.FLM_CorridorFootprint",
-                    "paramFile": "\\Scripts\\FLM_CFP_params.txt",
-                    "image": "../Images/FLM_IO_CFP.gif",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Alternative/CorridorFootprint.html",
-                    "parameters":[
-                        {
-                            "parameter": "Center-lines Feature Class",
-                            "description": "Input polyline shapefile.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "parameter": "Canopy Raster",
-                            "description": "Input raster image used to exclude canopy from line footprint.",
-                            "type": "raster",
-                            "typelab": "TIF",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "parameter": "Corridor Raster",
-                            "description": "Input corridor raster image where a threshold is applied to generate footprints.",
-                            "type": "raster",
-                            "typelab": "TIF",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "parameter": "Corridor Threshold Field",
-                            "description": "Name of the field (within the input lines) that indicates the least cost corridor thresholds (LCCT).",
-                            "type": "text",
-                            "typelab": "text",
-                            "default": "CorridorTh",
-                            "output": false,
-                            "optional": true
-                        },
-                        {
-                            "parameter": "Maximum Line Width",
-                            "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 32.0,
-                            "output": false,
-                            "optional": true
-                        },
-                        {
-                            "parameter": "Expand And Shrink Cell Range",
-                            "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts. If the cell size is 1m or larger then set this as zero.",
+                            "parameter": "Maximum Tile Width",
+                            "description": "Maximum tile width.",
                             "type": "number",
                             "typelab": "int",
-                            "default": 0,
+                            "default": 2000,
                             "output": false,
-                            "optional": true
+                            "optional": false
                         },
                         {
-                            "parameter": "Output Shapefile",
-                            "description": "Output footprint polygons.",
-                            "type": "vector",
-                            "typelab": "SHP",
+                            "parameter": "Maximum Tile Height",
+                            "description": "Maximum tile height.",
+                            "type": "number",
+                            "typelab": "int",
+                            "default": 2000,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "parameter": "Output Tiling Project File",
+                            "description": "Output tiling project file name.",
+                            "type": "json",
+                            "typelab": "JSON",
                             "default": "",
                             "output": true,
                             "optional": false
