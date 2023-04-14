@@ -258,9 +258,10 @@
 							"variable": "process_segments",
                             "parameter": "Process Segments",
                             "description": "If set to True, will process each segment between each vertex of the input lines separately. If set to False, will process each line from start to end ignoring midpoints. The default is True, since it is assumed that the input lines for this tool are lines manually digitized at regional-scale with sparse vertices at a fine-scale. If using fine-scale (1:1,000) lines as input this may be set to False.",
-                            "type": "bool",
-                            "typelab": "True/False",
-                            "default": "True",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": true,
                             "output": false,
                             "optional": false
                         },
@@ -351,8 +352,9 @@
                         {   "variable": "proc_seg",
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
-                            "type": "bool",
-                            "typelab": [true, false],
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
                             "default": false,
                             "output": false,
                             "optional": false
@@ -416,9 +418,10 @@
                         {
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
-                            "type": "bool",
-                            "typelab": "True/False",
-                            "default": "False",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
                             "output": false,
                             "optional": false
                         },
@@ -443,8 +446,9 @@
                         {
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
-                            "type": "number",
-                            "typelab": [50,55,60,65,70,75,80,85,90,95],
+                            "type": "list",
+                            "typelab": "int",
+                            "data": [50,55,60,65,70,75,80,85,90,95],
                             "default": 90,
                             "output": false,
                             "optional": true
@@ -543,8 +547,9 @@
                         {   "variable": "sampling_type",
                             "parameter": "Sampling Type",
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
-                            "type": "text",
-                            "typelab": ["IN-FEATURES","WHOLE-LINE", "LINE-CROSSINGS", "ARBITRARY"],
+                            "type": "list",
+                            "typelab": "text",
+                            "data": ["IN-FEATURES","WHOLE-LINE", "LINE-CROSSINGS", "ARBITRARY"],
                             "default": "LINE-CROSSINGS",
                             "output": false,
                             "optional": false
@@ -617,8 +622,9 @@
                         {
                             "parameter": "Sampling Type",
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
-                            "type": "text",
-                            "typelab": ["IN-FEATURES", "WHOLE-LINE", "LINE-CROSSINGS", "ARBITRARY"],
+                            "type": "list",
+                            "typelab": "text",
+                            "data": ["IN-FEATURES", "WHOLE-LINE", "LINE-CROSSINGS", "ARBITRARY"],
                             "default": "LINE-CROSSINGS",
                             "output": false,
                             "optional": false
@@ -653,8 +659,9 @@
                         {
                             "parameter": "Sampling Method",
                             "description": "Method used to handle samples when attributing lines: Minimum, Maximum, Mean, Standard Deviation, Median, Mode, or Range.",
-                            "type": "text",
-                            "typelab": ["Minimum", "Maximum", "Mean", "Standard Deviation", "Median", "Mode", "Range"],
+                            "type": "list",
+                            "typelab": "text",
+                            "data": ["Minimum", "Maximum", "Mean", "Standard Deviation", "Median", "Mode", "Range"],
                             "default": "Mean",
                             "output": false,
                             "optional": false
@@ -865,9 +872,10 @@
                         {
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
-                            "type": "bool",
-                            "typelab": "True/False",
-                            "default": "False",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
                             "output": false,
                             "optional": false
                         },
@@ -883,8 +891,9 @@
                         {
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
-                            "type": "number",
-                            "typelab": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95],
+                            "type": "list",
+                            "typelab": "int",
+                            "data": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95],
                             "default": 90,
                             "output": false,
                             "optional": true
@@ -985,9 +994,10 @@
                         {
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
-                            "type": "bool",
-                            "typelab": "True/False",
-                            "default": "False",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
                             "output": false,
                             "optional": false
                         },
@@ -1093,9 +1103,10 @@
                         {
                             "parameter": "Process Each Segment Individually",
                             "description": "If set to False, will process each line from start to end ignoring midpoints, if set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the user will manually correct centerlines before running this tool.",
-                            "type": "bool",
-                            "typelab": "True/False",
-                            "default": "False",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
                             "output": false,
                             "optional": false
                         },

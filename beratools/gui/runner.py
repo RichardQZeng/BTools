@@ -546,7 +546,8 @@ class OptionsInput(tk.Frame):
         self.parameter_type = j['parameter_type']
         self.optional = j['optional']
         self.data_type = j['data_type']
-        default_value = j['default_value']
+        default_value = str(j['default_value'])
+        self.value = default_value  # initialize in event of no default and no selection
 
         ttk.Frame.__init__(self, master)
         self.grid()
@@ -562,14 +563,15 @@ class OptionsInput(tk.Frame):
         opt = ttk.Combobox(frame2, width=40)
         opt.grid(row=0, column=0, sticky=tk.NSEW)
 
-        self.value = None  # initialize in event of no default and no selection
         i = 1
         default_index = -1
         option_list = j['parameter_type']['OptionList']
+        if option_list:
+            option_list = [str(item) for item in option_list]  # convert to strings
         values = ()
         for v in option_list:
             values += (v,)
-            if v == default_value:
+            if v == str(default_value):
                 default_index = i - 1
             i = i + 1
 
@@ -588,16 +590,15 @@ class OptionsInput(tk.Frame):
         self.rowconfigure(0, weight=1)
 
     def get_value(self):
-        if self.value:
-            # return "{}='{}'".format(self.flag, self.value)
+        if self.value is not None:
             value = self.value
-            # if 'Boolean' in self.data_type:
-            #     if value.lower() in ['true']:
-            #         value = True
-            #     else:
-            #         value = False
-            if 'Float' in self.parameter_type:
+            if 'Float' == self.data_type:
                 value = float(self.value)
+            elif 'Integer' == self.data_type:
+                value = int(self.value)
+            elif 'Boolean' == self.data_type:
+                if type(value) is str:
+                    value = True if self.value == 'True' else False
 
             return self.flag, value
         else:
@@ -982,6 +983,11 @@ class MainGui(tk.Frame):
         else:
             self.out_text.bind("<Control-Key-a>", self.select_all)
 
+            # disable copy, paste and delete keys
+            self.out_text.bind('<Control-v>', lambda _: 'break')
+            self.out_text.bind('<Control-c>', lambda _: 'break')
+            self.out_text.bind('<BackSpace>', lambda _: 'break')
+
         #########################################################
         #                  Progress Frame
         #
@@ -1163,13 +1169,15 @@ class MainGui(tk.Frame):
                             new_param['flag'] = 'FIXME'
 
                         if not param['output']:
-                            if type(param['typelab']) is list:
-                                new_param['parameter_type'] = {'OptionList': param['typelab']}
-                                if param['type'] == 'text':
+                            if param['type'] == 'list':
+                                new_param['parameter_type'] = {'OptionList': param['data']}
+                                if param['typelab'] == 'text':
                                     new_param['data_type'] = 'String'
-                                elif param['type'] == 'number':
+                                elif param['typelab'] == 'int':
+                                    new_param['data_type'] = 'Integer'
+                                elif param['typelab'] == 'float':
                                     new_param['data_type'] = 'Float'
-                                elif param['type'] == 'bool':
+                                elif param['typelab'] == 'bool':
                                     new_param['data_type'] = 'Boolean'
                             elif param['type'] == 'text':
                                 new_param['parameter_type'] = 'String'
@@ -1178,9 +1186,6 @@ class MainGui(tk.Frame):
                                     new_param['parameter_type'] = 'Integer'
                                 else:
                                     new_param['parameter_type'] = 'Float'
-                            elif param['type'] == 'bool':
-                                new_param['parameter_type'] = {'OptionList': ['True', 'False']}
-                                new_param['data_type'] = 'Boolean'
                             else:
                                 new_param['parameter_type'] = {'ExistingFile': ''}
                         else:
@@ -1451,15 +1456,13 @@ class MainGui(tk.Frame):
         t.daemon = True
         t.start()
 
-        # disable button
-        self.run_button.config(text='Running', state='disabled')
-
     def run_tool(self):
         bt.set_working_dir(self.working_dir)
 
         args = self.get_widgets_arguments()
         if not args:
-            raise Exception('Please check the parameters.')
+            print('Please check the parameters.')
+            return
 
         self.print_line_to_output("")
         self.print_line_to_output('Staring tool {} ...'.format(self.tool_name))
@@ -1475,6 +1478,9 @@ class MainGui(tk.Frame):
         for key in args.keys():
             if type(args[key]) is not str:
                 args[key] = str(args[key])
+
+        # disable button
+        self.run_button.config(text='Running', state='disabled')
 
         if bt.run_tool(self.current_tool_api, args, self.custom_callback) == 1:
             print("Error running {}".format(self.tool_name))
