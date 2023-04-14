@@ -1,9 +1,8 @@
-import json
 import argparse
 from collections import OrderedDict
 from multiprocessing.pool import Pool
-import numpy as np
 
+import numpy as np
 import pyproj
 import fiona
 import rasterio
@@ -71,6 +70,7 @@ def centerline(callback, in_line, in_cost_raster, line_radius,
     for line in input_lines:
         all_lines.append((line, line_radius, in_cost_raster))
 
+    print('{} lines to be processed.'.format(len(all_lines)))
     if USE_MULTI_PROCESSING:
         features = execute_multiprocessing(all_lines, processes, verbose)
     else:
@@ -80,6 +80,9 @@ def centerline(callback, in_line, in_cost_raster, line_radius,
                 features.append((feat_geometry, feat_attributes))
 
     for feature in features:
+        if not feature[0] or not feature[1]:
+            continue
+
         # Save lines to shapefile
         single_feature = {
             'geometry': mapping(LineString(feature[0])),
@@ -149,13 +152,14 @@ class MinCostPathHelper:
     def block2matrix_numpy(block, nodata):
         contains_negative = False
         width, height = block.shape
-        matrix = [[None if np.isclose(block[i][j], nodata) else block[i][j] for j in range(height)]
-                  for i in range(width)]
+        # TODO: deal with nodata
+        matrix = [[None if np.isclose(block[i][j], nodata) or np.isclose(block[i][j], BT_NODATA)
+                   else block[i][j] for j in range(height)] for i in range(width)]
 
         for l in matrix:
             for v in l:
                 if v is not None:
-                    if v < 0:
+                    if v < 0 and not np.isclose(v, BT_NODATA):
                         contains_negative = True
 
         return matrix, contains_negative
@@ -186,6 +190,10 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     ras_transform = rasterio.transform.AffineTransformer(out_transform)
 
     # TODO: the last element in tuple is point ID
+    # TODO: deal with multipart line
+    if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
+        print("Point initialization error. Input is tuple.")
+
     start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
     end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
     start_tuple = start_tuples[0]
@@ -194,10 +202,13 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
 
     if result is None:
-        raise Exception
+        # raise Exception
+        return None, None
 
     if len(result) == 0:
-        raise Exception
+        # raise Exception
+        print('No result returned.')
+        return None, None
 
     path_points = None
     for path, costs, end_tuples in result:
