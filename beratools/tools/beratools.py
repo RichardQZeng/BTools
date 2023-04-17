@@ -15,9 +15,10 @@ from os import path
 import sys
 import platform
 import re
+import multiprocessing
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
-from centerline import *
+from common import *
 
 running_windows = platform.system() == 'Windows'
 if running_windows:
@@ -71,6 +72,9 @@ class BeraTools(object):
         self.__max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
+
+        # set maximum available cpu core for tools
+        self.__max_cpu_cores = min(BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
 
         self.setting_file = os.path.join(self.exe_path, '..\..\.data\saved_tool_parameters.json')
         if os.path.isfile(self.setting_file):
@@ -187,6 +191,9 @@ class BeraTools(object):
 
     def get_max_procs(self):
         return self.__max_procs
+
+    def get_max_cpu_cores(self):
+        return self.__max_cpu_cores
 
     def save_recent_tool(self):
         gui_settings = {}

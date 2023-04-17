@@ -31,7 +31,6 @@ from tkinter import filedialog
 from tkinter.simpledialog import askinteger
 from tkinter import messagebox
 import webbrowser
-import multiprocessing
 from pathlib import Path
 
 from ..tools.beratools import BeraTools, to_camelcase
@@ -919,10 +918,10 @@ class MainGui(tk.Frame):
         # Create the elements of the buttons frame
         buttons_frame = ttk.Frame(right_frame, padding='0.1i')
         self.mpc_label = ttk.Label(buttons_frame, text="Use CPU Cores:")
-        maxCores = multiprocessing.cpu_count()
+        max_cores = bt.get_max_cpu_cores()
         if bt.get_max_procs() <= 0:
-            bt.set_max_procs(maxCores)
-        self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=maxCores, length=180,
+            bt.set_max_procs(max_cores)
+        self.mpc_scale = tk.Scale(buttons_frame, from_=1, to=max_cores, length=180,
                                   orient='horizontal', command=self.update_procs)
         # multiprocessing core slide
         CreateToolTip(self.mpc_label, 'The number of CPU cores to be used in parallel processes')
@@ -1398,7 +1397,7 @@ class MainGui(tk.Frame):
 
     def set_procs(self):
         try:
-            max_cpu_cores = multiprocessing.cpu_count()
+            max_cpu_cores = bt.get_max_cpu_cores()
             max_procs = askinteger(
                 title="Max CPU cores used",
                 prompt="Set the number of processors to be used (maximum: {}, -1: all):".format(max_cpu_cores),
