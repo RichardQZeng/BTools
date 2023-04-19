@@ -174,12 +174,6 @@ class BeraTools(object):
         self.verbose = val
         self.save_setting('verbose_mode', val)
 
-    def set_default_callback(self, callback_func):
-        """
-        Sets the default callback used for handling tool text outputs.
-        """
-        self.default_callback = callback_func
-
 
     def set_max_procs(self, val=-1):
         """ 
@@ -311,87 +305,6 @@ class BeraTools(object):
         finally:
             os.chdir(work_dir)
 
-    def version(self):
-        """ 
-        Retrieves the version information for BERA Tools.
-        """
-        try:
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args = []
-            args.append("." + os.path.sep + self.exe_name)
-            args.append("--version")
-
-            proc = Popen(args, shell=False, stdout=PIPE,
-                         stderr=STDOUT, bufsize=1, universal_newlines=True)
-            ret = ""
-            while True:
-                line = proc.stdout.readline()
-                if line != '':
-                    ret += line
-                else:
-                    break
-
-            return ret
-        except (OSError, ValueError, CalledProcessError) as err:
-            return err
-        finally:
-            os.chdir(work_dir)
-
-    def tool_help(self, tool_name=''):
-        """ 
-        Retrieves the help description for a specific tool.
-        """
-        try:
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args = []
-            args.append("." + os.path.sep + self.exe_name)
-            args.append("--toolhelp={}".format(to_camelcase(tool_name)))
-
-            proc = Popen(args, shell=False, stdout=PIPE,
-                         stderr=STDOUT, bufsize=1, universal_newlines=True)
-            ret = ""
-            while True:
-                line = proc.stdout.readline()
-                if line != '':
-                    ret += line
-                else:
-                    break
-
-            return ret
-        except (OSError, ValueError, CalledProcessError) as err:
-            return err
-        finally:
-            os.chdir(work_dir)
-
-    def tool_parameters(self, tool_name):
-        """ 
-        Retrieves the tool parameter descriptions for a specific tool.
-        """
-        try:
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args = []
-            args.append("." + os.path.sep + self.exe_name)
-            args.append("--toolparameters={}".format(to_camelcase(tool_name)))
-
-            proc = Popen(args, shell=False, stdout=PIPE,
-                         stderr=STDOUT, bufsize=1, universal_newlines=True)
-            ret = ""
-            while True:
-                line = proc.stdout.readline()
-                if line != '':
-                    ret += line
-                else:
-                    break
-
-            return ret
-        except (OSError, ValueError, CalledProcessError) as err:
-            return err
-        finally:
-            os.chdir(work_dir)
-
     def toolbox(self, tool_name=''):
         """ 
         Retrieve the toolbox for a specific tool.
@@ -402,34 +315,6 @@ class BeraTools(object):
             args = []
             args.append("." + os.path.sep + self.exe_name)
             args.append("--toolbox={}".format(to_camelcase(tool_name)))
-
-            proc = Popen(args, shell=False, stdout=PIPE,
-                         stderr=STDOUT, bufsize=1, universal_newlines=True)
-            ret = ""
-            while True:
-                line = proc.stdout.readline()
-                if line != '':
-                    ret += line
-                else:
-                    break
-
-            return ret
-        except (OSError, ValueError, CalledProcessError) as err:
-            return err
-        finally:
-            os.chdir(work_dir)
-
-    def view_code(self, tool_name):
-        """ 
-        Opens a web browser to view the source code for a specific tool
-        on the projects source code repository.
-        """
-        try:
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args = []
-            args.append("." + os.path.sep + self.exe_name)
-            args.append("--viewcode={}".format(to_camelcase(tool_name)))
 
             proc = Popen(args, shell=False, stdout=PIPE,
                          stderr=STDOUT, bufsize=1, universal_newlines=True)

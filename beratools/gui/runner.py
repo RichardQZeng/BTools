@@ -1322,23 +1322,9 @@ class MainGui(tk.Frame):
         # update label to show tools found
         self.search_frame.config(text="{} Tools Found".format(len(self.search_list)))
 
-    def get_descriptions(self):
-        self.descriptionList = []
-        tools = bt.list_tools()
-        tools_items = tools.items()
-        for t in tools_items:
-            # second entry in tool dictionary is the description
-            self.descriptionList.append(t[1])
-
     def tool_help_button(self):
         # open the user manual section for the current tool
         webbrowser.open_new_tab(self.get_current_tool_parameters()['tech_link'])
-
-    def camel_to_snake(self, s):  # taken from tools_info.py
-        _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
-        _underscorer2 = re.compile('([a-z0-9])([A-Z])')
-        subbed = _underscorer1.sub(r'\1_\2', s)
-        return _underscorer2.sub(r'\1_\2', subbed).lower()
 
     def refresh_tools(self):
         # refresh lists
@@ -1411,15 +1397,6 @@ class MainGui(tk.Frame):
     def update_procs(self, value):
         self.__max_procs = int(value)
         bt.set_max_procs(self.__max_procs)
-
-    def select_exe(self):
-        try:
-            filename = filedialog.askopenfilename(initialdir=self.exe_path)
-            self.exe_path = path.dirname(path.abspath(filename))
-            bt.set_whitebox_dir(self.exe_path)
-            self.refresh_tools()
-        except:
-            messagebox.showinfo("Warning", "Could not find WhiteboxTools executable file.")
 
     def get_widgets_arguments(self):
         args = {}
@@ -1579,11 +1556,6 @@ class MainGui(tk.Frame):
         self.out_text.mark_set(tk.INSERT, "1.0")
         self.out_text.see(tk.INSERT)
         return 'break'
-
-
-class JsonPayload(object):
-    def __init__(self, j):
-        self.__dict__ = json.loads(j)
 
 
 # handle debugging exit signal and kill sub-process
