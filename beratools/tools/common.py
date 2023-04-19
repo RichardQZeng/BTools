@@ -21,6 +21,8 @@ BT_DEBUGGING = False
 BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 
 
+def clip_raster(geom, raster_file):
+    pass
 
 
 

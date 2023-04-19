@@ -1065,6 +1065,7 @@
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/workflows/tiler.html",
                     "parameters":[
                         {
+                            "variable": "in_line",
                             "parameter": "Centerlines Feature Class",
                             "description": "Input polyline shapefile.",
                             "type": "vector",
@@ -1074,6 +1075,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "in_chm",
                             "parameter": "CHM Raster",
                             "description": "Input CHM raster image.",
                             "type": "raster",
@@ -1083,24 +1085,37 @@
                             "optional": false
                         },
                         {
-                            "parameter": "Maximum Tile Width",
-                            "description": "Maximum tile width.",
+                            "variable": "in_boundary",
+                            "parameter": "Boundary polygon",
+                            "description": "Input boundary polygon file.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+                            "variable": "tile_size",
+                            "parameter": "Maximum Tile Size",
+                            "description": "Maximum tile Size (width/height).",
                             "type": "number",
                             "typelab": "int",
                             "default": 2000,
                             "output": false,
-                            "optional": false
+                            "optional": true
                         },
                         {
-                            "parameter": "Maximum Tile Height",
-                            "description": "Maximum tile height.",
+                            "variable": "tile_buffer",
+                            "parameter": "Tile buffer Size (meter)",
+                            "description": "Tile buffer Size.",
                             "type": "number",
                             "typelab": "int",
-                            "default": 2000,
+                            "default": 50,
                             "output": false,
-                            "optional": false
+                            "optional": true
                         },
                         {
+                            "variable": "out_project",
                             "parameter": "Output Tiling Project File",
                             "description": "Output tiling project file name.",
                             "type": "file",
