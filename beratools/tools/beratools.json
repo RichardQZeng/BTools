@@ -1146,10 +1146,19 @@
                             "optional": false
                         },
                         {
+                            "parameter": "Tiler Output File",
+                            "description": "Tiler output file",
+                            "type": "file",
+                            "typelab": "json",
+                            "default": "",
+                            "output": false,
+                            "optional": true
+                        },
+                        {
                             "parameter": "Batch Processing Project File",
                             "description": "Project file for batch processing",
                             "type": "file",
-                            "typelab": "CSV",
+                            "typelab": "json",
                             "default": "",
                             "output": false,
                             "optional": false

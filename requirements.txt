@@ -20,4 +20,5 @@ whitebox
 geopandas
 pip
 matplotlib
+pyproj
 

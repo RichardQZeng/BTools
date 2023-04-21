@@ -41,7 +41,8 @@ class Tiler:
 
     def save_clip_files(self):
         for item in self.clip_data:
-            item['geometry'] = item['geometry'].buffer(self.tile_buffer)
+            clip_lines(item['geometry'], self.tile_buffer, self.in_line, item['line'])
+            clip_raster(item['geometry'], self.tile_buffer, self.in_chm, item['raster'])
 
     def execute(self):
         part_x = 5
