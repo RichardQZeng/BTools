@@ -12,6 +12,7 @@
 from __future__ import print_function
 import os
 from os import path
+from pathlib import Path
 import sys
 import platform
 import re
@@ -76,6 +77,12 @@ class BeraTools(object):
 
         # set maximum available cpu core for tools
         self.__max_cpu_cores = min(BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
+
+        # load bera tools
+        self.tools_list = []
+        self.sorted_tools = []
+        self.get_bera_tools()
+        self.get_bera_tool_list()
 
         self.setting_file = os.path.join(self.exe_path, '..\..\.data\saved_tool_parameters.json')
         if os.path.isfile(self.setting_file):
@@ -306,33 +313,6 @@ class BeraTools(object):
         finally:
             os.chdir(work_dir)
 
-    def toolbox(self, tool_name=''):
-        """ 
-        Retrieve the toolbox for a specific tool.
-        """
-        try:
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args = []
-            args.append("." + os.path.sep + self.exe_name)
-            args.append("--toolbox={}".format(to_camelcase(tool_name)))
-
-            proc = Popen(args, shell=False, stdout=PIPE,
-                         stderr=STDOUT, bufsize=1, universal_newlines=True)
-            ret = ""
-            while True:
-                line = proc.stdout.readline()
-                if line != '':
-                    ret += line
-                else:
-                    break
-
-            return ret
-        except (OSError, ValueError, CalledProcessError) as err:
-            return err
-        finally:
-            os.chdir(work_dir)
-
     def list_tools(self, keywords=[]):
         """ 
         Lists all available tools in BERA Tools.
@@ -365,3 +345,41 @@ class BeraTools(object):
             return err
         finally:
             os.chdir(work_dir)
+
+    def get_saved_tool_parameter(self, tool, variable):
+        data_path = Path(__file__).resolve().cwd().parent.parent.joinpath(r'.data')
+        if not data_path.exists():
+            data_path.mkdir()
+
+        json_file = data_path.joinpath(data_path, 'saved_tool_parameters.json')
+        if json_file.exists():
+            with open(json_file) as open_file:
+                saved_parameters = json.load(open_file)
+                if tool in list(saved_parameters.keys()):
+                    tool_params = saved_parameters[tool]
+                    if variable in tool_params.keys():
+                        saved_value = tool_params[variable]
+                        return saved_value
+
+        return None
+
+    def get_bera_tools(self):
+        tool_json = os.path.join(self.exe_path, r'beratools.json')
+        if os.path.exists(tool_json):
+            tool_json = open(os.path.join(self.exe_path, r'beratools.json'))
+            self.bera_tools = json.load(tool_json)
+        else:
+            print('Tool configuration file not exists')
+
+    def get_bera_tool_list(self):
+        self.tools_list = []
+        self.sorted_tools = []
+        selected_item = -1
+        for toolbox in self.bera_tools['toolbox']:
+            category = []
+            for item in toolbox['tools']:
+                if item['name']:
+                    category.append(item['name'])
+                    self.tools_list.append(item['name'])  # add tool to list
+
+            self.sorted_tools.append(category)

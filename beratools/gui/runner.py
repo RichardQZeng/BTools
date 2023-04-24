@@ -755,8 +755,7 @@ class MainGui(tk.Frame):
         exe_name = "BERA_tools{}".format(self.ext)
 
         # Load BERA Tools from json file
-        tools = open(r'beratools\tools\beratools.json')
-        self.get_bera_tools = json.load(tools)
+        self.bera_tools = bt.bera_tools
 
         self.exe_path = path.dirname(path.abspath(__file__))
         os.chdir(self.exe_path)
@@ -1019,7 +1018,6 @@ class MainGui(tk.Frame):
 
         self.filemenu = tk.Menu(menubar, tearoff=0)
         self.filemenu.add_command(label="Set Working Directory", command=self.set_directory)
-        self.filemenu.add_command(label="Refresh Tools", command=self.refresh_tools)
 
         if bt.get_verbose_mode():
             self.filemenu.add_command(label="Do Not Print Tool Output", command=self.update_verbose)
@@ -1063,48 +1061,29 @@ class MainGui(tk.Frame):
             else:  # Contains a sub toolbox
                 self.lower_toolboxes.append(toolbox)  # add to only the lower toolbox list
 
-    def get_tools_list(self):
-        self.tools_list = []
-        selected_item = -1
-        for item in bt.list_tools().keys():
-            if item:
-                # format tool name
-                value = to_camelcase(item).replace("TIN", "Tin").replace("KS", "Ks").replace("FD", "Fd")
-                self.tools_list.append(value)  # add tool to list
-                if item == self.tool_name:  # update selected_item it tool found
-                    selected_item = len(self.tools_list) - 1
-        if selected_item == -1:  # set self.tool_name as default tool
-            selected_item = 0
-            self.tool_name = self.tools_list[0]
-
     def get_bera_toolboxes(self):
         toolboxes = list()
-        for toolbox in self.get_bera_tools['toolbox']:
+        for toolbox in self.bera_tools['toolbox']:
             tb = toolbox['category']
             toolboxes.append(tb)
         return toolboxes
 
     def get_bera_tool_list(self):
-        self.tools_list = []
-        self.sorted_tools = []
+        self.tools_list = bt.tools_list
+        self.sorted_tools = bt.sorted_tools
         selected_item = -1
-        for toolbox in self.get_bera_tools['toolbox']:
-            category = []
+        for toolbox in self.bera_tools['toolbox']:
             for item in toolbox['tools']:
                 if item['name']:
-                    category.append(item['name'])
-                    self.tools_list.append(item['name'])  # add tool to list
                     if item == self.tool_name:  # update selected_item it tool found
                         selected_item = len(self.tools_list) - 1
-
-            self.sorted_tools.append(category)
 
         if selected_item == -1:  # set self.tool_name as default tool
             selected_item = 0
             self.tool_name = self.tools_list[0]
 
     def get_bera_tool_info(self):
-        for toolbox in self.get_bera_tools['toolbox']:
+        for toolbox in self.bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool['name'] == self.tool_name:
                     return tool['info']
@@ -1129,27 +1108,10 @@ class MainGui(tk.Frame):
             tool_params[self.current_tool_api] = args
             json.dump(tool_params, new_file, indent=4)
 
-    def get_saved_tool_parameter(self, tool, variable):
-        data_path = Path(__file__).resolve().cwd().parent.parent.joinpath(r'.data')
-        if not data_path.exists():
-            data_path.mkdir()
-
-        json_file = data_path.joinpath(data_path, 'saved_tool_parameters.json')
-        if json_file.exists():
-            with open(json_file) as open_file:
-                saved_parameters = json.load(open_file)
-                if tool in list(saved_parameters.keys()):
-                    tool_params = saved_parameters[tool]
-                    if variable in tool_params.keys():
-                        saved_value = tool_params[variable]
-                        return saved_value
-
-        return None
-
     def get_bera_tool_parameters(self, tool_name):
         new_params = {'parameters': []}
 
-        for toolbox in self.get_bera_tools['toolbox']:
+        for toolbox in self.bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool_name == tool['name']:
                     self.current_tool_api = tool['scriptFile']
@@ -1161,7 +1123,7 @@ class MainGui(tk.Frame):
                         if 'variable' in param.keys():
                             new_param['flag'] = param['variable']
                             # restore saved parameters
-                            new_param['saved_value'] = self.get_saved_tool_parameter(tool['scriptFile'], param['variable'])
+                            new_param['saved_value'] = bt.get_saved_tool_parameter(tool['scriptFile'], param['variable'])
                         else:
                             new_param['flag'] = 'FIXME'
 
@@ -1325,17 +1287,6 @@ class MainGui(tk.Frame):
     def tool_help_button(self):
         # open the user manual section for the current tool
         webbrowser.open_new_tab(self.get_current_tool_parameters()['tech_link'])
-
-    def refresh_tools(self):
-        # refresh lists
-        self.tools_and_toolboxes = bt.toolbox('')
-        self.get_tools_list()
-        # clear self.tool_tree
-        self.tool_tree.delete(*self.tool_tree.get_children())
-        self.add_tools_to_treeview()
-
-        # Update label
-        self.tools_frame["text"] = "{} Available Tools".format(len(self.tools_list))
 
     def add_tools_to_treeview(self):
         # Add toolboxes and tools to treeview
