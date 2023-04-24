@@ -40,9 +40,24 @@ class Tiler:
             self.clip_data[i]['line'] = path_root.joinpath(path_line.stem + '_' + cell_num + '.shp')
 
     def save_clip_files(self):
+        project_data = {'tool': 'tiler'}
+        tasks_list = []
+        step = 0
         for item in self.clip_data:
             clip_lines(item['geometry'], self.tile_buffer, self.in_line, item['line'])
             clip_raster(item['geometry'], self.tile_buffer, self.in_chm, item['raster'])
+
+            cell_data = {
+                'in_line': self.in_line,
+                'in_chm': self.in_chm
+            }
+            tasks_list.append(cell_data)
+            step += 1
+            print('%{}'.format(step/len(self.clip_data)*100))
+
+        project_data['tasks'] = tasks_list
+        with open(self.out_project, 'w') as project_file:
+            json.dump(project_data, project_file, indent=4)
 
     def execute(self):
         part_x = 5

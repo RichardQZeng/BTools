@@ -1136,6 +1136,7 @@
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/workflows/batch_processing.html",
                     "parameters":[
                         {
+                            "variable": "tool",
                             "parameter": "Tool",
                             "description": "Select tool to do batch processing",
                             "type": "list",
@@ -1146,15 +1147,7 @@
                             "optional": false
                         },
                         {
-                            "parameter": "Tiler Output File",
-                            "description": "Tiler output file",
-                            "type": "file",
-                            "typelab": "json",
-                            "default": "",
-                            "output": false,
-                            "optional": true
-                        },
-                        {
+                            "variable": "in_project",
                             "parameter": "Batch Processing Project File",
                             "description": "Project file for batch processing",
                             "type": "file",
