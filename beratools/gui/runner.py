@@ -33,7 +33,7 @@ from tkinter import messagebox
 import webbrowser
 from pathlib import Path
 
-from ..tools.beratools import BeraTools, to_camelcase
+from ..tools.beratools import BeraTools
 from .tooltip import *
 
 from PIL import Image, ImageTk
@@ -94,6 +94,7 @@ class FileSelector(tk.Frame):
             self.entry.bind("<Command-Key-a>", self.select_all)
         else:
             self.entry.bind("<Control-Key-a>", self.select_all)
+            self.entry.bind('<Control-c>', lambda _: 'break')
 
     def select_file(self):
         try:
@@ -275,6 +276,7 @@ class FileOrFloat(tk.Frame):
             self.entry.bind("<Command-Key-a>", self.select_all)
         else:
             self.entry.bind("<Control-Key-a>", self.select_all)
+            self.entry.bind('<Control-c>', lambda _: 'break')
 
     def select_file(self):
         try:
@@ -586,6 +588,8 @@ class OptionsInput(tk.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
+        opt.bind('<Control-c>', lambda _: 'break')
+
     def get_value(self):
         if self.value is not None:
             value = self.value
@@ -652,6 +656,7 @@ class DataInput(tk.Frame):
             self.entry.bind("<Command-Key-a>", self.select_all)
         else:
             self.entry.bind("<Control-Key-a>", self.select_all)
+            self.entry.bind('<Control-c>', lambda _: 'break')
 
         # self.pack(fill=tk.BOTH, expand=1)
         self.columnconfigure(0, weight=1)
@@ -744,8 +749,9 @@ class MainGui(tk.Frame):
         self.toolbox_list = None
         self.tools_and_toolboxes = None
         self.out_text = None
-        self.current_tool_api = None
         self.search_tool_selected = None
+        self.reset_button = None
+        self.current_tool_api = None
 
         if platform.system() == 'Windows':
             self.ext = '.exe'
@@ -836,6 +842,7 @@ class MainGui(tk.Frame):
 
         # Add toolboxes and tools to treeview
         self.add_tools_to_treeview()
+        self.update_selected_bera_tool()
 
         # bind tools in treeview to self.tree_update_tool_help function
         # and toolboxes to self.update_toolbox_icon function
@@ -1084,7 +1091,9 @@ class MainGui(tk.Frame):
             json.dump(tool_params, new_file, indent=4)
 
     def get_current_tool_parameters(self):
-        return bt.get_bera_tool_parameters(self.tool_name)
+        tool_params = bt.get_bera_tool_parameters(self.tool_name)
+        self.current_tool_api = tool_params['tool_api']
+        return tool_params
 
     # read selection when tool selected from treeview then call self.update_tool_help
     def tree_update_tool_help(self, event):
@@ -1111,6 +1120,7 @@ class MainGui(tk.Frame):
         self.print_to_output('\n')
 
         j = self.get_current_tool_parameters()
+
         param_num = 0
         for p in j['parameters']:
             json_str = json.dumps(p, sort_keys=True, indent=2, separators=(',', ': '))

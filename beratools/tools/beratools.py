@@ -36,13 +36,6 @@ def default_callback(value):
     print(value)
 
 
-def to_camelcase(name):
-    """
-    Convert snake_case name to CamelCase name 
-    """
-    return ''.join(x.title() for x in name.split('_'))
-
-
 def to_snakecase(name):
     """
     Convert CamelCase name to snake_case name
@@ -92,7 +85,7 @@ class BeraTools(object):
 
         self.setting_file = os.path.join(self.exe_path, '..\..\.data\saved_tool_parameters.json')
         if os.path.isfile(self.setting_file):
-            # read the settings.json file if it exists
+            # read the saved_tool_parameters.json file if it exists
             with open(self.setting_file, 'r') as settings_file:
                 settings = json.load(settings_file)
 
@@ -220,7 +213,7 @@ class BeraTools(object):
             with open(self.setting_file, 'w') as settings_file:
                 json.dump(gui_settings, settings_file, indent=4)
 
-    def run_tool(self, tool_name, args, callback=None):
+    def run_tool(self, tool_api, args, callback=None):
         """ 
         Runs a tool and specifies tool arguments.
         Returns 0 if completes without error.
@@ -245,7 +238,7 @@ class BeraTools(object):
         try:
             proc = None
             args_string = str(args).replace("'", '"')
-            args_tool = ['python', os.path.join(r'..\tools', tool_name+'.py'),
+            args_tool = ['python', os.path.join(r'..\tools', tool_api + '.py'),
                          '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
 
             if running_windows and self.start_minimized:
@@ -275,7 +268,7 @@ class BeraTools(object):
                     break
 
             callback('---------------------------')
-            callback('{} tool finished'.format(tool_name))
+            callback('{} tool finished'.format(tool_api))
             callback('---------------------------')
 
             return 0
@@ -287,6 +280,7 @@ class BeraTools(object):
         """ 
         Retrieves the help description for BERA Tools.
         """
+        work_dir = None
         try:
             work_dir = os.getcwd()
             os.chdir(self.exe_path)
@@ -301,7 +295,7 @@ class BeraTools(object):
         finally:
             os.chdir(work_dir)
 
-    def license(self, tool_name=None):
+    def license(self):
         """ 
         Retrieves the license information for BERA Tools.
         """
@@ -312,39 +306,6 @@ class BeraTools(object):
         try:
             with open(os.path.join(self.exe_path, r'..\..\LICENSE.txt'), 'r') as f:
                 ret = f.read()
-
-            return ret
-        except (OSError, ValueError, CalledProcessError) as err:
-            return err
-        finally:
-            os.chdir(work_dir)
-
-    def list_tools(self, keywords=[]):
-        """ 
-        Lists all available tools in BERA Tools.
-        """
-        try:
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-            args = []
-            args.append("." + os.path.sep + self.exe_name)
-            args.append("--listtools")
-            if len(keywords) > 0:
-                for kw in keywords:
-                    args.append(kw)
-
-            proc = Popen(args, shell=False, stdout=PIPE,
-                         stderr=STDOUT, bufsize=1, universal_newlines=True)
-            ret = {}
-            line = proc.stdout.readline()  # skip number of available tools header
-            while True:
-                line = proc.stdout.readline()
-                if line != '':
-                    if line.strip() != '':
-                        name, descr = line.split(':')
-                        ret[to_snakecase(name.strip())] = descr.strip()
-                else:
-                    break
 
             return ret
         except (OSError, ValueError, CalledProcessError) as err:
@@ -380,7 +341,7 @@ class BeraTools(object):
     def get_bera_tool_list(self):
         self.tools_list = []
         self.sorted_tools = []
-        selected_item = -1
+
         for toolbox in self.bera_tools['toolbox']:
             category = []
             for item in toolbox['tools']:
@@ -417,7 +378,7 @@ class BeraTools(object):
         for toolbox in self.bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool_name == tool['name']:
-                    self.current_tool_api = tool['scriptFile']
+                    new_params['tool_api'] = tool['tool_api']
                     new_params['tech_link'] = tool['tech_link']
 
                     # convert json format for parameters
@@ -426,21 +387,31 @@ class BeraTools(object):
                         if 'variable' in param.keys():
                             new_param['flag'] = param['variable']
                             # restore saved parameters
-                            new_param['saved_value'] = self.get_saved_tool_parameter(tool['scriptFile'], param['variable'])
+                            new_param['saved_value'] = self.get_saved_tool_parameter(tool['tool_api'], param['variable'])
                         else:
                             new_param['flag'] = 'FIXME'
 
                         if not param['output']:
                             if param['type'] == 'list':
-                                new_param['parameter_type'] = {'OptionList': param['data']}
-                                if param['typelab'] == 'text':
+                                if tool_name == 'Batch Processing':
+                                    tool_list = self.tools_list
+                                    if 'Tiler' in tool_list:
+                                        tool_list.remove('Tiler')
+                                    if 'Batch Processing' in tool_list:
+                                        tool_list.remove('Batch Processing')
+                                    new_param['parameter_type'] = {'OptionList': tool_list}
                                     new_param['data_type'] = 'String'
-                                elif param['typelab'] == 'int':
-                                    new_param['data_type'] = 'Integer'
-                                elif param['typelab'] == 'float':
-                                    new_param['data_type'] = 'Float'
-                                elif param['typelab'] == 'bool':
-                                    new_param['data_type'] = 'Boolean'
+                                else:
+                                    new_param['parameter_type'] = {'OptionList': param['data']}
+                                    new_param['data_type'] = 'String'
+                                    if param['typelab'] == 'text':
+                                        new_param['data_type'] = 'String'
+                                    elif param['typelab'] == 'int':
+                                        new_param['data_type'] = 'Integer'
+                                    elif param['typelab'] == 'float':
+                                        new_param['data_type'] = 'Float'
+                                    elif param['typelab'] == 'bool':
+                                        new_param['data_type'] = 'Boolean'
                             elif param['type'] == 'text':
                                 new_param['parameter_type'] = 'String'
                             elif param['type'] == 'number':
@@ -448,6 +419,8 @@ class BeraTools(object):
                                     new_param['parameter_type'] = 'Integer'
                                 else:
                                     new_param['parameter_type'] = 'Float'
+                            elif param['type'] == 'file':
+                                new_param['parameter_type'] = {'ExistingFile': ''}
                             else:
                                 new_param['parameter_type'] = {'ExistingFile': ''}
                         else:
@@ -471,4 +444,3 @@ class BeraTools(object):
                         new_params['parameters'].append(new_param)
 
         return new_params
-

@@ -40,7 +40,7 @@ class Tiler:
             self.clip_data[i]['line'] = path_root.joinpath(path_line.stem + '_' + cell_num + '.shp')
 
     def save_clip_files(self):
-        project_data = {'tool': 'tiler'}
+        project_data = {'tool_api': 'tiler'}
         tasks_list = []
         step = 0
         for item in self.clip_data:
