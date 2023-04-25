@@ -79,10 +79,16 @@ class BeraTools(object):
         self.__max_cpu_cores = min(BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
 
         # load bera tools
+        self.bera_tools = None
         self.tools_list = []
         self.sorted_tools = []
+        self.upper_toolboxes = []
+        self.lower_toolboxes = []
         self.get_bera_tools()
         self.get_bera_tool_list()
+        self.get_bera_toolboxes()
+        self.toolbox_list = self.get_bera_toolboxes()
+        self.sort_toolboxes()
 
         self.setting_file = os.path.join(self.exe_path, '..\..\.data\saved_tool_parameters.json')
         if os.path.isfile(self.setting_file):
@@ -383,3 +389,86 @@ class BeraTools(object):
                     self.tools_list.append(item['name'])  # add tool to list
 
             self.sorted_tools.append(category)
+
+    def sort_toolboxes(self):
+        for toolbox in self.toolbox_list:
+            if toolbox.find('/') == (-1):  # Does not contain a sub toolbox, i.e. does not contain '/'
+                self.upper_toolboxes.append(toolbox)  # add to both upper toolbox list and lower toolbox list
+                self.lower_toolboxes.append(toolbox)
+            else:  # Contains a sub toolbox
+                self.lower_toolboxes.append(toolbox)  # add to only the lower toolbox list
+
+    def get_bera_toolboxes(self):
+        toolboxes = []
+        for toolbox in self.bera_tools['toolbox']:
+            tb = toolbox['category']
+            toolboxes.append(tb)
+        return toolboxes
+
+    def get_bera_tool_info(self, tool_name):
+        for toolbox in self.bera_tools['toolbox']:
+            for tool in toolbox['tools']:
+                if tool['name'] == tool_name:
+                    return tool['info']
+
+    def get_bera_tool_parameters(self, tool_name):
+        new_params = {'parameters': []}
+
+        for toolbox in self.bera_tools['toolbox']:
+            for tool in toolbox['tools']:
+                if tool_name == tool['name']:
+                    self.current_tool_api = tool['scriptFile']
+                    new_params['tech_link'] = tool['tech_link']
+
+                    # convert json format for parameters
+                    for param in tool['parameters']:
+                        new_param = {'name': param['parameter']}
+                        if 'variable' in param.keys():
+                            new_param['flag'] = param['variable']
+                            # restore saved parameters
+                            new_param['saved_value'] = self.get_saved_tool_parameter(tool['scriptFile'], param['variable'])
+                        else:
+                            new_param['flag'] = 'FIXME'
+
+                        if not param['output']:
+                            if param['type'] == 'list':
+                                new_param['parameter_type'] = {'OptionList': param['data']}
+                                if param['typelab'] == 'text':
+                                    new_param['data_type'] = 'String'
+                                elif param['typelab'] == 'int':
+                                    new_param['data_type'] = 'Integer'
+                                elif param['typelab'] == 'float':
+                                    new_param['data_type'] = 'Float'
+                                elif param['typelab'] == 'bool':
+                                    new_param['data_type'] = 'Boolean'
+                            elif param['type'] == 'text':
+                                new_param['parameter_type'] = 'String'
+                            elif param['type'] == 'number':
+                                if param['typelab'] == 'int':
+                                    new_param['parameter_type'] = 'Integer'
+                                else:
+                                    new_param['parameter_type'] = 'Float'
+                            else:
+                                new_param['parameter_type'] = {'ExistingFile': ''}
+                        else:
+                            new_param["parameter_type"] = {'NewFile': ''}
+
+                        new_param['description'] = param['description']
+
+                        if param['type'] == 'raster':
+                            for i in new_param["parameter_type"].keys():
+                                new_param['parameter_type'][i] = 'Raster'
+                        elif param['type'] == 'vector':
+                            for i in new_param["parameter_type"].keys():
+                                new_param['parameter_type'][i] = 'Vector'
+
+                        new_param['default_value'] = param['default']
+                        if "optional" in param.keys():
+                            new_param['optional'] = param['optional']
+                        else:
+                            new_param['optional'] = False
+
+                        new_params['parameters'].append(new_param)
+
+        return new_params
+

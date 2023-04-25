@@ -717,7 +717,7 @@ class MainGui(tk.Frame):
         self.sorted_tools = None
         self.lower_toolboxes = None
         self.upper_toolboxes = None
-        self.filemenu = None
+        self.file_menu = None
         self.closed_toolbox_icon = None
         self.open_toolbox_icon = None
         self.tool_icon = None
@@ -754,8 +754,13 @@ class MainGui(tk.Frame):
 
         exe_name = "BERA_tools{}".format(self.ext)
 
-        # Load BERA Tools from json file
+        # BERA tool list
         self.bera_tools = bt.bera_tools
+        self.tools_list = bt.tools_list
+        self.sorted_tools = bt.sorted_tools
+        self.toolbox_list = bt.toolbox_list
+        self.upper_toolboxes = bt.upper_toolboxes
+        self.lower_toolboxes = bt.lower_toolboxes
 
         self.exe_path = path.dirname(path.abspath(__file__))
         os.chdir(self.exe_path)
@@ -807,11 +812,6 @@ class MainGui(tk.Frame):
         # right_frame.rowconfigure(4, weight=1)
 
         right_frame.columnconfigure(0, weight=1)
-
-        # BERA tool list
-        self.get_bera_tool_list()
-        self.toolbox_list = self.get_bera_toolboxes()
-        self.sort_toolboxes()
 
         # Icons to be used in tool treeview
         self.tool_icon = tk.PhotoImage(file=self.script_dir + '//img//tool.gif')
@@ -959,7 +959,7 @@ class MainGui(tk.Frame):
         # Retrieve and insert the text for the current tool
 
         # BERA Tools help text
-        k = self.get_bera_tool_info()
+        k = bt.get_bera_tool_info(self.tool_name)
         if k:
             self.out_text.insert(tk.END, k)
 
@@ -1016,19 +1016,19 @@ class MainGui(tk.Frame):
         #                       Menus
         menubar = tk.Menu(self)
 
-        self.filemenu = tk.Menu(menubar, tearoff=0)
-        self.filemenu.add_command(label="Set Working Directory", command=self.set_directory)
+        self.file_menu = tk.Menu(menubar, tearoff=0)
+        self.file_menu.add_command(label="Set Working Directory", command=self.set_directory)
 
         if bt.get_verbose_mode():
-            self.filemenu.add_command(label="Do Not Print Tool Output", command=self.update_verbose)
+            self.file_menu.add_command(label="Do Not Print Tool Output", command=self.update_verbose)
         else:
-            self.filemenu.add_command(label="Print Tool Output", command=self.update_verbose)
+            self.file_menu.add_command(label="Print Tool Output", command=self.update_verbose)
 
-        self.filemenu.add_command(label="Set Num. Processors", command=self.set_procs)
+        self.file_menu.add_command(label="Set Num. Processors", command=self.set_procs)
 
-        self.filemenu.add_separator()
-        self.filemenu.add_command(label="Exit", command=self.quit)
-        menubar.add_cascade(label="File", menu=self.filemenu)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Exit", command=self.quit)
+        menubar.add_cascade(label="File", menu=self.file_menu)
 
         editmenu = tk.Menu(menubar, tearoff=0)
         editmenu.add_command(label="Cut", command=lambda: self.focus_get().event_generate("<<Cut>>"))
@@ -1046,31 +1046,12 @@ class MainGui(tk.Frame):
     def update_verbose(self):
         if bt.get_verbose_mode():
             bt.set_verbose_mode(False)
-            self.filemenu.entryconfig(2, label="Print Tool Output")
+            self.file_menu.entryconfig(2, label="Print Tool Output")
         else:
             bt.set_verbose_mode(True)
-            self.filemenu.entryconfig(2, label="Do Not Print Tool Output")
+            self.file_menu.entryconfig(2, label="Do Not Print Tool Output")
 
-    def sort_toolboxes(self):
-        self.upper_toolboxes = []
-        self.lower_toolboxes = []
-        for toolbox in self.toolbox_list:
-            if toolbox.find('/') == (-1):  # Does not contain a sub toolbox, i.e. does not contain '/'
-                self.upper_toolboxes.append(toolbox)  # add to both upper toolbox list and lower toolbox list
-                self.lower_toolboxes.append(toolbox)
-            else:  # Contains a sub toolbox
-                self.lower_toolboxes.append(toolbox)  # add to only the lower toolbox list
-
-    def get_bera_toolboxes(self):
-        toolboxes = list()
-        for toolbox in self.bera_tools['toolbox']:
-            tb = toolbox['category']
-            toolboxes.append(tb)
-        return toolboxes
-
-    def get_bera_tool_list(self):
-        self.tools_list = bt.tools_list
-        self.sorted_tools = bt.sorted_tools
+    def update_selected_bera_tool(self):
         selected_item = -1
         for toolbox in self.bera_tools['toolbox']:
             for item in toolbox['tools']:
@@ -1081,12 +1062,6 @@ class MainGui(tk.Frame):
         if selected_item == -1:  # set self.tool_name as default tool
             selected_item = 0
             self.tool_name = self.tools_list[0]
-
-    def get_bera_tool_info(self):
-        for toolbox in self.bera_tools['toolbox']:
-            for tool in toolbox['tools']:
-                if tool['name'] == self.tool_name:
-                    return tool['info']
 
     def save_tool_parameter(self):
         data_path = Path(__file__).resolve().cwd().parent.parent.joinpath(r'.data')
@@ -1108,69 +1083,8 @@ class MainGui(tk.Frame):
             tool_params[self.current_tool_api] = args
             json.dump(tool_params, new_file, indent=4)
 
-    def get_bera_tool_parameters(self, tool_name):
-        new_params = {'parameters': []}
-
-        for toolbox in self.bera_tools['toolbox']:
-            for tool in toolbox['tools']:
-                if tool_name == tool['name']:
-                    self.current_tool_api = tool['scriptFile']
-                    new_params['tech_link'] = tool['tech_link']
-
-                    # convert json format for parameters
-                    for param in tool['parameters']:
-                        new_param = {'name': param['parameter']}
-                        if 'variable' in param.keys():
-                            new_param['flag'] = param['variable']
-                            # restore saved parameters
-                            new_param['saved_value'] = bt.get_saved_tool_parameter(tool['scriptFile'], param['variable'])
-                        else:
-                            new_param['flag'] = 'FIXME'
-
-                        if not param['output']:
-                            if param['type'] == 'list':
-                                new_param['parameter_type'] = {'OptionList': param['data']}
-                                if param['typelab'] == 'text':
-                                    new_param['data_type'] = 'String'
-                                elif param['typelab'] == 'int':
-                                    new_param['data_type'] = 'Integer'
-                                elif param['typelab'] == 'float':
-                                    new_param['data_type'] = 'Float'
-                                elif param['typelab'] == 'bool':
-                                    new_param['data_type'] = 'Boolean'
-                            elif param['type'] == 'text':
-                                new_param['parameter_type'] = 'String'
-                            elif param['type'] == 'number':
-                                if param['typelab'] == 'int':
-                                    new_param['parameter_type'] = 'Integer'
-                                else:
-                                    new_param['parameter_type'] = 'Float'
-                            else:
-                                new_param['parameter_type'] = {'ExistingFile': ''}
-                        else:
-                            new_param["parameter_type"] = {'NewFile': ''}
-
-                        new_param['description'] = param['description']
-
-                        if param['type'] == 'raster':
-                            for i in new_param["parameter_type"].keys():
-                                new_param['parameter_type'][i] = 'Raster'
-                        elif param['type'] == 'vector':
-                            for i in new_param["parameter_type"].keys():
-                                new_param['parameter_type'][i] = 'Vector'
-
-                        new_param['default_value'] = param['default']
-                        if "optional" in param.keys():
-                            new_param['optional'] = param['optional']
-                        else:
-                            new_param['optional'] = False
-
-                        new_params['parameters'].append(new_param)
-
-        return new_params
-
     def get_current_tool_parameters(self):
-        return self.get_bera_tool_parameters(self.tool_name)
+        return bt.get_bera_tool_parameters(self.tool_name)
 
     # read selection when tool selected from treeview then call self.update_tool_help
     def tree_update_tool_help(self, event):
@@ -1192,7 +1106,7 @@ class MainGui(tk.Frame):
         for widget in self.arg_scroll_frame.winfo_children():
             widget.destroy()
 
-        k = self.get_bera_tool_info()
+        k = bt.get_bera_tool_info(self.tool_name)
         self.print_to_output(k)
         self.print_to_output('\n')
 
@@ -1461,7 +1375,7 @@ class MainGui(tk.Frame):
 
         # self.spacer['width'] = width=(35-len(self.tool_name))
         # for item in bt.tool_help(self.tool_name).splitlines():
-        for item in self.get_bera_tool_info().splitlines():
+        for item in bt.get_bera_tool_info(self.tool_name).splitlines():
             if item.startswith("-"):
                 k = item.split(" ")
                 if "--" in k[1]:
