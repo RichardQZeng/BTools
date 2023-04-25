@@ -123,6 +123,8 @@ class FileSelector(tk.Frame):
                     file_types = [("Binary data files", "*.dat"), ("all files", "*.*")]
                 elif 'Html' in self.file_type:
                     file_types = [("HTML files", "*.html")]
+                elif 'json' in self.file_type or 'JSON' in self.file_type:
+                    file_types = [("JSON files", "*.json")]
 
                 if "ExistingFile" in self.parameter_type:
                     result = filedialog.askopenfilename(

@@ -420,11 +420,11 @@ class BeraTools(object):
                                 else:
                                     new_param['parameter_type'] = 'Float'
                             elif param['type'] == 'file':
-                                new_param['parameter_type'] = {'ExistingFile': ''}
+                                new_param['parameter_type'] = {'ExistingFile': [param['typelab']]}
                             else:
                                 new_param['parameter_type'] = {'ExistingFile': ''}
                         else:
-                            new_param["parameter_type"] = {'NewFile': ''}
+                            new_param["parameter_type"] = {'NewFile': [param['typelab']]}
 
                         new_param['description'] = param['description']
 
