@@ -549,7 +549,7 @@
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
                             "type": "list",
                             "typelab": "text",
-                            "data": ["IN-FEATURES","WHOLE-LINE", "LINE-CROSSINGS", "ARBITRARY"],
+                            "data": ["IN-FEATURES", "LINE-CROSSINGS", "ARBITRARY"],
                             "default": "LINE-CROSSINGS",
                             "output": false,
                             "optional": false
