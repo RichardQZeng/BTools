@@ -1151,7 +1151,7 @@
                             "parameter": "Batch Processing Project File",
                             "description": "Project file for batch processing",
                             "type": "file",
-                            "typelab": "json",
+                            "typelab": "JSON",
                             "default": "",
                             "output": false,
                             "optional": false
