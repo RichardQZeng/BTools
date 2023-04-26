@@ -44,8 +44,8 @@ def line_footprint(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field, c
     print('Generating shapefile...........')
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list, ignore_index=False))
 
-    # dissolved polygon group by column 'Fr_Orig_ln'
-    dissolved_results = results.dissolve('Fr_Orig_ln')
+    # dissolved polygon group by column 'OLnFID'
+    dissolved_results = results.dissolve('OLnFID')
     dissolved_results.to_file(out_footprint)
 
     print('Finishing footprint processing @ {} (or in {} second)'
@@ -297,8 +297,8 @@ def process_single_line(dict_segment):
 
         # create a multipoly Geopandas Geodataframe for the input whole line's polygon or segments' polygon
         out_data = geopandas.GeoDataFrame()
-        out_data['Fr_Seg_Ln'] = [FID]
-        out_data['Fr_Orig_ln'] = [OID]
+        out_data['OLnSEG'] = [FID]
+        out_data['OLnFID'] = [OID]
         out_data['geometry'] = None
         out_data.loc[0, 'geometry'] = poly
         out_data = out_data.set_crs(crs_code, allow_override=True)
