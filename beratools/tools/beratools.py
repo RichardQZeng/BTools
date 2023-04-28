@@ -20,7 +20,7 @@ import json
 import multiprocessing
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
-from common import *
+from .common import *
 
 running_windows = platform.system() == 'Windows'
 if running_windows:
@@ -62,7 +62,7 @@ class BeraTools(object):
 
         self.work_dir = ""
         self.verbose = False
-        self.show_advanced = False
+        self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
         self.__compress_rasters = False
         self.__max_procs = -1
         self.recent_tool = None
