@@ -59,5 +59,3 @@ def clip_lines(clip_geom, buffer, in_line_file, out_line_file):
 
 
 
-
-

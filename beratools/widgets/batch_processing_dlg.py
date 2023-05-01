@@ -6,9 +6,10 @@ import csv, codecs
 import os
 import pandas as pd
 from PyQt5.QtCore import Qt, QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex, QVariant, QSize, QSettings
-from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QDialog, 
-                                                            QAction, QMenu, QFileDialog, QAbstractItemView, QMessageBox, QWidget)
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QCursor, QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
+from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QDialog,
+                             QAction, QFileDialog, QAbstractItemView, QMessageBox, QWidget, QDockWidget, QFormLayout,
+                             QSpinBox, QPushButton)
+from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
 class PandasModel(QAbstractTableModel):
@@ -69,29 +70,60 @@ class PandasModel(QAbstractTableModel):
 
 class Viewer(QMainWindow):
     def __init__(self, parent=None):
-      super(Viewer, self).__init__(parent)
-      self.MaxRecentFiles = 5
-      self.windowList = []
-      self.recentFiles = []
-      self.settings = QSettings('Axel Schneider', 'QTableViewPandas')
-      self.filename = ""
-      self.setGeometry(0, 0, 800, 600)
-      self.lb = QTableView()
-      self.lb.verticalHeader().setVisible(True)
-      self.lb.setGridStyle(1)
-      self.model =  PandasModel()
-      self.lb.setModel(self.model)
-      self.lb.setEditTriggers(QAbstractItemView.DoubleClicked)
-      self.lb.setSelectionBehavior(self.lb.SelectRows)
-      self.lb.setSelectionMode(self.lb.SingleSelection)
-      self.setStyleSheet(stylesheet(self))
-      self.lb.setAcceptDrops(True)
-      self.setCentralWidget(self.lb)
-      self.setContentsMargins(10, 10, 10, 10)
-      self.createToolBar()
-      self.readSettings()
-      self.lb.setFocus()
-      self.statusBar().showMessage("Ready", 0)
+        super(Viewer, self).__init__(parent)
+        self.MaxRecentFiles = 5
+        self.windowList = []
+        self.recentFiles = []
+        self.settings = QSettings('Axel Schneider', 'QTableViewPandas')
+        self.filename = ""
+        self.setGeometry(0, 0, 800, 600)
+        self.lb = QTableView()
+        self.lb.verticalHeader().setVisible(True)
+        self.lb.setGridStyle(1)
+        self.model =  PandasModel()
+        self.lb.setModel(self.model)
+        self.lb.setEditTriggers(QAbstractItemView.DoubleClicked)
+        self.lb.setSelectionBehavior(self.lb.SelectRows)
+        self.lb.setSelectionMode(self.lb.SingleSelection)
+        # self.setStyleSheet(stylesheet(self))
+        self.lb.setAcceptDrops(True)
+        self.setCentralWidget(self.lb)
+        self.setContentsMargins(10, 10, 10, 10)
+        self.createToolBar()
+        self.readSettings()
+        self.lb.setFocus()
+        self.statusBar().showMessage("Ready", 0)
+
+        dock = QDockWidget('New Employee')
+        dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+
+        # create form
+        form = QWidget()
+        layout = QFormLayout(form)
+        form.setLayout(layout)
+
+        self.first_name = QLineEdit(form)
+        self.last_name = QLineEdit(form)
+        self.age = QSpinBox(form, minimum=18, maximum=67)
+        self.age.clear()
+
+        layout.addRow('First Name:', self.first_name)
+        layout.addRow('Last Name:', self.last_name)
+        layout.addRow('Age:', self.age)
+
+        btn_add = QPushButton('Add')
+        layout.addRow(btn_add)
+
+        # add delete & edit button
+        toolbar = QToolBar('main toolbar')
+        toolbar.setIconSize(QSize(16, 16))
+        self.addToolBar(toolbar)
+
+        delete_action = QAction(QIcon('./assets/remove.png'), '&Delete', self)
+        # delete_action.triggered.connect(self.delete)
+        toolbar.addAction(delete_action)
+        dock.setWidget(form)
 
     def readSettings(self):
         print("reading settings")
@@ -129,7 +161,8 @@ class Viewer(QMainWindow):
         saveAsAction = QAction(QIcon.fromTheme("document-save-as"), "Save as ...", self,  triggered=self.writeCSV, shortcut = QKeySequence.SaveAs) 
         self.tbar = self.addToolBar("File")
         self.tbar.setContextMenuPolicy(Qt.PreventContextMenu)
-        self.tbar.setIconSize(QSize(16, 16))
+        self.tbar.setIconSize(QSize(40, 40))
+        self.tbar.setFixedHeight(60)
         self.tbar.setMovable(False)
         self.tbar.addAction(openAction) 
         self.tbar.addAction(saveAction) 
@@ -228,7 +261,7 @@ class Viewer(QMainWindow):
             print(fileName + " loaded")
             f = open(fileName, 'r+b')
             with f:
-                df = pd.read_csv(f, delimiter = '\t', keep_default_na = False, low_memory=False, header=None)
+                df = pd.read_csv(f, sep='\t|:|;|,', keep_default_na=False)
                 f.close()
                 self.model = PandasModel(df)
                 self.lb.setModel(self.model)
