@@ -94,7 +94,7 @@ class Viewer(QMainWindow):
         self.MaxRecentFiles = 5
         self.windowList = []
         self.recentFiles = []
-        self.settings = QSettings('Axel Schneider', 'QTableViewPandas')
+        self.settings = QSettings('Richard Zeng', 'Batch Processing')
         self.filename = ""
         self.setGeometry(0, 0, 800, 600)
         self.table_view = QTableView()
@@ -119,7 +119,6 @@ class Viewer(QMainWindow):
         self.table_view.verticalHeader().sectionClicked.connect(self.table_view_vertical_header_clicked)
         QShortcut(Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
         QShortcut(Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
-
 
         dock = QDockWidget('Tool Parameters')
         dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
@@ -480,4 +479,5 @@ if __name__ == "__main__":
     main.show()
     if len(sys.argv) > 1:
         main.openCSV(sys.argv[1])
-sys.exit(app.exec_())
+
+    sys.exit(app.exec_())
