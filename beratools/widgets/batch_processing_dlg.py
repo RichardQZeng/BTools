@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+# QIcon fromtheme
+# https://gist.github.com/RichardQZeng/2cf5b6d3d383df2242fda75ddb533baf
+
 import sys
 import csv, codecs 
 import os
@@ -8,12 +11,12 @@ import pandas as pd
 from PyQt5.QtCore import Qt, QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex, QVariant, QSize, QSettings
 from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QDialog,
                              QAction, QFileDialog, QAbstractItemView, QMessageBox, QWidget, QDockWidget, QFormLayout,
-                             QSpinBox, QPushButton)
+                             QSpinBox, QPushButton, QShortcut)
 from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
 class PandasModel(QAbstractTableModel):
-    def __init__(self, df = pd.DataFrame(), parent=None): 
+    def __init__(self, df=pd.DataFrame(), parent=None):
         QAbstractTableModel.__init__(self, parent=None)
         self._df = df
         self.setChanged = False
@@ -42,9 +45,9 @@ class PandasModel(QAbstractTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if index.isValid():
-            if (role == Qt.EditRole):
+            if role == Qt.EditRole:
                 return self._df.values[index.row()][index.column()]
-            elif (role == Qt.DisplayRole):
+            elif role == Qt.DisplayRole:
                 return self._df.values[index.row()][index.column()]
         return None
 
@@ -68,6 +71,23 @@ class PandasModel(QAbstractTableModel):
         self._df.reset_index(inplace=True, drop=True)
         self.layoutChanged.emit()
 
+    def insertRows(self, position, rows=1, index=QModelIndex()):
+        print("\n\t\t ...insertRows() Starting position: '%s'" % position, 'with the total rows to be inserted: ', rows)
+        self.beginInsertRows(QModelIndex(), position, position + rows - 1)
+        # del self._data[position]
+        # self.items = self.items[:position] + self.items[position + rows:]
+        self.endInsertRows()
+
+    def removeRows(self, position, rows=1, index=QModelIndex()):
+        print("\n\t\t ...removeRows() Starting position: '%s'" % position, 'with the total rows to be removed: ', rows)
+        self.beginRemoveRows(QModelIndex(), position, position + rows - 1)
+        for i in range(rows):
+            self._df.drop(self._df.index[position+i], inplace=True)
+            print('removed: {}'.format(position+i))
+
+        self.endRemoveRows()
+
+
 class Viewer(QMainWindow):
     def __init__(self, parent=None):
         super(Viewer, self).__init__(parent)
@@ -77,24 +97,31 @@ class Viewer(QMainWindow):
         self.settings = QSettings('Axel Schneider', 'QTableViewPandas')
         self.filename = ""
         self.setGeometry(0, 0, 800, 600)
-        self.lb = QTableView()
-        self.lb.verticalHeader().setVisible(True)
-        self.lb.setGridStyle(1)
-        self.model =  PandasModel()
-        self.lb.setModel(self.model)
-        self.lb.setEditTriggers(QAbstractItemView.DoubleClicked)
-        self.lb.setSelectionBehavior(self.lb.SelectRows)
-        self.lb.setSelectionMode(self.lb.SingleSelection)
+        self.table_view = QTableView()
+        self.table_view.verticalHeader().setVisible(True)
+        # self.lb.setGridStyle(1)
+        self.model = PandasModel()
+        self.table_view.setModel(self.model)
+        self.table_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table_view.setSelectionBehavior(self.table_view.SelectRows)
+        self.table_view.setSelectionMode(self.table_view.ExtendedSelection)
         # self.setStyleSheet(stylesheet(self))
-        self.lb.setAcceptDrops(True)
-        self.setCentralWidget(self.lb)
+        # self.lb.setAcceptDrops(True)
+        self.setCentralWidget(self.table_view)
         self.setContentsMargins(10, 10, 10, 10)
         self.createToolBar()
         self.readSettings()
-        self.lb.setFocus()
+        self.table_view.setFocus()
         self.statusBar().showMessage("Ready", 0)
 
-        dock = QDockWidget('New Employee')
+        # tableview signals
+        self.table_view.clicked.connect(self.table_view_clicked)
+        self.table_view.verticalHeader().sectionClicked.connect(self.table_view_vertical_header_clicked)
+        QShortcut(Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
+        QShortcut(Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
+
+
+        dock = QDockWidget('Tool Parameters')
         dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
@@ -108,8 +135,8 @@ class Viewer(QMainWindow):
         self.age = QSpinBox(form, minimum=18, maximum=67)
         self.age.clear()
 
-        layout.addRow('First Name:', self.first_name)
-        layout.addRow('Last Name:', self.last_name)
+        layout.addRow('Input Line:', self.first_name)
+        layout.addRow('Output Line:', self.last_name)
         layout.addRow('Age:', self.age)
 
         btn_add = QPushButton('Add')
@@ -124,6 +151,41 @@ class Viewer(QMainWindow):
         # delete_action.triggered.connect(self.delete)
         toolbar.addAction(delete_action)
         dock.setWidget(form)
+
+    def table_view_clicked(self, item):
+        print('Row, column:{}, {}'.format(item.row(), item.column()))
+
+    def table_view_vertical_header_clicked(self, item):
+        print('Horizontal header clicked: {}'.format(item))
+
+    def table_view_key_up(self):
+        current_row = self.table_view.selectionModel().selectedRows()[-1].row()
+        if current_row >= 1:
+            self.table_view.selectRow(current_row-1)
+
+    def table_view_delete_records(self):
+        selected_index = self.table_view.selectionModel().selectedRows()
+        rows = [item.row() for item in selected_index]
+        rows.sort(reverse=True)
+
+        for i in rows:
+            self.model.removeRows(i)
+
+            current_row = i
+            if self.model.rowCount() > 0:
+                if current_row > self.model.rowCount() - 1:
+                    current_row = self.model.rowCount() - 1
+
+                self.table_view.selectRow(current_row)
+
+            print('remove row {}'.format(i))
+
+        self.model.submit()
+
+    def table_view_key_down(self):
+        current_row = self.table_view.selectionModel().selectedRows()[-1].row()
+        if current_row < self.model.rowCount()-1:
+            self.table_view.selectRow(current_row+1)
 
     def readSettings(self):
         print("reading settings")
@@ -156,9 +218,22 @@ class Viewer(QMainWindow):
         self.saveSettings()
 
     def createToolBar(self):
-        openAction = QAction(QIcon.fromTheme("document-open"), "Open",  self, triggered=self.loadCSV, shortcut = QKeySequence.Open)
-        saveAction = QAction(QIcon.fromTheme("document-save"), "Save", self, triggered= self.writeCSV_update, shortcut = QKeySequence.Save) 
-        saveAsAction = QAction(QIcon.fromTheme("document-save-as"), "Save as ...", self,  triggered=self.writeCSV, shortcut = QKeySequence.SaveAs) 
+        openAction = QAction(QIcon.fromTheme("document-open"), "Open", self)
+        openAction.triggered.connect(self.loadCSV)
+        openAction.setShortcut(QKeySequence.Open)
+
+        saveAction = QAction(QIcon.fromTheme("document-save"), "Save", self)
+        saveAction.triggered.connect(self.writeCSV_update)
+        saveAction.setShortcut(QKeySequence.Save)
+
+        saveAsAction = QAction(QIcon.fromTheme("document-save-as"), "Save as ...", self)
+        saveAsAction.triggered.connect(self.writeCSV)
+        saveAsAction.setShortcut(QKeySequence.SaveAs)
+
+        deleteAction = QAction(QIcon.fromTheme("edit-delete"), "Delete records", self)
+        deleteAction.triggered.connect(self.table_view_delete_records)
+        deleteAction.setShortcut(QKeySequence.Delete)
+
         self.tbar = self.addToolBar("File")
         self.tbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.tbar.setIconSize(QSize(40, 40))
@@ -166,7 +241,8 @@ class Viewer(QMainWindow):
         self.tbar.setMovable(False)
         self.tbar.addAction(openAction) 
         self.tbar.addAction(saveAction) 
-        self.tbar.addAction(saveAsAction) 
+        self.tbar.addAction(saveAsAction)
+        self.tbar.addAction(deleteAction)
 
         empty = QWidget()
         empty.setFixedWidth(10)
@@ -222,22 +298,22 @@ class Viewer(QMainWindow):
             df = pd.read_csv(f, delimiter = '\t', keep_default_na = False, low_memory=False, header=None)
             f.close()
             self.model = PandasModel(df)
-            self.lb.setModel(main.model)
-            self.lb.resizeColumnsToContents()
-            self.lb.selectRow(0)
+            self.table_view.setModel(main.model)
+            self.table_view.resizeColumnsToContents()
+            self.table_view.selectRow(0)
             self.statusBar().showMessage("%s %s" % (path, "loaded"), 0)
 
     def findInTable(self):
-        self.lb.clearSelection()
+        self.table_view.clearSelection()
         text = self.lineFind.text()
-        model = self.lb.model()
+        model = self.table_view.model()
         for column in range(self.model.columnCount()):
             start = model.index(0, column)
             matches = model.match(start, Qt.DisplayRole, text, -1, Qt.MatchContains)
             if matches:
                 for index in matches:
                     print(index.row(), index.column())
-                    self.lb.selectionModel().select(index, QItemSelectionModel.Select)
+                    self.table_view.selectionModel().select(index, QItemSelectionModel.Select)
 
     def openFile(self, path=None):
         print(self.model.setChanged)
@@ -261,12 +337,12 @@ class Viewer(QMainWindow):
             print(fileName + " loaded")
             f = open(fileName, 'r+b')
             with f:
-                df = pd.read_csv(f, sep='\t|:|;|,', keep_default_na=False)
+                df = pd.read_csv(f, sep='\t|:|;|,', keep_default_na=False, engine='python')
                 f.close()
                 self.model = PandasModel(df)
-                self.lb.setModel(self.model)
-                self.lb.resizeColumnsToContents()
-                self.lb.selectRow(0)
+                self.table_view.setModel(self.model)
+                self.table_view.resizeColumnsToContents()
+                self.table_view.selectRow(0)
         self.statusBar().showMessage("%s %s" % (fileName, "loaded"), 0)
         self.recentFiles.insert(0, fileName)
         self.lastFiles.insertItem(1, fileName)
@@ -313,7 +389,7 @@ class Viewer(QMainWindow):
         printer.setDocName(self.filename)
         document = QTextDocument()
         cursor = QTextCursor(document)
-        model = self.lb.model()
+        model = self.table_view.model()
         tableFormat = QTextTableFormat()
         tableFormat.setBorder(0.2)
         tableFormat.setBorderStyle(3)
@@ -321,7 +397,7 @@ class Viewer(QMainWindow):
         tableFormat.setTopMargin(0);
         tableFormat.setCellPadding(4)
         table = cursor.insertTable(model.rowCount() + 1, model.columnCount(), tableFormat)
-        model = self.lb.model()
+        model = self.table_view.model()
         ### get headers
         myheaders = []
         for i in range(0, model.columnCount()):
