@@ -15,6 +15,7 @@
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Pre-processing/Pre-tagging.html",
                     "parameters":[
                         {
+                            "variable": "in_line",
                             "parameter": "Input Lines",
                             "description": "Input forest line center shapefile which will be segmented and attributed.",
                             "type": "vector",
@@ -24,6 +25,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "in_chm",
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input CHM raster file used as basis for mapping forest lines and their footprint. This layer should be projected in any Universal Transverse Mercator (UTM) coordinate system. The data should be preferably derived from high resolution LiDAR or photogrammetry (>25 pts/m²).",
                             "type": "raster",
@@ -33,6 +35,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "in_canopy",
                             "parameter": "Canopy Raster",
                             "description": "Input raster image used to exclude canopy from line footprint.",
                             "type": "raster",
@@ -42,6 +45,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "in_cost",
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the cost corridor.",
                             "type": "raster",
@@ -51,6 +55,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "in_lidar_coverage",
                             "parameter": "Input LiDAR Coverage with Year",
                             "description": "Polygons of different LiDAR sources coverage with acquisition year",
                             "type": "vector",
@@ -60,6 +65,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "line_radius",
                             "parameter": "Line Processing Radius",
                             "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
                             "type": "number",
@@ -69,6 +75,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "out_tagged_line",
                             "parameter": "Output Tagged Line",
                             "description": "Output features that will be tagged.",
                             "type": "vector",
@@ -89,6 +96,7 @@
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Pre-processing/VertexOptimization.html",
                     "parameters":[
                         {
+                            "variable": "in_line",
                             "parameter": "Forest Lines Feature Class",
                             "description": "Input polyline shapefile.",
                             "type": "vector",
@@ -98,6 +106,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "in_cost",
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the least cost path.",
                             "type": "raster",
@@ -107,6 +116,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "line_radius",
                             "parameter": "Line Processing Radius",
                             "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
                             "type": "number",
@@ -116,6 +126,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "out_line",
                             "parameter": "Output Center-Line",
                             "description": "Output optimized center-line shapefile.",
                             "type": "vector",
@@ -141,7 +152,8 @@
                     "image": "../Images/FLM_IO_CanopyCostRaster.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/CanopyCostRaster.html",
                     "parameters":[
-                        {   "variable": "in_chm",
+                        {
+                            "variable": "in_chm",
                             "parameter": "Canopy Height Model (CHM) Raster",
                             "description": "Input CHM raster file used as basis for mapping forest lines and their footprint. This layer should be projected in any Universal Transverse Mercator (UTM) coordinate system. The data should be preferably derived from high resolution LiDAR or photogrammetry (>25 pts/m²).",
                             "type": "raster",
@@ -150,7 +162,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "canopy_ht_threshold",
+                        {
+                            "variable": "canopy_ht_threshold",
                             "parameter": "Canopy Height Threshold",
                             "description": "Height threshold in meters above which CHM pixels are considered canopy.",
                             "type": "number",
@@ -159,7 +172,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "tree_radius",
+                        {
+                            "variable": "tree_radius",
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
@@ -168,7 +182,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "max_line_dist",
+                        {
+                            "variable": "max_line_dist",
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
@@ -177,7 +192,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "canopy_avoid",
+                        {
+                            "variable": "canopy_avoid",
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
@@ -186,7 +202,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "exponent",
+                        {
+                            "variable": "exponent",
                             "parameter": "Cost Raster Exponent",
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
@@ -195,7 +212,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "out_canopy_r",
+                        {
+                            "variable": "out_canopy_r",
                             "parameter": "Output Canopy Raster",
                             "description": "Output raster classified as canopy (1) and non-canopy (0).",
                             "type": "raster",
@@ -204,7 +222,8 @@
                             "output": true,
                             "optional": false
                         },
-                        {   "variable": "out_cost_r",
+                        {
+                            "variable": "out_cost_r",
                             "parameter": "Output Cost Raster",
                             "description": "Output cost raster used in subsequent FLM tools for least-cost analysis.",
                             "type": "raster",
@@ -286,7 +305,8 @@
                     "image": "../Images/FLM_IO_LineFootprint.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/LineFootprint.html",
                     "parameters":[
-                        {   "variable": "in_cl",
+                        {
+                            "variable": "in_cl",
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
                             "type": "vector",
@@ -295,7 +315,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "in_canopy_r",
+                        {
+                            "variable": "in_canopy_r",
                             "parameter": "Canopy Raster",
                             "description": "Input raster image used to exclude canopy from line footprint.",
                             "type": "raster",
@@ -304,7 +325,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "in_cost_r",
+                        {
+                            "variable": "in_cost_r",
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the least cost corridor.",
                             "type": "raster",
@@ -313,7 +335,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "corridor_th_field",
+                        {
+                            "variable": "corridor_th_field",
                             "parameter": "Corridor Threshold Field",
                             "description": "Name of the field (within the input lines) that indicates the least cost corridor thresholds (LCCT).",
                             "type": "text",
@@ -322,7 +345,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "corridor_th_value",
+                        {
+                            "variable": "corridor_th_value",
                             "parameter": "Corridor Threshold",
                             "description": "The least cost corridor thresholds (LCCT).",
                             "type": "number",
@@ -331,7 +355,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "max_ln_width",
+                        {
+                            "variable": "max_ln_width",
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
@@ -340,7 +365,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "exp_shk_cell",
+                        {
+                            "variable": "exp_shk_cell",
                             "parameter": "Expand And Shrink Cell Range",
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
@@ -349,7 +375,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "proc_seg",
+                        {
+                            "variable": "proc_seg",
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
                             "type": "list",
@@ -359,7 +386,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "out_footprint",
+                        {
+                            "variable": "out_footprint",
                             "parameter": "Output Shapefile",
                             "description": "Output footprint polygons.",
                             "type": "vector",
@@ -380,6 +408,7 @@
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/DynLineFootprintFS.html",
                     "parameters":[
                         {
+                            "variable": "in_line",
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
                             "type": "vector",
@@ -389,7 +418,8 @@
                             "optional": false
                         },
                         {
-                            "parameter": "Canopy Height Model (CHM) Raster",
+                            "variable": "in_chm",
+                            "parameter": "Input CHM Raster",
                             "description": "Input raster image used calculate the surrounding forest elevation percentile, create canopy and cost raster.",
                             "type": "raster",
                             "typelab": "TIF",
@@ -398,6 +428,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "max_line_width",
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
@@ -407,6 +438,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "expand_shrink_range",
                             "parameter": "Expand And Shrink Cell Range",
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
@@ -416,6 +448,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "process_segments",
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
                             "type": "list",
@@ -426,6 +459,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "out_line",
                             "parameter": "Output Shapefile",
                             "description": "Output footprint polygons.",
                             "type": "vector",
@@ -435,6 +469,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "offset_line_distance",
                             "parameter": "Offset Line Distance",
                             "description": "Offset distance from input lines.",
                             "type": "number",
@@ -444,6 +479,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "canopy_percentile",
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
                             "type": "list",
@@ -454,6 +490,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "canopy_thresh_percentage",
                             "parameter": "Canopy Threshold Percentage",
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
@@ -463,6 +500,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "tree_search_radius",
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
@@ -472,6 +510,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "max_line_distance",
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
@@ -481,6 +520,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "canopy_avoidance",
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
@@ -490,6 +530,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "cost_raster_exponent",
                             "parameter": "Cost Raster Exponent",
                             "description": "Affects the cost of vegetated areas in an exponential fashion. A low (<=1) exponent may lead to lines cutting through corners, whereas a large (>=3) exponent may lead to least cost paths completely avoiding narrow lines.",
                             "type": "number",
@@ -517,7 +558,8 @@
                     "image": "../Images/FLM_IO_ForestLineAttributes.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Attribution/ForestLineAttributes.html",
                     "parameters":[
-                        {   "variable": "in_cl",
+                        {
+                            "variable": "in_line",
                             "parameter": "Input Lines",
                             "description": "Input forest line center shapefile which will be segmented and attributed.",
                             "type": "vector",
@@ -526,7 +568,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "in_fp",
+                        {
+                            "variable": "in_footprint",
                             "parameter": "Input Footprint Polygons",
                             "description": "Input forest line footprint shapefile used to derive spatial attributes.",
                             "type": "vector",
@@ -535,7 +578,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "in_CHMR",
+                        {
+                            "variable": "in_chm",
                             "parameter": "Input Raster CHM",
                             "description": "Input canopy height model raster used to derive microtopography attributes.",
                             "type": "raster",
@@ -544,7 +588,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "sampling_type",
+                        {
+                            "variable": "sampling_type",
                             "parameter": "Sampling Type",
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
                             "type": "list",
@@ -554,7 +599,8 @@
                             "output": false,
                             "optional": false
                         },
-                        {   "variable": "seg_len",
+                        {
+                            "variable": "seg_len",
                             "parameter": "Segment Length",
                             "description": "Arbitrary segment length (m). If the Sampling Type field is not set as ARBITRARY this field is ignored.",
                             "type": "number",
@@ -563,7 +609,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "ln_split_Tol",
+                        {
+                            "variable": "ln_split_Tol",
                             "parameter": "Line Split Tolerance",
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
@@ -572,7 +619,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "Max_ln_width",
+                        {
+                            "variable": "Max_ln_width",
                             "parameter": "Maximum Line Width",
                             "description": "Maximum line width (m) used to search for surrounding footprint.",
                             "type": "number",
@@ -581,7 +629,8 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "Out_AttSeg",
+                        {
+                            "variable": "Out_AttSeg",
                             "parameter": "Output Attributed Segments",
                             "description": "Output features that will be created.",
                             "type": "vector",
@@ -602,6 +651,7 @@
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Attribution/RasterLineAttributes.html",
                     "parameters":[
                         {
+                            "variable": "in_line",
                             "parameter": "Input Lines",
                             "description": "Input forest line center shapefile which will be segmented and attributed.",
                             "type": "vector",
@@ -611,7 +661,8 @@
                             "optional": false
                         },
                         {
-                            "parameter": "Input Raster Variable",
+                            "variable": "in_chm",
+                            "parameter": "Input CHM File",
                             "description": "Input raster image that will be sampled to attribute the input lines.",
                             "type": "raster",
                             "typelab": "TIF",
@@ -620,6 +671,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "sampling_type",
                             "parameter": "Sampling Type",
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
                             "type": "list",
@@ -630,6 +682,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "sampling_interval",
                             "parameter": "Sampling Interval",
                             "description": "Sampling interval along input lines in meters.",
                             "type": "number",
@@ -639,6 +692,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "segment_length",
                             "parameter": "Segment Length",
                             "description": "Arbitrary segment length (m). If the Sampling Type field is not set as ARBITRARY this field is ignored.",
                             "type": "number",
@@ -648,6 +702,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "line_split_tolerance",
                             "parameter": "Line Split Tolerance",
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
@@ -657,6 +712,7 @@
                             "optional": true
                         },
                         {
+                            "variable": "sampling_method",
                             "parameter": "Sampling Method",
                             "description": "Method used to handle samples when attributing lines: Minimum, Maximum, Mean, Standard Deviation, Median, Mode, or Range.",
                             "type": "list",
@@ -667,6 +723,7 @@
                             "optional": false
                         },
                         {
+                            "variable": "out_line",
                             "parameter": "Output Attributed Segments",
                             "description": "Output features that will be created.",
                             "type": "vector",

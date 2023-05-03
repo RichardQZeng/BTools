@@ -2,7 +2,7 @@ import os
 import json
 import argparse
 
-from beratools import *
+from ..widgets.batch_processing_dlg import *
 bt = BeraTools()
 
 
@@ -53,7 +53,6 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--processes')
     parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
-
     verbose = True if args.verbose == 'True' else False
 
     batch_processing(print, **args.input, processes=int(args.processes), verbose=verbose)

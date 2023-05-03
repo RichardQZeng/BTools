@@ -1,9 +1,9 @@
 import os
 import sys
-from PyQt5.QtWidgets import (QMainWindow,  QApplication, QLineEdit, QFileDialog, QComboBox,
-                             QWidget, QPushButton, QInputDialog, QLabel, QSlider, QMessageBox,
-                             QStyleOptionSlider, QStyle, QToolTip, QAbstractSlider, QHBoxLayout,
-                             QVBoxLayout, QSpinBox, QDoubleSpinBox)
+from PyQt5.QtWidgets import (QApplication, QLineEdit, QFileDialog, QComboBox, QWidget,
+                             QPushButton, QLabel, QSlider, QMessageBox,
+                             QStyleOptionSlider, QStyle, QToolTip, QAbstractSlider,
+                             QHBoxLayout, QVBoxLayout, QSpinBox, QDoubleSpinBox)
 
 from PyQt5.QtCore import pyqtSignal, Qt, QRect, QPoint
 from pathlib import Path
@@ -20,24 +20,24 @@ from tools.common import *
 
 bt = BeraTools()
 
-class MainWin(QMainWindow):
-    def __init__(self, parent=None):
-        super(MainWin, self).__init__(parent)
 
-        self.tool_name = 'Raster Line Attributes'
-        self.current_tool_api = 'raster_line_attributes'
+class ToolWin(QWidget):
+    def __init__(self, tool_name, parent=None):
+        super(ToolWin, self).__init__(parent)
+
+        self.tool_name = tool_name
+        self.current_tool_api = ''
         self.widget_list = []
 
-        widget = QWidget(self)
-        self.setCentralWidget(widget)
         self.create_widgets()
         layout = QVBoxLayout()
 
         for item in self.widget_list:
             layout.addWidget(item)
 
-        widget.setLayout(layout)
-        self.setWindowTitle("Dialog demo")
+        layout.addStretch()
+        self.setLayout(layout)
+        self.setWindowTitle("Tool widgets")
 
     def get_current_tool_parameters(self):
         tool_params = bt.get_bera_tool_parameters(self.tool_name)
@@ -106,6 +106,13 @@ class MainWin(QMainWindow):
 
             self.widget_list.append(widget)
 
+    def update_widgets(self, values_dict):
+        for key, value in values_dict.items():
+            for item in self.widget_list:
+                if key == item.flag:
+                    item.set_value(value)
+
+
 class FileSelector(QWidget):
     def __init__(self, json_str, runner, master=None, parent=None):
         super(FileSelector, self).__init__(parent)
@@ -142,6 +149,8 @@ class FileSelector(QWidget):
         try:
             dialog = QFileDialog(self)
             dialog.setViewMode(QFileDialog.Detail)
+            dialog.setDirectory(str(Path(self.value).parent))
+            dialog.selectFile(Path(self.value).name)
             result = None
             file_names = None
 
@@ -178,6 +187,9 @@ class FileSelector(QWidget):
                 if dialog.exec_():
                     file_names = dialog.selectedFiles()
 
+                if not file_names:
+                    return
+
                 if len(file_names) == 0:
                     print('No file(s) selected.')
 
@@ -197,10 +209,8 @@ class FileSelector(QWidget):
                         if selected_filters[0] != '.*':
                             file_path = file_path.with_suffix(selected_filters[0])
 
-                result = file_path
-                self.value = str(result)
-                self.in_file.setText(result.name)
-                self.in_file.setToolTip(result)
+                result = str(file_path)
+                self.set_value(result)
 
             # update the working
             # if not self.runner and str(result) != '':
@@ -226,6 +236,11 @@ class FileSelector(QWidget):
 
     def get_value(self):
         return self.value
+
+    def set_value(self, value):
+        self.value = value
+        self.in_file.setText(Path(self.value).name)
+        self.in_file.setToolTip(value)
 
 
 class FileOrFloat(QWidget):
@@ -391,6 +406,6 @@ class DoubleSlider(QSlider):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    dlg = MainWin()
+    dlg = ToolWin('Raster Line Attributes')
     dlg.show()
     sys.exit(app.exec_())

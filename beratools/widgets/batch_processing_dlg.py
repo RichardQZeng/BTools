@@ -8,12 +8,15 @@ import sys
 import csv, codecs 
 import os
 import pandas as pd
-from PyQt5.QtCore import Qt, QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex, QVariant, QSize, QSettings
-from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QDialog,
-                             QAction, QFileDialog, QAbstractItemView, QMessageBox, QWidget, QDockWidget, QFormLayout,
+from PyQt5.QtCore import (Qt, QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex, 
+                          QVariant, QSize, QSettings, pyqtSignal)
+from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QAction,
+                             QFileDialog, QAbstractItemView, QMessageBox, QWidget, QDockWidget, QFormLayout,
                              QSpinBox, QPushButton, QShortcut)
 from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
+
+from widgets import *
 
 class PandasModel(QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):
@@ -50,6 +53,9 @@ class PandasModel(QAbstractTableModel):
             elif role == Qt.DisplayRole:
                 return self._df.values[index.row()][index.column()]
         return None
+
+    def data_row_dict(self, row):
+        return self._df.iloc[row].to_dict()
 
     def setData(self, index, value, role):
         row = self._df.index[index.row()]
@@ -89,8 +95,12 @@ class PandasModel(QAbstractTableModel):
 
 
 class Viewer(QMainWindow):
-    def __init__(self, parent=None):
+    # signals
+    sig_update_tool_widgets = pyqtSignal(int)
+
+    def __init__(self, tool_name, parent=None):
         super(Viewer, self).__init__(parent)
+        self.setWindowTitle('Batch Processing')
         self.MaxRecentFiles = 5
         self.windowList = []
         self.recentFiles = []
@@ -120,47 +130,29 @@ class Viewer(QMainWindow):
         QShortcut(Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
         QShortcut(Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
 
+        self.sig_update_tool_widgets.connect(self.update_tool_widgets)
+
         dock = QDockWidget('Tool Parameters')
         dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
         # create form
-        form = QWidget()
-        layout = QFormLayout(form)
-        form.setLayout(layout)
-
-        self.first_name = QLineEdit(form)
-        self.last_name = QLineEdit(form)
-        self.age = QSpinBox(form, minimum=18, maximum=67)
-        self.age.clear()
-
-        layout.addRow('Input Line:', self.first_name)
-        layout.addRow('Output Line:', self.last_name)
-        layout.addRow('Age:', self.age)
-
-        btn_add = QPushButton('Add')
-        layout.addRow(btn_add)
-
-        # add delete & edit button
-        toolbar = QToolBar('main toolbar')
-        toolbar.setIconSize(QSize(16, 16))
-        self.addToolBar(toolbar)
-
-        delete_action = QAction(QIcon('./assets/remove.png'), '&Delete', self)
-        # delete_action.triggered.connect(self.delete)
-        toolbar.addAction(delete_action)
-        dock.setWidget(form)
+        self.tool_widgets = ToolWin(tool_name)
+        dock.setWidget(self.tool_widgets)
 
     def table_view_clicked(self, item):
         print('Row, column:{}, {}'.format(item.row(), item.column()))
+        self.sig_update_tool_widgets.emit(item.row())
 
     def table_view_vertical_header_clicked(self, item):
         print('Horizontal header clicked: {}'.format(item))
+        self.sig_update_tool_widgets.emit(item)
 
     def table_view_key_up(self):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
         if current_row >= 1:
             self.table_view.selectRow(current_row-1)
+            self.sig_update_tool_widgets.emit(current_row-1)
 
     def table_view_delete_records(self):
         selected_index = self.table_view.selectionModel().selectedRows()
@@ -176,15 +168,22 @@ class Viewer(QMainWindow):
                     current_row = self.model.rowCount() - 1
 
                 self.table_view.selectRow(current_row)
+                self.sig_update_tool_widgets.emit(current_row)
 
             print('remove row {}'.format(i))
 
         self.model.submit()
+    def update_tool_widgets(self, row):
+        tool_paramas = self.model.data_row_dict(row)
+        self.tool_widgets.update_widgets(tool_paramas)
+        print('Update tool parameters for record {}'.format(tool_paramas))
+
 
     def table_view_key_down(self):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
         if current_row < self.model.rowCount()-1:
             self.table_view.selectRow(current_row+1)
+            self.sig_update_tool_widgets.emit(current_row+1)
 
     def readSettings(self):
         print("reading settings")
@@ -270,16 +269,15 @@ class Viewer(QMainWindow):
         empty.setFixedWidth(10)
         self.tbar.addWidget(empty)
 
-        self.previewAction = QAction(QIcon.fromTheme("document-print-preview"), "print", self, triggered = self.handlePreview)
+        self.previewAction = QAction(QIcon.fromTheme("document-print-preview"), "print", self)
+        self.previewAction.triggered.connect(self.handlePreview)
         self.tbar.addAction(self.previewAction)
-        self.printAction = QAction(QIcon.fromTheme("document-print"), "print", self, triggered = self.handlePrint)
-        self.tbar.addAction(self.printAction)
 
     def loadRecent(self):
         if self.lastFiles.currentIndex() > 0:
             print(self.lastFiles.currentText())
             print(self.model.setChanged)
-            if  self.model.setChanged == True:
+            if self.model.setChanged:
                 print("is changed, saving?")
                 quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
                 reply = QMessageBox.question(self, 'Save Confirmation', 
@@ -294,7 +292,8 @@ class Viewer(QMainWindow):
     def openCSV(self, path):
         f = open(path, 'r+b')
         with f:
-            df = pd.read_csv(f, delimiter = '\t', keep_default_na = False, low_memory=False, header=None)
+            df = pd.read_csv(f, sep='\t|;|,', keep_default_na=False, engine='python',
+                             skipinitialspace=True, skip_blank_lines=True)
             f.close()
             self.model = PandasModel(df)
             self.table_view.setModel(main.model)
@@ -336,7 +335,8 @@ class Viewer(QMainWindow):
             print(fileName + " loaded")
             f = open(fileName, 'r+b')
             with f:
-                df = pd.read_csv(f, sep='\t|:|;|,', keep_default_na=False, engine='python')
+                df = pd.read_csv(f, sep='\t|;|,', keep_default_na=False, engine='python',
+                                 skipinitialspace=True, skip_blank_lines=True)
                 f.close()
                 self.model = PandasModel(df)
                 self.table_view.setModel(self.model)
@@ -365,21 +365,12 @@ class Viewer(QMainWindow):
             print("%s %s" % (self.filename, "saved"))
             self.statusBar().showMessage("%s %s" % (self.filename, "saved"), 0)
 
-    def handlePrint(self):
-        if self.model.rowCount() == 0:
-            self.msg("no rows")
-        else:
-            dialog = QtPrintSupport.QPrintDialog()
-            if dialog.exec_() == QDialog.Accepted:
-                self.handlePaintRequest(dialog.printer())
-                print("Document printed")
-
     def handlePreview(self):
         if self.model.rowCount() == 0:
             self.msg("no rows")
         else:
             dialog = QtPrintSupport.QPrintPreviewDialog()
-            dialog.setFixedSize(1000,700)
+            dialog.setFixedSize(1000, 700)
             dialog.paintRequested.connect(self.handlePaintRequest)
             dialog.exec_()
             print("Print Preview closed")
@@ -475,7 +466,7 @@ def stylesheet(self):
  
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main = Viewer()
+    main = Viewer('Raster Line Attributes')
     main.show()
     if len(sys.argv) > 1:
         main.openCSV(sys.argv[1])
