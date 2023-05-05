@@ -2,7 +2,10 @@ import io
 import sys
 
 import folium
+from folium import plugins
 
+import pandas as pd
+import geopandas
 from PyQt5 import QtCore, QtGui, QtWidgets, QtWebEngineWidgets
 
 
@@ -45,13 +48,31 @@ class Window(QtWidgets.QMainWindow):
         m = folium.Map(
             location=[45.5236, -122.6750], tiles="Stamen Toner", zoom_start=13
         )
+        df1 = pd.read_csv(r"D:\PyQT\volcano_db.csv")
+        df = df1.loc[:, ("Name", "Country", "Latitude", "Longitude", "Type")]
+        df.info()
 
+        # Create point geometries
+        geometry = geopandas.points_from_xy(df.Longitude, df.Latitude)
+        geo_df = geopandas.GeoDataFrame(
+            df[["Name", "Country", "Latitude", "Longitude", "Type"]], geometry=geometry
+        )
+        geo_df.head()
+
+        # Create a geometry list from the GeoDataFrame
+        geo_df_list = [[point.xy[1][0], point.xy[0][0]] for point in geo_df.geometry]
+
+        # Iterate through list and add a marker for each volcano, color-coded by its type.
+        i = 0
+        for coordinates in geo_df_list:
+            # Place the markers with the popup labels and data
+            folium.Marker(location=coordinates).add_to(m)
+            i = i + 1
+
+        heat_data = [[point.xy[1][0], point.xy[0][0]] for point in geo_df.geometry]
+        plugins.HeatMap(heat_data).add_to(m)
         self.view.setHtml(m.get_root().render())
         
-        # data = io.BytesIO()
-        # m.save(data, close_file=False)
-        # self.view.setHtml(data.getvalue().decode())
-
 
 if __name__ == "__main__":
     App = QtWidgets.QApplication(sys.argv)
