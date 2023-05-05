@@ -23,9 +23,13 @@ dependencies:
   - sphinx-rtd-theme
   - sphinx-tabs
   - xarray-spatial
-  - whitebox
   - geopandas
   - pip
   - matplotlib
   - pyproj
+  - pyqtwebengine
+  - leafmap
+  - qtconsole
+  - mamba
+  - spyder
 variables:
