@@ -21,4 +21,5 @@ geopandas
 pip
 matplotlib
 pyproj
+pandas
 
