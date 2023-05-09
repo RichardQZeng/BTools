@@ -594,8 +594,8 @@
                             "description": "How the input lines are segmented for attribution: IN-FEATURES, the input features are attributed without subdivisions; WHOLE-LINE, the entire extent of each line is attributed without subdivisions; LINE-CROSSINGS, each line is split at line intersections; ARBITRARY, each line is segmented using an arbitrary length.",
                             "type": "list",
                             "typelab": "text",
-                            "data": ["IN-FEATURES", "LINE-CROSSINGS", "ARBITRARY"],
-                            "default": "LINE-CROSSINGS",
+                            "data": ["IN-FEATURES", "ARBITRARY", "LINE-CROSSINGS"],
+                            "default": "IN-FEATURES",
                             "output": false,
                             "optional": false
                         },
@@ -834,7 +834,7 @@
                     "image": "../Images/FLM_IO_ZT.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/ZonalThreshold.html",
                     "parameters":[
-                        {
+                        {   "variable": "in_line",
                             "parameter": "Input Lines",
                             "description": "Input polyline shapefile for which each feature will be assigned an unique corridor threshold.",
                             "type": "vector",
@@ -843,7 +843,7 @@
                             "output": false,
                             "optional": false
                         },
-                        {
+                        {   "variable": "corridor_th_field",
                             "parameter": "Corridor Threshold Field",
                             "description": "Name of the field (within the input lines) that indicates the corridor thresholds.",
                             "type": "text",
@@ -852,7 +852,7 @@
                             "output": false,
                             "optional": false
                         },
-                        {
+                        {   "variable": "in_canopy_raster",
                             "parameter": "Canopy Raster",
                             "description": "Input canopy raster used to estimate canopy density.",
                             "type": "raster",
@@ -861,7 +861,7 @@
                             "output": false,
                             "optional": false
                         },
-                        {
+                        {   "variable": "canopy_Search_r",
                             "parameter": "Canopy Search Radius",
                             "description": "Search radius around line features where zonal statistics are calculated.",
                             "type": "number",
@@ -870,7 +870,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {
+                        {   "variable": "min_canopyTh",
                             "parameter": "Minimum Value",
                             "description": "Minimum value for corridor threshold.",
                             "type": "number",
@@ -879,7 +879,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {
+                        {   "variable": "max_canopyTh",
                             "parameter": "Maximum Value",
                             "description": "Maximum value for corridor threshold.",
                             "type": "number",
@@ -888,7 +888,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {
+                        {   "variable": "out_line",
                             "parameter": "Output Lines",
                             "description": "Output features that will be created.",
                             "type": "vector",
