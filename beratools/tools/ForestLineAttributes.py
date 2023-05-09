@@ -351,7 +351,7 @@ def identity_polygon(line_args):
 if __name__ == '__main__':
 
     start_time = time.time()
-    print('Starting attribute line footprint processing @ {}'.format(
+    print('Starting attribute Forest Line Attributes @ {}'.format(
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
     # Get tool arguments
@@ -633,6 +633,6 @@ if __name__ == '__main__':
     geopandas.GeoDataFrame.to_file(output_att_line, args.input['Out_AttSeg'])
 
     print('%{}'.format(100))
-    print('Finishing footprint processing @ {} (or in {} second)'.format(time.strftime("%a, %d %b %Y %H:%M:%S"
+    print('Finishing Forest Line Attributes processing @ {} (or in {} second)'.format(time.strftime("%a, %d %b %Y %H:%M:%S"
                                                                                        , time.localtime()),
                                                                          round(time.time() - start_time, 5)))
