@@ -4,8 +4,6 @@ name: bera
 channels:
   - conda-forge
 dependencies:
-  - click
-  - future
   - setuptools
   - Pillow
   - fiona > 1.9.2
@@ -19,17 +17,15 @@ dependencies:
   - xarray
   - rioxarray
   - scikit-image
-  - sphinx
-  - sphinx-rtd-theme
-  - sphinx-tabs
   - xarray-spatial
   - geopandas
   - pip
   - matplotlib
   - pyproj
-  - pyqtwebengine
+  - sphinx
+  - sphinx-rtd-theme
+  - sphinx-tabs
   - leafmap
-  - qtconsole
   - mamba
   - spyder
 variables:

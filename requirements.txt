@@ -1,5 +1,3 @@
-click
-future
 setuptools
 Pillow
 fiona > 1.9.2
@@ -13,8 +11,6 @@ numba
 xarray
 rioxarray
 scikit-image
-sphinx
-sphinx-tabs
 xarray-spatial
 whitebox
 geopandas
@@ -22,4 +18,7 @@ pip
 matplotlib
 pyproj
 pandas
+sphinx
+sphinx-tabs
+sphinx-rtd-theme
 

@@ -6,6 +6,8 @@ __author__ = """AppliedGRG"""
 __email__ = 'appliedgrg@gmail.com'
 __version__ = '0.1'
 
+name = 'gui'
+
 import os
 import sys
 import inspect
