@@ -18,8 +18,14 @@ class OperationCancelledException(Exception):
 
 def zonal_threshold(callback, in_line, corridor_th_field, in_canopy_raster, canopy_Search_r, min_canopyTh, max_canopyTh,
                     out_line,processes, verbose):
-    # print(in_line, corridor_th_field, in_canopy_r, canopy_Search_r, min_canopyTh, max_canopyTh, out_line,processes, verbose)
-    line_seg=geopandas.GeoDataFrame.from_file(in_line)
+    line_seg = geopandas.GeoDataFrame.from_file(in_line)
+    # check coordinate systems between line and raster features
+    with rasterio.open(in_canopy_raster) as in_canopy:
+        if line_seg.crs.to_epsg()!= in_canopy.crs.to_epsg():
+            print("Line and CHM spatial references are not same, please check.")
+            exit()
+
+    del in_canopy
 
     if not corridor_th_field in  line_seg.columns.array:
         print("Cannot find {} column in input data.\n '{}' column will be create".format(corridor_th_field,corridor_th_field))
@@ -76,10 +82,11 @@ def zonal_prepare(task_data):
     corridor_th_field=task_data[6]
     MinValue=float(task_data[4])
     MaxValue=float(task_data[5])
+
     line_buffer = df['geometry']
 
     with rasterio.open(in_canopy_raster) as in_canopy:
-    # clipped the chm base on polygon of line buffer or footprint
+        # clipped the chm base on polygon of line buffer or footprint
         clipped_canopy, out_transform = rasterio.mask.mask(in_canopy, line_buffer, crop=True,nodata=-9999,filled=True)
         clipped_canopy = numpy.squeeze(clipped_canopy, axis=0)
 
