@@ -22,7 +22,7 @@ def zonal_threshold(callback, in_line, corridor_th_field, in_canopy_raster, cano
     # check coordinate systems between line and raster features
     with rasterio.open(in_canopy_raster) as in_canopy:
         if line_seg.crs.to_epsg()!= in_canopy.crs.to_epsg():
-            print("Line and CHM spatial references are not same, please check.")
+            print("Line and raster spatial references are not same, please check.")
             exit()
 
     del in_canopy
