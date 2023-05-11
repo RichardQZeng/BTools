@@ -228,8 +228,8 @@ def cal_percentile(line_arg):
     PerCol = line_arg[5]
     line_buffer = df.loc[row_index, 'geometry']
     with rasterio.open(in_CHM) as raster:
-        band=raster.read(1)
-        clipped_raster, out_transform = rasterio.mask.mask(band, [line_buffer], crop=True, nodata=-9999, filled=True)
+
+        clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True, nodata=-9999, filled=True)
         clipped_raster = numpy.squeeze(clipped_raster, axis=0)
 
         # mask all -9999 value cells
