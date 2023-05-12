@@ -8,8 +8,8 @@ import pandas
 import numpy
 import rasterio
 import shapely
-from rasterio import MemoryFile
 from common import *
+import sys
 
 
 class OperationCancelledException(Exception):
@@ -40,27 +40,25 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
         print("Cannot find {} column in input line data.\n '{}' column will be create".format('DynCanTh', 'DynCanTh'))
         line_seg['DynCanTh'] = numpy.nan
 
+    # Check the OLnFID column in data. If it is not, column will be created
+    if not 'OLnFID' in line_seg.columns.array:
+        print(
+            "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
+        line_seg['OLnFID'] = line_seg.index
+
     # copy original line input to another Geodataframe
     workln_dfL = geopandas.GeoDataFrame.copy((line_seg))
     workln_dfR = geopandas.GeoDataFrame.copy((line_seg))
 
-    # features = []
-    # for index in work_dfL.index:
-    #     item_list=[work_dfL,'right',Off_ln_dist,index]
-    #     features.append(copyparallel(item_list))
 
     # copy parallel lines for both side of the input lines
     print("Creating offset area for surrounding forest....")
     workln_dfL = multiprocessing_copyparallel_line(workln_dfL, float(Off_ln_dist))
-    workln_dfL.reset_index()
+    workln_dfL.reset_index(drop=True)
     print('%{}'.format(10))
     workln_dfR = multiprocessing_copyparallel_line(workln_dfR, -float(Off_ln_dist))
-    workln_dfR.reset_index()
+    workln_dfR.reset_index(drop=True)
     print('%{}'.format(30))
-
-    # debug save
-    # geopandas.GeoDataFrame.to_file(workln_dfL, r"D:\Maverick\BERATool_Test_Data\DynCanopy_Thr\work_dfL_mitre.shp")
-    # geopandas.GeoDataFrame.to_file(workln_dfR, r"D:\Maverick\BERATool_Test_Data\DynCanopy_Thr\work_dfR_mitre.shp")
 
     worklnbuffer_dfL = geopandas.GeoDataFrame.copy((workln_dfL))
     worklnbuffer_dfR = geopandas.GeoDataFrame.copy((workln_dfR))
@@ -77,33 +75,23 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
     # create a New column for surrounding forest statistics:
     # 1) Height Percentile (add more in the future)
     worklnbuffer_dfL['Percentile_L'] = numpy.nan
+    worklnbuffer_dfL=worklnbuffer_dfL.reset_index(drop=True)
     worklnbuffer_dfR['Percentile_R'] = numpy.nan
+    worklnbuffer_dfR=worklnbuffer_dfR.reset_index(drop=True)
     line_seg['L_Pertiels'] = numpy.nan
     line_seg['R_Pertiels'] = numpy.nan
+
 
     print("Calculating surrounding forest percentile....")
     # calculate the Height percentile for each parallel area using CHM
     worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, CanPercentile, CanThrPercentage, in_CHM,
-                                                  side='left')
-    worklnbuffer_dfL.reset_index()
-    # debug save
-    geopandas.GeoDataFrame.to_file(worklnbuffer_dfL,
-                                   r"D:\Maverick\BERATool_Test_Data\DynCanopy_Thr\worklnbuffer_dfL_2.shp")
+                                          side='left')
 
-    worklnbuffer_dfL['Percentile_L']=worklnbuffer_dfL['Percentile_L'].fillna(0.05)
     print('%{}'.format(80))
     worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, CanPercentile, CanThrPercentage, in_CHM,
                                                   side='right')
-    worklnbuffer_dfR.reset_index()
-    # debug save
-    geopandas.GeoDataFrame.to_file(worklnbuffer_dfR, r"D:\Maverick\BERATool_Test_Data\DynCanopy_Thr\worklnbuffer_dfR_2.shp")
 
-    worklnbuffer_dfR['Percentile_R'] = worklnbuffer_dfR['Percentile_R'].fillna(0.05)
     print('%{}'.format(90))
-
-
-
-
 
     for index in (line_seg.OLnFID):
         line_seg.loc[line_seg.OLnFID==index,'L_Pertiels'] =worklnbuffer_dfL[worklnbuffer_dfL.OLnFID==index].Percentile_L.iloc[0]
@@ -115,56 +103,6 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
 
     geopandas.GeoDataFrame.to_file(line_seg,out_file )
 
-
-
-# task executed in a worker process
-def zonal_prepare(task_data):
-    # report a message
-    row_index = task_data[0]
-    df = task_data[1]
-    in_canopy_raster = task_data[2]
-    corridor_th_field = task_data[6]
-    MinValue = float(task_data[4])
-    MaxValue = float(task_data[5])
-    line_buffer = df['geometry']
-
-    with rasterio.open(in_canopy_raster) as in_canopy:
-        # clipped the chm base on polygon of line buffer or footprint
-        clipped_canopy, out_transform = rasterio.mask.mask(in_canopy, line_buffer, crop=True, nodata=-9999, filled=True)
-        clipped_canopy = numpy.squeeze(clipped_canopy, axis=0)
-
-        # mask out all -9999 value cells
-        zonal_canopy = numpy.ma.masked_where(clipped_canopy == -9999, clipped_canopy)
-
-        # Calculate the zonal mean
-        zonal_mean = numpy.ma.mean(zonal_canopy)
-        threshold = MinValue + (zonal_mean * zonal_mean) * (MaxValue - MinValue)
-        # return the generated value
-        df.loc[df.index == row_index, 'ZonMean'] = zonal_mean
-        df.loc[df.index == row_index, corridor_th_field] = threshold
-
-    return df
-
-
-# protect the entry point
-def execute_multiprocessing(line_args):
-    # create and configure the process pool
-    # data = [[random() for n in range(100)] for i in range(300)]
-    try:
-        total_steps = len(line_args)
-        features = []
-        with Pool(processes=int(args.processes)) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(zonal_prepare, line_args):
-                if BT_DEBUGGING:
-                    print('Got result: {}'.format(result), flush=True)
-                features.append(result)
-                step += 1
-                print('%{}'.format(step / total_steps * 100))
-        return features
-    except OperationCancelledException:
-        print("Operation cancelled")
 
 
 def multiprocessing_copyparallel_line(df, Off_ln_dist):
@@ -201,19 +139,24 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM, side
             PerCol = 'Percentile_R'
 
         for item in range(0, total_steps):
-            item_list = [df, int(CanPercentile), float(CanThrPercentage), in_CHM, item, PerCol]
+            item_list = [df.iloc[[item]], int(CanPercentile), float(CanThrPercentage), in_CHM, item, PerCol]
             line_arg.append(item_list)
         features = []
         with Pool(processes=int(args.processes)) as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(cal_percentile, line_arg):
+            # for result in pool.imap_unordered(cal_percentile, line_arg):
+            for result in pool.imap(cal_percentile, line_arg):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
                 print('%{}'.format(step / total_steps * 100))
-        return geopandas.GeoDataFrame(pandas.concat(features))
+            pool.close()
+            pool.join()
+        return geopandas.GeoDataFrame(pandas.concat(features)).reset_index(drop=True)
+
+
     except OperationCancelledException:
         print("Operation cancelled")
 
@@ -242,10 +185,13 @@ def cal_percentile(line_arg):
         Dyn_Canopy_Threshold = percentile * (CanThrPercentage / 100.0)
     del raster
     # return the generated value
-    df.loc[df.index == row_index, PerCol] = percentile
-    df.loc[df.index == row_index, 'DynCanTh'] = Dyn_Canopy_Threshold
+    try:
+        df.loc[row_index,PerCol] = percentile
+        df.loc[row_index,'DynCanTh'] = Dyn_Canopy_Threshold
+    except:
+        print(sys.exc_info())
 
-    return df.iloc[[row_index]]
+    return df
 
 
 def copyparallel_line(line_arg):
@@ -260,7 +206,7 @@ def copyparallel_line(line_arg):
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Starting Dynamic Canopy Threshold calculation processing @ {}'.format(
+    print('Starting Dynamic Canopy Threshold calculation processing\n @ {}'.format(
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
     parser = argparse.ArgumentParser()
@@ -273,5 +219,5 @@ if __name__ == '__main__':
     dynamic_canopy_threshold(print, **args.input, processes=int(args.processes), verbose=verbose)
 
     print('%{}'.format(100))
-    print('Finishing Dynamic Canopy Threshold calculation @ {} (or in {} second)'.format(
+    print('Finishing Dynamic Canopy Threshold calculation @ {}\n(or in {} second)'.format(
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
