@@ -5,7 +5,6 @@ import geopandas
 import numpy
 from skimage.graph import MCP_Geometric
 import shapely
-import rasterio
 from rasterio import features, mask
 from scipy import ndimage
 import argparse
@@ -157,9 +156,9 @@ def process_single_line(dict_segment):
     orginal_col_name_list = dict_segment['Orgi_col']
 
     # segment line feature ID
-    FID = dict_segment['FID']
+    FID = dict_segment['OLnSEG']
     # original line ID for segment line
-    OID = dict_segment['OID']
+    OID = dict_segment['OLnFID']
 
     segment_list = []
 
@@ -240,30 +239,32 @@ def process_single_line(dict_segment):
 
         # Generate corridor raster
         corridor = numpy.add(source_cost_acc, dest_cost_acc)
-        null_cells = numpy.where(numpy.isinf(corridor), True, False)
+        # null_cells = numpy.where(numpy.isinf(corridor), True, False)
 
         # Calculate minimum value of corridor raster
-        if not numpy.min(corridor) is None:
-            corr_min = float(numpy.min(corridor))
+        if not numpy.nanmin(corridor) is None:
+            corr_min = float(numpy.nanmin(corridor))
         else:
-            corr_min = 0.0
+            corr_min = 0.05
 
         # Set minimum as zero and save minimum file
-        corridor_min = numpy.where((corridor - corr_min) > corridor_th_value, 1, 0)
-        numpy.place(corridor_min, null_cells, -9999)
+        corridor_min = numpy.where((corridor - corr_min) > corridor_th_value, 0, 1)
+        masked_corridor_min = numpy.ma.masked_where(corridor_min == 0, corridor_min)
 
         # Process: Stamp CC and Max Line Width
 
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
-        raster_class = numpy.where(clip_canopy_r + corridor_min == 0, 0, 1)
+        temp1 = numpy.ma.add(masked_corridor_min, in_canopy_r)
+        raster_class = numpy.where(temp1.data == 1, 1, 0)
 
         # BERA proposed Binary morphology
         # RasterClass_binary=numpy.where(RasterClass==0,False,True)
 
-        if exp_shk_cell > 0 and exp_shk_cell * cell_size_x < 1:
+        if exp_shk_cell > 0 and cell_size_x < 1:
             # Process: Expand
             # FLM original Expand equivalent
+            cell_size = int(exp_shk_cell * 2 + 1)
             expanded = ndimage.grey_dilation(raster_class, size=(exp_shk_cell * 2 + 1, exp_shk_cell * 2 + 1))
 
             # BERA proposed Binary morphology Expand
