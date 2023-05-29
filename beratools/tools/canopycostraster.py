@@ -1,12 +1,14 @@
 import numpy as np
+import numpy.ma
 import rasterio
 import xarray as xr
 import xrspatial.focal
 from xrspatial import convolution
 from numpy.lib.stride_tricks import as_strided
-
+import os, json
 import time
 import argparse
+import warnings
 from scipy import ndimage
 
 from common import *
@@ -31,9 +33,9 @@ def _check(a, r_c, subok=False):
         r_c = (1, int(r_c))
     r, c = r_c
     if a.ndim == 1:
-        a = np.atleast_2d(a)
+        a = numpy.atleast_2d(a)
     r, c = r_c = (min(r, a.shape[0]), min(c, a.shape[1]))
-    a = np.array(a, copy=False, subok=subok)
+    a = numpy.array(a, copy=False, subok=subok)
     return a, r, c, tuple(r_c)
 
 
@@ -41,7 +43,7 @@ def _pad(in_array, kernel):
     """Pad a sliding array to allow for stats"""
     pad_x = int(kernel.shape[0] / 2)
     pad_y = int(kernel.shape[0] / 2)
-    result = np.pad(in_array, pad_width=(pad_x, pad_y), mode="constant", constant_values=(np.NaN, np.NaN))
+    result = numpy.pad(in_array, pad_width=(pad_x, pad_y), mode="constant", constant_values=(numpy.NaN, numpy.NaN))
 
     return result
 
@@ -69,14 +71,14 @@ def stride(a, r_c):
 
 
 def normalize_chm(raster):
-    n_raster = np.where(raster >= 0, raster, 0)
+    n_raster = numpy.where(raster >= 0, raster, 0)
     return n_raster
 
 
 def np_cc_map(out_canopy_r, chm, in_array, min_ht):
     print('Generating Canopy Closure Raster.......')
 
-    canopy_ndarray = np.where(in_array >= min_ht, 1., 0.).astype(float)
+    canopy_ndarray = numpy.where(in_array >= min_ht, 1., 0.).astype(float)
 
     write_canopy = rasterio.open(out_canopy_r, 'w', driver='GTiff', height=chm.shape[0], width=chm.shape[1], count=1,
                                  dtype=chm.read(1).dtype, crs=chm.crs, transform=chm.transform)
@@ -89,17 +91,45 @@ def np_cc_map(out_canopy_r, chm, in_array, min_ht):
     # print(cc_raster.dtype, cc_raster.shape, cc_raster.size, cc_raster.data)
 
 
+def dyn_np_cc_map(in_array, min_ht, nodata):
+    masked_array = numpy.ma.masked_where(in_array == nodata, in_array)
+    filled_raster = numpy.ma.filled(masked_array, numpy.nan)
+    canopy_ndarray = numpy.where(filled_raster >= min_ht, 1., 0.).astype(float)
+    canopy_ndarray = numpy.where(in_array == nodata, numpy.nan, canopy_ndarray)
+    # canopy_ndarray = numpy.where(filled_raster >= min_ht, 1., 0.).astype(float)
+    # canopy_ndarray=numpy.ma.array(canopy_ndarray,mask=masked_array)
+    return canopy_ndarray, masked_array
+
+
 def fs_raster(in_ndarray, kernel):
     print('Generating Canopy Closure Focal Statistic .......')
     padded_array = _pad(in_ndarray, kernel)
     a_s = stride(padded_array, kernel.shape)
 
-    # TODO: np.where on large ndarray fail (allocate memory error)
-    a_s_masked = np.where(kernel == 1, a_s, np.NaN)
+    # TODO: numpy.where on large ndarray fail (allocate memory error)
+    a_s_masked = numpy.where(kernel == 1, a_s, numpy.NaN)
     print("Calculating Canopy Closure's Focal Statistic-Mean .......")
-    mean_result = np.nanmean(a_s_masked, axis=(2, 3))
+    mean_result = numpy.nanmean(a_s_masked, axis=(2, 3))
     print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
-    stdev_result = np.nanstd(a_s_masked, axis=(2, 3))
+    stdev_result = numpy.nanstd(a_s_masked, axis=(2, 3))
+    del a_s
+    return mean_result, stdev_result
+
+
+def dyn_fs_raster(in_ndarray, kernel, masked_array, nodata):
+    # print('Generating Canopy Closure Focal Statistic .......')
+    # ndarray = numpy.where(in_ndarray == nodata, numpy.nan, in_ndarray)
+    padded_array = _pad(in_ndarray, kernel)
+    a_s = stride(padded_array, kernel.shape)
+
+    # TODO: numpy.where on large ndarray fail (allocate memory error)
+    a_s_masked = numpy.where(kernel == 1, a_s, numpy.NaN)
+    # print("Calculating Canopy Closure's Focal Statistic-Mean .......")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        mean_result = numpy.nanmean(a_s_masked, axis=(2, 3))
+    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
+        stdev_result = numpy.nanstd(a_s_masked, axis=(2, 3))
     del a_s
     return mean_result, stdev_result
 
@@ -130,17 +160,63 @@ def fs_raster_std(chm, in_ndarray, kernel):
     return reshape_ndarray
 
 
-def smooth_cost(in_raster, search_dist, out_path):
+def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
+    # This function uses xrspatial whcih can handle large data but slow
+    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
+    ndarray = numpy.where(in_ndarray == nodata, numpy.nan, in_ndarray)
+    std_result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std'])
+    mean_result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(ndarray), kernel,
+                                                                          stats_funcs=['mean'])
+
+    # Flattening the array
+    flatten_std_result_ndarray = std_result_ndarray.data.reshape(-1)
+    flatten_mean_result_ndarray = mean_result_ndarray.data.reshape(-1)
+
+    # Re-shaping the array
+    reshape_Std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
+    reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
+    return reshape_Std_ndarray,reshape_mean_ndarray
+
+
+def dyn_fs_raster_mean(in_ndarray, kernel, masked_array, nodata):
+    # This function uses xrspatial which can handle large data but slow
+    # print("Calculating Canopy Closure's Focal Statistic-Mean .......")
+    # ndarray = numpy.where(in_ndarray == nodata, numpy.nan, in_ndarray)
+    result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['mean'])
+
+    # Flattening the array
+    flatten_result_ndarray = result_ndarray.data.reshape(-1)
+    # Re-shaping the array
+
+    reshape_ndarray = flatten_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
+    return reshape_ndarray
+
+
+def smooth_cost(in_raster, search_dist, out_path,sampling):
     print('Generating Cost Raster .......')
 
     euc_dist_array = None
     # scipy way to do Euclidean distance transform
     with rasterio.open(in_raster) as in_image:
         in_mat = in_image.read(1)
-        euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_mat))
+        euc_dist_array = ndimage.distance_transform_edt(numpy.logical_not(in_mat),sampling=sampling)
 
     smooth1 = float(search_dist) - euc_dist_array
-    cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
+    cond_smooth1 = numpy.where(smooth1 > 0, smooth1, 0.0)
+    smooth_cost_array = cond_smooth1 / float(search_dist)
+
+    return smooth_cost_array
+
+
+def dyn_smooth_cost(in_raster, search_dist):
+    # print('Generating Cost Raster .......')
+
+    euc_dist_array = None
+    # scipy way to do Euclidean distance transform
+    euc_dist_array = ndimage.distance_transform_edt(numpy.logical_not(in_raster))
+
+    smooth1 = float(search_dist) - euc_dist_array
+    cond_smooth1 = numpy.where(smooth1 > 0, smooth1, 0.0)
     smooth_cost_array = cond_smooth1 / float(search_dist)
 
     return smooth_cost_array
@@ -150,14 +226,14 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
     print('Generating Smoothed Cost Raster.......')
     aM1a = (cc_mean - cc_std)
     aM1b = (cc_mean + cc_std)
-    aM1 = np.divide(aM1a, aM1b, where=aM1b != 0)
+    aM1 = numpy.divide(aM1a, aM1b, where=aM1b != 0)
     aM = (1 + aM1) / 2
     aaM = (cc_mean + cc_std)
-    bM = np.where(aaM <= 0, 0, aM)
+    bM = numpy.where(aaM <= 0, 0, aM)
     cM = bM * (1 - avoidance) + (cc_smooth * avoidance)
-    dM = np.where(canopy_ndarray == 1, 1, cM)
-    eM = np.exp(dM)
-    result = np.power(eM, float(cost_raster_exponent))
+    dM = numpy.where(canopy_ndarray == 1, 1, cM)
+    eM = numpy.exp(dM)
+    result = numpy.power(eM, float(cost_raster_exponent))
     write_cost = rasterio.open(out_cost_r, 'w+', driver='GTiff', height=chm.shape[0], width=chm.shape[1],
                                count=1,
                                dtype=chm.read(1).dtype, crs=chm.crs, transform=chm.transform)
@@ -167,6 +243,22 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
     return
 
 
+def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, cost_raster_exponent):
+    # print('Generating Smoothed Cost Raster.......')
+    aM1a = (cc_mean - cc_std)
+    aM1b = (cc_mean + cc_std)
+    aM1 = numpy.divide(aM1a, aM1b, where=aM1b != 0)
+    aM = (1 + aM1) / 2
+    aaM = (cc_mean + cc_std)
+    bM = numpy.where(aaM <= 0, 0, aM)
+    cM = bM * (1 - avoidance) + (cc_smooth * avoidance)
+    dM = numpy.where(canopy_ndarray == 1, 1, cM)
+    eM = numpy.exp(dM)
+    result = numpy.power(eM, float(cost_raster_exponent))
+
+    return result
+
+
 # TODO: deal with NODATA
 def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_line_dist,
                        canopy_avoid, exponent, out_canopy_r, out_cost_r, processes, verbose):
@@ -174,7 +266,7 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
     #
     # in_chm = args.get('in_chm')
     canopy_ht_threshold = float(canopy_ht_threshold)
-    tree_radius = float(tree_radius) # TODO: integer expected
+    tree_radius = float(tree_radius)  # TODO: integer expected
     max_line_dist = float(max_line_dist)
     canopy_avoid = float(canopy_avoid)
     cost_raster_exponent = float(exponent)
@@ -183,8 +275,8 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
 
     print('In CHM: ' + in_chm)
     chm = rasterio.open(in_chm)
-    # chm_info = chm.transform
-    # chm_crs = chm.crs
+    chm_info = chm.transform
+    chm_crs = chm.crs
     (cell_x, cell_y) = chm.res
     # (row, col) = chm.shape
 
@@ -208,10 +300,53 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
         cc_std = fs_raster_std(chm, canopy_ndarray, kernel)
 
     # Smoothing raster
-    cc_smooth = smooth_cost(out_canopy_r, max_line_dist, os.path.dirname(out_canopy_r))
+    cc_smooth = smooth_cost(out_canopy_r, max_line_dist, os.path.dirname(out_canopy_r),[cell_x, cell_y])
     avoidance = max(min(float(canopy_avoid), 1), 0)
     np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, cost_raster_exponent, out_cost_r)
     print('Canopy Cost Raster Process finish in {} sec'.format(time.time() - start_time))
+
+
+def dyn_canopy_cost_raster(in_chm, canopy_ht_threshold, tree_search_radius
+                           , max_line_dist, canopy_avoid, exponent, res, nodata,line_df,out_transform):
+    start_time = time.time()
+    #
+    canopy_ht_threshold = float(canopy_ht_threshold)
+    tree_radius = float(tree_search_radius)  # TODO: integer expected
+    max_line_dist = float(max_line_dist)
+    canopy_avoid = float(canopy_avoid)
+    cost_raster_exponent = float(exponent)
+
+    (cell_x, cell_y) = res
+
+    # print('Loading CHM............')
+    band1_ndarray = in_chm
+
+    # print('Preparing Kernel window............')
+    kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
+
+    # Generate Canopy Raster and return the Canopy array
+    dyn_canopy_ndarray, masked_array = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
+    # print(canopy_ndarray.shape[0] * cell_y)
+    # print(canopy_ndarray.shape[1] * cell_x)
+
+    # Calculating focal statistic from canopy raster
+    # TODO: the focal statistic function only can handle small raster, find alternative for handle large raster
+
+    # if dyn_canopy_ndarray.shape[0] * cell_y <= 100 and dyn_canopy_ndarray.shape[1] * cell_x <= 100:
+    #     cc_mean, cc_std = dyn_fs_raster(dyn_canopy_ndarray, kernel, masked_array, nodata)
+    # else:
+    cc_std,cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, masked_array, nodata)
+        # cc_std = dyn_fs_raster_std(dyn_canopy_ndarray, kernel, masked_array, nodata)
+
+    # Smoothing raster
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist)
+    avoidance = max(min(float(canopy_avoid), 1), 0)
+    dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, in_chm, avoidance,
+                                          cost_raster_exponent)
+    # print('Canopy Cost Raster Process finish in {} sec'.format(time.time() - start_time))
+
+
+    return line_df,dyn_canopy_ndarray, dyn_cost_ndarray,out_transform
 
 
 if __name__ == '__main__':
