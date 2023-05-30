@@ -399,10 +399,10 @@
                     ]
                 },
                 {
-                    "name": "Dynamic Line Footprint(Full)",
+                    "name": "Dynamic CC and Line Footprint(Full)",
                     "info": "Creates dynamic footprint polygons for each input line based on a least cost corridor method and individual line canopy thresholds and cost raster.",
                     "multiprocessing": true,
-                    "tool_api": "dynamic_line_footprint_full_step",
+                    "tool_api": "dynCCMap_LineFootprint",
                     "paramFile": "\\Scripts\\FLM_DLFP_params.txt",
                     "image": "../Images/FLM_IO_LineFootprint.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/DynLineFootprintFS.html",
@@ -418,7 +418,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_chm",
+                            "variable": "in_CHM",
                             "parameter": "Input CHM Raster",
                             "description": "Input raster image used calculate the surrounding forest elevation percentile, create canopy and cost raster.",
                             "type": "raster",
@@ -428,7 +428,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "max_line_width",
+                            "variable": "max_ln_width",
                             "parameter": "Maximum Line Width",
                             "description": "Maximum processing width for input lines. A large value may increase processing times whereas a small value may cause undesired clipping.",
                             "type": "number",
@@ -438,7 +438,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "expand_shrink_range",
+                            "variable": "exp_shk_cell",
                             "parameter": "Expand And Shrink Cell Range",
                             "description": "Range used for cell erosion before final polygons are generated. Useful to remove small artifacts.  If the cell size is 1m or larger then set this as zero.",
                             "type": "number",
@@ -448,7 +448,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "process_segments",
+                            "variable": "Proc_Seg",
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
                             "type": "list",
@@ -459,8 +459,8 @@
                             "optional": false
                         },
                         {
-                            "variable": "out_line",
-                            "parameter": "Output Shapefile",
+                            "variable": "out_footprint",
+                            "parameter": "Output Footprint Shapefile",
                             "description": "Output footprint polygons.",
                             "type": "vector",
                             "typelab": "SHP",
@@ -469,7 +469,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "offset_line_distance",
+                            "variable": "Off_ln_dist",
                             "parameter": "Offset Line Distance",
                             "description": "Offset distance from input lines.",
                             "type": "number",
@@ -479,7 +479,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "canopy_percentile",
+                            "variable": "CanPercentile",
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
                             "type": "list",
@@ -490,7 +490,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "canopy_thresh_percentage",
+                            "variable": "CanThrPercentage",
                             "parameter": "Canopy Threshold Percentage",
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
@@ -500,7 +500,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "tree_search_radius",
+                            "variable": "Tree_radius",
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
@@ -510,7 +510,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "max_line_distance",
+                            "variable": "Max_ln_dist",
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
@@ -1047,7 +1047,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "proc_seg",
+                        {   "variable": "Proc_Seg",
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
                             "type": "list",
@@ -1066,7 +1066,7 @@
                             "output": true,
                             "optional": false
                         },
-                        {   "variable": "tree_search_radius",
+                        {   "variable": "Tree_radius",
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
@@ -1075,7 +1075,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "max_line_distance",
+                        {   "variable": "Max_ln_dist",
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
