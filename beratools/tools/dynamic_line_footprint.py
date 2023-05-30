@@ -41,6 +41,9 @@ import rasterio.features
 import xarray as xr
 import xrspatial.focal
 from xrspatial import convolution
+import warnings
+# to suppress panadas UserWarning: Geometry column does not contain geometry when splitting lines
+warnings.simplefilter(action='ignore', category=UserWarning)
 import pandas
 import numpy
 from scipy import ndimage
@@ -49,60 +52,13 @@ from rasterio import features, mask
 from skimage.graph import MCP_Geometric,MCP
 import shapely
 from shapely import LineString
-import warnings
+
 from common import *
 import sys
 
 class OperationCancelledException(Exception):
     pass
 
-def _check(a, r_c, subok=False):
-    """Performs the array checks necessary for stride and block.
-    : in_array   - Array or list.
-    : r_c - tuple/list/array of rows x cols.
-    : subok - from numpy 1.12 added, keep for now
-    :Returns:
-    :------
-    :Attempts will be made to ...
-    :  produce a shape at least (1*c).  For a scalar, the
-    :  minimum shape will be (1*r) for 1D array or (1*c) for 2D
-    :  array if r<c.  Be aware
-    """
-    if isinstance(r_c, (int, float)):
-        r_c = (1, int(r_c))
-    r, c = r_c
-    if a.ndim == 1:
-        a = numpy.atleast_2d(a)
-    r, c = r_c = (min(r, a.shape[0]), min(c, a.shape[1]))
-    a = numpy.array(a, copy=False, subok=subok)
-    return a, r, c, tuple(r_c)
-def _pad(in_array, kernel):
-    """Pad a sliding array to allow for stats"""
-    pad_x = int(kernel.shape[0] / 2)
-    pad_y = int(kernel.shape[0] / 2)
-    result = numpy.pad(in_array, pad_width=(pad_x, pad_y), mode="constant", constant_values=(numpy.NaN, numpy.NaN))
-
-    return result
-def stride(a, r_c):
-    """Provide a 2D sliding/moving view of an array.
-    :  There is no edge correction for outputs.
-    :
-    :Requires:
-    :--------
-    : _check(a, r_c) ... Runs the checks on the inputs.
-    : a - array or list, usually a 2D array.  Assumes rows is >=1,
-    :     it is corrected as is the number of columns.
-    : r_c - tuple/list/array of rows x cols.  Attempts  to
-    :     produce a shape at least (1*c).  For a scalar, the
-    :     minimum shape will be (1*r) for 1D array or 2D
-    :     array if r<c.  Be aware
-    """
-
-    a, r, c, r_c = _check(a, r_c)
-    shape = (a.shape[0] - r + 1, a.shape[1] - c + 1) + r_c
-    strides = a.strides * 2
-    a_s = (as_strided(a, shape=shape, strides=strides)).squeeze()
-    return a_s
 def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     masked_array = numpy.ma.masked_where(in_array == nodata, in_array)
     filled_raster = numpy.ma.filled(masked_array, numpy.nan)
@@ -152,7 +108,7 @@ def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth,  avoidance, c
 def dyn_canopy_cost_raster(args):
     in_chm=args[0]
     canopy_ht_threshold=args[1]
-    tree_search_radius=args[2]
+    Tree_radius=args[2]
     max_line_dist=args[3]
     canopy_avoid=args[4]
     exponent=args[5]
@@ -162,7 +118,7 @@ def dyn_canopy_cost_raster(args):
     out_transform=args[9]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
-    tree_radius = float(tree_search_radius)  # get the round up integer number for tree search radius
+    tree_radius = float(Tree_radius)  # get the round up integer number for tree search radius
     max_line_dist = float(max_line_dist)
     canopy_avoid = float(canopy_avoid)
     cost_raster_exponent = float(exponent)
@@ -190,34 +146,62 @@ def dyn_canopy_cost_raster(args):
     return line_df,dyn_canopy_ndarray, dyn_cost_ndarray,out_transform
 def split_line_fc(line):
     return list(map(LineString, zip(line.coords[:-1], line.coords[1:])))
+
+def split_line_nPart(line):
+    # Work out n parts for each line (divided by 30m)
+    n=math.ceil(line.length/30)
+    if n>1:
+        # divided line into n-1 equal parts;
+        distances=numpy.linspace(0,line.length,n)
+        points=[line.interpolate(distance) for distance in distances]
+        line=shapely.LineString(points)
+        mline=split_line_fc(line)
+    else:
+        mline=line
+    return mline
 def split_into_segments(df):
     odf=df
     crs=odf.crs
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = numpy.nan
-    else:
-        pass
+
     df=odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
     df=df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
     gdf=geopandas.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
     gdf=gdf.reset_index(drop=True)
     return  gdf
+
+def split_into_Equal_Nth_segments(df):
+    odf=df
+    crs=odf.crs
+    if not 'OLnSEG' in odf.columns.array:
+        df['OLnSEG'] = numpy.nan
+    df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry), axis=1))
+    df=df.explode()
+
+    df['OLnSEG'] = df.groupby('OLnFID').cumcount()
+    gdf=geopandas.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
+    gdf=gdf.reset_index(drop=True)
+    return  gdf
+
 def prepare_chm(worklnbuffer_feat,raster,record,nodata):
     line_buffer = worklnbuffer_feat.loc[record, 'geometry']
     clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True, nodata=nodata,
                                                        filled=True)
     clipped_raster = numpy.squeeze(clipped_raster, axis=0)
-    # item_list=[print,in_chm,float(line_seg.loc[seg,'DynCanTh']),float(tree_search_radius)
+    # item_list=[print,in_chm,float(line_seg.loc[seg,'DynCanTh']),float(Tree_radius)
     #     ,float(max_ln_width),float(canopy_avoid),float(exponent),raster.res]
     # line_args.append(item_list)
 
     out_raster=([clipped_raster, float(worklnbuffer_feat.loc[record, 'DynCanTh']), out_transform])
     return out_raster
 
-def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell, proc_seg, out_footprint,
-                           tree_search_radius,max_line_distance, canopy_avoid, exponent, processes, verbose):
+def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell, Proc_Seg, out_footprint,
+                           Tree_radius,Max_ln_dist, canopy_avoid, exponent,full_step, processes, verbose):
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
 
@@ -237,8 +221,8 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
         line_seg['CorridorTh'] = 3.0
 
     if not 'OLnSEG' in line_seg.columns.array:
-        print(
-            "Cannot find {} column in input line data.\n '{}' column will be created base on input Features ID".format('OLnSEG', 'OLnSEG'))
+        # print(
+        #     "Cannot find {} column in input line data.\n '{}' column will be created base on input Features ID".format('OLnSEG', 'OLnSEG'))
         line_seg['OLnSEG']=line_seg['OLnFID']
 
     print('%{}'.format(10))
@@ -249,13 +233,14 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
             exit()
 
         else:
-            if proc_seg.lower() == 'true':
-                proc_seg = True
+            if Proc_Seg.lower() == 'true':
+                Proc_Seg = True
                 print("Spliting lines into segments...")
                 line_seg = split_into_segments(line_seg)
                 print("Spliting lines into segments...Done")
             else:
-                proc_seg = False
+                Proc_Seg = False
+                line_seg=split_into_Equal_Nth_segments(line_seg)
             print('%{}'.format(20))
             worklnbuffer = geopandas.GeoDataFrame.copy((line_seg))
             worklnbuffer['geometry'] = shapely.buffer(worklnbuffer['geometry'], distance=float(max_ln_width),
@@ -274,23 +259,23 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
                 clipped_raster = numpy.squeeze(clipped_raster, axis=0)
 
                 line_args.append([clipped_raster, float(worklnbuffer.loc[record, 'DynCanTh']),
-                                  float(tree_search_radius), float(max_line_distance), float(canopy_avoid),
+                                  float(Tree_radius), float(Max_ln_dist), float(canopy_avoid),
                                   float(exponent), raster.res, nodata,line_seg.iloc[[record]],out_transform])
 
             print("Prepare CHMs for Dynamic cost raster......Done")
             print('%{}'.format(30))
 
             print('Generate Dynamic cost raster.....')
-            list_dict_segment_all=multiprocessing_dynamic_CC(line_args)
+            list_dict_segment_all=multiprocessing_dynamic_CC(line_args,processes)
             print('Generate Dynamic cost raster.....Done')
             print('%{}'.format(50))
         for row in range(0, len(list_dict_segment_all)):
             list_dict_segment_all[row][0]['corridor_th_field']= "CorridorTh"
             list_dict_segment_all[row][0]['corridor_th_value'] =list_dict_segment_all[row][0]["CorridorTh"]
             list_dict_segment_all[row][0]['max_ln_width'] = float(max_ln_width)
-            list_dict_segment_all[row][0]['max_ln_dist'] = float(max_line_distance)
+            list_dict_segment_all[row][0]['max_ln_dist'] = float(Max_ln_dist)
             list_dict_segment_all[row][0]['exp_shk_cell'] = float(exp_shk_cell)
-            # list_dict_segment_all[row][0]['proc_seg'] = proc_seg
+            # list_dict_segment_all[row][0]['Proc_Seg'] = Proc_Seg
             # list_dict_segment_all[row][0]['out_footprint'] = out_footprint
             list_dict_segment_all[row][0]['Proj_crs']=line_seg.crs
 
@@ -473,8 +458,8 @@ def multiprocessing_Dyn_FP(line_args, processes):
     try:
         total_steps = len(line_args)
         features = []
+        chunksize = math.ceil(total_steps / processes)
         with Pool(processes=processes) as pool:
-            chunksize = math.ceil(total_steps / len(pool._pool))
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(dyn_process_single_line, line_args,chunksize=chunksize):
@@ -488,7 +473,7 @@ def multiprocessing_Dyn_FP(line_args, processes):
         print("Operation cancelled")
         return None
 
-def dyn_split_line(input, proc_seg):
+def dyn_split_line(input, Proc_Seg):
     in_cl=input[0]
     shapefile_proj = in_cl.crs
 
@@ -512,7 +497,7 @@ def dyn_split_line(input, proc_seg):
             feature_attributes = {}
 
             # process every segments
-            if proc_seg:
+            if Proc_Seg:
                 for seg in segment_list:
                     feature_attributes = {}
                     feature_attributes['FID'] = i
@@ -546,14 +531,15 @@ def dyn_split_line(input, proc_seg):
     else:
         print("Input line feature is corrupted, exit!")
         exit()
-def multiprocessing_dynamic_CC(line_args):
+def multiprocessing_dynamic_CC(line_args,processes):
     try:
 
         total_steps = len(line_args)
 
         features = []
-        with Pool(processes=int(args.processes)) as pool:
-            chunksize = math.ceil(total_steps / len(pool._pool))
+        chunksize = math.ceil(total_steps / processes)
+        with Pool(processes=int(processes)) as pool:
+
             step = 0
             # execute tasks in order, process results out of order
             # USE_MULTI_PROCESSING = False
@@ -588,6 +574,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--processes')
     parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
+    args.input['full_step'] = False
 
     verbose = True if args.verbose == 'True' else False
     dynamic_line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
