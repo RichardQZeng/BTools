@@ -4,19 +4,16 @@
 # QIcon fromtheme
 # https://gist.github.com/RichardQZeng/2cf5b6d3d383df2242fda75ddb533baf
 
-import sys
-import csv, codecs 
-import os
 import pandas as pd
 from PyQt5.QtCore import (Qt, QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex, 
                           QVariant, QSize, QSettings, pyqtSignal)
 from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QAction,
                              QFileDialog, QAbstractItemView, QMessageBox, QWidget, QDockWidget, QFormLayout,
-                             QSpinBox, QPushButton, QShortcut)
+                             QSpinBox, QPushButton, QShortcut, QDialog, QMenuBar, QWidgetAction)
 from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
-from widgets import *
+from . bt_widgets import *
 
 class PandasModel(QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):
@@ -73,7 +70,7 @@ class PandasModel(QAbstractTableModel):
     def sort(self, column, order):
         colname = self._df.columns.tolist()[column]
         self.layoutAboutToBeChanged.emit()
-        self._df.sort_values(colname, ascending= order == Qt.AscendingOrder, inplace=True)
+        self._df.sort_values(colname, ascending=order == Qt.AscendingOrder, inplace=True)
         self._df.reset_index(inplace=True, drop=True)
         self.layoutChanged.emit()
 
@@ -94,12 +91,12 @@ class PandasModel(QAbstractTableModel):
         self.endRemoveRows()
 
 
-class Viewer(QMainWindow):
+class BP_Dialog(QDialog):
     # signals
     sig_update_tool_widgets = pyqtSignal(int)
 
     def __init__(self, tool_name, parent=None):
-        super(Viewer, self).__init__(parent)
+        super(BP_Dialog, self).__init__(parent)
         self.setWindowTitle('Batch Processing')
         self.MaxRecentFiles = 5
         self.windowList = []
@@ -115,14 +112,12 @@ class Viewer(QMainWindow):
         self.table_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table_view.setSelectionBehavior(self.table_view.SelectRows)
         self.table_view.setSelectionMode(self.table_view.ExtendedSelection)
-        # self.setStyleSheet(stylesheet(self))
-        # self.lb.setAcceptDrops(True)
-        self.setCentralWidget(self.table_view)
+
         self.setContentsMargins(10, 10, 10, 10)
         self.createToolBar()
         self.readSettings()
         self.table_view.setFocus()
-        self.statusBar().showMessage("Ready", 0)
+        # self.statusBar().showMessage("Ready", 0)
 
         # tableview signals
         self.table_view.clicked.connect(self.table_view_clicked)
@@ -132,13 +127,15 @@ class Viewer(QMainWindow):
 
         self.sig_update_tool_widgets.connect(self.update_tool_widgets)
 
-        dock = QDockWidget('Tool Parameters')
-        dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-
         # create form
         self.tool_widgets = ToolWin(tool_name)
-        dock.setWidget(self.tool_widgets)
+
+        self.createToolBar()
+        vbox = QHBoxLayout()
+        vbox.addWidget(self.table_view)
+        vbox.addWidget(self.tool_widgets)
+        vbox.setMenuBar(self.tbar)
+        self.setLayout(vbox)
 
     def table_view_clicked(self, item):
         print('Row, column:{}, {}'.format(item.row(), item.column()))
@@ -232,28 +229,20 @@ class Viewer(QMainWindow):
         deleteAction.triggered.connect(self.table_view_delete_records)
         deleteAction.setShortcut(QKeySequence.Delete)
 
-        self.tbar = self.addToolBar("File")
+        self.tbar =  QMenuBar()
         self.tbar.setContextMenuPolicy(Qt.PreventContextMenu)
-        self.tbar.setIconSize(QSize(40, 40))
-        self.tbar.setFixedHeight(60)
-        self.tbar.setMovable(False)
-        self.tbar.addAction(openAction) 
-        self.tbar.addAction(saveAction) 
+        self.tbar.setFixedHeight(30)
+        self.tbar.addAction(openAction)
+        self.tbar.addAction(saveAction)
         self.tbar.addAction(saveAsAction)
         self.tbar.addAction(deleteAction)
 
-        empty = QWidget()
-        empty.setFixedWidth(10)
-        self.tbar.addWidget(empty)
-
         self.lastFiles = QComboBox()
-        self.lastFiles.setFixedWidth(300) 
+        self.lastFiles.setFixedWidth(300)
         self.lastFiles.currentIndexChanged.connect(self.loadRecent)
-        self.tbar.addWidget(self.lastFiles)  
-
-        empty = QWidget()
-        empty.setFixedWidth(10)
-        self.tbar.addWidget(empty)
+        empty = QWidgetAction(self)
+        empty.setDefaultWidget(self.lastFiles)
+        self.tbar.addAction(empty)
 
         findbyText = QAction(QIcon.fromTheme("edit-find-symbolic"), "find", self, triggered = self.findInTable)
         self.lineFind = QLineEdit()
@@ -262,12 +251,9 @@ class Viewer(QMainWindow):
         self.lineFind.setClearButtonEnabled(True)
         self.lineFind.setFixedWidth(250)
         self.lineFind.returnPressed.connect(self.findInTable)
-        self.tbar.addWidget(self.lineFind)
-        self.tbar.addAction(findbyText)   
-
-        empty = QWidget()
-        empty.setFixedWidth(10)
-        self.tbar.addWidget(empty)
+        empty = QWidgetAction(self)
+        empty.setDefaultWidget(self.lineFind)
+        self.tbar.addAction(empty)
 
         self.previewAction = QAction(QIcon.fromTheme("document-print-preview"), "print", self)
         self.previewAction.triggered.connect(self.handlePreview)
@@ -296,10 +282,10 @@ class Viewer(QMainWindow):
                              skipinitialspace=True, skip_blank_lines=True)
             f.close()
             self.model = PandasModel(df)
-            self.table_view.setModel(main.model)
+            self.table_view.setModel(self.model)
             self.table_view.resizeColumnsToContents()
             self.table_view.selectRow(0)
-            self.statusBar().showMessage("%s %s" % (path, "loaded"), 0)
+            # self.statusBar().showMessage("%s %s" % (path, "loaded"), 0)
 
     def findInTable(self):
         self.table_view.clearSelection()
@@ -342,7 +328,7 @@ class Viewer(QMainWindow):
                 self.table_view.setModel(self.model)
                 self.table_view.resizeColumnsToContents()
                 self.table_view.selectRow(0)
-        self.statusBar().showMessage("%s %s" % (fileName, "loaded"), 0)
+        # self.statusBar().showMessage("%s %s" % (fileName, "loaded"), 0)
         self.recentFiles.insert(0, fileName)
         self.lastFiles.insertItem(1, fileName)
 
@@ -363,7 +349,7 @@ class Viewer(QMainWindow):
             dataFrame.to_csv(f, sep='\t', index = False, header = False)
             self.model.setChanged = False
             print("%s %s" % (self.filename, "saved"))
-            self.statusBar().showMessage("%s %s" % (self.filename, "saved"), 0)
+            # self.statusBar().showMessage("%s %s" % (self.filename, "saved"), 0)
 
     def handlePreview(self):
         if self.model.rowCount() == 0:
@@ -402,71 +388,10 @@ class Viewer(QMainWindow):
                cursor.movePosition(QTextCursor.NextCell)
         document.print_(printer)
 
-def stylesheet(self):
-        return """
-    QMainWindow
-        {
-         background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                 stop: 0 #E1E1E1, stop: 0.4 #DDDDDD,
-                                 stop: 0.5 #D8D8D8, stop: 1.0 #D3D3D3);
-        }
-        QMenuBar
-        {
-            background: transparent;
-            border: 0px;
-        }
-        QTableView
-        {
-            background: qlineargradient(y1:0,  y2:1,
-                        stop:0 #d3d7cf, stop:1 #ffffff);
-            border: 1px solid #d3d7cf;
-            border-radius: 0px;
-            font-size: 8pt;
-            selection-color: #ffffff
-        }
-        QTableView::item:hover
-        {   
-            color: #eeeeec;
-            background: #c4a000;;           
-        }
-        
-        
-        QTableView::item:selected {
-            color: #F4F4F4;
-            background: qlineargradient(y1:0,  y2:1,
-                        stop:0 #2a82da, stop:1 #1f3c5d);
-        } 
-
-        QTableView QTableCornerButton::section {
-            background: transparent;
-            border: 0px outset black;
-        }
-    QHeaderView
-        {
-         background: qlineargradient( y1: 0, y2: 1,
-                                 stop: 0 #E1E1E1, stop: 0.4 #DDDDDD,
-                                 stop: 0.5 #D8D8D8, stop: 1.0 #D3D3D3);
-        color: #888a85;
-        }
-
-    QToolBar
-        {
-        background: transparent;
-        border: 0px;
-        }
-    QStatusBar
-        {
-        background: transparent;
-        border: 0px;
-        color: #555753;
-        font-size: 7pt;
-        }
-
-    """
  
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main = Viewer('Raster Line Attributes')
+    main = BP_Dialog('Raster Line Attributes')
     main.show()
     if len(sys.argv) > 1:
         main.openCSV(sys.argv[1])

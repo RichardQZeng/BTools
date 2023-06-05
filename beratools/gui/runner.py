@@ -33,7 +33,7 @@ from tkinter import messagebox
 import webbrowser
 from pathlib import Path
 
-from tools.beratools import BeraTools
+from tools.beratools_main import BeraTools
 from .tooltip import *
 from PIL import Image, ImageTk
 

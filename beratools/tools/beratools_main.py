@@ -20,7 +20,7 @@ import json
 import multiprocessing
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
-from .common import *
+from tools.common import *
 
 running_windows = platform.system() == 'Windows'
 if running_windows:

@@ -2,7 +2,9 @@ import os
 import json
 import argparse
 
-from ..widgets.batch_processing_dlg import *
+from PyQt5.QtWidgets import QDialog, QGridLayout, QPushButton
+from beratools.widgets.batch_processing_dlg import *
+from beratools_main import *
 bt = BeraTools()
 
 
@@ -14,8 +16,13 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
         with open(in_project, 'r') as project_file:
             proj_data = json.load(project_file)
 
+    dialog = BP_Dialog(proj_data['tool_api'])
+    dialog.openCSV(in_project)
+
+    dialog.exec()
+
     if proj_data:
-        if 'tool' not in proj_data.keys() or 'tasks' not in proj_data.keys():
+        if 'tool_api' not in proj_data.keys() or 'tasks' not in proj_data.keys():
             callback('Project file corrupted, please check.')
             return
         else:
@@ -55,4 +62,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     verbose = True if args.verbose == 'True' else False
 
+    app = QApplication(sys.argv)
     batch_processing(print, **args.input, processes=int(args.processes), verbose=verbose)
+    sys.exit(app.exec_())
