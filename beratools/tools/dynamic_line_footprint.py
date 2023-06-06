@@ -42,22 +42,22 @@ import xarray as xr
 import xrspatial.focal
 from xrspatial import convolution
 import warnings
-# to suppress panadas UserWarning: Geometry column does not contain geometry when splitting lines
-warnings.simplefilter(action='ignore', category=UserWarning)
 import pandas
 import numpy
 from scipy import ndimage
-from numpy.lib.stride_tricks import as_strided
+# from numpy.lib.stride_tricks import as_strided
 from rasterio import features, mask
-from skimage.graph import MCP_Geometric,MCP
+from skimage.graph import MCP_Geometric  # ,MCP
 import shapely
 from shapely import LineString
-
 from common import *
 import sys
+# to suppress panadas UserWarning: Geometry column does not contain geometry when splitting lines
+warnings.simplefilter(action='ignore', category=UserWarning)
 
 class OperationCancelledException(Exception):
     pass
+
 
 def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     masked_array = numpy.ma.masked_where(in_array == nodata, in_array)
@@ -66,11 +66,12 @@ def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     canopy_ndarray = numpy.ma.where(in_array == nodata, numpy.nan, canopy_ndarray)
     return canopy_ndarray, masked_array
 
+
 def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
     # This function uses xrspatial whcih can handle large data but slow
     # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
     ndarray = numpy.where(in_ndarray == nodata, numpy.nan, in_ndarray)
-    result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std','mean'])
+    result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
 
     # Flattening the array
     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
@@ -79,43 +80,53 @@ def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
     # Re-shaping the array
     reshape_Std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
     reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-    return reshape_Std_ndarray,reshape_mean_ndarray
-def dyn_smooth_cost(in_raster, max_line_dist,cell_x, cell_y):
+    return reshape_Std_ndarray, reshape_mean_ndarray
+
+
+def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
     # print('Generating Cost Raster .......')
 
     euc_dist_array = None
     # scipy way to do Euclidean distance transform
-    euc_dist_array = ndimage.distance_transform_edt(numpy.logical_not(in_raster),sampling=[cell_x, cell_y])
+    euc_dist_array = ndimage.distance_transform_edt(numpy.logical_not(in_raster), sampling=[cell_x, cell_y])
 
     smooth1 = float(max_line_dist) - euc_dist_array
-    cond_smooth1 = numpy.where(smooth1 > 0, smooth1, 0.0)
+    # cond_smooth1 = numpy.where(smooth1 > 0, smooth1, 0.0)
+    cond_smooth1 = smooth1[smooth1 <= 0.0] = 0.0
     smooth_cost_array = cond_smooth1 / float(max_line_dist)
 
     return smooth_cost_array
-def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth,  avoidance, cost_raster_exponent):
+
+def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
     aM1a = (cc_mean - cc_std)
     aM1b = (cc_mean + cc_std)
     aM1 = numpy.divide(aM1a, aM1b, where=aM1b != 0)
     aM = (1 + aM1) / 2
     aaM = (cc_mean + cc_std)
     bM = numpy.where(aaM <= 0, 0, aM)
+    # aaM[aaM <= 0] = 0
+    # numpy.place(aaM, aaM > 0, aM)
+    # bM = aaM
     cM = bM * (1 - avoidance) + (cc_smooth * avoidance)
     dM = numpy.where(canopy_ndarray == 1, 1, cM)
+    # numpy.place(canopy_ndarray, canopy_ndarray != 1, cM)
+    # dM = canopy_ndarray
     eM = numpy.exp(dM)
     result = numpy.power(eM, float(cost_raster_exponent))
 
     return result
+
 def dyn_canopy_cost_raster(args):
-    in_chm=args[0]
-    canopy_ht_threshold=args[1]
-    Tree_radius=args[2]
-    max_line_dist=args[3]
-    canopy_avoid=args[4]
-    exponent=args[5]
-    res=args[6]
-    nodata=args[7]
-    line_df=args[8]
-    out_transform=args[9]
+    in_chm = args[0]
+    canopy_ht_threshold = args[1]
+    Tree_radius = args[2]
+    max_line_dist = args[3]
+    canopy_avoid = args[4]
+    exponent = args[5]
+    res = args[6]
+    nodata = args[7]
+    line_df = args[8]
+    out_transform = args[9]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(Tree_radius)  # get the round up integer number for tree search radius
@@ -135,73 +146,64 @@ def dyn_canopy_cost_raster(args):
     dyn_canopy_ndarray, masked_array = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
 
     # Calculating focal statistic from canopy raster
-
-    cc_std,cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, masked_array, nodata)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, masked_array, nodata)
 
     # Smoothing raster
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist,cell_x, cell_y)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, cell_x, cell_y)
     avoidance = max(min(float(canopy_avoid), 1), 0)
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance,
                                           cost_raster_exponent)
-    return line_df,dyn_canopy_ndarray, dyn_cost_ndarray,out_transform
+    return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform
+
 def split_line_fc(line):
     return list(map(LineString, zip(line.coords[:-1], line.coords[1:])))
 
 def split_line_nPart(line):
     # Work out n parts for each line (divided by 30m)
-    n=math.ceil(line.length/30)
-    if n>1:
+    n = math.ceil(line.length / 30)
+    if n > 1:
         # divided line into n-1 equal parts;
-        distances=numpy.linspace(0,line.length,n)
-        points=[line.interpolate(distance) for distance in distances]
-        line=shapely.LineString(points)
-        mline=split_line_fc(line)
+        distances = numpy.linspace(0, line.length, n)
+        points = [line.interpolate(distance) for distance in distances]
+        line = shapely.LineString(points)
+        mline = split_line_fc(line)
     else:
-        mline=line
+        mline = line
     return mline
+
 def split_into_segments(df):
-    odf=df
-    crs=odf.crs
+    odf = df
+    crs = odf.crs
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = numpy.nan
 
-    df=odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
-    df=df.explode()
+    df = odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
+    df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf=geopandas.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
-    gdf=gdf.reset_index(drop=True)
-    return  gdf
+    gdf = gdf.reset_index(drop=True)
+    return gdf
+
 
 def split_into_Equal_Nth_segments(df):
-    odf=df
-    crs=odf.crs
+    odf = df
+    crs = odf.crs
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = numpy.nan
-    df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry), axis=1))
-    df=df.explode()
+    df = odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry), axis=1))
+    df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf=geopandas.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
-    gdf=gdf.reset_index(drop=True)
-    return  gdf
+    gdf = gdf.reset_index(drop=True)
+    return gdf
 
-def prepare_chm(worklnbuffer_feat,raster,record,nodata):
-    line_buffer = worklnbuffer_feat.loc[record, 'geometry']
-    clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True, nodata=nodata,
-                                                       filled=True)
-    clipped_raster = numpy.squeeze(clipped_raster, axis=0)
-    # item_list=[print,in_chm,float(line_seg.loc[seg,'DynCanTh']),float(Tree_radius)
-    #     ,float(max_ln_width),float(canopy_avoid),float(exponent),raster.res]
-    # line_args.append(item_list)
-
-    out_raster=([clipped_raster, float(worklnbuffer_feat.loc[record, 'DynCanTh']), out_transform])
-    return out_raster
 
 def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell, Proc_Seg, out_footprint,
-                           Tree_radius,Max_ln_dist, canopy_avoid, exponent,full_step, processes, verbose):
+                           Tree_radius, Max_ln_dist, canopy_avoid, exponent, full_step, processes, verbose):
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
 
@@ -217,13 +219,14 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
 
     if not 'CorridorTh' in line_seg.columns.array:
         print(
-            "Cannot find {} column in input line data.\n '{}' column will be created".format('CorridorTh', 'CorridorTh'))
+            "Cannot find {} column in input line data.\n '{}' column will be created".format('CorridorTh',
+                                                                                             'CorridorTh'))
         line_seg['CorridorTh'] = 3.0
 
     if not 'OLnSEG' in line_seg.columns.array:
         # print(
         #     "Cannot find {} column in input line data.\n '{}' column will be created base on input Features ID".format('OLnSEG', 'OLnSEG'))
-        line_seg['OLnSEG']=line_seg['OLnFID']
+        line_seg['OLnSEG'] = line_seg['OLnFID']
 
     print('%{}'.format(10))
     # check coordinate systems between line and raster features
@@ -240,16 +243,16 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
                 print("Spliting lines into segments...Done")
             else:
                 Proc_Seg = False
-                line_seg=split_into_Equal_Nth_segments(line_seg)
+                line_seg = split_into_Equal_Nth_segments(line_seg)
             print('%{}'.format(20))
             worklnbuffer = geopandas.GeoDataFrame.copy((line_seg))
             worklnbuffer['geometry'] = shapely.buffer(worklnbuffer['geometry'], distance=float(max_ln_width),
                                                       cap_style=1)
             line_args = []
             nodata = raster.nodata
-            in_chm = raster.read(1)
-            results = []
-            index=1
+            # in_chm = raster.read(1)
+            # results = []
+            # index=1
 
             print("Prepare CHMs for Dynamic cost raster......")
             for record in range(0, len(worklnbuffer)):
@@ -260,69 +263,71 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
 
                 line_args.append([clipped_raster, float(worklnbuffer.loc[record, 'DynCanTh']),
                                   float(Tree_radius), float(Max_ln_dist), float(canopy_avoid),
-                                  float(exponent), raster.res, nodata,line_seg.iloc[[record]],out_transform])
+                                  float(exponent), raster.res, nodata, line_seg.iloc[[record]], out_transform])
 
             print("Prepare CHMs for Dynamic cost raster......Done")
             print('%{}'.format(30))
 
             print('Generate Dynamic cost raster.....')
-            list_dict_segment_all=multiprocessing_dynamic_CC(line_args,processes)
+            list_dict_segment_all = multiprocessing_dynamic_CC(line_args, processes)
             print('Generate Dynamic cost raster.....Done')
             print('%{}'.format(50))
         for row in range(0, len(list_dict_segment_all)):
-            list_dict_segment_all[row][0]['corridor_th_field']= "CorridorTh"
-            list_dict_segment_all[row][0]['corridor_th_value'] =list_dict_segment_all[row][0]["CorridorTh"]
+            list_dict_segment_all[row][0]['corridor_th_field'] = "CorridorTh"
+            list_dict_segment_all[row][0]['corridor_th_value'] = list_dict_segment_all[row][0]["CorridorTh"]
             list_dict_segment_all[row][0]['max_ln_width'] = float(max_ln_width)
             list_dict_segment_all[row][0]['max_ln_dist'] = float(Max_ln_dist)
             list_dict_segment_all[row][0]['exp_shk_cell'] = float(exp_shk_cell)
             # list_dict_segment_all[row][0]['Proc_Seg'] = Proc_Seg
             # list_dict_segment_all[row][0]['out_footprint'] = out_footprint
-            list_dict_segment_all[row][0]['Proj_crs']=line_seg.crs
+            list_dict_segment_all[row][0]['Proj_crs'] = line_seg.crs
 
         # pass center lines for footprint
         print("Generate Dynamic footprint.....")
         footprint_list = []
-        # USE_MULTI_PROCESSING=False
+
         if USE_MULTI_PROCESSING:
-            footprint_list=multiprocessing_Dyn_FP(list_dict_segment_all, processes)
+            footprint_list = multiprocessing_Dyn_FP(list_dict_segment_all, processes)
         else:
+            # Non multi-processing, for debug only
             print("there are {} result to process.".format(len(list_dict_segment_all)))
-            index=0
+            index = 0
             for row in list_dict_segment_all:
                 footprint_list.append(dyn_process_single_line(row))
                 print("FP for line {} is done".format(index))
-                index=index+1
+                index = index + 1
     print('%{}'.format(80))
     print("Generate Dynamic footprint.....Done")
     print('Generating shapefile...........')
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list))
-    results=results.reset_index(drop=True)
-    # results=results.sort_index()
-    results=results.drop(columns=['OLnSEG'])
+    results = results.sort_values(by=['OLnFID', 'OLnSEG'])
+    results = results.reset_index(drop=True)
 
     # dissolved polygon group by column 'OLnFID'
-    dissolved_results = results.dissolve(by='OLnFID',as_index=False)
+    dissolved_results = results.dissolve(by='OLnFID', as_index=False)
+    dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
     print("Saving output.....")
     dissolved_results.to_file(out_footprint)
     print('%{}'.format(100))
+
 
 def dyn_process_single_line(segment):
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
 
-    dict_segment=segment[0]
+    dict_segment = segment[0]
     in_canopy_r = segment[1]
     in_cost_r = segment[2]
     if numpy.isnan(in_canopy_r).all():
         print("Canopy raster empty")
     elif numpy.isnan(in_cost_r).all():
         print("Cost raster empty")
-    corridor_th_value =dict_segment.CorridorTh.iloc[0]
+    corridor_th_value = dict_segment.CorridorTh.iloc[0]
     exp_shk_cell = dict_segment.exp_shk_cell.iloc[0]
     # max_ln_dist=dict_segment.max_ln_dist.iloc[0]
     shapefile_proj = dict_segment.Proj_crs.iloc[0]
 
-    in_transform=segment[3]
+    in_transform = segment[3]
 
     # segment line feature ID
     FID = dict_segment['OLnSEG']
@@ -331,16 +336,13 @@ def dyn_process_single_line(segment):
 
     segment_list = []
 
-
-
-    feat = dict_segment.loc[dict_segment.index[0],'geometry']
+    feat = dict_segment.loc[dict_segment.index[0], 'geometry']
     for coord in feat.coords:
         segment_list.append(coord)
 
     # Find origin and destination coordinates
     x1, y1 = segment_list[0][0], segment_list[0][1]
     x2, y2 = segment_list[-1][0], segment_list[-1][1]
-
 
     # Create Point "origin"
     origin_point = shapely.Point([x1, y1])
@@ -349,7 +351,7 @@ def dyn_process_single_line(segment):
     # Create Point "destination"
     destination_point = shapely.Point([x2, y2])
     destination = [shapes for shapes in
-               geopandas.GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
+                   geopandas.GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
 
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
@@ -357,8 +359,8 @@ def dyn_process_single_line(segment):
     # Work out the corridor from both end of the centerline
     try:
 
-        numpy.place(in_cost_r, numpy.isnan(in_cost_r) , -9999)
-        numpy.place(in_canopy_r,in_canopy_r==-9999, 1)
+        numpy.place(in_cost_r, numpy.isnan(in_cost_r), -9999)
+        numpy.place(in_canopy_r, in_canopy_r == -9999, 1)
 
         # Rasterize source point
         rasterized_source = features.rasterize(origin, out_shape=in_cost_r.shape
@@ -385,7 +387,7 @@ def dyn_process_single_line(segment):
         del mcp_dest
 
         # Generate corridor
-        corridor = source_cost_acc+ dest_cost_acc
+        corridor = source_cost_acc + dest_cost_acc
 
         # Calculate minimum value of corridor raster
         if not numpy.nanmin(corridor) is None:
@@ -395,22 +397,22 @@ def dyn_process_single_line(segment):
 
         # Set minimum as zero and save minimum file
         corridor_min = numpy.where((corridor - corr_min) >= corridor_th_value, 0, 1)
-        masked_corridor_min = numpy.ma.masked_where(corridor_min==0,corridor_min)
+        masked_corridor_min = numpy.ma.masked_where(corridor_min == 0, corridor_min)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
-        temp1=numpy.ma.add(masked_corridor_min,in_canopy_r)
-        raster_class=numpy.where(temp1.data==1,1,0)
+        temp1 = numpy.ma.add(masked_corridor_min, in_canopy_r)
+        raster_class = numpy.where(temp1.data == 1, 1, 0)
 
         # BERA proposed Binary morphology
         # RasterClass_binary=numpy.where(RasterClass==0,False,True)
         if exp_shk_cell > 0 and cell_size_x < 1:
             # Process: Expand
             # FLM original Expand equivalent
-            cell_size=int(exp_shk_cell * 2 + 1)
+            cell_size = int(exp_shk_cell * 2 + 1)
 
-            expanded = ndimage.grey_dilation(raster_class, size=(cell_size , cell_size))
+            expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
 
             # BERA proposed Binary morphology Expand
             # Expanded = ndimage.binary_dilation(RasterClass_binary, iterations=exp_shk_cell,border_value=1)
@@ -430,13 +432,11 @@ def dyn_process_single_line(segment):
         clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode='nearest')
 
         # creat mask for non-polygon area
-        mask = numpy.where(clean_raster ==0,False, True)
+        mask = numpy.where(clean_raster == 0, False, True)
 
         # Process: ndarray to shapely Polygon
-        try:
-            out_polygon = features.shapes(clean_raster, mask=mask, transform=in_transform)
-        except:
-            print(sys.exc_info())
+        out_polygon = features.shapes(clean_raster, mask=mask, transform=in_transform)
+
         # create a shapely multipoly
         multi_polygon = []
         for shape, value in out_polygon:
@@ -444,8 +444,8 @@ def dyn_process_single_line(segment):
         poly = shapely.geometry.MultiPolygon(multi_polygon)
 
         # create a pandas dataframe for the FP
-        out_data = pandas.DataFrame({'OLnFID': OID, 'OLnSEG': FID,'geometry': poly})
-        out_gdata=geopandas.GeoDataFrame(out_data,geometry='geometry',crs=shapefile_proj)
+        out_data = pandas.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'geometry': poly})
+        out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         return out_gdata
 
@@ -454,6 +454,7 @@ def dyn_process_single_line(segment):
         print('Exception: {}'.format(e))
     except:
         print(sys.exc_info())
+
 def multiprocessing_Dyn_FP(line_args, processes):
     try:
         total_steps = len(line_args)
@@ -462,7 +463,7 @@ def multiprocessing_Dyn_FP(line_args, processes):
         with Pool(processes=processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(dyn_process_single_line, line_args,chunksize=chunksize):
+            for result in pool.imap_unordered(dyn_process_single_line, line_args, chunksize=chunksize):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
@@ -473,65 +474,7 @@ def multiprocessing_Dyn_FP(line_args, processes):
         print("Operation cancelled")
         return None
 
-def dyn_split_line(input, Proc_Seg):
-    in_cl=input[0]
-    shapefile_proj = in_cl.crs
-
-    keep_field_name = []
-    for col_name in in_cl.columns:
-        if col_name != 'geometry':
-            keep_field_name.append(col_name)
-
-    list_of_segment = []
-
-    i = 0
-    # process when shapefile is not an empty feature class
-    if len(in_cl) > 0:
-
-        for row in in_cl.index:
-            # creates a geometry object
-            feat = in_cl.loc[row,'geometry']
-
-            # Split every segments from line
-            segment_list = (list(map(shapely.geometry.LineString, zip(feat.coords[:-1], feat.coords[1:]))))
-            feature_attributes = {}
-
-            # process every segments
-            if Proc_Seg:
-                for seg in segment_list:
-                    feature_attributes = {}
-                    feature_attributes['FID'] = i
-                    feature_attributes['OID'] = row
-                    feature_attributes['Total_Seg'] = len(segment_list)
-                    feature_attributes['Seg_leng'] = seg.length
-                    feature_attributes['geometry'] = seg
-                    feature_attributes['Proj_crs'] = shapefile_proj
-
-                    for col_name in keep_field_name:
-                        feature_attributes[col_name] = in_cl.loc[row, col_name]
-
-                    list_of_segment.append([feature_attributes,input[1],input[2],input[3]])
-                    i = i + 1
-            else:  # process on original lines
-                feature_attributes['FID'] = i
-                feature_attributes['OID'] = row
-                feature_attributes['No_of_Seg'] = len(segment_list)
-                feature_attributes['Seg_leng'] = feat.length
-                feature_attributes['geometry'] = feat
-                feature_attributes['Proj_crs'] = shapefile_proj
-                for col_name in keep_field_name:
-                    feature_attributes[col_name] = in_cl.loc[row, col_name]
-                list_of_segment.append([feature_attributes,input[1],input[2],input[3]])
-                i = i + 1
-
-        print("There are {} lines to be processed.".format(len(list_of_segment)))
-
-        # return a list of features Dictionary
-        return list_of_segment
-    else:
-        print("Input line feature is corrupted, exit!")
-        exit()
-def multiprocessing_dynamic_CC(line_args,processes):
+def multiprocessing_dynamic_CC(line_args, processes):
     try:
 
         total_steps = len(line_args)
@@ -558,11 +501,11 @@ def multiprocessing_dynamic_CC(line_args,processes):
                     print("Dynamic CC for line {} is done".format(index))
                     index = index + 1
 
-
         return features
 
     except OperationCancelledException:
         print("Operation cancelled")
+
 
 if __name__ == '__main__':
     start_time = time.time()
