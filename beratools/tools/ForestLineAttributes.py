@@ -21,6 +21,12 @@ class OperationCancelledException(Exception):
 def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
     in_ln_shp = geopandas.GeoDataFrame.from_file(args['in_line'])
 
+    # Check the OLnFID column in data. If it is not, column will be created
+    if not 'OLnFID' in in_ln_shp.columns.array:
+        print(
+            "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
+        in_ln_shp['OLnFID'] = in_ln_shp.index
+
     # Copy all the input line into geodataframe
     in_cl_line = geopandas.GeoDataFrame.copy(in_ln_shp)
 
@@ -76,7 +82,7 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
                     in_cl_straightline.loc[i, col] = in_cl_splittpoint.loc[row, col]
                 in_cl_straightline.loc[i, 'geometry'] = seg
 
-                buffer_list.append(seg.buffer(float(args['Max_ln_width']), cap_style=2))
+                buffer_list.append(seg.buffer(float(args['Max_ln_width']), cap_style=shapely.BufferCapStyle.flat))
 
                 if not HasOLnFID:
                     in_cl_straightline.loc[i, 'OLnFID'] = row
@@ -246,7 +252,7 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
                 # Check if query result is not empty, if empty input identity footprint will be skipped
                 if len(selected_segLn.index) > 0:
                     line_feat = selected_segLn['geometry'].iloc[0]
-                    # if the selected seg has not identity footprint gemoetry
+                    # if the selected seg do not have identity footprint gemoetry
                     if shapely.is_empty(fp):
                         # use the buffer from the segment line
                         line_buffer = shapely.buffer(line_feat, float(args['Max_ln_width']))
@@ -255,6 +261,7 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
                         line_buffer = fp
                     # clipped the chm base on polygon of line buffer or footprint
                     clipped_chm, out_transform = rasterio.mask.mask(in_CHM, [line_buffer], crop=True)
+
                     # drop the ndarray to 2D ndarray
                     clipped_chm = numpy.squeeze(clipped_chm, axis=0)
                     # masked all NoData value cells
@@ -266,7 +273,7 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
                     chm_std = numpy.ma.std(clean_chm)
                     chm_sum = numpy.ma.sum(clean_chm)
                     chm_count = numpy.ma.count(clean_chm)
-                    cellArea = cell_size_y * cell_size_x
+                    OnecellArea = cell_size_y * cell_size_x
                     try:
                         sqStdPop = math.pow(chm_std, 2) * (chm_count - 1) / chm_count
                     except ZeroDivisionError as e:
@@ -294,7 +301,7 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
                         result_identity.loc[index, "Fragment"] = numpy.nan
 
                     result_identity.loc[index, "AvgHeight"] = chm_mean
-                    result_identity.loc[index, "Volume"] = chm_sum * cellArea
+                    result_identity.loc[index, "Volume"] = chm_sum * OnecellArea
                     result_identity.loc[index, "Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sqStdPop)
 
                 del selected_segLn
@@ -341,6 +348,9 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
 def identity_polygon(line_args):
     in_cl_buffer = line_args[0][['geometry', 'OLnFID', 'OLnSEG']]
     in_fp_polygon = line_args[1]
+    if not 'OLnSEG' in in_fp_polygon.columns.array:
+        in_fp_polygon = in_fp_polygon.assign(OLnSEG=0)
+
     identity = in_fp_polygon.overlay(in_cl_buffer, how='identity')
     identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
     identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
@@ -351,7 +361,7 @@ def identity_polygon(line_args):
 if __name__ == '__main__':
 
     start_time = time.time()
-    print('Starting attribute Forest Line Attributes @ {}'.format(
+    print('Starting attribute Forest Line Attributes \n@ {}'.format(
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
     # Get tool arguments
@@ -377,6 +387,16 @@ if __name__ == '__main__':
 
     # Vaild input footprint shapefile has geometry
     in_fp_shp = geopandas.GeoDataFrame.from_file(in_fp)
+    in_ln_shp = geopandas.GeoDataFrame.from_file(in_cl)
+
+    # check coordinate systems between line and raster features
+    with rasterio.open(in_CHMR) as in_raster:
+        if in_fp_shp.crs.to_epsg() != in_raster.crs.to_epsg():
+            print("Line and raster spatial references are not the same, please check.")
+            exit()
+
+    del in_raster
+
     if len(in_fp_shp) <= 0:
         print('There is no footprint provided, a buffer from the input line is used instead')
         areaAnalysis = False
@@ -400,6 +420,9 @@ if __name__ == '__main__':
         if 'Fr_Seg_Ln' in in_fp_shp.columns.array:
             in_fp_shp = in_fp_shp.rename(columns={'Fr_Seg_Ln': 'OLnSEG'})
             in_fp_shp[['OLnSEG']] = in_fp_shp[['OLnSEG']].astype(int)
+
+        elif not "OLnSEG" in in_fp_shp.columns.array:
+            in_fp_shp['OLnSEG'] = 0
     try:
         with rasterio.open(in_CHMR) as in_CHM:
             heightAnalysis = True
@@ -428,6 +451,7 @@ if __name__ == '__main__':
     print('%{}'.format(10))
 
     if args.input["sampling_type"] != "LINE-CROSSINGS":
+
         if areaAnalysis:
             # #load in the footprint shapefile
             # in_fp_shp=geopandas.GeoDataFrame.from_file(in_fp)
@@ -437,29 +461,22 @@ if __name__ == '__main__':
             # Buffer seg straigth line or whole ln for identify footprint polygon
             if isinstance(Straight_lines, geopandas.GeoDataFrame):
                 in_cl_buffer = geopandas.GeoDataFrame.copy(Straight_lines)
-                in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=2)
+                in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
             else:
                 in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-                in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=2)
+                in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
         else:
             in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=2)
+            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
             in_fp_shp = in_cl_buffer
 
     else:  # LINE-CROSSINGS
         if areaAnalysis:
             # #load in the footprint shapefile
-
-            if 'OLnFID' in in_fp_shp.columns:
-                query_col = 'OLnFID'
-            elif 'Fr_Orig_ln' in in_fp_shp.columns:
-                query_col = 'Fr_Orig_ln'
-            else:
-                print('Please check footprint ID originate, ie. matching centerline ID')
-                exit()
-
+            query_col = 'OLnFID'
             # Query footprints based on OLnFID or Fr_Orig_Ln and perpare a new in fp dataframe
             all_matched_fp = []
+
             for line_index in Att_seg_lines.index:
                 fp_list = Att_seg_lines.iloc[line_index].FP_ID
                 selected_fp = in_fp_shp.query(query_col + ' in @fp_list')
@@ -469,20 +486,24 @@ if __name__ == '__main__':
                     dissolved_fp = selected_fp
                 else:
                     print('No match!!!')
-                # dissolved_fp.reset_index()
+                    dissolved_fp = geopandas.GeoDataFrame()
+                dissolved_line=""
+                for line in fp_list:
+                    dissolved_line=dissolved_line+str(line)+" "
+
+                dissolved_fp = dissolved_fp.assign(Dis_OLnFID=[dissolved_line])
                 dissolved_fp = dissolved_fp.assign(Disso_ID=[line_index])
-                # dissolved_fp.loc[[dissolved_fp.index[0]],'FP_ID']=pandas.Series([fp_list],index=dissolved_fp.index[[line_index]])
                 all_matched_fp.append(dissolved_fp)
             in_fp_shp = geopandas.GeoDataFrame(pandas.concat(all_matched_fp))
-            in_fp_shp.reset_index()
+            in_fp_shp=in_fp_shp.reset_index(drop=True)
             print('%{}'.format(20))
 
             # buffer whole ln for identify footprint polygon
             in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=2)
+            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
         else:
             in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=2)
+            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
             in_fp_shp = in_cl_buffer
         # print(Att_seg_lines)
 
@@ -523,7 +544,7 @@ if __name__ == '__main__':
     else:
 
         in_fp_shp['Disso_ID'] = in_fp_shp['Disso_ID'].astype(int)
-        in_fp_shp['OLnSEG'] = in_fp_shp['OLnSEG'].astype(int)
+        in_fp_shp['OLnFID'] = in_fp_shp['OLnFID'].astype(int)
         in_cl_buffer['Disso_ID'] = in_cl_buffer['Disso_ID'].astype(int)
         in_cl_buffer['OLnSEG'] = in_cl_buffer['OLnSEG'].astype(int)
 
@@ -633,6 +654,6 @@ if __name__ == '__main__':
     geopandas.GeoDataFrame.to_file(output_att_line, args.input['Out_AttSeg'])
 
     print('%{}'.format(100))
-    print('Finishing Forest Line Attributes processing @ {} (or in {} second)'.format(time.strftime("%a, %d %b %Y %H:%M:%S"
+    print('Finishing Forest Line Attributes processing @ {}\n (or in {} second)'.format(time.strftime("%a, %d %b %Y %H:%M:%S"
                                                                                        , time.localtime()),
                                                                          round(time.time() - start_time, 5)))
