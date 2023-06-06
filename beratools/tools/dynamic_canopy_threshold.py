@@ -1,4 +1,3 @@
-import gc
 import os.path
 from multiprocessing.pool import Pool
 import geopandas
@@ -7,9 +6,7 @@ import argparse
 import time
 import pandas
 import numpy
-import rasterio
 import shapely
-from shapely.ops import split, snap
 from common import *
 import sys
 import math
@@ -120,10 +117,8 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
     del line_seg, worklnbuffer_dfL, worklnbuffer_dfR, workln_dfL, workln_dfR
     if full_step:
         return out_file
-        exit(dynamic_canopy_threshold)
+
     print('%{}'.format(100))
-def split_line_by_point(line, point, tolerance: float = 1.0e-12):
-    return split(snap(line, point, tolerance), point)
 
 def split_line_fc(line):
     return list(map(shapely.LineString, zip(line.coords[:-1], line.coords[1:])))
@@ -157,7 +152,6 @@ def multiprocessing_copyparallel_lineLR(dfL,dfR,processes, left_dis,right_dist):
         featuresR = []
         chunksize = math.ceil(total_steps / processes)
         with Pool(processes=int(processes)) as pool:
-
             step = 0
             # execute tasks in order, process results out of order
             for resultL,resultR in pool.imap_unordered(copyparallel_lineLR, line_arg,chunksize=chunksize):
@@ -170,28 +164,6 @@ def multiprocessing_copyparallel_lineLR(dfL,dfR,processes, left_dis,right_dist):
             return geopandas.GeoDataFrame(pandas.concat(featuresL)),geopandas.GeoDataFrame(pandas.concat(featuresR))
     except OperationCancelledException:
         print("Operation cancelled")
-# def multiprocessing_copyparallel_line(df, Off_ln_dist):
-#     try:
-#
-#         line_arg = []
-#         total_steps = len(df)
-#         for item in df.index:
-#             item_list = [df, Off_ln_dist, item]
-#             line_arg.append(item_list)
-#         features = []
-#         with Pool(processes=int(args.processes)) as pool:
-#             step = 0
-#             # execute tasks in order, process results out of order
-#             for result in pool.imap_unordered(copyparallel_line, line_arg):
-#                 if BT_DEBUGGING:
-#                     print('Got result: {}'.format(result), flush=True)
-#                 features.append(result)
-#                 step += 1
-#                 print('%{}'.format(step / total_steps * 100))
-#             return geopandas.GeoDataFrame(pandas.concat(features))
-#     except OperationCancelledException:
-#         print("Operation cancelled")
-
 
 def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM,processes ,side):
 
@@ -222,44 +194,8 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM,proce
             except Exception:
                 print(Exception)
                 raise
+            del line_arg
             return geopandas.GeoDataFrame(pandas.concat(features))
-
-
-    except OperationCancelledException:
-        print("Operation cancelled")
-
-def multiprocessing_PercentileLR(df, CanPercentile, CanThrPercentage, in_CHM,processes):
-
-    try:
-        line_arg = []
-        total_steps = len(df)
-        for item in df.index:
-            if df.loc[item,'Offset'].lower() == 'left':
-                PerCol = 'Percentile_L'
-            else:
-                PerCol = 'Percentile_R'
-
-            item_list = [df.iloc[[item]], int(CanPercentile), float(CanThrPercentage), in_CHM, item, PerCol]
-            line_arg.append(item_list)
-
-        features = []
-        chunksize = math.ceil(total_steps / processes)
-        with Pool(processes=int(args.processes)) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            try:
-                # features=pool.map(cal_percentile, line_arg)
-                for result in pool.imap_unordered(cal_percentile, line_arg,chunksize=chunksize):
-                    if BT_DEBUGGING:
-                        print('Got result: {}'.format(result), flush=True)
-                    features.append(result)
-                    step += 1
-                    print('%{}'.format(step / total_steps * 100))
-            except Exception:
-                print(Exception)
-                raise
-            return geopandas.GeoDataFrame(pandas.concat(features))
-
 
     except OperationCancelledException:
         print("Operation cancelled")
@@ -290,6 +226,7 @@ def cal_percentile(line_arg):
             # masked_mean = numpy.ma.mean(masked_raster)
 
             percentile = numpy.nanpercentile(filled_raster, CanPercentile,method='hazen')
+
             # median = numpy.nanmedian(filled_raster)
             if percentile>0.05:#(percentile+median)>0.0:
                 # ((50 Percentile + user defined percentile)/2)x(User defined Canopy Threshold Percentage)
@@ -298,10 +235,10 @@ def cal_percentile(line_arg):
                 # (user defined percentile)x(User defined Canopy Threshold Percentage)
                 Dyn_Canopy_Threshold = percentile * (CanThrPercentage / 100.0)
             else:
-                print("(percentile)<0.05 @ {}".format(row_index))
+                # print("(percentile)<0.05 @ {}".format(row_index))
                 Dyn_Canopy_Threshold=0.05
 
-
+            del clipped_raster, out_transform
         del raster
     # return the generated value
     except:
@@ -318,18 +255,27 @@ def copyparallel_lineLR(line_arg):
 
     dfL = line_arg[0]
     dfR = line_arg[1]
+    #Simplify input center lines
     lineL = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     lineR = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     offset_distL = float(line_arg[2])
     offset_distR= float(line_arg[3])
-    # parallel_lineL = shapely.offset_curve(geometry=lineL, distance=offset_distL, join_style=shapely.BufferJoinStyle.mitre)
+
+    # Older alternative method to the offset_curve() method,
+    # but uses resolution instead of quad_segs and a side keyword (‘left’ or ‘right’) instead
+    # of sign of the distance. This method is kept for backwards compatibility for now,
+    # but it is recommended to use offset_curve() instead.
+    # (ref: https://shapely.readthedocs.io/en/stable/manual.html#object.offset_curve)
+
+    # parallel_lineL = shapely.offset_curve(geometry=lineL, distance=offset_distL,
+    #                                       join_style=shapely.BufferJoinStyle.mitre)
     # parallel_lineR = shapely.offset_curve(geometry=lineR, distance=offset_distR,
     #                                       join_style=shapely.BufferJoinStyle.mitre)
 
     parallel_lineL = lineL.parallel_offset(distance=offset_distL,side='left',
                                           join_style=shapely.BufferJoinStyle.mitre)
     parallel_lineR = lineR.parallel_offset(distance=-offset_distR,side='right',
-                                          join_style=shapely.BufferJoinStyle.mitre)
+                                         join_style=shapely.BufferJoinStyle.mitre)
 
     if not parallel_lineL.is_empty:
         dfL.loc[line_arg[4], 'geometry'] = parallel_lineL
