@@ -213,7 +213,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "out_canopy_r",
+                            "variable": "out_canopy",
                             "parameter": "Output Canopy Raster",
                             "description": "Output raster classified as canopy (1) and non-canopy (0).",
                             "type": "raster",
@@ -223,7 +223,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "out_cost_r",
+                            "variable": "out_cost",
                             "parameter": "Output Cost Raster",
                             "description": "Output cost raster used in subsequent FLM tools for least-cost analysis.",
                             "type": "raster",
@@ -254,7 +254,7 @@
                             "optional": false
                         },
                         {
-							"variable": "in_cost_raster",
+							"variable": "in_cost",
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the least cost path.",
                             "type": "raster",
@@ -285,9 +285,9 @@
                             "optional": false
                         },
                         {
-							"variable": "out_center_line",
-                            "parameter": "Output Center-Line",
-                            "description": "Output center-line shapefile.",
+							"variable": "out_line",
+                            "parameter": "Output Centerline",
+                            "description": "Output centerline shapefile.",
                             "type": "vector",
                             "typelab": "SHP",
                             "default": "",
@@ -306,7 +306,7 @@
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/LineFootprint.html",
                     "parameters":[
                         {
-                            "variable": "in_cl",
+                            "variable": "in_line",
                             "parameter": "Center-lines Feature Class",
                             "description": "Input polyline shapefile.",
                             "type": "vector",
@@ -316,7 +316,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_canopy_r",
+                            "variable": "in_canopy",
                             "parameter": "Canopy Raster",
                             "description": "Input raster image used to exclude canopy from line footprint.",
                             "type": "raster",
@@ -326,7 +326,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_cost_r",
+                            "variable": "in_cost",
                             "parameter": "Cost Raster",
                             "description": "Input raster image used to calculate the least cost corridor.",
                             "type": "raster",
@@ -334,16 +334,6 @@
                             "default": "",
                             "output": false,
                             "optional": false
-                        },
-                        {
-                            "variable": "corridor_th_field",
-                            "parameter": "Corridor Threshold Field",
-                            "description": "Name of the field (within the input lines) that indicates the least cost corridor thresholds (LCCT).",
-                            "type": "text",
-                            "typelab": "text",
-                            "default": "CorridorTh",
-                            "output": false,
-                            "optional": true
                         },
                         {
                             "variable": "corridor_th_value",
@@ -376,7 +366,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "proc_seg",
+                            "variable": "proc_segments",
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
                             "type": "list",
@@ -418,7 +408,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_CHM",
+                            "variable": "in_chm",
                             "parameter": "Input CHM Raster",
                             "description": "Input raster image used calculate the surrounding forest elevation percentile, create canopy and cost raster.",
                             "type": "raster",
@@ -448,7 +438,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "Proc_Seg",
+                            "variable": "proc_segments",
                             "parameter": "Process Segments",
                             "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
                             "type": "list",
@@ -469,7 +459,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "Off_ln_dist",
+                            "variable": "off_ln_dist",
                             "parameter": "Offset Line Distance",
                             "description": "Offset distance from input lines.",
                             "type": "number",
@@ -479,7 +469,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "CanPercentile",
+                            "variable": "canopy_percentile",
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
                             "type": "list",
@@ -490,7 +480,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "CanThrPercentage",
+                            "variable": "canopy_thresh_percentage",
                             "parameter": "Canopy Threshold Percentage",
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
@@ -500,7 +490,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "Tree_radius",
+                            "variable": "tree_radius",
                             "parameter": "Tree Search Radius",
                             "description": "Radius of canopy influence in the cost raster. This factor smooths the canopy in the cost raster which helps to prevent gaps in sparsely vegetated areas (e.g. wetlands) to be incorrectly identified as footprint. A large search radius (>=5m) may cause excessive smoothing of the cost raster which can lead to least cost paths ignoring forest-line nuances in sparsely vegetated forests. A small radius (<=1m) may cause the least cost path to cut corners through small gaps in sparse vegetation as well as avoid small obstacles that should not affect overall line shape.",
                             "type": "number",
@@ -510,7 +500,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "Max_ln_dist",
+                            "variable": "max_ln_dist",
                             "parameter": "Maximum Line Distance",
                             "description": "Maximum euclidean distance from canopy. This is a second smoothing factor which helps to position the forest line shape in the center of the line footprint. An excessively small (<=1m) or large (>20m) value may cause the center line to be positioned close to one of the edges of the footprint.",
                             "type": "number",
@@ -520,7 +510,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "canopy_avoid",
+                            "variable": "canopy_avoidance",
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
@@ -629,7 +619,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "Out_AttSeg",
+                            "variable": "out_line",
                             "parameter": "Output Attributed Segments",
                             "description": "Output features that will be created.",
                             "type": "vector",
@@ -839,15 +829,6 @@
                             "type": "vector",
                             "typelab": "SHP",
                             "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "corridor_th_field",
-                            "parameter": "Corridor Threshold Field",
-                            "description": "Name of the field (within the input lines) that indicates the corridor thresholds.",
-                            "type": "text",
-                            "typelab": "text",
-                            "default": "CorridorTh",
                             "output": false,
                             "optional": false
                         },

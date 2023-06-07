@@ -36,14 +36,6 @@ def default_callback(value):
     print(value)
 
 
-def to_snakecase(name):
-    """
-    Convert CamelCase name to snake_case name
-    """
-    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
-
-
 class BeraTools(object):
     """ 
     An object for interfacing with the BERA Tools executable.
@@ -55,9 +47,6 @@ class BeraTools(object):
         else:
             self.ext = ''
         self.exe_name = "BERA_tools{}".format(self.ext)
-        # self.exe_path = os.path.dirname(shutil.which(
-        #     self.exe_name) or path.dirname(path.abspath(__file__)))
-        # self.exe_path = os.path.dirname(os.path.join(os.path.realpath(__file__)))
         self.exe_path = path.dirname(path.abspath(__file__))
 
         self.work_dir = ""
@@ -444,3 +433,11 @@ class BeraTools(object):
                         new_params['parameters'].append(new_param)
 
         return new_params
+
+    def get_bera_tool_parameters_list(self, tool_name):
+        params = self.get_bera_tool_parameters(tool_name)
+        param_list = {}
+        for item in params['parameters']:
+            param_list[item['flag']] = item['default_value']
+
+        return param_list

@@ -304,6 +304,11 @@ class OptionsInput(QWidget):
     def selection_change(self, i):
         self.value = self.option_list[i]
 
+    def set_value(self, value):
+        self.value = self.value
+        for v in self.option_list:
+            if value == v:
+                self.combobox.setCurrentIndex(self.option_list.index(v))
 
 class DataInput(QWidget):
     def __init__(self, json_str, master=None, parent=None):
@@ -359,6 +364,11 @@ class DataInput(QWidget):
                 msg_box.exec()
 
         return None
+
+    def set_value(self, value):
+        if self.data_input:
+            self.data_input.setValue(value)
+            self.update_value()
 
 class DoubleSlider(QSlider):
 

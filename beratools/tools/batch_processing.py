@@ -1,11 +1,69 @@
 import os
-import json
+import csv
 import argparse
+import pathlib
 
 from PyQt5.QtWidgets import QDialog, QGridLayout, QPushButton
 from beratools.widgets.batch_processing_dlg import *
 from beratools_main import *
 bt = BeraTools()
+
+
+def create_tool_batch_csv(project, tool_name, tasks):
+    tool_api = tool_name
+    proj_path = Path(project)
+    script_path = str(proj_path.with_name(proj_path.stem + '_' + tool_api.replace(' ', '_') + '.csv'))
+
+    param_list = bt.get_bera_tool_parameters_list(tool_name)
+
+    all_tasks = []
+    for item in tasks:
+        task = param_list
+        in_line = Path(item['in_line'])
+        in_chm = Path(item['in_chm'])
+        path_line = in_line.with_name(in_line.stem+'_outline.shp')
+        path_footprint = in_line.with_name(in_line.stem + '_footprint.shp')
+        path_canopy = in_chm.with_name(in_chm.stem+'_canopy.tif')
+        path_cost = in_chm.with_name(in_chm.stem+'_canopy.tif')
+
+        if tool_name == 'Canopy Cost Raster':
+            task['in_chm'] = in_chm.as_posix()
+            task['out_canopy'] = path_canopy.as_posix()
+            task['out_cost'] = path_cost.as_posix()
+        elif tool_name == 'Center Line':
+            task['in_line'] = path_line.as_posix()
+            task['in_cost'] = path_cost.as_posix()
+            task['out_line'] = path_line.as_posix()
+        elif tool_name == 'Line Footprint':
+            task['in_line'] = path_line.as_posix()
+            task['in_canopy'] = path_canopy.as_posix()
+            task['in_cost'] = path_cost.as_posix()
+            task['out_footprint'] = path_footprint.as_posix()
+        elif tool_name == 'Dynamic CC and Line Footprint(Full)':
+            task['in_line'] = path_line.as_posix()
+            task['in_chm'] = in_chm.as_posix()
+            task['out_footprint'] = in_line.with_name(in_line.stem + '_dyn_footprint.shp')
+            task['out_line'] = in_line.with_name(in_line.stem + '_line_attributes.shp').as_posix()
+        elif tool_name == 'Forest Line Attributes':
+            task['in_line'] = path_line.as_posix()
+            task['in_chm'] = in_chm.as_posix()
+            task['in_footprint'] = path_footprint.as_posix()
+            task['out_line'] = in_line.with_name(in_line.stem + '_line_attributes.shp').as_posix()
+        elif tool_name == 'Raster Line Attributes':
+            task['in_line'] = path_line.as_posix()
+            task['in_chm'] = in_chm.as_posix()
+            task['out_line'] = in_line.with_name(in_line.stem+'_raster_attributes.shp').as_posix()
+
+        all_tasks.append(task)
+
+    header = list(task.keys())
+
+    with open(script_path, 'w', newline='') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=header)
+        writer.writeheader()
+        writer.writerows(all_tasks)
+
+    return script_path
 
 
 def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
@@ -16,10 +74,16 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
         with open(in_project, 'r') as project_file:
             proj_data = json.load(project_file)
 
-    dialog = BP_Dialog(proj_data['tool_api'])
-    dialog.openCSV(in_project)
+    csv_file = create_tool_batch_csv(in_project, batch_tool_name, proj_data['tasks'])
+    dialog = BP_Dialog(batch_tool_name)
+    dialog.openCSV(csv_file)
 
-    dialog.exec()
+    flag = dialog.exec()
+    if flag == QDialog.Rejected:
+        return
+    elif flag == QDialog.Accepted:
+        pass
+
 
     if proj_data:
         if 'tool_api' not in proj_data.keys() or 'tasks' not in proj_data.keys():

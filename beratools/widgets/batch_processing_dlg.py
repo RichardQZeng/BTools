@@ -9,7 +9,7 @@ from PyQt5.QtCore import (Qt, QDir, QItemSelectionModel, QAbstractTableModel, QM
                           QVariant, QSize, QSettings, pyqtSignal)
 from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QAction,
                              QFileDialog, QAbstractItemView, QMessageBox, QWidget, QDockWidget, QFormLayout,
-                             QSpinBox, QPushButton, QShortcut, QDialog, QMenuBar, QWidgetAction)
+                             QSpinBox, QPushButton, QShortcut, QDialog, QMenuBar, QWidgetAction, QDialogButtonBox)
 from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
@@ -106,7 +106,6 @@ class BP_Dialog(QDialog):
         self.setGeometry(0, 0, 800, 600)
         self.table_view = QTableView()
         self.table_view.verticalHeader().setVisible(True)
-        # self.lb.setGridStyle(1)
         self.model = PandasModel()
         self.table_view.setModel(self.model)
         self.table_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -135,7 +134,33 @@ class BP_Dialog(QDialog):
         vbox.addWidget(self.table_view)
         vbox.addWidget(self.tool_widgets)
         vbox.setMenuBar(self.tbar)
-        self.setLayout(vbox)
+
+        # Add buttons
+        self.buttonBox = QDialogButtonBox()
+        self.buttonBox.addButton("Run", QDialogButtonBox.AcceptRole)
+        self.buttonBox.addButton("Cancel", QDialogButtonBox.RejectRole)
+        self.buttonBox.addButton("Help", QDialogButtonBox.HelpRole)
+
+        self.buttonBox.accepted.connect(self.run)
+        self.buttonBox.rejected.connect(self.reject)
+        self.buttonBox.helpRequested.connect(self.help)
+
+        hbox = QVBoxLayout()
+        hbox.addLayout(vbox)
+        hbox.addWidget(self.buttonBox)
+
+        self.setLayout(hbox)
+
+    def run(self):
+        print("Run the batch processing.")
+        self.accept()
+
+    def reject(self):
+        print("Batch processing canceled.")
+        self.close()
+
+    def help(self):
+        print("Help requested.")
 
     def table_view_clicked(self, item):
         print('Row, column:{}, {}'.format(item.row(), item.column()))
@@ -374,13 +399,14 @@ class BP_Dialog(QDialog):
         tableFormat.setCellPadding(4)
         table = cursor.insertTable(model.rowCount() + 1, model.columnCount(), tableFormat)
         model = self.table_view.model()
-        ### get headers
-        myheaders = []
+
+        # get headers
+        myheader = []
         for i in range(0, model.columnCount()):
             myheader = model.headerData(i, Qt.Horizontal)
             cursor.insertText(str(myheader))
             cursor.movePosition(QTextCursor.NextCell)
-        ### get cells
+        # get cells
         for row in range(0, model.rowCount()):
            for col in range(0, model.columnCount()):
                index = model.index( row, col )
