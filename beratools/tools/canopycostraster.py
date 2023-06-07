@@ -75,12 +75,12 @@ def normalize_chm(raster):
     return n_raster
 
 
-def np_cc_map(out_canopy_r, chm, in_array, min_ht):
+def np_cc_map(out_canopy, chm, in_array, min_ht):
     print('Generating Canopy Closure Raster.......')
 
     canopy_ndarray = numpy.where(in_array >= min_ht, 1., 0.).astype(float)
 
-    write_canopy = rasterio.open(out_canopy_r, 'w', driver='GTiff', height=chm.shape[0], width=chm.shape[1], count=1,
+    write_canopy = rasterio.open(out_canopy, 'w', driver='GTiff', height=chm.shape[0], width=chm.shape[1], count=1,
                                  dtype=chm.read(1).dtype, crs=chm.crs, transform=chm.transform)
     write_canopy.write(canopy_ndarray, 1)
     write_canopy.close()
@@ -222,7 +222,7 @@ def dyn_smooth_cost(in_raster, search_dist):
     return smooth_cost_array
 
 
-def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, cost_raster_exponent, out_cost_r):
+def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, cost_raster_exponent, out_cost):
     print('Generating Smoothed Cost Raster.......')
     aM1a = (cc_mean - cc_std)
     aM1b = (cc_mean + cc_std)
@@ -234,7 +234,7 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
     dM = numpy.where(canopy_ndarray == 1, 1, cM)
     eM = numpy.exp(dM)
     result = numpy.power(eM, float(cost_raster_exponent))
-    write_cost = rasterio.open(out_cost_r, 'w+', driver='GTiff', height=chm.shape[0], width=chm.shape[1],
+    write_cost = rasterio.open(out_cost, 'w+', driver='GTiff', height=chm.shape[0], width=chm.shape[1],
                                count=1,
                                dtype=chm.read(1).dtype, crs=chm.crs, transform=chm.transform)
     write_cost.write(result, 1)
@@ -261,7 +261,7 @@ def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidanc
 
 # TODO: deal with NODATA
 def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_line_dist,
-                       canopy_avoid, exponent, out_canopy_r, out_cost_r, processes, verbose):
+                       canopy_avoid, exponent, out_canopy, out_cost, processes, verbose):
     start_time = time.time()
     #
     # in_chm = args.get('in_chm')
@@ -270,8 +270,8 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
     max_line_dist = float(max_line_dist)
     canopy_avoid = float(canopy_avoid)
     cost_raster_exponent = float(exponent)
-    # out_canopy_r = args.get('out_canopy_r')
-    # out_cost_r = args.get('out_cost_r')
+    # out_canopy = args.get('out_canopy')
+    # out_cost_r = args.get('out_cost')
 
     print('In CHM: ' + in_chm)
     chm = rasterio.open(in_chm)
@@ -287,7 +287,7 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
     kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
 
     # Generate Canopy Raster and return the Canopy array
-    canopy_ndarray = np_cc_map(out_canopy_r, chm, band1_ndarray, canopy_ht_threshold)
+    canopy_ndarray = np_cc_map(out_canopy, chm, band1_ndarray, canopy_ht_threshold)
     print(canopy_ndarray.shape[0] * cell_y)
     print(canopy_ndarray.shape[1] * cell_x)
 
@@ -300,9 +300,9 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
         cc_std = fs_raster_std(chm, canopy_ndarray, kernel)
 
     # Smoothing raster
-    cc_smooth = smooth_cost(out_canopy_r, max_line_dist, os.path.dirname(out_canopy_r),[cell_x, cell_y])
+    cc_smooth = smooth_cost(out_canopy, max_line_dist, os.path.dirname(out_canopy),[cell_x, cell_y])
     avoidance = max(min(float(canopy_avoid), 1), 0)
-    np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, cost_raster_exponent, out_cost_r)
+    np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, cost_raster_exponent, out_cost)
     print('Canopy Cost Raster Process finish in {} sec'.format(time.time() - start_time))
 
 
@@ -336,7 +336,7 @@ def dyn_canopy_cost_raster(in_chm, canopy_ht_threshold, tree_search_radius
     #     cc_mean, cc_std = dyn_fs_raster(dyn_canopy_ndarray, kernel, masked_array, nodata)
     # else:
     cc_std,cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, masked_array, nodata)
-        # cc_std = dyn_fs_raster_std(dyn_canopy_ndarray, kernel, masked_array, nodata)
+    # cc_std = dyn_fs_raster_std(dyn_canopy_ndarray, kernel, masked_array, nodata)
 
     # Smoothing raster
     cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist)

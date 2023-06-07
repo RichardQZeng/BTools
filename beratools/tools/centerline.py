@@ -5,6 +5,7 @@ from multiprocessing.pool import Pool
 import numpy as np
 import pyproj
 import fiona
+import json
 import rasterio
 import rasterio.mask
 from osgeo import gdal, ogr
@@ -44,9 +45,9 @@ def compare_crs(in_line, in_cost_raster):
     return False
 
 
-def centerline(callback, in_line, in_cost_raster, line_radius,
-               process_segments, out_center_line, processes, verbose):
-    if not compare_crs(in_line, in_cost_raster):
+def centerline(callback, in_line, in_cost, line_radius,
+               process_segments, out_line, processes, verbose):
+    if not compare_crs(in_line, in_cost):
         print("Line and CHM spatial references are not same, please check.")
         return
 
@@ -68,7 +69,7 @@ def centerline(callback, in_line, in_cost_raster, line_radius,
     all_lines = []
     features = []
     for line in input_lines:
-        all_lines.append((line, line_radius, in_cost_raster))
+        all_lines.append((line, line_radius, in_cost))
 
     print('{} lines to be processed.'.format(len(all_lines)))
     if USE_MULTI_PROCESSING:
@@ -101,7 +102,7 @@ def centerline(callback, in_line, in_cost_raster, line_radius,
 
     driver = 'ESRI Shapefile'
 
-    out_line_file = fiona.open(out_center_line, 'w', driver, schema, layer_crs.to_proj4())
+    out_line_file = fiona.open(out_line, 'w', driver, schema, layer_crs.to_proj4())
     for feature in fiona_features:
         out_line_file.write(feature)
     del out_line_file

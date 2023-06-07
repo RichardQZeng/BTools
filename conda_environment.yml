@@ -4,6 +4,7 @@ name: bera
 channels:
   - conda-forge
 dependencies:
+  - python=3.10
   - setuptools
   - Pillow
   - fiona > 1.9.2

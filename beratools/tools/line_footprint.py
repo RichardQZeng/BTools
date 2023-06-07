@@ -18,24 +18,25 @@ from multiprocessing.pool import Pool
 
 from common import *
 
+corridor_th_field = 'CorridorTh'
 
 class OperationCancelledException(Exception):
     pass
 
 
-def line_footprint(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field, corridor_th_value,
-                   max_ln_width, exp_shk_cell, proc_seg, out_footprint, processes, verbose):
-    line_seg = geopandas.GeoDataFrame.from_file(in_cl)
+def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
+                   max_ln_width, exp_shk_cell, proc_segments, out_footprint, processes, verbose):
+    line_seg = geopandas.GeoDataFrame.from_file(in_line)
     corridor_th_value = float(corridor_th_value)
     max_ln_width = float(max_ln_width)
     exp_shk_cell = int(exp_shk_cell)
 
-    with rasterio.open(in_canopy_r) as raster:
+    with rasterio.open(in_canopy) as raster:
         if line_seg.crs.to_epsg() != raster.crs.to_epsg():
             print("Line and raster spatial references are not same, please check.")
             exit()
     del raster
-    with rasterio.open(in_cost_r) as raster:
+    with rasterio.open(in_cost) as raster:
         if line_seg.crs.to_epsg() != raster.crs.to_epsg():
             print("Line and raster spatial references are not same, please check.")
             exit()
@@ -54,7 +55,7 @@ def line_footprint(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field, c
         #     "Cannot find {} column in input line data.\n '{}' column will be created base on input Features ID".format('OLnSEG', 'OLnSEG'))
         line_seg['OLnSEG']=0
 
-    if proc_seg.lower() == 'true':
+    if proc_segments.lower() == 'true':
         Proc_Seg = True
         print("Spliting lines into segments...")
         line_seg = split_into_segments(line_seg)
@@ -64,8 +65,8 @@ def line_footprint(callback, in_cl, in_canopy_r, in_cost_r, corridor_th_field, c
         line_seg = split_into_Equal_Nth_segments(line_seg)
 
 
-    list_dict_segment_all = line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field,
-                                         corridor_th_value, max_ln_width, exp_shk_cell, proc_seg, out_footprint)
+    list_dict_segment_all = line_prepare(callback, line_seg, in_canopy, in_cost, corridor_th_field,
+                                         corridor_th_value, max_ln_width, exp_shk_cell, proc_segments, out_footprint)
 
 
     # pass single line one at a time for footprint

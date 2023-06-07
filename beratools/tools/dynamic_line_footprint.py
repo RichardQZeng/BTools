@@ -202,8 +202,8 @@ def split_into_Equal_Nth_segments(df):
     return gdf
 
 
-def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell, Proc_Seg, out_footprint,
-                           Tree_radius, Max_ln_dist, canopy_avoid, exponent, full_step, processes, verbose):
+def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, proc_segments, out_footprint,
+                           tree_radius, max_ln_dist, canopy_avoid, exponent, full_step, processes, verbose):
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
 
@@ -230,19 +230,19 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
 
     print('%{}'.format(10))
     # check coordinate systems between line and raster features
-    with rasterio.open(in_CHM) as raster:
+    with rasterio.open(in_chm) as raster:
         if line_seg.crs.to_epsg() != raster.crs.to_epsg():
             print("Line and raster spatial references are not same, please check.")
             exit()
 
         else:
-            if Proc_Seg.lower() == 'true':
-                Proc_Seg = True
+            if proc_segments.lower() == 'true':
+                proc_segments = True
                 print("Spliting lines into segments...")
                 line_seg = split_into_segments(line_seg)
                 print("Spliting lines into segments...Done")
             else:
-                Proc_Seg = False
+                proc_segments = False
                 line_seg = split_into_Equal_Nth_segments(line_seg)
             print('%{}'.format(20))
             worklnbuffer = geopandas.GeoDataFrame.copy((line_seg))
@@ -262,7 +262,7 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
                 clipped_raster = numpy.squeeze(clipped_raster, axis=0)
 
                 line_args.append([clipped_raster, float(worklnbuffer.loc[record, 'DynCanTh']),
-                                  float(Tree_radius), float(Max_ln_dist), float(canopy_avoid),
+                                  float(tree_radius), float(max_ln_dist), float(canopy_avoid),
                                   float(exponent), raster.res, nodata, line_seg.iloc[[record]], out_transform])
 
             print("Prepare CHMs for Dynamic cost raster......Done")
@@ -276,7 +276,7 @@ def dynamic_line_footprint(callback, in_line, in_CHM, max_ln_width, exp_shk_cell
             list_dict_segment_all[row][0]['corridor_th_field'] = "CorridorTh"
             list_dict_segment_all[row][0]['corridor_th_value'] = list_dict_segment_all[row][0]["CorridorTh"]
             list_dict_segment_all[row][0]['max_ln_width'] = float(max_ln_width)
-            list_dict_segment_all[row][0]['max_ln_dist'] = float(Max_ln_dist)
+            list_dict_segment_all[row][0]['max_ln_dist'] = float(max_ln_dist)
             list_dict_segment_all[row][0]['exp_shk_cell'] = float(exp_shk_cell)
             # list_dict_segment_all[row][0]['Proc_Seg'] = Proc_Seg
             # list_dict_segment_all[row][0]['out_footprint'] = out_footprint
