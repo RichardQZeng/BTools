@@ -10,14 +10,14 @@ import shapely
 
 from common import *
 
-
+corridor_th_field = 'CorridorTh'
 
 class OperationCancelledException(Exception):
     pass
 
 
-def zonal_threshold(callback, in_line, corridor_th_field, in_canopy_raster, canopy_Search_r, min_canopyTh, max_canopyTh,
-                    out_line,processes, verbose):
+def zonal_threshold(callback, in_line, in_canopy_raster, canopy_Search_r, min_canopy_th, max_canopy_th,
+                    out_line, processes, verbose):
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     # check coordinate systems between line and raster features
     with rasterio.open(in_canopy_raster) as in_canopy:
@@ -51,8 +51,8 @@ def zonal_threshold(callback, in_line, corridor_th_field, in_canopy_raster, cano
         # list_items.append(line_buffer) #1
         list_items.append(in_canopy_raster) #2
         list_items.append( canopy_Search_r) #3
-        list_items.append(min_canopyTh) #4
-        list_items.append(max_canopyTh) #5
+        list_items.append(min_canopy_th) #4
+        list_items.append(max_canopy_th) #5
         list_items.append(corridor_th_field)  # 6
 
         line_arg.append(list_items)

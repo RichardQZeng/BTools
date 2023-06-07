@@ -4,7 +4,7 @@ import argparse
 import pathlib
 
 from PyQt5.QtWidgets import QDialog, QGridLayout, QPushButton
-from beratools.widgets.batch_processing_dlg import *
+from batch_processing_dlg import *
 from beratools_main import *
 bt = BeraTools()
 

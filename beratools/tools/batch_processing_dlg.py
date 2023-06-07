@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QL
 from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
-from . bt_widgets import *
+from bt_widgets import *
 
 class PandasModel(QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):

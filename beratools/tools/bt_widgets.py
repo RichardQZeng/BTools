@@ -15,8 +15,8 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-from tools.beratools_main import BeraTools
-from tools.common import *
+from beratools_main import BeraTools
+from common import *
 
 bt = BeraTools()
 
