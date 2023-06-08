@@ -16,8 +16,8 @@ class OperationCancelledException(Exception):
     pass
 
 
-def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, CanPercentile, CanThrPercentage,
-                             Tree_radius, Max_ln_dist, canopy_avoid, exponent, full_step,processes, verbose):
+def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_dist, CanPercentile, CanThrPercentage,
+                             tree_radius, max_line_dist, canopy_avoid, exponent, full_step, processes, verbose):
 
     file_path,in_file_name=os.path.split(in_line)
     out_file= os.path.join(file_path,'DynCanTh_'+in_file_name)
@@ -25,7 +25,7 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
 
     # check coordinate systems between line and raster features
-    with rasterio.open(in_CHM) as in_raster:
+    with rasterio.open(in_chm) as in_raster:
         if line_seg.crs.to_epsg() != in_raster.crs.to_epsg():
             print("Line and raster spatial references are not same, please check.")
             exit()
@@ -45,13 +45,13 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
         print(
             "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
         line_seg['OLnFID'] = line_seg.index
-    else:
-        for row in line_seg.index:
-            if row != line_seg.loc[row,'OLnFID']:
-                print("Wraning: index and OLnFID are not consistency at index: {}.".format(row))
-                print("Please check data")
-                exit()
-    if Proc_Seg.lower() =='true':
+    # else:
+    #     for row in line_seg.index:
+    #         if row != line_seg.loc[row,'OLnFID']:
+    #             print("Wraning: index and OLnFID are not consistency at index: {}.".format(row))
+    #             print("Please check data")
+    #             exit()
+    if proc_segments.lower() == 'true':
         line_seg=split_into_segments(line_seg)
     else:
         pass
@@ -64,7 +64,7 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
 
     # copy parallel lines for both side of the input lines
     print("Creating offset area for surrounding forest....")
-    workln_dfL, workln_dfR = multiprocessing_copyparallel_lineLR(workln_dfL,workln_dfR,processes, left_dis=float(Off_ln_dist),right_dist=-float(Off_ln_dist))
+    workln_dfL, workln_dfR = multiprocessing_copyparallel_lineLR(workln_dfL, workln_dfR, processes, left_dis=float(off_ln_dist), right_dist=-float(off_ln_dist))
     workln_dfR=workln_dfR.sort_values(by=['OLnFID'])
     workln_dfL=workln_dfL.sort_values(by=['OLnFID'])
     workln_dfL=workln_dfL.reset_index(drop=True)
@@ -76,10 +76,10 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
     worklnbuffer_dfR = geopandas.GeoDataFrame.copy((workln_dfR))
 
     # buffer the parallel line in one side (extend the area into forest)
-    worklnbuffer_dfL['geometry'] = shapely.buffer(workln_dfL['geometry'], distance=float(Tree_radius),
+    worklnbuffer_dfL['geometry'] = shapely.buffer(workln_dfL['geometry'], distance=float(tree_radius),
                                                   cap_style=2, join_style=2, single_sided=True)
-    worklnbuffer_dfR['geometry'] = shapely.buffer(workln_dfR['geometry'], distance=-float(Tree_radius),
-                                                  cap_style=2, join_style=2,  single_sided=True)
+    worklnbuffer_dfR['geometry'] = shapely.buffer(workln_dfR['geometry'], distance=-float(tree_radius),
+                                                  cap_style=2, join_style=2, single_sided=True)
     print("Creating offset area for surrounding forest....Done")
     print('%{}'.format(50))
     # create a New column for surrounding forest statistics:
@@ -94,12 +94,12 @@ def dynamic_canopy_threshold(callback, in_line, in_CHM, Proc_Seg, Off_ln_dist, C
 
     print("Calculating surrounding forest percentile..")
     # calculate the Height percentile for each parallel area using CHM
-    worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, CanPercentile, CanThrPercentage, in_CHM,processes,side='left')
+    worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, CanPercentile, CanThrPercentage, in_chm, processes, side='left')
     worklnbuffer_dfL = worklnbuffer_dfL.sort_values(by=['OLnFID'])
     worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
     print("Calculating surrounding forest percentile....")
-    worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, CanPercentile, CanThrPercentage, in_CHM,
-                                                  processes,side='right')
+    worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, CanPercentile, CanThrPercentage, in_chm,
+                                                  processes, side='right')
     worklnbuffer_dfR = worklnbuffer_dfR.sort_values(by=['OLnFID'])
     worklnbuffer_dfR = worklnbuffer_dfR.reset_index(drop=True)
 
