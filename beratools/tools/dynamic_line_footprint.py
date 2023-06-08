@@ -61,9 +61,8 @@ class OperationCancelledException(Exception):
 
 def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     masked_array = numpy.ma.masked_where(in_array == nodata, in_array)
-    filled_raster = numpy.ma.filled(masked_array, numpy.nan)
-    canopy_ndarray = numpy.ma.where(filled_raster >= canopy_ht_threshold, 1., 0.).astype(float)
-    canopy_ndarray = numpy.ma.where(in_array == nodata, numpy.nan, canopy_ndarray)
+    canopy_ndarray = numpy.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
+    canopy_ndarray = numpy.ma.where(in_array == nodata, -9999, canopy_ndarray).data
     return canopy_ndarray, masked_array
 
 
@@ -92,8 +91,8 @@ def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
 
     smooth1 = float(max_line_dist) - euc_dist_array
     # cond_smooth1 = numpy.where(smooth1 > 0, smooth1, 0.0)
-    cond_smooth1 = smooth1[smooth1 <= 0.0] = 0.0
-    smooth_cost_array = cond_smooth1 / float(max_line_dist)
+    smooth1[smooth1 <= 0.0] = 0.0
+    smooth_cost_array = smooth1 / float(max_line_dist)
 
     return smooth_cost_array
 
@@ -153,6 +152,7 @@ def dyn_canopy_cost_raster(args):
     avoidance = max(min(float(canopy_avoid), 1), 0)
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance,
                                           cost_raster_exponent)
+    dyn_cost_ndarray[numpy.isnan(dyn_cost_ndarray)]=nodata
     return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform
 
 def split_line_fc(line):
@@ -203,7 +203,7 @@ def split_into_Equal_Nth_segments(df):
 
 
 def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, proc_segments, out_footprint,
-                           tree_radius, max_ln_dist, canopy_avoid, exponent, full_step, processes, verbose):
+                           tree_radius, max_line_dist, canopy_avoid, exponent, full_step, processes, verbose):
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
 
@@ -249,7 +249,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             worklnbuffer['geometry'] = shapely.buffer(worklnbuffer['geometry'], distance=float(max_ln_width),
                                                       cap_style=1)
             line_args = []
-            nodata = raster.nodata
+            # nodata = raster.nodata
             # in_chm = raster.read(1)
             # results = []
             # index=1
@@ -257,12 +257,12 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             print("Prepare CHMs for Dynamic cost raster......")
             for record in range(0, len(worklnbuffer)):
                 line_buffer = worklnbuffer.loc[record, 'geometry']
-                clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True, nodata=nodata,
+                clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True, nodata=-9999,
                                                                    filled=True)
                 clipped_raster = numpy.squeeze(clipped_raster, axis=0)
-
+                nodata = -9999
                 line_args.append([clipped_raster, float(worklnbuffer.loc[record, 'DynCanTh']),
-                                  float(tree_radius), float(max_ln_dist), float(canopy_avoid),
+                                  float(tree_radius), float(max_line_dist), float(canopy_avoid),
                                   float(exponent), raster.res, nodata, line_seg.iloc[[record]], out_transform])
 
             print("Prepare CHMs for Dynamic cost raster......Done")
@@ -276,7 +276,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             list_dict_segment_all[row][0]['corridor_th_field'] = "CorridorTh"
             list_dict_segment_all[row][0]['corridor_th_value'] = list_dict_segment_all[row][0]["CorridorTh"]
             list_dict_segment_all[row][0]['max_ln_width'] = float(max_ln_width)
-            list_dict_segment_all[row][0]['max_ln_dist'] = float(max_ln_dist)
+            list_dict_segment_all[row][0]['max_ln_dist'] = float(max_line_dist)
             list_dict_segment_all[row][0]['exp_shk_cell'] = float(exp_shk_cell)
             # list_dict_segment_all[row][0]['Proc_Seg'] = Proc_Seg
             # list_dict_segment_all[row][0]['out_footprint'] = out_footprint
@@ -285,7 +285,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         # pass center lines for footprint
         print("Generate Dynamic footprint.....")
         footprint_list = []
-
+        # USE_MULTI_PROCESSING=False
         if USE_MULTI_PROCESSING:
             footprint_list = multiprocessing_Dyn_FP(list_dict_segment_all, processes)
         else:
@@ -359,8 +359,8 @@ def dyn_process_single_line(segment):
     # Work out the corridor from both end of the centerline
     try:
 
-        numpy.place(in_cost_r, numpy.isnan(in_cost_r), -9999)
-        numpy.place(in_canopy_r, in_canopy_r == -9999, 1)
+        # numpy.place(in_cost_r, numpy.isnan(in_cost_r), -9999)
+        # numpy.place(in_canopy_r, in_canopy_r == -9999, 1)
 
         # Rasterize source point
         rasterized_source = features.rasterize(origin, out_shape=in_cost_r.shape
@@ -388,22 +388,22 @@ def dyn_process_single_line(segment):
 
         # Generate corridor
         corridor = source_cost_acc + dest_cost_acc
+        corridor = numpy.ma.masked_invalid(corridor)
 
         # Calculate minimum value of corridor raster
-        if not numpy.nanmin(corridor) is None:
-            corr_min = float(numpy.nanmin(corridor))
+        if not numpy.ma.min(corridor) is None:
+            corr_min = float(numpy.ma.min(corridor))
         else:
             corr_min = 0.05
 
         # Set minimum as zero and save minimum file
-        corridor_min = numpy.where((corridor - corr_min) >= corridor_th_value, 0, 1)
-        masked_corridor_min = numpy.ma.masked_where(corridor_min == 0, corridor_min)
+        corridor_min = numpy.ma.where((corridor - corr_min)> corridor_th_value, 1.,0.)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
-        temp1 = numpy.ma.add(masked_corridor_min, in_canopy_r)
-        raster_class = numpy.where(temp1.data == 1, 1, 0)
+        temp1 = (corridor_min+ in_canopy_r)
+        raster_class = numpy.ma.where(temp1 == 0, 1, 0).data
 
         # BERA proposed Binary morphology
         # RasterClass_binary=numpy.where(RasterClass==0,False,True)
@@ -432,7 +432,7 @@ def dyn_process_single_line(segment):
         clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode='nearest')
 
         # creat mask for non-polygon area
-        mask = numpy.where(clean_raster == 0, False, True)
+        mask = numpy.where(clean_raster == 1, True, False)
 
         # Process: ndarray to shapely Polygon
         out_polygon = features.shapes(clean_raster, mask=mask, transform=in_transform)
