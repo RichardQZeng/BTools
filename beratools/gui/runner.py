@@ -1330,18 +1330,18 @@ class MainGui(tk.Frame):
                 args[key] = str(args[key])
 
         # disable button
-        self.run_button.config(text='Running', state='disabled')
+        # self.run_button.config(text='Running', state='disabled')
 
-        if bt.run_tool(self.current_tool_api, args, self.custom_callback) == 1:
+        if bt.run_tool_bt(self.current_tool_api, args, self.custom_callback) == 1:
             print("Error running {}".format(self.tool_name))
-
+            # restore Run button
+            # self.run_button.config(text='Run', state='enable')
         else:
             self.progress_var.set(0)
             self.progress_label['text'] = "Progress:"
             self.progress.update_idletasks()
-
-        # restore Run button
-        self.run_button.config(text='Run', state='enable')
+            # restore Run button
+            # self.run_button.config(text='Run', state='enable')
 
         return
 

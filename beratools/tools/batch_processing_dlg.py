@@ -131,8 +131,8 @@ class BP_Dialog(QDialog):
 
         self.createToolBar()
         vbox = QHBoxLayout()
-        vbox.addWidget(self.table_view)
-        vbox.addWidget(self.tool_widgets)
+        vbox.addWidget(self.table_view, 2)
+        vbox.addWidget(self.tool_widgets, 1)
         vbox.setMenuBar(self.tbar)
 
         # Add buttons
@@ -148,8 +148,10 @@ class BP_Dialog(QDialog):
         hbox = QVBoxLayout()
         hbox.addLayout(vbox)
         hbox.addWidget(self.buttonBox)
-
         self.setLayout(hbox)
+
+        # delete dialog when close
+        self.setAttribute(Qt.WA_DeleteOnClose)
 
     def run(self):
         print("Run the batch processing.")
@@ -231,10 +233,10 @@ class BP_Dialog(QDialog):
             if reply == QMessageBox.Yes:
                 self.writeCSV_update()
             else:
-                print("not saved, goodbye ...")
+                print("Settings not saved.")
                 return
         else:
-            print("nothing changed. goodbye")
+            print("nothing changed.")
         self.saveSettings()
 
     def createToolBar(self):
