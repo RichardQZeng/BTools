@@ -1123,22 +1123,12 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_boundary",
-                            "parameter": "Boundary polygon",
-                            "description": "Input boundary polygon file.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": false,
-                            "optional": true
-                        },
-                        {
                             "variable": "tile_size",
                             "parameter": "Maximum Tile Size",
                             "description": "Maximum tile Size (width/height).",
                             "type": "number",
                             "typelab": "int",
-                            "default": 2000,
+                            "default": 8000,
                             "output": false,
                             "optional": true
                         },

@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import fiona
 from pathlib import Path
 from shapely.geometry import shape, Polygon, mapping
@@ -8,26 +9,27 @@ from common import *
 
 
 class Tiler:
-    def __init__(self, callback,
-                 in_line, in_chm, in_boundary, tile_size, tile_buffer, out_project,
-                 processes, verbose):
+    def __init__(self, callback, in_line, in_chm, tile_size,
+                 tile_buffer, out_project, processes, verbose):
 
         self.in_line = in_line
         self.in_chm = in_chm
-        self.in_boundary = in_boundary
+        self.boundary = None
         self.tile_size = float(tile_size)
         self.tile_buffer = float(tile_buffer)
         self.out_project = out_project
         self.processes = processes
         self.verbose = verbose
         self.clip_data = []
+        self.proj_path = ''
 
     def create_out_file_name(self):
         # prepare path
         # TODO: more formats later, now only tiff and shp are considered
         path_chm = Path(self.in_chm)
         path_line = Path(self.in_line)
-        path_root = path_chm.parent.joinpath('cells')
+        self.proj_path = path_chm.parent
+        path_root = self.proj_path.joinpath('cells')
 
         if not path_root.exists():
             path_root.mkdir()
@@ -43,74 +45,76 @@ class Tiler:
         project_data = {'tool_api': 'tiler'}
         tasks_list = []
         step = 0
-        for item in self.clip_data:
-            clip_lines(item['geometry'], self.tile_buffer, self.in_line, item['line'])
-            clip_raster(item['geometry'], self.tile_buffer, self.in_chm, item['raster'])
 
-            cell_data = {
-                'in_line': self.in_line,
-                'in_chm': self.in_chm
-            }
-            tasks_list.append(cell_data)
-            step += 1
-            print('%{}'.format(step/len(self.clip_data)*100))
+        print('Generating {} tiles ...'.format(len(self.clip_data)))
+        for item in self.clip_data:
+            return_lines = clip_lines(item['geometry'], self.tile_buffer, self.in_line, item['line'])
+            return_raster = clip_raster(item['geometry'], self.tile_buffer, self.in_chm, item['raster'])
+
+            if not return_lines.empty and return_raster:
+                cell_data = {
+                    'in_line': item['line'].as_posix(),
+                    'in_chm': item['raster'].as_posix()
+                }
+                tasks_list.append(cell_data)
+                step += 1
+                print('%{}'.format(step/len(self.clip_data)*100))
 
         project_data['tasks'] = tasks_list
         with open(self.out_project, 'w') as project_file:
             json.dump(project_data, project_file, indent=4)
 
     def execute(self):
-        part_x = 5
-        part_y = 3
-        if self.in_boundary:
-            polygons = []
-            in_crs = None
-            with fiona.open(self.in_boundary) as boundary_file:
-                in_crs = boundary_file.crs
-                for record in boundary_file:
-                    if record.geometry.type == "Polygon" or record.geometry.type == "MultiPolygon":
-                        polygons.append(record.geometry)
+        part_x = 0
+        part_y = 0
+        width = 0
+        height = 0
 
-            if len(polygons) <= 0:
-                print("No polygons found in boundary file.")
-                return
-            # TODO: multipolygon need tests
+        in_crs = None
+        with(rasterio.open(self.in_chm)) as raster:
+            self.boundary = raster.bounds
+            width = raster.width
+            height = raster.height
+            in_crs = raster.crs
 
-            boundary = shape(polygons[0])
-            minx, miny, maxx, maxy = boundary.bounds
-            step_x = (maxx - minx) / part_x
-            step_y = (maxy - miny) / part_y
+        if self.boundary:
+            part_x = math.ceil(width/self.tile_size)
+            part_y = math.ceil(height/self.tile_size)
+            min_x, min_y, max_x, max_y = self.boundary
+            polygon_bound = Polygon([(min_x, min_y), (min_x, max_y), (max_x, max_y), (max_x, min_y)])
+
+            step_x = (max_x - min_x) / part_x
+            step_y = (max_y - min_y) / part_y
             cells = []
             for i in range(part_x):
                 for j in range(part_y):
-                    cells.append(Polygon([(minx + i * step_x, miny + j * step_y),
-                                          (minx + (i + 1) * step_x, miny + j * step_y),
-                                          (minx + (i + 1) * step_x, miny + (j + 1) * step_y),
-                                          (minx + i * step_x, miny + (j + 1) * step_y)]))
+                    cells.append(Polygon([(min_x + i * step_x, min_y + j * step_y),
+                                          (min_x + (i + 1) * step_x, min_y + j * step_y),
+                                          (min_x + (i + 1) * step_x, min_y + (j + 1) * step_y),
+                                          (min_x + i * step_x, min_y + (j + 1) * step_y)]))
 
             # remove polygons not in boundary
             for cell in cells:
-                if not boundary.disjoint(cell):
+                if not polygon_bound.disjoint(cell):
                     self.clip_data.append({'geometry': cell})
 
             self.create_out_file_name()
             self.save_clip_files()
 
             # save polygons to shapefile
-            # out_polygon_file = r'D:\Temp\Tesspy\cell.shp'
-            # schema = {
-            #     'geometry': 'Polygon'
-            # }
-            # driver = 'ESRI Shapefile'
-            # out_line_file = fiona.open(out_polygon_file, 'w', driver, schema, in_crs)
-            # for cell in cells_intersected:
-            #     feature = {
-            #         'geometry': mapping(cell['geometry'])
-            #     }
-            #     out_line_file.write(feature)
-            #
-            # del out_line_file
+            out_cells_file = self.proj_path.joinpath('cells.shp')
+            schema = {
+                'geometry': 'Polygon'
+            }
+            driver = 'ESRI Shapefile'
+            out_line_file = fiona.open(out_cells_file, 'w', driver, schema, in_crs)
+            for item in self.clip_data:
+                feature = {
+                    'geometry': mapping(item['geometry'])
+                }
+                out_line_file.write(feature)
 
+            del out_line_file
             return
 
 
