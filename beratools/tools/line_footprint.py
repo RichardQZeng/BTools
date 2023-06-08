@@ -18,14 +18,12 @@ from multiprocessing.pool import Pool
 
 from common import *
 
-corridor_th_field = 'CorridorTh'
-
 class OperationCancelledException(Exception):
     pass
 
-
 def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
                    max_ln_width, exp_shk_cell, proc_segments, out_footprint, processes, verbose):
+    corridor_th_field='CorridorTh'
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     corridor_th_value = float(corridor_th_value)
     max_ln_width = float(max_ln_width)
@@ -55,6 +53,8 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
         #     "Cannot find {} column in input line data.\n '{}' column will be created base on input Features ID".format('OLnSEG', 'OLnSEG'))
         line_seg['OLnSEG']=0
 
+    Ori_total_feat=len(line_seg)
+
     if proc_segments.lower() == 'true':
         Proc_Seg = True
         print("Spliting lines into segments...")
@@ -64,20 +64,18 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
         Proc_Seg = False
         line_seg = split_into_Equal_Nth_segments(line_seg)
 
-
     list_dict_segment_all = line_prepare(callback, line_seg, in_canopy, in_cost, corridor_th_field,
-                                         corridor_th_value, max_ln_width, exp_shk_cell, proc_segments, out_footprint)
-
+                                         corridor_th_value, max_ln_width, exp_shk_cell, proc_segments, out_footprint,Ori_total_feat)
 
     # pass single line one at a time for footprint
     footprint_list = []
-
+    # USE_MULTI_PROCESSING=False
     if USE_MULTI_PROCESSING:
         footprint_list = execute_multiprocessing(list_dict_segment_all, processes)
     else:
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
-
+            print("ID:{} is Done".format(row['OLnFID']))
     print('Generating shapefile...........')
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
@@ -94,10 +92,6 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
           .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), time.time()-start_time))
 
 
-def path_file_name(path):
-    return os.path.basename(path)
-
-
 def field_name_list(fc):
     # return a list of column name from shapefile
     if isinstance(fc,geopandas.GeoDataFrame):
@@ -105,7 +99,6 @@ def field_name_list(fc):
     else:
         field_list = geopandas.read_file(fc).columns.array
     return field_list
-
 
 def has_field(fc, fi):
     # Check column name
@@ -125,66 +118,6 @@ def has_field(fc, fi):
         print("Warning: There is no field named {} in the input data".format(fi))
 
         return False
-
-
-def split_line2(in_cl, proc_seg):
-    shapefile = geopandas.GeoDataFrame.from_file(in_cl)
-    shapefile_proj = shapefile.crs
-
-    keep_field_name = []
-    for col_name in shapefile.columns:
-        if col_name != 'geometry':
-            keep_field_name.append(col_name)
-
-    list_of_segment = []
-
-    i = 0
-    # process when shapefile is not an empty feature class
-    if len(shapefile) > 0:
-
-        for row in range(0, len(shapefile)):
-            # creates a geometry object
-            feat = shapefile.loc[row].geometry
-
-            # Split every segments from line
-            segment_list = (list(map(shapely.geometry.LineString, zip(feat.coords[:-1], feat.coords[1:]))))
-            feature_attributes = {}
-
-            # process every segments
-            if proc_seg:
-                for seg in segment_list:
-                    feature_attributes = {}
-                    feature_attributes['FID'] = i
-                    feature_attributes['OID'] = row
-                    feature_attributes['Total_Seg'] = len(segment_list)
-                    feature_attributes['Seg_leng'] = seg.length
-                    feature_attributes['geometry'] = seg
-                    feature_attributes['Proj_crs'] = shapefile_proj
-
-                    for col_name in keep_field_name:
-                        feature_attributes[col_name] = shapefile.loc[row, col_name]
-
-                    list_of_segment.append(feature_attributes)
-                    i = i + 1
-            else:  # process on original lines
-                feature_attributes['FID'] = i
-                feature_attributes['OID'] = row
-                feature_attributes['No_of_Seg'] = len(segment_list)
-                feature_attributes['Seg_leng'] = feat.length
-                feature_attributes['geometry'] = feat
-                feature_attributes['Proj_crs'] = shapefile_proj
-                for col_name in keep_field_name:
-                    feature_attributes[col_name] = shapefile.loc[row, col_name]
-                list_of_segment.append(feature_attributes)
-                i = i + 1
-
-        print("There are {} lines to be processed.".format(len(list_of_segment)))
-
-        # return a list of features Dictionary
-        return list_of_segment
-    else:
-        print("Input line feature is corrupted, exit!")
-        exit()
 
 
 def process_single_line(dict_segment):
@@ -244,7 +177,7 @@ def process_single_line(dict_segment):
 
     del src1
     with rasterio.open(in_canopy_r) as src:
-        clip_in_canopy_r, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, max_ln_width)], crop=True,nodata=-99999,
+        clip_in_canopy_r, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, max_ln_width)], crop=True,nodata=-9999,
                                                        filled=True)
         out_meta = src.meta
         crs = src.crs
@@ -260,9 +193,7 @@ def process_single_line(dict_segment):
         clip_cost_r = numpy.squeeze(clip_in_cost_r, axis=0)
         clip_canopy_r = numpy.squeeze(clip_in_canopy_r, axis=0)
 
-        # numpy.place(clip_cost_r, clip_cost_r < 1, -9999)
-
-        # Rasterize source point
+         # Rasterize source point
         rasterized_source = features.rasterize(origin, out_shape=clip_cost_r.shape
                                                , transform=out_transform1,
                                                out=None, fill=0, all_touched=True, default_value=1, dtype=None)
@@ -287,24 +218,25 @@ def process_single_line(dict_segment):
 
         # Generate corridor raster
         corridor = source_cost_acc+ dest_cost_acc
-        # null_cells = numpy.where(numpy.isinf(corridor), True, False)
+        corridor=numpy.ma.masked_invalid(corridor)
 
         # Calculate minimum value of corridor raster
-        if not numpy.nanmin(corridor) is None:
-            corr_min = float(numpy.nanmin(corridor))
+        if not numpy.ma.min(corridor) is None:
+            corr_min = float(numpy.ma.min(corridor))
         else:
             corr_min = 0.05
 
+        # corridor[numpy.isinf(corridor)]=-9999
+        # masked_corridor = numpy.ma.masked_where(corridor==-9999, corridor)
         # Set minimum as zero and save minimum file
-        corridor_min = numpy.where((corridor - corr_min) > corridor_th_value, 0, 1)
-        masked_corridor_min = numpy.ma.masked_where(corridor_min == 0, corridor_min)
+        corridor_min = numpy.ma.where((corridor - corr_min)> corridor_th_value, 1.,0.)
 
         # Process: Stamp CC and Max Line Width
 
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
-        temp1 = numpy.ma.add(masked_corridor_min, clip_canopy_r)
-        raster_class = numpy.where(temp1.data == 1, 1, 0)
+        temp1 = (corridor_min+ clip_canopy_r)
+        raster_class = numpy.ma.where(temp1 == 0, 1, 0).data
 
         # BERA proposed Binary morphology
         # RasterClass_binary=numpy.where(RasterClass==0,False,True)
@@ -333,7 +265,7 @@ def process_single_line(dict_segment):
         clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode='nearest')
 
         # creat mask for non-polygon area
-        mask = numpy.where(clean_raster == 0, True, False)
+        mask = numpy.where(clean_raster == 1, True, False)
 
         # Process: ndarray to shapely Polygon
         out_polygon = features.shapes(clean_raster, mask=mask, transform=out_transform1)
@@ -398,7 +330,7 @@ def split_into_Equal_Nth_segments(df):
     return  gdf
 
 def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field,
-                 corridor_th_value, max_ln_width, exp_shk_cell, Proc_Seg, out_footprint):
+                 corridor_th_value, max_ln_width, exp_shk_cell, Proc_Seg, out_footprint,Ori_total_feat):
 
     # get the list of original columns names
     field_list_col = field_name_list(line_seg)
@@ -427,7 +359,7 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field,
             list_of_segment.append(feature_attributes)
             i = i + 1
 
-        print("There are {} lines to be processed.".format(len(list_of_segment)))
+        print("There are {} lines to be processed.".format(Ori_total_feat))
     else:
         print("Input line feature is corrupted, exit!")
         exit()
@@ -453,9 +385,10 @@ def execute_multiprocessing(line_args, processes):
         total_steps = len(line_args)
         features = []
         with Pool(processes) as pool:
+            chunksize = math.ceil(total_steps / processes)
             step = 0
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_single_line, line_args):
+            for result in pool.imap_unordered(process_single_line, line_args,chunksize=chunksize):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
