@@ -207,7 +207,10 @@ class FileSelector(tk.Frame):
             if self.parameter_type == "Directory":
                 t = "directory"
             if not self.optional:
-                messagebox.showinfo("Error", "FileSelector: Unspecified {} parameter {}.".format(t, self.flag))
+                # messagebox.showinfo("Error", "FileSelector: Unspecified {} parameter {}.".format(t, self.flag))
+                print("FileSelector: Unspecified {} parameter {}.".format(t, self.flag))
+
+            return self.flag, ''
 
         return None
 
@@ -1295,7 +1298,7 @@ class MainGui(tk.Frame):
 
     def reset_tool(self):
         for widget in self.arg_scroll_frame.winfo_children():
-            args = self.get_bera_tool_parameters(self.tool_name)
+            args = bt.get_bera_tool_parameters(self.tool_name)
             for param in args['parameters']:
                 default_value = param['default_value']
                 if widget.flag == param['flag']:
@@ -1372,6 +1375,7 @@ class MainGui(tk.Frame):
 
         if bt.show_advanced:
             self.show_advanced_button.config(text="Hide Advanced Options")
+            self.save_tool_parameter()
             self.update_tool_info()
         else:
             self.show_advanced_button.config(text="Show Advanced Options")
