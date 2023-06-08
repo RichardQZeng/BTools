@@ -193,7 +193,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "canopy_avoid",
+                            "variable": "canopy_avoidance",
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
@@ -925,7 +925,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "CanPercentile",
+                        {   "variable": "canopy_percentile",
                             "parameter": "Canopy Percentile",
                             "description": "The Nth percentile of the surrounding forest.",
                             "type": "list",
@@ -935,7 +935,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "CanThrPercentage",
+                        {   "variable": "canopy_thresh_percentage",
                             "parameter": "Canopy Threshold Percentage",
                             "description": "Apply % on calculating Canopy Threshold height from Canopy percentile elevation.",
                             "type": "number",
@@ -959,10 +959,11 @@
                             "type": "number",
                             "typelab": "float",
                             "default": 1.5,
+                            "default": 1.5,
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "canopy_avoid",
+                        {   "variable": "canopy_avoidance",
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
@@ -1065,7 +1066,7 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "canopy_avoid",
+                        {   "variable": "canopy_avoidance",
                             "parameter": "Canopy Avoidance",
                             "description": "Ratio of importance between canopy search radius and euclidean distance. A value close to zero (0) prioritizes search radius whereas a value close to one (1) prioritizes euclidean distance. A small value (<=0.1) may cause the forest lines to miss nuances in sparsely vegetated terrain whereas a big value (>=0.5) may overemphasize turns in complex trails. This factor influences final footprint size in a minor way.",
                             "type": "number",
