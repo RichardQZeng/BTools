@@ -22,7 +22,7 @@ BT_DEBUGGING = False
 BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
-BT_SHOW_ADVANCED_OPTIONS = True
+BT_SHOW_ADVANCED_OPTIONS = False
 
 def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
     ras_nodata = BT_NODATA

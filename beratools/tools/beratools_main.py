@@ -257,7 +257,7 @@ class BeraTools(object):
                     break
 
             callback('---------------------------')
-            callback('{} tool finished'.format(tool_api))
+            callback('{} tool finished'.format(self.get_bera_tool_name(tool_api)))
             callback('---------------------------')
 
             return 0
@@ -313,9 +313,10 @@ class BeraTools(object):
                 saved_parameters = json.load(open_file)
                 if tool in list(saved_parameters.keys()):
                     tool_params = saved_parameters[tool]
-                    if variable in tool_params.keys():
-                        saved_value = tool_params[variable]
-                        return saved_value
+                    if tool_params:
+                        if variable in tool_params.keys():
+                            saved_value = tool_params[variable]
+                            return saved_value
 
         return None
 
@@ -441,3 +442,9 @@ class BeraTools(object):
             param_list[item['flag']] = item['default_value']
 
         return param_list
+
+    def get_bera_tool_name(self, tool_api):
+        for toolbox in self.bera_tools['toolbox']:
+            for tool in toolbox['tools']:
+                if tool_api == tool['tool_api']:
+                    return tool['name']
