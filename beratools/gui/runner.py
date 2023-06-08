@@ -546,7 +546,10 @@ class OptionsInput(tk.Frame):
         self.parameter_type = j['parameter_type']
         self.optional = j['optional']
         self.data_type = j['data_type']
-        default_value = str(j['default_value'])
+        if 'saved_value' in j.keys():
+            default_value = str(j['saved_value'])
+        else:
+            default_value = str(j['default_value'])
         self.value = default_value  # initialize in event of no default and no selection
 
         ttk.Frame.__init__(self, master)
