@@ -150,7 +150,7 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
     print('Generating Smoothed Cost Raster.......')
     aM1a = (cc_mean - cc_std)
     aM1b = (cc_mean + cc_std)
-    aM1 = numpy.divide(aM1a, aM1b, where=aM1b != 0)
+    aM1 = numpy.divide(aM1a, aM1b, where=aM1b != 0,out=numpy.zeros(aM1a.shape, dtype=float))
     aM = (1 + aM1) / 2
     aaM = (cc_mean + cc_std)
     bM = numpy.where(aaM <= 0, 0, aM)
