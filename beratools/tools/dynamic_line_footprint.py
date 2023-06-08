@@ -99,15 +99,15 @@ def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
 def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
     aM1a = (cc_mean - cc_std)
     aM1b = (cc_mean + cc_std)
-    aM1 = numpy.divide(aM1a, aM1b, where=aM1b != 0)
-    aM = (1 + aM1) / 2
+    aM1 = numpy.divide(aM1a, aM1b, where=aM1b != 0.,out=numpy.zeros(aM1a.shape, dtype=float))
+    aM = (1. + aM1) / 2.
     aaM = (cc_mean + cc_std)
-    bM = numpy.where(aaM <= 0, 0, aM)
+    bM = numpy.where(aaM <= 0., 0., aM)
     # aaM[aaM <= 0] = 0
     # numpy.place(aaM, aaM > 0, aM)
     # bM = aaM
-    cM = bM * (1 - avoidance) + (cc_smooth * avoidance)
-    dM = numpy.where(canopy_ndarray == 1, 1, cM)
+    cM = bM * (1. - avoidance) + (cc_smooth * avoidance)
+    dM = numpy.where(canopy_ndarray == 1., 1., cM)
     # numpy.place(canopy_ndarray, canopy_ndarray != 1, cM)
     # dM = canopy_ndarray
     eM = numpy.exp(dM)
@@ -193,7 +193,7 @@ def split_into_Equal_Nth_segments(df):
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = numpy.nan
     df = odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry), axis=1))
-    df = df.explode()
+    df = df.explode(index_parts=True)
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
     gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
@@ -203,7 +203,7 @@ def split_into_Equal_Nth_segments(df):
 
 
 def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, proc_segments, out_footprint,
-                           tree_radius, max_line_dist, canopy_avoid, exponent, full_step, processes, verbose):
+       tree_radius,max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
 
@@ -262,7 +262,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                 clipped_raster = numpy.squeeze(clipped_raster, axis=0)
                 nodata = -9999
                 line_args.append([clipped_raster, float(worklnbuffer.loc[record, 'DynCanTh']),
-                                  float(tree_radius), float(max_line_dist), float(canopy_avoid),
+                                  float(tree_radius), float(max_line_dist), float(canopy_avoidance),
                                   float(exponent), raster.res, nodata, line_seg.iloc[[record]], out_transform])
 
             print("Prepare CHMs for Dynamic cost raster......Done")
@@ -273,14 +273,9 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             print('Generate Dynamic cost raster.....Done')
             print('%{}'.format(50))
         for row in range(0, len(list_dict_segment_all)):
-            list_dict_segment_all[row][0]['corridor_th_field'] = "CorridorTh"
-            list_dict_segment_all[row][0]['corridor_th_value'] = list_dict_segment_all[row][0]["CorridorTh"]
-            list_dict_segment_all[row][0]['max_ln_width'] = float(max_ln_width)
-            list_dict_segment_all[row][0]['max_ln_dist'] = float(max_line_dist)
-            list_dict_segment_all[row][0]['exp_shk_cell'] = float(exp_shk_cell)
-            # list_dict_segment_all[row][0]['Proc_Seg'] = Proc_Seg
-            # list_dict_segment_all[row][0]['out_footprint'] = out_footprint
-            list_dict_segment_all[row][0]['Proj_crs'] = line_seg.crs
+            l=list(list_dict_segment_all[row])
+            l.append(float(max_line_dist))
+            list_dict_segment_all[row]=tuple(l)
 
         # pass center lines for footprint
         print("Generate Dynamic footprint.....")
@@ -315,28 +310,28 @@ def dyn_process_single_line(segment):
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
 
-    dict_segment = segment[0]
+    df = segment[0]
     in_canopy_r = segment[1]
     in_cost_r = segment[2]
     if numpy.isnan(in_canopy_r).all():
         print("Canopy raster empty")
     elif numpy.isnan(in_cost_r).all():
         print("Cost raster empty")
-    corridor_th_value = dict_segment.CorridorTh.iloc[0]
-    exp_shk_cell = dict_segment.exp_shk_cell.iloc[0]
+    corridor_th_value = df.CorridorTh.iloc[0]
+    exp_shk_cell = segment[4]
     # max_ln_dist=dict_segment.max_ln_dist.iloc[0]
-    shapefile_proj = dict_segment.Proj_crs.iloc[0]
+    shapefile_proj = df.crs
 
     in_transform = segment[3]
 
     # segment line feature ID
-    FID = dict_segment['OLnSEG']
+    FID = df['OLnSEG']
     # original line ID for segment line
-    OID = dict_segment['OLnFID']
+    OID = df['OLnFID']
 
     segment_list = []
 
-    feat = dict_segment.loc[dict_segment.index[0], 'geometry']
+    feat = df.loc[df.index[0], 'geometry']
     for coord in feat.coords:
         segment_list.append(coord)
 
