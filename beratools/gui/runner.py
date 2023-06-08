@@ -123,44 +123,29 @@ class FileSelector(tk.Frame):
                 elif 'Html' in self.file_type:
                     file_types = [("HTML files", "*.html")]
                 elif 'json' in self.file_type or 'JSON' in self.file_type:
-                    file_types = [("JSON files", "*.json")]
+                    file_types = [("JSON files", "*.json"), ("CSV files", "*.csv")]
+
+                # choose default extension to file name
+                first_ext = file_types[0][1]
+                if type(first_ext) == str:
+                    default_ext = first_ext
+                elif type(first_ext) == tuple:
+                    default_ext = first_ext[0]
+
+                default_ext = default_ext.replace('*', '')
 
                 if "ExistingFile" in self.parameter_type:
                     result = filedialog.askopenfilename(
                         initialdir=self.runner.working_dir, title="Select "+self.name, filetypes=file_types)
                 else:
-                    result = filedialog.asksaveasfilename(title="Save "+self.name, filetypes=file_types)
-
-                    # append suffix when not
-                    # TODO: more consideration for multiple formats
-                    if result != '':
-                        break_loop = False
-                        file_path = Path(result)
-                        for file_filter in file_types:
-                            if break_loop:
-                                break
-                            if type(file_filter[1]) is str:
-                                if '*'+file_path.suffix != file_filter[1]:
-                                    file_path = file_path.with_suffix(Path(file_filter[1]).suffix)
-                                break
-                            elif type(file_filter[1]) is tuple and len(file_filter[1]) > 0:
-                                for file_suffix in file_filter[1]:
-                                    if '*' + file_path.suffix == file_suffix:
-                                        break_loop = True
-                                        break
-                                # no matched suffix found, use the first one
-                                # no knowing which filter selected, so use the very first one
-                        if not break_loop:
-                            file_path = file_path.with_suffix(Path(file_types[0][1][0]).suffix)
-
-                        result = str(file_path)
+                    result = filedialog.asksaveasfilename(title="Save "+self.name, filetypes=file_types,
+                                                          defaultextension=default_ext)
 
             # elif "NewFile" in self.parameter_type:
             #    result = filedialog.asksaveasfilename()
 
-            self.value.set(result)
-            # update the working
             if result != '':
+                self.value.set(result)
                 self.runner.working_dir = os.path.dirname(result)
 
         except:
