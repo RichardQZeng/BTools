@@ -79,13 +79,8 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
     dialog.openCSV(csv_file)
 
     flag = dialog.exec()
-    if flag == QDialog.Rejected:
-        return
-    elif flag == QDialog.Accepted:
-        pass
 
-
-    if proj_data:
+    if flag == QDialog.Accepted and proj_data:
         if 'tool_api' not in proj_data.keys() or 'tasks' not in proj_data.keys():
             callback('Project file corrupted, please check.')
             return
@@ -103,9 +98,11 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
                 step += 1
                 callback('%{}'.format(step/steps*100))
 
+    print('Tasks finished.')
+
 
 def execute_task(tool_api, task):
-    bt.run_tool(tool_api, task)
+    bt.run_tool_bt(tool_api, task)
 
 
 def generate_task_params(task):

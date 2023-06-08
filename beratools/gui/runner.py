@@ -546,7 +546,10 @@ class OptionsInput(tk.Frame):
         self.parameter_type = j['parameter_type']
         self.optional = j['optional']
         self.data_type = j['data_type']
-        default_value = str(j['default_value'])
+        if 'saved_value' in j.keys():
+            default_value = str(j['saved_value'])
+        else:
+            default_value = str(j['default_value'])
         self.value = default_value  # initialize in event of no default and no selection
 
         ttk.Frame.__init__(self, master)
@@ -1330,18 +1333,18 @@ class MainGui(tk.Frame):
                 args[key] = str(args[key])
 
         # disable button
-        self.run_button.config(text='Running', state='disabled')
+        # self.run_button.config(text='Running', state='disabled')
 
-        if bt.run_tool(self.current_tool_api, args, self.custom_callback) == 1:
+        if bt.run_tool_bt(self.current_tool_api, args, self.custom_callback) == 1:
             print("Error running {}".format(self.tool_name))
-
+            # restore Run button
+            # self.run_button.config(text='Run', state='enable')
         else:
             self.progress_var.set(0)
             self.progress_label['text'] = "Progress:"
             self.progress.update_idletasks()
-
-        # restore Run button
-        self.run_button.config(text='Run', state='enable')
+            # restore Run button
+            # self.run_button.config(text='Run', state='enable')
 
         return
 
