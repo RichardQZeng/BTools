@@ -16,8 +16,8 @@ class OperationCancelledException(Exception):
     pass
 
 
-def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_dist, CanPercentile, CanThrPercentage,
-                             tree_radius, max_line_dist, canopy_avoid, exponent, full_step, processes, verbose):
+def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_dist, canopy_percentile, canopy_thresh_percentage,
+                             tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
 
     file_path,in_file_name=os.path.split(in_line)
     out_file= os.path.join(file_path,'DynCanTh_'+in_file_name)
@@ -32,8 +32,8 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
     del in_raster
 
     # Check the canopy threshold percent in 0-100 range.  If it is not, 50% will be applied
-    if not 100 >= int(CanPercentile) > 0:
-        CanPercentile = 50
+    if not 100 >= int(canopy_percentile) > 0:
+        canopy_percentile = 50
 
     # Check the Dynamic Canopy threshold column in data. If it is not, new column will be created
     if not 'DynCanTh' in line_seg.columns.array:
@@ -94,11 +94,11 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
 
     print("Calculating surrounding forest percentile..")
     # calculate the Height percentile for each parallel area using CHM
-    worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, CanPercentile, CanThrPercentage, in_chm, processes, side='left')
+    worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, int(canopy_percentile), float(canopy_thresh_percentage), in_chm, processes, side='left')
     worklnbuffer_dfL = worklnbuffer_dfL.sort_values(by=['OLnFID'])
     worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
     print("Calculating surrounding forest percentile....")
-    worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, CanPercentile, CanThrPercentage, in_chm,
+    worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, int(canopy_percentile), float(canopy_thresh_percentage), in_chm,
                                                   processes, side='right')
     worklnbuffer_dfR = worklnbuffer_dfR.sort_values(by=['OLnFID'])
     worklnbuffer_dfR = worklnbuffer_dfR.reset_index(drop=True)
@@ -111,8 +111,7 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
         line_seg.loc[index,'DynCanTh']=((worklnbuffer_dfL.DynCanTh.iloc[index]+worklnbuffer_dfR.DynCanTh.iloc[index])/2.0)
 
     print("Saving dynamic canopy threshold output.....")
-
-    geopandas.GeoDataFrame.to_file(line_seg,out_file )
+    geopandas.GeoDataFrame.to_file(line_seg, out_file)
     print("Saving dynamic canopy threshold output.....Done")
     del line_seg, worklnbuffer_dfL, worklnbuffer_dfR, workln_dfL, workln_dfR
     if full_step:
@@ -176,7 +175,7 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM,proce
             PerCol = 'Percentile_R'
 
         for item in df.index:
-            item_list = [df.iloc[[item]], int(CanPercentile), float(CanThrPercentage), in_CHM, item, PerCol]
+            item_list = [df.iloc[[item]], CanPercentile, CanThrPercentage, in_CHM, item, PerCol]
             line_arg.append(item_list)
         features = []
         chunksize = math.ceil(total_steps / processes)
@@ -224,14 +223,11 @@ def cal_percentile(line_arg):
 
             # Calculate the percentile
             # masked_mean = numpy.ma.mean(masked_raster)
-
             percentile = numpy.nanpercentile(filled_raster, CanPercentile,method='hazen')
-
-            # median = numpy.nanmedian(filled_raster)
+            median = numpy.nanmedian(filled_raster)
             if percentile>0.05:#(percentile+median)>0.0:
                 # ((50 Percentile + user defined percentile)/2)x(User defined Canopy Threshold Percentage)
                 # Dyn_Canopy_Threshold = ((percentile+median)/2.0) * (CanThrPercentage / 100.0)
-
                 # (user defined percentile)x(User defined Canopy Threshold Percentage)
                 Dyn_Canopy_Threshold = percentile * (CanThrPercentage / 100.0)
             else:
