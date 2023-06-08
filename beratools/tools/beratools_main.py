@@ -227,6 +227,7 @@ class BeraTools(object):
         try:
             proc = None
             args_string = str(args).replace("'", '"')
+            args_string = args_string.replace('/', '\\\\')
             args_tool = ['python', os.path.join(r'..\tools', tool_api + '.py'),
                          '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
 
@@ -448,3 +449,9 @@ class BeraTools(object):
             for tool in toolbox['tools']:
                 if tool_api == tool['tool_api']:
                     return tool['name']
+
+    def get_bera_tool_api(self, tool_name):
+        for toolbox in self.bera_tools['toolbox']:
+            for tool in toolbox['tools']:
+                if tool_name == tool['name']:
+                    return tool['tool_api']

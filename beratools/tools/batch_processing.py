@@ -21,10 +21,10 @@ def create_tool_batch_csv(project, tool_name, tasks):
         task = param_list
         in_line = Path(item['in_line'])
         in_chm = Path(item['in_chm'])
-        path_line = in_line.with_name(in_line.stem+'_outline.shp')
+        path_line = in_line.with_name(in_line.stem+'_output_line.shp')
         path_footprint = in_line.with_name(in_line.stem + '_footprint.shp')
         path_canopy = in_chm.with_name(in_chm.stem+'_canopy.tif')
-        path_cost = in_chm.with_name(in_chm.stem+'_canopy.tif')
+        path_cost = in_chm.with_name(in_chm.stem+'_cost.tif')
 
         if tool_name == 'Canopy Cost Raster':
             task['in_chm'] = in_chm.as_posix()
@@ -54,7 +54,7 @@ def create_tool_batch_csv(project, tool_name, tasks):
             task['in_chm'] = in_chm.as_posix()
             task['out_line'] = in_line.with_name(in_line.stem+'_raster_attributes.shp').as_posix()
 
-        all_tasks.append(task)
+        all_tasks.append(task.copy())
 
     header = list(task.keys())
 
@@ -80,23 +80,18 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
 
     flag = dialog.exec()
 
-    if flag == QDialog.Accepted and proj_data:
-        if 'tool_api' not in proj_data.keys() or 'tasks' not in proj_data.keys():
-            callback('Project file corrupted, please check.')
-            return
-        else:
-            proj_tool_name = proj_data['tool_api']
-            proj_tasks = proj_data['tasks']
+    # import tasks data
+    data = pd.read_csv(csv_file)
+    task_data = data.to_dict(orient='records')
 
-            steps = len(proj_tasks)
-            step = 0
-            for task in proj_tasks:
-                if batch_tool_name != proj_tool_name:
-                    task = generate_task_params(task)
-
-                execute_task(batch_tool_name, task)
-                step += 1
-                callback('%{}'.format(step/steps*100))
+    if flag == QDialog.Accepted and task_data:
+        steps = len(task_data)
+        step = 0
+        for task in task_data:
+            task = generate_task_params(task)
+            execute_task(bt.get_bera_tool_api(batch_tool_name), task)
+            step += 1
+            callback('%{}'.format(step/steps*100))
 
     print('Tasks finished.')
 
