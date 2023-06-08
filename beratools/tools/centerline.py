@@ -46,7 +46,7 @@ def compare_crs(in_line, in_cost_raster):
 
 
 def centerline(callback, in_line, in_cost, line_radius,
-               process_segments, out_line, processes, verbose):
+               proc_segments, out_line, processes, verbose):
     if not compare_crs(in_line, in_cost):
         print("Line and CHM spatial references are not same, please check.")
         return
@@ -59,7 +59,7 @@ def centerline(callback, in_line, in_cost, line_radius,
         for line in open_line_file:
             input_lines.append(line['geometry'])
 
-    if process_segments:
+    if proc_segments:
         pass
 
     out_fields_list = ["start_pt_id", "end_pt_id", "total_cost"]
