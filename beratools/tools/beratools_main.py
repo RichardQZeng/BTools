@@ -254,14 +254,15 @@ class BeraTools(object):
                         self.cancel_op = False
                         proc.terminate()
                         callback('Tool operation terminated.')
+                        callback('------------------------------------')
                         return 2
 
                 else:
                     break
 
-            callback('---------------------------')
+            callback('------------------------------------')
             callback('{} tool finished'.format(self.get_bera_tool_name(tool_api)))
-            callback('---------------------------')
+            callback('------------------------------------')
 
             return 0
         except (OSError, ValueError, CalledProcessError) as err:

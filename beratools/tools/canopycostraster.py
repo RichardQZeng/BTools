@@ -230,7 +230,6 @@ if __name__ == '__main__':
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
     canopy_cost_raster(print, **args.input, processes=int(args.processes), verbose=verbose)
+    print('Finishing Dynamic Canopy Threshold calculation in {} seconds)'.format(round(time.time() - start_time, 5)))
 
 
-    print('Finishing Dynamic Canopy Threshold calculation @ {}\n(or in {} second)'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
