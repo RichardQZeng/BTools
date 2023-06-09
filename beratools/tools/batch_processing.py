@@ -31,7 +31,7 @@ def create_tool_batch_csv(project, tool_name, tasks):
             task['out_canopy'] = path_canopy.as_posix()
             task['out_cost'] = path_cost.as_posix()
         elif tool_name == 'Center Line':
-            task['in_line'] = path_line.as_posix()
+            task['in_line'] = in_line.as_posix()
             task['in_cost'] = path_cost.as_posix()
             task['out_line'] = path_line.as_posix()
         elif tool_name == 'Line Footprint':
