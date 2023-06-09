@@ -128,6 +128,8 @@ def dyn_canopy_cost_raster(args):
     out_transform = args[9]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
+
+
     tree_radius = float(Tree_radius)  # get the round up integer number for tree search radius
     max_line_dist = float(max_line_dist)
     canopy_avoid = float(canopy_avoid)
@@ -222,6 +224,8 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             "Cannot find {} column in input line data.\n '{}' column will be created".format('CorridorTh',
                                                                                              'CorridorTh'))
         line_seg['CorridorTh'] = 3.0
+    else:
+        use_CorridorThCol = True
 
     if not 'OLnSEG' in line_seg.columns.array:
         # print(
@@ -275,17 +279,18 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         for row in range(0, len(list_dict_segment_all)):
             l=list(list_dict_segment_all[row])
             l.append(float(max_line_dist))
+            l.append(use_CorridorThCol)
             list_dict_segment_all[row]=tuple(l)
 
         # pass center lines for footprint
         print("Generate Dynamic footprint.....")
         footprint_list = []
-        # USE_MULTI_PROCESSING=False
+        # USE_MULTI_PROCESSING = False
         if USE_MULTI_PROCESSING:
             footprint_list = multiprocessing_Dyn_FP(list_dict_segment_all, processes)
         else:
             # Non multi-processing, for debug only
-            print("there are {} result to process.".format(len(list_dict_segment_all)))
+            print("There are {} result to process.".format(len(list_dict_segment_all)))
             index = 0
             for row in list_dict_segment_all:
                 footprint_list.append(dyn_process_single_line(row))
@@ -317,8 +322,20 @@ def dyn_process_single_line(segment):
         print("Canopy raster empty")
     elif numpy.isnan(in_cost_r).all():
         print("Cost raster empty")
-    corridor_th_value = df.CorridorTh.iloc[0]
+
     exp_shk_cell = segment[4]
+    use_CorridorCol=segment[5]
+
+    if use_CorridorCol:
+        corridor_th_value = df.CorridorTh.iloc[0]
+        try:
+            corridor_th_value=float(corridor_th_value)
+            if corridor_th_value<0:
+                corridor_th_value = 3.0
+        except ValueError:
+            corridor_th_value=3.0
+    else:
+        corridor_th_value= 3.0
     # max_ln_dist=dict_segment.max_ln_dist.iloc[0]
     shapefile_proj = df.crs
 
