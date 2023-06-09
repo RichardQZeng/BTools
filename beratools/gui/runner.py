@@ -1140,10 +1140,10 @@ class MainGui(tk.Frame):
                         widget = BooleanInput(json_str, self.arg_scroll_frame)
                         widget.grid(row=param_num, column=0, sticky=tk.W)
                         param_num = param_num + 1
-                else:
-                    widget = OptionsInput(json_str, self.arg_scroll_frame)
-                    widget.grid(row=param_num, column=0, sticky=tk.W)
-                    param_num = param_num + 1
+                    else:
+                        widget = OptionsInput(json_str, self.arg_scroll_frame)
+                        widget.grid(row=param_num, column=0, sticky=tk.W)
+                        param_num = param_num + 1
             elif ('Float' in pt or 'Integer' in pt or
                   'Text' in pt or 'String' in pt or 'StringOrNumber' in pt or
                   'StringList' in pt or 'VectorAttributeField' in pt):
