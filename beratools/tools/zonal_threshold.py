@@ -16,7 +16,7 @@ class OperationCancelledException(Exception):
     pass
 
 
-def zonal_threshold(callback, in_line, in_canopy_raster, canopy_Search_r, min_canopy_th, max_canopy_th,
+def zonal_threshold(callback, in_line, in_canopy_raster, canopy_search_r, min_canopy_th, max_canopy_th,
                     out_line, processes, verbose):
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     # check coordinate systems between line and raster features
@@ -34,7 +34,7 @@ def zonal_threshold(callback, in_line, in_canopy_raster, canopy_Search_r, min_ca
     # copy original line input to another Geodataframe
     line_buffer=geopandas.GeoDataFrame.copy((line_seg))
     #buffer the input lines
-    buffer=shapely.buffer(line_buffer['geometry'], float(canopy_Search_r),cap_style=1,quad_segs=16)
+    buffer=shapely.buffer(line_buffer['geometry'], float(canopy_search_r), cap_style=1, quad_segs=16)
     #replace line geometry by polygon geometry
     line_buffer['geometry']=buffer
     # create a New column for Zonal Mean
@@ -50,7 +50,7 @@ def zonal_threshold(callback, in_line, in_canopy_raster, canopy_Search_r, min_ca
         list_items.append(line_buffer.iloc[[row]]) #1
         # list_items.append(line_buffer) #1
         list_items.append(in_canopy_raster) #2
-        list_items.append( canopy_Search_r) #3
+        list_items.append(canopy_search_r) #3
         list_items.append(min_canopy_th) #4
         list_items.append(max_canopy_th) #5
         list_items.append(corridor_th_field)  # 6
@@ -93,7 +93,7 @@ def zonal_prepare(task_data):
         # mask out all -9999 value cells
         zonal_canopy = numpy.ma.masked_where(clipped_canopy ==-9999, clipped_canopy)
 
-        # Calculate the zonal mean
+        # Calculate the zonal mean and threshold
         zonal_mean = numpy.ma.mean(zonal_canopy)
         threshold=MinValue + (zonal_mean * zonal_mean) * (MaxValue - MinValue)
         # return the generated value
