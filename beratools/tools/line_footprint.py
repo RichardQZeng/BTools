@@ -25,7 +25,6 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
                    max_ln_width, exp_shk_cell, proc_segments, out_footprint, processes, verbose):
     corridor_th_field='CorridorTh'
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
-    corridor_th_value = float(corridor_th_value)
     max_ln_width = float(max_ln_width)
     exp_shk_cell = int(exp_shk_cell)
 
@@ -47,7 +46,9 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
     if not 'CorridorTh' in line_seg.columns.array:
         print(
             "Cannot find {} column in input line data.\n '{}' column will be created".format('CorridorTh', 'CorridorTh'))
-        line_seg['CorridorTh'] = 3.0
+        line_seg['CorridorTh'] = corridor_th_value
+    else:
+        corridor_th_value = float(9999999)
     if not 'OLnSEG' in line_seg.columns.array:
         # print(
         #     "Cannot find {} column in input line data.\n '{}' column will be created base on input Features ID".format('OLnSEG', 'OLnSEG'))
@@ -128,6 +129,12 @@ def process_single_line(dict_segment):
     in_cost_r = dict_segment['in_cost_r']
     # CorridorTh_field=dict_segment['CorridorTh_field']
     corridor_th_value = dict_segment['corridor_th_value']
+    try:
+        corridor_th_value = float(corridor_th_value)
+        if corridor_th_value < 0.0:
+            corridor_th_value = 3.0
+    except ValueError:
+        corridor_th_value = 3.0
     max_ln_width = dict_segment['max_ln_width']
     exp_shk_cell = dict_segment['exp_shk_cell']
     # out_footprint=dict_segment['out_footprint']
@@ -369,7 +376,7 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field,
         record['in_canopy_r'] = in_canopy_r
         record['in_cost_r'] = in_cost_r
         record['corridor_th_field'] = corridor_th_field
-        record['corridor_th_value'] = corridor_th_value
+        record['corridor_th_value'] = record['CorridorTh']
         record['max_ln_width'] = max_ln_width
         record['exp_shk_cell'] = exp_shk_cell
         record['proc_seg'] = Proc_Seg
