@@ -168,12 +168,12 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
 
 # TODO: deal with NODATA
 def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_line_dist,
-                       canopy_avoid, exponent, out_canopy, out_cost, processes, verbose):
+                       canopy_avoidance, exponent, out_canopy, out_cost, processes, verbose):
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(tree_radius)
     max_line_dist = float(max_line_dist)
-    canopy_avoid = float(canopy_avoid)
+    canopy_avoidance = float(canopy_avoidance)
     cost_raster_exponent = float(exponent)
     # out_canopy_r = args.get('out_canopy_r')
     # out_cost_r = args.get('out_cost_r')
@@ -212,7 +212,7 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
 
     # Smoothing raster
     cc_smooth = smooth_cost(canopy_ndarray, max_line_dist,[cell_x, cell_y])
-    avoidance = max(min(float(canopy_avoid), 1), 0)
+    avoidance = max(min(float(canopy_avoidance), 1), 0)
     np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, cost_raster_exponent, out_cost)
     print('%{}'.format(100))
 
