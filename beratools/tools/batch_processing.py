@@ -87,7 +87,13 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
     if flag == QDialog.Accepted and task_data:
         steps = len(task_data)
         step = 0
+
+        print('{} tasks are prepared'.format(steps))
+        print('-----------------------------------')
+        i = 0
         for task in task_data:
+            print('Starting task #{} ...'.format(i))
+            i += 1
             task = generate_task_params(task)
             execute_task(bt.get_bera_tool_api(batch_tool_name), task)
             step += 1
