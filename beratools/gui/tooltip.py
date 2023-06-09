@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------------
 #
 # Tooltip.py
-# Script Author: SquareRoot17, retrieved at 01/01/2020 from https://stackoverflow.com/questions/20399243/display-message-when-hovering-over-something-with-mouse-cursor-in-python
+# Script Author: SquareRoot17, retrieved at 01/01/2020 from
+# https://stackoverflow.com/questions/20399243/display-message-when-hovering-over-something-with-mouse-cursor-in-python
 # Modified by Gustavo Lopes Queiroz
 # Date: 2020-Jan-22
 #
@@ -44,7 +45,7 @@ class ToolTip(object):
         if tw:
             tw.destroy()
 
-def CreateToolTip(widget, text, wraplength = 0):
+def CreateToolTip(widget, text, wraplength = 500):
     toolTip = ToolTip(widget, wraplength)
     def enter(event):
         toolTip.showtip(text)
