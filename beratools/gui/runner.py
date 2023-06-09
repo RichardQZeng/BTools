@@ -519,10 +519,11 @@ class BooleanInput(tk.Frame):
         self.rowconfigure(0, weight=1)
 
     def get_value(self):
-        if self.value.get() == 1:
-            return self.flag  # FIXME: return tuple
+        value = self.value.get()
+        if value == 1:
+            return self.flag, True
         else:
-            return None
+            return self.flag, False
 
 
 class OptionsInput(tk.Frame):
@@ -1156,7 +1157,7 @@ class MainGui(tk.Frame):
             param_value = None
             if 'saved_value' in p.keys():
                 param_value = p['saved_value']
-            if not param_value:
+            if param_value is None:
                 param_value = p['default_value']
             if param_value is not None:
                 if type(widget) is OptionsInput:
