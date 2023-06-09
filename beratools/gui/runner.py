@@ -54,7 +54,7 @@ class FileSelector(tk.Frame):
         elif "NewFile" in self.parameter_type:
             self.file_type = j['parameter_type']['NewFile']
         self.optional = j['optional']
-        default_value = j['default_value']
+        # default_value = j['default_value']
 
         self.runner = runner
 
@@ -75,8 +75,8 @@ class FileSelector(tk.Frame):
             fs_frame, width=45, justify=tk.LEFT, textvariable=self.value)
         self.entry.grid(row=0, column=0, sticky=tk.NSEW)
         self.entry.columnconfigure(0, weight=1)
-        if default_value:
-            self.value.set(default_value)
+        # if default_value:
+        #     self.value.set(default_value)
 
         self.open_button = ttk.Button(fs_frame, width=4, text="...", command=self.select_file, padding='0.02i')
         self.open_button.grid(row=0, column=1, sticky=tk.E)
@@ -215,7 +215,7 @@ class FileOrFloat(tk.Frame):
         self.parameter_type = j['parameter_type']
         self.file_type = j['parameter_type']['ExistingFileOrFloat']
         self.optional = j['optional']
-        default_value = j['default_value']
+        # default_value = j['default_value']
 
         self.runner = runner
 
@@ -236,8 +236,8 @@ class FileOrFloat(tk.Frame):
             fs_frame, width=35, justify=tk.LEFT, textvariable=self.value)
         self.entry.grid(row=0, column=0, sticky=tk.NSEW)
         self.entry.columnconfigure(0, weight=1)
-        if default_value:
-            self.value.set(default_value)
+        # if default_value:
+        #     self.value.set(default_value)
 
         self.open_button = ttk.Button(
             fs_frame, width=4, text="...", command=self.select_file)
@@ -491,7 +491,7 @@ class BooleanInput(tk.Frame):
         self.parameter_type = j['parameter_type']
         # just for quality control. BooleanInputs are always optional.
         self.optional = True
-        default_value = j['default_value']
+        # default_value = j['default_value']
 
         ttk.Frame.__init__(self, master)
         self.grid()
@@ -506,10 +506,10 @@ class BooleanInput(tk.Frame):
         CreateToolTip(c, self.description)
 
         # set the default value
-        if j['default_value'] is not None and j['default_value'] != 'false':
-            self.value.set(1)
-        else:
-            self.value.set(0)
+        # if j['default_value'] is not None and j['default_value'] != 'false':
+        #     self.value.set(1)
+        # else:
+        #     self.value.set(0)
 
         frame.grid(row=1, column=0, sticky=tk.W)
         frame.columnconfigure(0, weight=1)
@@ -618,7 +618,7 @@ class DataInput(tk.Frame):
         self.flag = j['flag']
         self.parameter_type = j['parameter_type']
         self.optional = j['optional']
-        default_value = j['default_value']
+        # default_value = j['default_value']
 
         ttk.Frame.__init__(self, master)
         self.grid()
@@ -630,10 +630,10 @@ class DataInput(tk.Frame):
         CreateToolTip(self.label, self.description)
 
         self.value = tk.StringVar()
-        if default_value:
-            self.value.set(default_value)
-        else:
-            self.value.set("")
+        # if default_value:
+        #     self.value.set(default_value)
+        # else:
+        #     self.value.set("")
 
         self.entry = ttk.Entry(self, justify=tk.LEFT, textvariable=self.value)
         self.entry.grid(row=0, column=1, sticky=tk.NSEW)

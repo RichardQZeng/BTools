@@ -381,7 +381,9 @@ class BeraTools(object):
                         if 'variable' in param.keys():
                             new_param['flag'] = param['variable']
                             # restore saved parameters
-                            new_param['saved_value'] = self.get_saved_tool_parameter(tool['tool_api'], param['variable'])
+                            saved_value = self.get_saved_tool_parameter(tool['tool_api'], param['variable'])
+                            if saved_value is not None:
+                                new_param['saved_value'] = saved_value
                         else:
                             new_param['flag'] = 'FIXME'
 
