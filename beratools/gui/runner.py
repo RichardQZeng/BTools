@@ -64,6 +64,7 @@ class FileSelector(tk.Frame):
         self.label = ttk.Label(self, text=self.name, justify=tk.LEFT)
         self.label.grid(row=0, column=0, sticky=tk.W)
         self.label.columnconfigure(0, weight=1)
+        CreateToolTip(self.label, self.description)
 
         if not self.optional:
             self.label['text'] = self.label['text'] + "*"
@@ -502,6 +503,7 @@ class BooleanInput(tk.Frame):
         c = ttk.Checkbutton(frame, text=self.name,
                             width=55, variable=self.value)
         c.grid(row=0, column=0, sticky=tk.W)
+        CreateToolTip(c, self.description)
 
         # set the default value
         if j['default_value'] is not None and j['default_value'] != 'false':
@@ -624,6 +626,7 @@ class DataInput(tk.Frame):
         self.label = ttk.Label(self, text=self.name, justify=tk.LEFT)
         self.label.grid(row=0, column=0, sticky=tk.W)
         self.label.columnconfigure(0, weight=1)
+        CreateToolTip(self.label, self.description)
 
         self.value = tk.StringVar()
         if default_value:
@@ -1131,14 +1134,16 @@ class MainGui(tk.Frame):
                 widget = MultifileSelector(json_str, self, self.arg_scroll_frame)
                 widget.grid(row=param_num, column=0, sticky=tk.W)
                 param_num = param_num + 1
-            elif 'Boolean' in pt:
-                widget = BooleanInput(json_str, self.arg_scroll_frame)
-                widget.grid(row=param_num, column=0, sticky=tk.W)
-                param_num = param_num + 1
             elif 'OptionList' in pt:
-                widget = OptionsInput(json_str, self.arg_scroll_frame)
-                widget.grid(row=param_num, column=0, sticky=tk.W)
-                param_num = param_num + 1
+                if 'data_type' in p.keys():
+                    if p['data_type'] == 'Boolean':
+                        widget = BooleanInput(json_str, self.arg_scroll_frame)
+                        widget.grid(row=param_num, column=0, sticky=tk.W)
+                        param_num = param_num + 1
+                else:
+                    widget = OptionsInput(json_str, self.arg_scroll_frame)
+                    widget.grid(row=param_num, column=0, sticky=tk.W)
+                    param_num = param_num + 1
             elif ('Float' in pt or 'Integer' in pt or
                   'Text' in pt or 'String' in pt or 'StringOrNumber' in pt or
                   'StringList' in pt or 'VectorAttributeField' in pt):
@@ -1163,7 +1168,7 @@ class MainGui(tk.Frame):
 
             # hide optional widgets
             if widget:
-                if widget.optional and widget.label:
+                if widget.optional and hasattr(widget, 'label'):
                     widget.label.config(foreground='blue')
 
                 if widget.optional and not bt.show_advanced:
