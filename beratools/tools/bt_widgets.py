@@ -86,7 +86,7 @@ class ToolWin(QWidget):
             param_value = None
             if 'saved_value' in p.keys():
                 param_value = p['saved_value']
-            if not param_value:
+            if param_value is None:
                 param_value = p['default_value']
             if param_value is not None:
                 if type(widget) is OptionsInput:
@@ -101,8 +101,8 @@ class ToolWin(QWidget):
                 if widget.optional and widget.label:
                     widget.label.setStyleSheet("QLabel { background-color : transparent; color : blue; }")
 
-                if widget.optional and not bt.show_advanced:
-                    widget.hide()
+                # if widget.optional and not bt.show_advanced:
+                #     widget.hide()
 
             self.widget_list.append(widget)
 

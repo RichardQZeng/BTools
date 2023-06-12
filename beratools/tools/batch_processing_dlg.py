@@ -112,12 +112,6 @@ class BP_Dialog(QDialog):
         self.table_view.setSelectionBehavior(self.table_view.SelectRows)
         self.table_view.setSelectionMode(self.table_view.ExtendedSelection)
 
-        self.setContentsMargins(10, 10, 10, 10)
-        self.createToolBar()
-        self.readSettings()
-        self.table_view.setFocus()
-        # self.statusBar().showMessage("Ready", 0)
-
         # tableview signals
         self.table_view.clicked.connect(self.table_view_clicked)
         self.table_view.verticalHeader().sectionClicked.connect(self.table_view_vertical_header_clicked)
@@ -129,29 +123,77 @@ class BP_Dialog(QDialog):
         # create form
         self.tool_widgets = ToolWin(tool_name)
 
-        self.createToolBar()
-        vbox = QHBoxLayout()
-        vbox.addWidget(self.table_view, 2)
-        vbox.addWidget(self.tool_widgets, 1)
-        vbox.setMenuBar(self.tbar)
+        # self.createToolBar()
+        hbox_widgets = QHBoxLayout()
+        hbox_widgets.addWidget(self.table_view, 2)
+        hbox_widgets.addWidget(self.tool_widgets, 1)
 
-        # Add buttons
-        self.buttonBox = QDialogButtonBox()
-        self.buttonBox.addButton("Run", QDialogButtonBox.AcceptRole)
-        self.buttonBox.addButton("Cancel", QDialogButtonBox.RejectRole)
-        self.buttonBox.addButton("Help", QDialogButtonBox.HelpRole)
+        # Add project, record related button box
+        self.project_btns = QHBoxLayout()
+        open_button = QPushButton('Open')
+        save_button = QPushButton('Save')
+        save_as_button = QPushButton('Save as')
+        delete_button = QPushButton('Delete records')
+        add_button = QPushButton('Add record')
+        print_button = QPushButton('Print')
 
-        self.buttonBox.accepted.connect(self.run)
-        self.buttonBox.rejected.connect(self.reject)
-        self.buttonBox.helpRequested.connect(self.help)
+        open_button.clicked.connect(self.loadCSV)
+        save_button.setShortcut(QKeySequence.Open)
+        save_button.clicked.connect(self.writeCSV_update)
+        save_button.setShortcut(QKeySequence.Save)
+        save_as_button.clicked.connect(self.writeCSV)
+        save_as_button.setShortcut(QKeySequence.SaveAs)
+        delete_button.clicked.connect(self.table_view_delete_records)
+        delete_button.setShortcut(QKeySequence.Delete)
 
-        hbox = QVBoxLayout()
-        hbox.addLayout(vbox)
-        hbox.addWidget(self.buttonBox)
-        self.setLayout(hbox)
+        add_button.clicked.connect(self.table_view_add_records)
+
+        self.lastFiles = QComboBox()
+        self.lastFiles.setFixedWidth(300)
+        self.lastFiles.currentIndexChanged.connect(self.loadRecent)
+
+        lineFind = QLineEdit()
+        lineFind.setPlaceholderText("find")
+        lineFind.setClearButtonEnabled(True)
+        lineFind.setFixedWidth(250)
+        lineFind.returnPressed.connect(self.findInTable)
+
+        print_button.clicked.connect(self.handlePreview)
+
+        self.project_btns.addWidget(open_button, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(save_button, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(save_as_button, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(delete_button, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(add_button, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(lineFind, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(print_button, QDialogButtonBox.ActionRole)
+
+        # Add OK/cancel buttons
+        self.ok_btn_box = QDialogButtonBox()
+        self.ok_btn_box.addButton("Run", QDialogButtonBox.AcceptRole)
+        self.ok_btn_box.addButton("Cancel", QDialogButtonBox.RejectRole)
+        self.ok_btn_box.addButton("Help", QDialogButtonBox.HelpRole)
+
+        self.ok_btn_box.accepted.connect(self.run)
+        self.ok_btn_box.rejected.connect(self.reject)
+        self.ok_btn_box.helpRequested.connect(self.help)
+
+        hbox_btns = QHBoxLayout()
+        hbox_btns.addLayout(self.project_btns)
+        hbox_btns.addWidget(self.ok_btn_box)
+
+        vbox_main = QVBoxLayout()
+        vbox_main.addLayout(hbox_widgets)
+        vbox_main.addLayout(hbox_btns)
+        self.setLayout(vbox_main)
 
         # delete dialog when close
         self.setAttribute(Qt.WA_DeleteOnClose)
+
+        self.setContentsMargins(10, 10, 10, 10)
+        self.readSettings()
+        self.table_view.setFocus()
+        # self.statusBar().showMessage("Ready", 0)
 
     def run(self):
         print("Run the batch processing.")
@@ -197,6 +239,10 @@ class BP_Dialog(QDialog):
             print('remove row {}'.format(i))
 
         self.model.submit()
+
+    def table_view_add_records(self):
+        pass
+
     def update_tool_widgets(self, row):
         tool_paramas = self.model.data_row_dict(row)
         self.tool_widgets.update_widgets(tool_paramas)
@@ -248,7 +294,7 @@ class BP_Dialog(QDialog):
         saveAction.triggered.connect(self.writeCSV_update)
         saveAction.setShortcut(QKeySequence.Save)
 
-        saveAsAction = QAction(QIcon.fromTheme("document-save-as"), "Save as ...", self)
+        saveAsAction = QAction(QIcon.fromTheme("document-save-as"), "Save as", self)
         saveAsAction.triggered.connect(self.writeCSV)
         saveAsAction.setShortcut(QKeySequence.SaveAs)
 
@@ -256,9 +302,9 @@ class BP_Dialog(QDialog):
         deleteAction.triggered.connect(self.table_view_delete_records)
         deleteAction.setShortcut(QKeySequence.Delete)
 
-        self.tbar =  QMenuBar()
+        self.tbar = QMenuBar()
         self.tbar.setContextMenuPolicy(Qt.PreventContextMenu)
-        self.tbar.setFixedHeight(30)
+        self.tbar.setFixedHeight(60)
         self.tbar.addAction(openAction)
         self.tbar.addAction(saveAction)
         self.tbar.addAction(saveAsAction)
