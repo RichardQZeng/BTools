@@ -152,11 +152,11 @@ class BP_Dialog(QDialog):
         self.lastFiles.setFixedWidth(300)
         self.lastFiles.currentIndexChanged.connect(self.loadRecent)
 
-        lineFind = QLineEdit()
-        lineFind.setPlaceholderText("find")
-        lineFind.setClearButtonEnabled(True)
-        lineFind.setFixedWidth(250)
-        lineFind.returnPressed.connect(self.findInTable)
+        self.lineFind = QLineEdit()
+        self.lineFind.setPlaceholderText("find")
+        self.lineFind.setClearButtonEnabled(True)
+        self.lineFind.setFixedWidth(250)
+        self.lineFind.returnPressed.connect(self.findInTable)
 
         print_button.clicked.connect(self.handlePreview)
 
@@ -165,7 +165,7 @@ class BP_Dialog(QDialog):
         self.project_btns.addWidget(save_as_button, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(delete_button, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(add_button, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(lineFind, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(self.lineFind, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(print_button, QDialogButtonBox.ActionRole)
 
         # Add OK/cancel buttons
@@ -195,8 +195,14 @@ class BP_Dialog(QDialog):
         self.table_view.setFocus()
         # self.statusBar().showMessage("Ready", 0)
 
-    def run(self):
+    def accept(self):
+        if self.lineFind.hasFocus():
+            return
+
         print("Run the batch processing.")
+        QDialog.accept(self)
+
+    def run(self):
         self.accept()
 
     def reject(self):
