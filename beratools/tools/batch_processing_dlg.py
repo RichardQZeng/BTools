@@ -78,8 +78,13 @@ class PandasModel(QAbstractTableModel):
         print("\n\t\t ...insertRows() Starting position: '%s'" % position, 'with the total rows to be inserted: ', rows)
         self.beginInsertRows(QModelIndex(), position, position + rows - 1)
         # del self._data[position]
+        default_row = []
+        for i in range(rows):
+            self._df.loc[len(self._df)] = self.default_record
+
         # self.items = self.items[:position] + self.items[position + rows:]
         self.endInsertRows()
+        return True
 
     def removeRows(self, position, rows=1, index=QModelIndex()):
         print("\n\t\t ...removeRows() Starting position: '%s'" % position, 'with the total rows to be removed: ', rows)
@@ -111,6 +116,8 @@ class BP_Dialog(QDialog):
         self.table_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table_view.setSelectionBehavior(self.table_view.SelectRows)
         self.table_view.setSelectionMode(self.table_view.ExtendedSelection)
+
+        self.tool_name = tool_name
 
         # tableview signals
         self.table_view.clicked.connect(self.table_view_clicked)
@@ -247,7 +254,15 @@ class BP_Dialog(QDialog):
         self.model.submit()
 
     def table_view_add_records(self):
-        pass
+        self.model.default_record = bt.get_bera_tool_parameters_list(self.tool_name)
+        ret = self.model.insertRow(self.model.rowCount())
+        if ret:
+            count = self.model.rowCount() - 1
+            self.table_view.selectRow(count)
+            self.sig_update_tool_widgets.emit(count)
+
+            print('Insert row in position {}'.format(count))
+            self.model.submit()
 
     def update_tool_widgets(self, row):
         tool_paramas = self.model.data_row_dict(row)
