@@ -230,6 +230,7 @@ class BeraTools(object):
             # convert to valid json string
             args_string = str(args).replace("'", '"')
             args_string = args_string.replace('True', 'true')
+            args_string = args_string.replace('False', 'false')
             args_tool = ['python', os.path.join(r'..\tools', tool_api + '.py'),
                          '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
 
