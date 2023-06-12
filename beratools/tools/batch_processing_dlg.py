@@ -371,7 +371,7 @@ class BP_Dialog(QDialog):
             f = open(file_name, 'w')
             new_model = self.model
             data_frame = new_model._df.copy()
-            data_frame.to_csv(f, sep=',', index=False, header=True)
+            data_frame.to_csv(f, sep=',', index=False, header=True, lineterminator='\n')
 
     def write_csv_update(self):
         if self.filename:
