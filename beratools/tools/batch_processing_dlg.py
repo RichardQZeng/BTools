@@ -276,7 +276,7 @@ class BP_Dialog(QDialog):
 
     def closeEvent(self, event):
         print(self.model.setChanged)
-        if  self.model.setChanged == True:
+        if self.model.setChanged:
             print("is changed, saving?")
             quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
             reply = QMessageBox.question(self, 'Save Confirmation', 
@@ -298,7 +298,7 @@ class BP_Dialog(QDialog):
                 print("is changed, saving?")
                 quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
                 reply = QMessageBox.question(self, 'Save Confirmation', 
-                         quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                                             quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
                 if reply == QMessageBox.Yes:
                     self.open_csv(self.last_files.currentText())
                 else:
@@ -336,7 +336,7 @@ class BP_Dialog(QDialog):
             print("is changed, saving?")
             quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
             reply = QMessageBox.question(self, 'Save Confirmation', 
-                     quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                                         quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if reply == QMessageBox.Yes:
                 self.write_csv_update()
             else:
@@ -348,10 +348,10 @@ class BP_Dialog(QDialog):
             return path
 
     def load_csv(self):
-        fileName = self.open_file()
-        if fileName:
-            print(fileName + " loaded")
-            f = open(fileName, 'r+b')
+        file_name = self.open_file()
+        if file_name:
+            print(file_name + " loaded")
+            f = open(file_name, 'r+b')
             with f:
                 df = pd.read_csv(f, sep='\t|;|,|\s+', keep_default_na=False, engine='python',
                                  skipinitialspace=True, skip_blank_lines=True)
@@ -361,24 +361,24 @@ class BP_Dialog(QDialog):
                 self.table_view.resizeColumnsToContents()
                 self.table_view.selectRow(0)
         # self.statusBar().showMessage("%s %s" % (fileName, "loaded"), 0)
-        self.recent_files.insert(0, fileName)
-        self.last_files.insertItem(1, fileName)
+        self.recent_files.insert(0, file_name)
+        self.last_files.insertItem(1, file_name)
 
     def write_csv(self):
-        fileName, _ = QFileDialog.getSaveFileName(self, "Open File", self.filename, "CSV Files (*.csv)")
-        if fileName:
-            print(fileName + " saved")
-            f = open(fileName, 'w')
-            newModel = self.model
-            dataFrame = newModel._df.copy()
-            dataFrame.to_csv(f, sep='\t', index = False, header = False)
+        file_name, _ = QFileDialog.getSaveFileName(self, "Open File", self.filename, "CSV Files (*.csv)")
+        if file_name:
+            print(file_name + " saved")
+            f = open(file_name, 'w')
+            new_model = self.model
+            data_frame = new_model._df.copy()
+            data_frame.to_csv(f, sep=',', index=False, header=True)
 
     def write_csv_update(self):
         if self.filename:
             f = open(self.filename, 'w')
-            newModel = self.model
-            dataFrame = newModel._df.copy()
-            dataFrame.to_csv(f, sep='\t', index = False, header = False)
+            new_model = self.model
+            data_frame = new_model._df.copy()
+            data_frame.to_csv(f, sep='\t', index=False, header=False)
             self.model.setChanged = False
             print("%s %s" % (self.filename, "saved"))
             # self.statusBar().showMessage("%s %s" % (self.filename, "saved"), 0)
@@ -398,13 +398,13 @@ class BP_Dialog(QDialog):
         document = QTextDocument()
         cursor = QTextCursor(document)
         model = self.table_view.model()
-        tableFormat = QTextTableFormat()
-        tableFormat.setBorder(0.2)
-        tableFormat.setBorderStyle(3)
-        tableFormat.setCellSpacing(0);
-        tableFormat.setTopMargin(0);
-        tableFormat.setCellPadding(4)
-        table = cursor.insertTable(model.rowCount() + 1, model.columnCount(), tableFormat)
+        table_format = QTextTableFormat()
+        table_format.setBorder(0.2)
+        table_format.setBorderStyle(3)
+        table_format.setCellSpacing(0);
+        table_format.setTopMargin(0);
+        table_format.setCellPadding(4)
+        table = cursor.insertTable(model.rowCount() + 1, model.columnCount(), table_format)
         model = self.table_view.model()
 
         # get headers
@@ -415,10 +415,10 @@ class BP_Dialog(QDialog):
             cursor.movePosition(QTextCursor.NextCell)
         # get cells
         for row in range(0, model.rowCount()):
-           for col in range(0, model.columnCount()):
-               index = model.index( row, col )
-               cursor.insertText(str(index.data()))
-               cursor.movePosition(QTextCursor.NextCell)
+            for col in range(0, model.columnCount()):
+                index = model.index(row, col)
+                cursor.insertText(str(index.data()))
+                cursor.movePosition(QTextCursor.NextCell)
         document.print_(printer)
 
  
