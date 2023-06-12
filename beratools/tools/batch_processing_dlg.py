@@ -357,7 +357,7 @@ class BP_Dialog(QDialog):
     def openCSV(self, path):
         f = open(path, 'r+b')
         with f:
-            df = pd.read_csv(f, sep='\t|;|,', keep_default_na=False, engine='python',
+            df = pd.read_csv(f, sep='\t|;|,|\s+', keep_default_na=False, engine='python',
                              skipinitialspace=True, skip_blank_lines=True)
             f.close()
             self.model = PandasModel(df)
@@ -400,7 +400,7 @@ class BP_Dialog(QDialog):
             print(fileName + " loaded")
             f = open(fileName, 'r+b')
             with f:
-                df = pd.read_csv(f, sep='\t|;|,', keep_default_na=False, engine='python',
+                df = pd.read_csv(f, sep='\t|;|,|\s+', keep_default_na=False, engine='python',
                                  skipinitialspace=True, skip_blank_lines=True)
                 f.close()
                 self.model = PandasModel(df)
