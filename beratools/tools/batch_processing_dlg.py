@@ -375,7 +375,7 @@ class BP_Dialog(QDialog):
             matches = model.match(start, Qt.DisplayRole, text, -1, Qt.MatchContains)
             if matches:
                 for index in matches:
-                    print(index.row(), index.column())
+                    # print(index.row(), index.column())
                     self.table_view.selectionModel().select(index, QItemSelectionModel.Select)
 
     def openFile(self, path=None):
