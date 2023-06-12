@@ -99,8 +99,8 @@ class BP_Dialog(QDialog):
         super(BP_Dialog, self).__init__(parent)
         self.setWindowTitle('Batch Processing')
         self.MaxRecentFiles = 5
-        self.windowList = []
-        self.recentFiles = []
+        self.window_list = []
+        self.recent_files = []
         self.settings = QSettings('Richard Zeng', 'Batch Processing')
         self.filename = ""
         self.setGeometry(0, 0, 800, 600)
@@ -137,35 +137,35 @@ class BP_Dialog(QDialog):
         add_button = QPushButton('Add record')
         print_button = QPushButton('Print')
 
-        open_button.clicked.connect(self.loadCSV)
+        open_button.clicked.connect(self.load_csv)
         save_button.setShortcut(QKeySequence.Open)
-        save_button.clicked.connect(self.writeCSV_update)
+        save_button.clicked.connect(self.write_csv_update)
         save_button.setShortcut(QKeySequence.Save)
-        save_as_button.clicked.connect(self.writeCSV)
+        save_as_button.clicked.connect(self.write_csv)
         save_as_button.setShortcut(QKeySequence.SaveAs)
         delete_button.clicked.connect(self.table_view_delete_records)
         delete_button.setShortcut(QKeySequence.Delete)
 
         add_button.clicked.connect(self.table_view_add_records)
 
-        self.lastFiles = QComboBox()
-        self.lastFiles.setFixedWidth(300)
-        self.lastFiles.currentIndexChanged.connect(self.loadRecent)
+        self.last_files = QComboBox()
+        self.last_files.setFixedWidth(300)
+        self.last_files.currentIndexChanged.connect(self.load_recent)
 
-        self.lineFind = QLineEdit()
-        self.lineFind.setPlaceholderText("find")
-        self.lineFind.setClearButtonEnabled(True)
-        self.lineFind.setFixedWidth(250)
-        self.lineFind.returnPressed.connect(self.findInTable)
+        self.line_find = QLineEdit()
+        self.line_find.setPlaceholderText("find")
+        self.line_find.setClearButtonEnabled(True)
+        self.line_find.setFixedWidth(250)
+        self.line_find.returnPressed.connect(self.find_in_table)
 
-        print_button.clicked.connect(self.handlePreview)
+        print_button.clicked.connect(self.handle_preview)
 
         self.project_btns.addWidget(open_button, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(save_button, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(save_as_button, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(delete_button, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(add_button, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(self.lineFind, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(self.line_find, QDialogButtonBox.ActionRole)
         self.project_btns.addWidget(print_button, QDialogButtonBox.ActionRole)
 
         # Add OK/cancel buttons
@@ -191,12 +191,12 @@ class BP_Dialog(QDialog):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.setContentsMargins(10, 10, 10, 10)
-        self.readSettings()
+        self.read_settings()
         self.table_view.setFocus()
         # self.statusBar().showMessage("Ready", 0)
 
     def accept(self):
-        if self.lineFind.hasFocus():
+        if self.line_find.hasFocus():
             return
 
         print("Run the batch processing.")
@@ -254,26 +254,25 @@ class BP_Dialog(QDialog):
         self.tool_widgets.update_widgets(tool_paramas)
         print('Update tool parameters for record {}'.format(tool_paramas))
 
-
     def table_view_key_down(self):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
         if current_row < self.model.rowCount()-1:
             self.table_view.selectRow(current_row+1)
             self.sig_update_tool_widgets.emit(current_row+1)
 
-    def readSettings(self):
+    def read_settings(self):
         print("reading settings")
         if self.settings.contains("geometry"):
             self.setGeometry(self.settings.value('geometry'))
         if self.settings.contains("recentFiles"):
-            self.recentFiles = self.settings.value('recentFiles')
-            self.lastFiles.addItem("last Files")
-            self.lastFiles.addItems(self.recentFiles[:15])
+            self.recent_files = self.settings.value('recentFiles')
+            self.last_files.addItem("last Files")
+            self.last_files.addItems(self.recent_files[:15])
 
-    def saveSettings(self):
+    def save_settings(self):
         print("saving settings")
         self.settings.setValue('geometry', self.geometry())
-        self.settings.setValue('recentFiles', self.recentFiles)
+        self.settings.setValue('recentFiles', self.recent_files)
 
     def closeEvent(self, event):
         print(self.model.setChanged)
@@ -283,64 +282,17 @@ class BP_Dialog(QDialog):
             reply = QMessageBox.question(self, 'Save Confirmation', 
                      quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if reply == QMessageBox.Yes:
-                self.writeCSV_update()
+                self.write_csv_update()
             else:
                 print("Settings not saved.")
                 return
         else:
             print("nothing changed.")
-        self.saveSettings()
+        self.save_settings()
 
-    def createToolBar(self):
-        openAction = QAction(QIcon.fromTheme("document-open"), "Open", self)
-        openAction.triggered.connect(self.loadCSV)
-        openAction.setShortcut(QKeySequence.Open)
-
-        saveAction = QAction(QIcon.fromTheme("document-save"), "Save", self)
-        saveAction.triggered.connect(self.writeCSV_update)
-        saveAction.setShortcut(QKeySequence.Save)
-
-        saveAsAction = QAction(QIcon.fromTheme("document-save-as"), "Save as", self)
-        saveAsAction.triggered.connect(self.writeCSV)
-        saveAsAction.setShortcut(QKeySequence.SaveAs)
-
-        deleteAction = QAction(QIcon.fromTheme("edit-delete"), "Delete records", self)
-        deleteAction.triggered.connect(self.table_view_delete_records)
-        deleteAction.setShortcut(QKeySequence.Delete)
-
-        self.tbar = QMenuBar()
-        self.tbar.setContextMenuPolicy(Qt.PreventContextMenu)
-        self.tbar.setFixedHeight(60)
-        self.tbar.addAction(openAction)
-        self.tbar.addAction(saveAction)
-        self.tbar.addAction(saveAsAction)
-        self.tbar.addAction(deleteAction)
-
-        self.lastFiles = QComboBox()
-        self.lastFiles.setFixedWidth(300)
-        self.lastFiles.currentIndexChanged.connect(self.loadRecent)
-        empty = QWidgetAction(self)
-        empty.setDefaultWidget(self.lastFiles)
-        self.tbar.addAction(empty)
-
-        findbyText = QAction(QIcon.fromTheme("edit-find-symbolic"), "find", self, triggered = self.findInTable)
-        self.lineFind = QLineEdit()
-        self.lineFind.addAction(findbyText, 0)
-        self.lineFind.setPlaceholderText("find")
-        self.lineFind.setClearButtonEnabled(True)
-        self.lineFind.setFixedWidth(250)
-        self.lineFind.returnPressed.connect(self.findInTable)
-        empty = QWidgetAction(self)
-        empty.setDefaultWidget(self.lineFind)
-        self.tbar.addAction(empty)
-
-        self.previewAction = QAction(QIcon.fromTheme("document-print-preview"), "print", self)
-        self.previewAction.triggered.connect(self.handlePreview)
-        self.tbar.addAction(self.previewAction)
-
-    def loadRecent(self):
-        if self.lastFiles.currentIndex() > 0:
-            print(self.lastFiles.currentText())
+    def load_recent(self):
+        if self.last_files.currentIndex() > 0:
+            print(self.last_files.currentText())
             print(self.model.setChanged)
             if self.model.setChanged:
                 print("is changed, saving?")
@@ -348,13 +300,13 @@ class BP_Dialog(QDialog):
                 reply = QMessageBox.question(self, 'Save Confirmation', 
                          quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
                 if reply == QMessageBox.Yes:
-                    self.openCSV(self.lastFiles.currentText())
+                    self.open_csv(self.last_files.currentText())
                 else:
-                    self.openCSV(self.lastFiles.currentText())
+                    self.open_csv(self.last_files.currentText())
             else:
-                self.openCSV(self.lastFiles.currentText())
+                self.open_csv(self.last_files.currentText())
 
-    def openCSV(self, path):
+    def open_csv(self, path):
         f = open(path, 'r+b')
         with f:
             df = pd.read_csv(f, sep='\t|;|,|\s+', keep_default_na=False, engine='python',
@@ -366,9 +318,9 @@ class BP_Dialog(QDialog):
             self.table_view.selectRow(0)
             # self.statusBar().showMessage("%s %s" % (path, "loaded"), 0)
 
-    def findInTable(self):
+    def find_in_table(self):
         self.table_view.clearSelection()
-        text = self.lineFind.text()
+        text = self.line_find.text()
         model = self.table_view.model()
         for column in range(self.model.columnCount()):
             start = model.index(0, column)
@@ -378,7 +330,7 @@ class BP_Dialog(QDialog):
                     # print(index.row(), index.column())
                     self.table_view.selectionModel().select(index, QItemSelectionModel.Select)
 
-    def openFile(self, path=None):
+    def open_file(self, path=None):
         print(self.model.setChanged)
         if  self.model.setChanged == True:
             print("is changed, saving?")
@@ -386,16 +338,17 @@ class BP_Dialog(QDialog):
             reply = QMessageBox.question(self, 'Save Confirmation', 
                      quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if reply == QMessageBox.Yes:
-                self.writeCSV_update()
+                self.write_csv_update()
             else:
                 print("not saved, loading ...")
                 return
-        path, _ = QFileDialog.getOpenFileName(self, "Open File", QDir.homePath() + "/Dokumente/CSV/","CSV Files (*.csv)")
+        path, _ = QFileDialog.getOpenFileName(self, "Open File", QDir.homePath() + "/Dokumente/CSV/",
+                                              "CSV Files (*.csv)")
         if path:
             return path
 
-    def loadCSV(self):
-        fileName = self.openFile()
+    def load_csv(self):
+        fileName = self.open_file()
         if fileName:
             print(fileName + " loaded")
             f = open(fileName, 'r+b')
@@ -408,11 +361,11 @@ class BP_Dialog(QDialog):
                 self.table_view.resizeColumnsToContents()
                 self.table_view.selectRow(0)
         # self.statusBar().showMessage("%s %s" % (fileName, "loaded"), 0)
-        self.recentFiles.insert(0, fileName)
-        self.lastFiles.insertItem(1, fileName)
+        self.recent_files.insert(0, fileName)
+        self.last_files.insertItem(1, fileName)
 
-    def writeCSV(self):
-        fileName, _ = QFileDialog.getSaveFileName(self, "Open File", self.filename,"CSV Files (*.csv)")
+    def write_csv(self):
+        fileName, _ = QFileDialog.getSaveFileName(self, "Open File", self.filename, "CSV Files (*.csv)")
         if fileName:
             print(fileName + " saved")
             f = open(fileName, 'w')
@@ -420,7 +373,7 @@ class BP_Dialog(QDialog):
             dataFrame = newModel._df.copy()
             dataFrame.to_csv(f, sep='\t', index = False, header = False)
 
-    def writeCSV_update(self):
+    def write_csv_update(self):
         if self.filename:
             f = open(self.filename, 'w')
             newModel = self.model
@@ -430,17 +383,17 @@ class BP_Dialog(QDialog):
             print("%s %s" % (self.filename, "saved"))
             # self.statusBar().showMessage("%s %s" % (self.filename, "saved"), 0)
 
-    def handlePreview(self):
+    def handle_preview(self):
         if self.model.rowCount() == 0:
             self.msg("no rows")
         else:
             dialog = QtPrintSupport.QPrintPreviewDialog()
             dialog.setFixedSize(1000, 700)
-            dialog.paintRequested.connect(self.handlePaintRequest)
+            dialog.paintRequested.connect(self.handle_paint_request)
             dialog.exec_()
             print("Print Preview closed")
 
-    def handlePaintRequest(self, printer):
+    def handle_paint_request(self, printer):
         printer.setDocName(self.filename)
         document = QTextDocument()
         cursor = QTextCursor(document)
@@ -474,6 +427,6 @@ if __name__ == "__main__":
     main = BP_Dialog('Raster Line Attributes')
     main.show()
     if len(sys.argv) > 1:
-        main.openCSV(sys.argv[1])
+        main.open_csv(sys.argv[1])
 
     sys.exit(app.exec_())

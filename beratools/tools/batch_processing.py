@@ -76,7 +76,7 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
 
     csv_file = create_tool_batch_csv(in_project, batch_tool_name, proj_data['tasks'])
     dialog = BP_Dialog(batch_tool_name)
-    dialog.openCSV(csv_file)
+    dialog.open_csv(csv_file)
 
     flag = dialog.exec()
 
