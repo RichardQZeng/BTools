@@ -38,7 +38,10 @@ class ToolWidgets(QWidget):
             layout.addWidget(item)
 
         self.save_button = QPushButton('Save Parameters')
-        layout.addWidget(self.save_button)
+        self.save_button.clicked.connect(self.save_tool_parameters)
+        layout.addSpacing(20)
+        self.save_button.setFixedSize(200, 40)
+        layout.addWidget(self.save_button, alignment=Qt.AlignCenter)
 
         layout.addStretch()
         self.setLayout(layout)
@@ -116,6 +119,14 @@ class ToolWidgets(QWidget):
             for item in self.widget_list:
                 if key == item.flag:
                     item.set_value(value)
+
+    def save_tool_parameters(self):
+        params = {}
+        for item in self.widget_list:
+            if item.flag:
+                params[item.flag] = item.get_value()
+
+        self.signal_save_tool_params.emit(params)
 
 
 class FileSelector(QWidget):
@@ -316,6 +327,10 @@ class OptionsInput(QWidget):
         for v in self.option_list:
             if value == v:
                 self.combobox.setCurrentIndex(self.option_list.index(v))
+
+    def get_value(self):
+        return self.value
+
 
 class DataInput(QWidget):
     def __init__(self, json_str, master=None, parent=None):
