@@ -98,7 +98,7 @@ class PandasModel(QAbstractTableModel):
 
 class BP_Dialog(QDialog):
     # signals
-    sig_update_tool_widgets = pyqtSignal(int)
+    signal_update_tool_widgets = pyqtSignal(int)
 
     def __init__(self, tool_name, parent=None):
         super(BP_Dialog, self).__init__(parent)
@@ -125,10 +125,10 @@ class BP_Dialog(QDialog):
         QShortcut(Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
         QShortcut(Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
 
-        self.sig_update_tool_widgets.connect(self.update_tool_widgets)
+        self.signal_update_tool_widgets.connect(self.update_tool_widgets)
 
         # create form
-        self.tool_widgets = ToolWin(tool_name)
+        self.tool_widgets = ToolWidgets(tool_name)
 
         # self.createToolBar()
         hbox_widgets = QHBoxLayout()
@@ -221,17 +221,17 @@ class BP_Dialog(QDialog):
 
     def table_view_clicked(self, item):
         print('Row, column:{}, {}'.format(item.row(), item.column()))
-        self.sig_update_tool_widgets.emit(item.row())
+        self.signal_update_tool_widgets.emit(item.row())
 
     def table_view_vertical_header_clicked(self, item):
         print('Horizontal header clicked: {}'.format(item))
-        self.sig_update_tool_widgets.emit(item)
+        self.signal_update_tool_widgets.emit(item)
 
     def table_view_key_up(self):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
         if current_row >= 1:
             self.table_view.selectRow(current_row-1)
-            self.sig_update_tool_widgets.emit(current_row-1)
+            self.signal_update_tool_widgets.emit(current_row - 1)
 
     def table_view_delete_records(self):
         selected_index = self.table_view.selectionModel().selectedRows()
@@ -247,7 +247,7 @@ class BP_Dialog(QDialog):
                     current_row = self.model.rowCount() - 1
 
                 self.table_view.selectRow(current_row)
-                self.sig_update_tool_widgets.emit(current_row)
+                self.signal_update_tool_widgets.emit(current_row)
 
             print('remove row {}'.format(i))
 
@@ -259,7 +259,7 @@ class BP_Dialog(QDialog):
         if ret:
             count = self.model.rowCount() - 1
             self.table_view.selectRow(count)
-            self.sig_update_tool_widgets.emit(count)
+            self.signal_update_tool_widgets.emit(count)
 
             print('Insert row in position {}'.format(count))
             self.model.submit()
@@ -273,7 +273,7 @@ class BP_Dialog(QDialog):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
         if current_row < self.model.rowCount()-1:
             self.table_view.selectRow(current_row+1)
-            self.sig_update_tool_widgets.emit(current_row+1)
+            self.signal_update_tool_widgets.emit(current_row + 1)
 
     def read_settings(self):
         print("reading settings")

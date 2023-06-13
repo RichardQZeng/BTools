@@ -21,9 +21,11 @@ from common import *
 bt = BeraTools()
 
 
-class ToolWin(QWidget):
+class ToolWidgets(QWidget):
+    signal_save_tool_params = pyqtSignal(object)
+
     def __init__(self, tool_name, parent=None):
-        super(ToolWin, self).__init__(parent)
+        super(ToolWidgets, self).__init__(parent)
 
         self.tool_name = tool_name
         self.current_tool_api = ''
@@ -34,6 +36,9 @@ class ToolWin(QWidget):
 
         for item in self.widget_list:
             layout.addWidget(item)
+
+        self.save_button = QPushButton('Save Parameters')
+        layout.addWidget(self.save_button)
 
         layout.addStretch()
         self.setLayout(layout)
@@ -159,9 +164,11 @@ class FileSelector(QWidget):
             elif "ExistingFile" in self.parameter_type or "NewFile" in self.parameter_type:
                 file_types = "All files '*.*')"
                 if 'RasterAndVector' in self.file_type:
-                    file_types = "Shapefiles (*.shp);; Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.rdc *.asc *grd)"
+                    file_types = """Shapefiles (*.shp);; 
+                                    Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.rdc *.asc *grd)"""
                 elif 'Raster' in self.file_type:
-                    file_types = "Tiff raster files (*.tif *.tiff);; Other raster files (*.dep *.bil *.flt *.sdat *.rdc *.asc *.grd)"
+                    file_types = """Tiff raster files (*.tif *.tiff);; 
+                                    Other raster files (*.dep *.bil *.flt *.sdat *.rdc *.asc *.grd)"""
                 elif 'Lidar' in self.file_type:
                     file_types = "LiDAR files (*.las *.zlidar *.laz *.zip)"
                 elif 'Vector' in self.file_type:
@@ -416,6 +423,6 @@ class DoubleSlider(QSlider):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    dlg = ToolWin('Raster Line Attributes')
+    dlg = ToolWidgets('Raster Line Attributes')
     dlg.show()
     sys.exit(app.exec_())
