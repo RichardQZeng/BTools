@@ -30,6 +30,7 @@ class ToolWidgets(QWidget):
         self.tool_name = tool_name
         self.current_tool_api = ''
         self.widget_list = []
+        self.setWindowTitle("Tool widgets")
 
         self.create_widgets()
         layout = QVBoxLayout()
@@ -39,13 +40,11 @@ class ToolWidgets(QWidget):
 
         self.save_button = QPushButton('Save Parameters')
         self.save_button.clicked.connect(self.save_tool_parameters)
-        layout.addSpacing(20)
         self.save_button.setFixedSize(200, 40)
+        layout.addSpacing(20)
         layout.addWidget(self.save_button, alignment=Qt.AlignCenter)
-
         layout.addStretch()
         self.setLayout(layout)
-        self.setWindowTitle("Tool widgets")
 
     def get_current_tool_parameters(self):
         tool_params = bt.get_bera_tool_parameters(self.tool_name)
