@@ -98,6 +98,7 @@ class PandasModel(QAbstractTableModel):
 
     def updateRow(self, row, row_data):
         self._df.loc[row] = row_data
+        self.dataChanged(row, 0)
 
 class BPDialog(QDialog):
     # signals
