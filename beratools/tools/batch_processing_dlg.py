@@ -94,14 +94,15 @@ class PandasModel(QAbstractTableModel):
             print('removed: {}'.format(position+i))
 
         self.endRemoveRows()
+        return True
 
 
-class BP_Dialog(QDialog):
+class BPDialog(QDialog):
     # signals
     signal_update_tool_widgets = pyqtSignal(int)
 
     def __init__(self, tool_name, parent=None):
-        super(BP_Dialog, self).__init__(parent)
+        super(BPDialog, self).__init__(parent)
         self.setWindowTitle('Batch Processing')
         self.MaxRecentFiles = 5
         self.window_list = []
@@ -439,7 +440,7 @@ class BP_Dialog(QDialog):
  
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main = BP_Dialog('Raster Line Attributes')
+    main = BPDialog('Raster Line Attributes')
     main.show()
     if len(sys.argv) > 1:
         main.open_csv(sys.argv[1])
