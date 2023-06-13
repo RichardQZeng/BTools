@@ -96,6 +96,8 @@ class PandasModel(QAbstractTableModel):
         self.endRemoveRows()
         return True
 
+    def updateRow(self, row, row_data):
+        self._df.loc[row] = row_data
 
 class BPDialog(QDialog):
     # signals
@@ -125,8 +127,6 @@ class BPDialog(QDialog):
         self.table_view.verticalHeader().sectionClicked.connect(self.table_view_vertical_header_clicked)
         QShortcut(Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
         QShortcut(Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
-
-        self.signal_update_tool_widgets.connect(self.update_tool_widgets)
 
         # create form
         self.tool_widgets = ToolWidgets(tool_name)
@@ -203,6 +203,10 @@ class BPDialog(QDialog):
         self.table_view.setFocus()
         # self.statusBar().showMessage("Ready", 0)
 
+        # signals
+        self.tool_widgets.signal_save_tool_params.connect(self.table_view_update_record)
+        self.signal_update_tool_widgets.connect(self.update_tool_widgets)
+
     def accept(self):
         if self.line_find.hasFocus():
             return
@@ -264,6 +268,10 @@ class BPDialog(QDialog):
 
             print('Insert row in position {}'.format(count))
             self.model.submit()
+
+    def table_view_update_record(self, row_data):
+        current_row = self.table_view.selectionModel().selectedRows()[-1].row()
+        self.model.updateRow(current_row, row_data)
 
     def update_tool_widgets(self, row):
         tool_paramas = self.model.data_row_dict(row)
