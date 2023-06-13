@@ -987,6 +987,12 @@ class MainGui(tk.Frame):
             self.out_text.bind('<Control-c>', lambda _: 'break')
             self.out_text.bind('<BackSpace>', lambda _: 'break')
 
+            # edit context menu
+            self.edit_context_menu = tk.Menu(self, tearoff=False)
+            self.edit_context_menu.add_command(label="Copy",
+                                               command=lambda: self.focus_get().event_generate("<<Copy>>"))
+            self.out_text.bind("<Button-3>", self.display_popup)
+
         #########################################################
         #                  Progress Frame
         #
@@ -1045,6 +1051,9 @@ class MainGui(tk.Frame):
         menubar.add_cascade(label="Help ", menu=helpmenu)
 
         self.master.config(menu=menubar)
+
+    def display_popup(self, event):
+        self.edit_context_menu.post(event.x_root, event.y_root)
 
     def update_verbose(self):
         if bt.get_verbose_mode():
