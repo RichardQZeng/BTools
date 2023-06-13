@@ -371,11 +371,11 @@ class DataInput(QWidget):
         v = self.data
         if v:
             if "Integer" in self.parameter_type:
-                return self.flag, int(self.data)
+                return self.flag, int(self.data())
             elif "Float" in self.parameter_type:
-                return self.flag, float(self.data)
+                return self.flag, float(self.data())
             elif "Double" in self.parameter_type:
-                return self.flag, float(self.data)
+                return self.flag, float(self.data())
             else:  # String or StringOrNumber types
                 return self.flag, self.value.get()
         else:
