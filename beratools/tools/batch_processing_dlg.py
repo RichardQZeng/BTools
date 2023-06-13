@@ -112,6 +112,8 @@ class BPDialog(QDialog):
         self.settings = QSettings('Richard Zeng', 'Batch Processing')
         self.filename = ""
         self.setGeometry(0, 0, 800, 600)
+
+        # tableview
         self.table_view = QTableView()
         self.table_view.verticalHeader().setVisible(True)
         self.model = PandasModel()
@@ -120,15 +122,13 @@ class BPDialog(QDialog):
         self.table_view.setSelectionBehavior(self.table_view.SelectRows)
         self.table_view.setSelectionMode(self.table_view.ExtendedSelection)
 
-        self.tool_name = tool_name
-
-        # tableview signals
         self.table_view.clicked.connect(self.table_view_clicked)
         self.table_view.verticalHeader().sectionClicked.connect(self.table_view_vertical_header_clicked)
         QShortcut(Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
         QShortcut(Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
 
         # create form
+        self.tool_name = tool_name
         self.tool_widgets = ToolWidgets(tool_name)
 
         # self.createToolBar()
