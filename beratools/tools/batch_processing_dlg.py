@@ -340,6 +340,7 @@ class BPDialog(QDialog):
             self.table_view.setModel(self.model)
             self.table_view.resizeColumnsToContents()
             self.table_view.selectRow(0)
+            self.signal_update_tool_widgets.emit(0)
             # self.statusBar().showMessage("%s %s" % (path, "loaded"), 0)
 
     def find_in_table(self):
