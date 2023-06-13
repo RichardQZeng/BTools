@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QApplication, QLineEdit, QFileDialog, QComboBox, QW
                              QStyleOptionSlider, QStyle, QToolTip, QAbstractSlider,
                              QHBoxLayout, QVBoxLayout, QSpinBox, QDoubleSpinBox)
 
-from PyQt5.QtCore import pyqtSignal, Qt, QRect, QPoint
+from PyQt5.QtCore import pyqtSignal, Qt, QPoint
 from pathlib import Path
 import json
 import re

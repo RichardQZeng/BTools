@@ -6,10 +6,10 @@
 
 import pandas as pd
 from PyQt5.QtCore import (Qt, QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex, 
-                          QVariant, QSize, QSettings, pyqtSignal)
-from PyQt5.QtWidgets import (QMainWindow, QTableView, QApplication, QToolBar, QLineEdit, QComboBox, QAction,
-                             QFileDialog, QAbstractItemView, QMessageBox, QWidget, QDockWidget, QFormLayout,
-                             QSpinBox, QPushButton, QShortcut, QDialog, QMenuBar, QWidgetAction, QDialogButtonBox)
+                          QVariant, QSettings, pyqtSignal)
+from PyQt5.QtWidgets import (QTableView, QApplication, QLineEdit, QComboBox,
+                             QFileDialog, QAbstractItemView, QMessageBox, QWidget,
+                             QPushButton, QShortcut, QDialog, QDialogButtonBox)
 from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
