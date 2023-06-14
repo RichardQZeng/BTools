@@ -36,7 +36,7 @@ class MapWindow(QWidget):
         map_layout.addWidget(self.map_widget, 10)
         self.setLayout(map_layout)
         self.setWindowTitle('Tiler map')
-        self.setFixedSize(1200, 800)
+        self.resize(1200, 800)
 
         # Working with the maps with pyqtlet
         self.map = L.map(self.map_widget)
