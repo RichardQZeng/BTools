@@ -5,28 +5,28 @@ channels:
   - conda-forge
 dependencies:
   - python=3.10
-  - setuptools
-  - Pillow
   - fiona > 1.9.2
-  - numpy
-  - rasterio
-  - shapely
   - gdal
-  - pyqt
-  - scipy
+  - geopandas
+  - leafmap
+  - mamba
+  - matplotlib
   - numba
-  - xarray
+  - numpy
+  - Pillow
+  - pip
+  - pyproj
+  - pyqt
+  - rasterio
   - rioxarray
   - scikit-image
-  - xarray-spatial
-  - geopandas
-  - pip
-  - matplotlib
-  - pyproj
+  - scipy
+  - setuptools
+  - shapely
   - sphinx
   - sphinx-rtd-theme
   - sphinx-tabs
-  - leafmap
-  - mamba
   - spyder
+  - xarray
+  - xarray-spatial
 variables:
