@@ -45,9 +45,7 @@ class Window(QtWidgets.QMainWindow):
         lay.addWidget(button_container)
         lay.addWidget(self.view, stretch=1)
 
-        m = folium.Map(
-            location=[45.5236, -122.6750], tiles="Stamen Toner", zoom_start=13
-        )
+        m = folium.Map(location=[45.5236, -122.6750], tiles="Stamen Toner", zoom_start=13)
         df1 = pd.read_csv(r"D:\PyQT\volcano_db.csv")
         df = df1.loc[:, ("Name", "Country", "Latitude", "Longitude", "Type")]
         df.info()

@@ -9,7 +9,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets, QtWebEngineWidgets
 from PyQt5.QtWidgets import QWidget
 
 
-class Window(QWidget):
+class MapWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.initWindow()
@@ -29,7 +29,7 @@ class Window(QWidget):
         button_3.setFixedSize(120, 50)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
-        self.view.setContentsMargins(50, 50, 50, 50)
+        self.view.setContentsMargins(30, 30, 30, 30)
 
         central_widget = QtWidgets.QWidget()
         lay = QtWidgets.QHBoxLayout(central_widget)
@@ -51,7 +51,7 @@ class Window(QWidget):
         
         gdf = gpd.read_file("https://github.com/opengeos/leafmap/raw/master/examples/data/cable_geo.geojson")
         filepath = "https://raw.githubusercontent.com/opengeos/leafmap/master/examples/data/us_cities.csv"
-        m.add_gdf(gdf, layer_name="Cable lines") 
+        m.add_gdf(gdf, layer_name="Cable lines")
         m.add_heatmap(filepath,
                       latitude="latitude",
                       longitude='longitude',
@@ -66,11 +66,13 @@ class Window(QWidget):
         m.add_text(left, position='bottomleft')
         m.add_text(right, position='bottomright')
 
+        m.add_geojson()
+
         self.view.setHtml(m.to_html())
 
 
 if __name__ == "__main__":
     App = QtWidgets.QApplication(sys.argv)
-    window = Window()
+    window = MapWindow()
     window.show()
     sys.exit(App.exec())
