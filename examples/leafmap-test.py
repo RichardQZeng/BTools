@@ -46,33 +46,52 @@ class MapWindow(QWidget):
         lay.addWidget(self.view, stretch=1)
         self.setLayout(lay)
 
-        m = leafmap.Map(center=(40, -100), zoom=4)
-        m.add_basemap("OpenTopoMap")
+        self.m = leafmap.Map(center=(40, -100), zoom=4)
+        self.m.add_basemap("OpenTopoMap")
         
         gdf = gpd.read_file("https://github.com/opengeos/leafmap/raw/master/examples/data/cable_geo.geojson")
         filepath = "https://raw.githubusercontent.com/opengeos/leafmap/master/examples/data/us_cities.csv"
-        m.add_gdf(gdf, layer_name="Cable lines")
-        m.add_heatmap(filepath,
-                      latitude="latitude",
-                      longitude='longitude',
-                      value="pop_max",
-                      name="Heat map",
-                      radius=20)
+        self.m.add_gdf(gdf, layer_name="Cable lines")
+        # m.add_heatmap(filepath,
+        #               latitude="latitude",
+        #               longitude='longitude',
+        #               value="pop_max",
+        #               name="Heat map",
+        #               radius=20)
         
         left = 'ESA WorldCover 2021 S2 FCC'
         right = 'ESA WorldCover 2021 S2 TCC'
 
-        m.split_map(left_layer=left, right_layer=right)
-        m.add_text(left, position='bottomleft')
-        m.add_text(right, position='bottomright')
+        # m.split_map(left_layer=left, right_layer=right)
+        # m.add_text(left, position='bottomleft')
+        # m.add_text(right, position='bottomright')
 
-        m.add_geojson()
+        # self.view.setHtml(self.m.to_html())
 
-        self.view.setHtml(m.to_html())
+    def add_geojson_to_map(self, geojson):
+        style = {
+            "stroke": True,
+            "color": "#0000ff",
+            "weight": 2,
+            "opacity": 1,
+            "fill": True,
+            "fillColor": "#0000ff",
+            "fillOpacity": 0.1,
+        }
 
+        self.m.add_geojson(geojson, style=style)
+
+    def set_html_to_map(self):
+        self.view.setHtml(self.m.to_html())
 
 if __name__ == "__main__":
     App = QtWidgets.QApplication(sys.argv)
-    window = MapWindow()
-    window.show()
+    map_window = MapWindow()
+
+    geojson = r'D:\BERA_Tools\training_samples.geojson'
+    map_window.add_geojson_to_map(geojson)
+
+    map_window.set_html_to_map()
+    map_window.show()
+
     sys.exit(App.exec())
