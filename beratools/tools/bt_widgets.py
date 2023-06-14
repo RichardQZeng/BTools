@@ -40,7 +40,7 @@ class ToolWidgets(QWidget):
 
         self.save_button = QPushButton('Save Parameters')
         self.save_button.clicked.connect(self.save_tool_parameters)
-        self.save_button.setFixedSize(200, 40)
+        self.save_button.setFixedSize(200, 50)
         layout.addSpacing(20)
         layout.addWidget(self.save_button, alignment=Qt.AlignCenter)
         layout.addStretch()
