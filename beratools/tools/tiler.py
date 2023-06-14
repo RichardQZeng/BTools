@@ -103,11 +103,20 @@ class Tiler:
 
         return False
 
-    def cells_to_geojson(self):
-        pass
+    def cells_to_coord_list(self):
+        coords_list = []
+        if self.clip_data:
+            for item in self.clip_data:
+                geom = item['geometry']
+                coords = mapping(geom)['coordinates']
+                if len(coords) > 0:
+                    coords_list.append(coords)
+
+        return coords_list
 
     def execute(self):
         if self.generate_cells():
+            coords_list = self.cells_to_coord_list()
             self.create_out_file_name()
             self.save_clip_files()
 
