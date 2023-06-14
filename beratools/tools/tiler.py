@@ -6,6 +6,7 @@ from pathlib import Path
 from shapely.geometry import shape, Polygon, mapping
 
 from common import *
+from map_window import MapWindow
 
 
 class Tiler:
@@ -64,7 +65,7 @@ class Tiler:
         with open(self.out_project, 'w') as project_file:
             json.dump(project_data, project_file, indent=4)
 
-    def execute(self):
+    def generate_cells(self):
         part_x = 0
         part_y = 0
         width = 0
@@ -78,8 +79,8 @@ class Tiler:
             in_crs = raster.crs
 
         if self.boundary:
-            part_x = math.ceil(width/self.tile_size)
-            part_y = math.ceil(height/self.tile_size)
+            part_x = math.ceil(width / self.tile_size)
+            part_y = math.ceil(height / self.tile_size)
             min_x, min_y, max_x, max_y = self.boundary
             polygon_bound = Polygon([(min_x, min_y), (min_x, max_y), (max_x, max_y), (max_x, min_y)])
 
@@ -98,6 +99,15 @@ class Tiler:
                 if not polygon_bound.disjoint(cell):
                     self.clip_data.append({'geometry': cell})
 
+            return True
+
+        return False
+
+    def cells_to_geojson(self):
+        pass
+
+    def execute(self):
+        if self.generate_cells():
             self.create_out_file_name()
             self.save_clip_files()
 
