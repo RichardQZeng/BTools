@@ -2,7 +2,7 @@ import os
 import sys
 os.environ['QT_API'] = 'pyqt5'
 from qtpy.QtWidgets import QApplication, QVBoxLayout, QHBoxLayout, QWidget, QPushButton
-from pyqtlet2 import L, MapWidget
+from beratools.pyqtlet2 import L, MapWidget
 
 
 class MapWindow(QWidget):
@@ -48,11 +48,6 @@ class MapWindow(QWidget):
         self.marker.bindPopup('Maps are a treasure.')
         self.map.addLayer(self.marker)
 
-        latlang = [[[17.385044, 78.486671], [16.506174, 80.648015], [17.686816, 83.218482]],
-                   [[13.082680, 80.270718], [12.971599, 77.594563], [15.828126, 78.037279]]]
-        self.multipolygon = L.polygon(latlang)
-        self.map.addLayer(self.multipolygon)
-
         # Create a icon called markerIcon in the js runtime.
         self.map.runJavaScript('var markerIcon = L.icon({iconUrl: "https://leafletjs.com/examples/custom-icons/leaf-red.png"});', 0)
 
@@ -67,4 +62,10 @@ class MapWindow(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     widget = MapWindow()
+
+    # add polygons to map
+    polygon_coords = [[[17.385044, 78.486671], [16.506174, 80.648015], [17.686816, 83.218482]],
+                      [[13.082680, 80.270718], [12.971599, 77.594563], [15.828126, 78.037279]]]
+    widget.add_polygons_to_map(polygon_coords)
+
     sys.exit(app.exec_())
