@@ -8,5 +8,5 @@
 /beratools/gui/__pycache__
 /beratools/widgets/__pycache__
 /beratools/gui/icons/grass
-/beratools/pyqtlet2/__pycache__
-/beratools/pyqtlet2/leaflet/__pycache__
+/beratools/pyqtlet2/__pycache__/*.pyc
+__pycache__
