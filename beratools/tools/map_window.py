@@ -47,9 +47,9 @@ class MapWindow(QDialog):
         groupbox_map = QGroupBox('Map')
         self.map_widget = MapWidget()
         self.map_widget.setContentsMargins(10, 10, 10, 10)
-        vbox_map = QVBoxLayout()
-        vbox_map.addWidget(self.map_widget)
-        groupbox_map.setLayout(vbox_map)
+        self.vbox_map = QVBoxLayout()
+        self.vbox_map.addWidget(self.map_widget)
+        groupbox_map.setLayout(self.vbox_map)
         map_layout.addWidget(groupbox_map, 10)
         self.setLayout(map_layout)
 
