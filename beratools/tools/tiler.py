@@ -1,9 +1,13 @@
+import os
+import sys
 import argparse
 import json
 import math
 import fiona
 from pathlib import Path
 from shapely.geometry import shape, Polygon, mapping
+from qtpy.QtWidgets import QApplication, QDialog
+from pyproj import CRS, Transformer
 
 from common import *
 from map_window import MapWindow
@@ -23,6 +27,8 @@ class Tiler:
         self.verbose = verbose
         self.clip_data = []
         self.proj_path = ''
+        self.in_crs = None
+        self.out_crs = None
 
     def create_out_file_name(self):
         # prepare path
@@ -71,12 +77,11 @@ class Tiler:
         width = 0
         height = 0
 
-        in_crs = None
         with(rasterio.open(self.in_chm)) as raster:
             self.boundary = raster.bounds
             width = raster.width
             height = raster.height
-            in_crs = raster.crs
+            self.in_crs = raster.crs
 
         if self.boundary:
             part_x = math.ceil(width / self.tile_size)
@@ -104,19 +109,31 @@ class Tiler:
         return False
 
     def cells_to_coord_list(self):
+        self.out_crs = CRS('EPSG:4326')
+        transformer = Transformer.from_crs(self.in_crs, self.out_crs)
         coords_list = []
         if self.clip_data:
             for item in self.clip_data:
                 geom = item['geometry']
                 coords = mapping(geom)['coordinates']
                 if len(coords) > 0:
-                    coords_list.append(coords)
+                    wgs84_coords = list(transformer.itransform(coords[0]))
+                    wgs84_coords = [list(pt) for pt in wgs84_coords]
+                    coords_list.append(wgs84_coords)
 
         return coords_list
 
     def execute(self):
         if self.generate_cells():
             coords_list = self.cells_to_coord_list()
+            map_window = MapWindow(coords_list)
+            # map_window.add_polygons_to_map(coords_list)
+            # map_window.set_view(coords_list[0][0], 10)
+            flag = map_window.exec()
+
+            if flag != QDialog.Accepted:
+                return
+
             self.create_out_file_name()
             self.save_clip_files()
 
@@ -138,6 +155,11 @@ class Tiler:
 
 
 if __name__ == '__main__':
+    # supress web engine logging
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--enable-logging --log-level=3"
+
+    app = QApplication(sys.argv)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
     parser.add_argument('-p', '--processes')
@@ -148,3 +170,5 @@ if __name__ == '__main__':
 
     tiling = Tiler(print, **args.input, processes=int(args.processes), verbose=verbose)
     tiling.execute()
+
+    sys.exit(app.exec_())

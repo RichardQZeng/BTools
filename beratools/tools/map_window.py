@@ -1,14 +1,21 @@
 import os
 import sys
 os.environ['QT_API'] = 'pyqt5'
-from qtpy.QtWidgets import QApplication, QVBoxLayout, QHBoxLayout, QWidget, QPushButton
+from qtpy.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QWidget,
+                            QPushButton, QGroupBox, QDialog, QDialogButtonBox)
+from qtpy.QtCore import (Qt, Signal)
 from beratools.pyqtlet2 import L, MapWidget
 
 
-class MapWindow(QWidget):
-    def __init__(self):
+class MapWindow(QDialog):
+    def __init__(self, polygons, parent=None):
         # Setting up the widgets and layout
-        super().__init__()
+        super(MapWindow, self).__init__(parent)
+        self.setWindowTitle('Tiler map')
+        self.setGeometry(0, 0, 1200, 800)
+
+        # delete dialog when close
+        self.setAttribute(Qt.WA_DeleteOnClose)
 
         button_1 = QPushButton(self.tr("Button 1"))
         button_2 = QPushButton(self.tr("Button 2"))
@@ -27,39 +34,77 @@ class MapWindow(QWidget):
         button_layout.addWidget(button_3)
         button_layout.addStretch()
 
+        # Add OK/cancel buttons
+        self.ok_btn_box = QDialogButtonBox(Qt.Vertical)
+        self.ok_btn_box.addButton("Run", QDialogButtonBox.AcceptRole)
+        self.ok_btn_box.addButton("Cancel", QDialogButtonBox.RejectRole)
+        self.ok_btn_box.addButton("Help", QDialogButtonBox.HelpRole)
+
+        self.ok_btn_box.accepted.connect(self.run)
+        self.ok_btn_box.rejected.connect(self.cancel)
+        self.ok_btn_box.helpRequested.connect(self.help)
+
+        hbox_btns = QHBoxLayout()
+        hbox_btns.addWidget(self.ok_btn_box)
+
+        groupbox = QGroupBox('Tiles')
+        groupbox.setLayout(hbox_btns)
+
         central_widget = QWidget()
         map_layout = QHBoxLayout(central_widget)
-        map_layout.addWidget(button_container)
+        map_layout.addWidget(groupbox)
 
         self.map_widget = MapWidget()
         self.map_widget.setContentsMargins(30, 30, 30, 30)
         map_layout.addWidget(self.map_widget, 10)
         self.setLayout(map_layout)
-        self.setWindowTitle('Tiler map')
-        self.resize(1200, 800)
 
         # Working with the maps with pyqtlet
         self.map = L.map(self.map_widget)
-        self.map.setView([12.97, 77.59], 10)
+        self.map.setView([56.17327276987646, -111.11278261301068], 10)
+        #self.map.setView(polygons[0][0], 10)
+
+        # Coordinate must be in list. tuples are not working
+        self.add_polygons_to_map(polygons)
 
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
 
-        self.marker = L.marker([12.934056, 77.610029])
-        self.marker.bindPopup('Maps are a treasure.')
-        self.map.addLayer(self.marker)
-
-        # Create a icon called markerIcon in the js runtime.
-        self.map.runJavaScript('var markerIcon = L.icon({iconUrl: "https://leafletjs.com/examples/custom-icons/leaf-red.png"});', 0)
-
-        # Edit the existing python object by accessing it's jsName property
-        self.map.runJavaScript(f'{self.marker.jsName}.setIcon(markerIcon);', 0)
+        # self.marker = L.marker([12.934056, -77.610029])
+        # self.marker.bindPopup('Maps are a treasure.')
+        # self.map.addLayer(self.marker)
+        #
+        # # Create a icon called markerIcon in the js runtime.
+        # self.map.runJavaScript('var markerIcon = L.icon({iconUrl: "https://leafletjs.com/examples/custom-icons/leaf-red.png"});', 0)
+        #
+        # # Edit the existing python object by accessing it's jsName property
+        # self.map.runJavaScript(f'{self.marker.jsName}.setIcon(markerIcon);', 0)
         self.show()
 
     def add_polygons_to_map(self, polygons):
         self.multipolygon = L.polygon(polygons)
         self.map.addLayer(self.multipolygon)
 
+    def set_view(self, point, zoom):
+        self.map.setView(point, 10)
+
+    def accept(self):
+        print("Run the tiling.")
+        QDialog.accept(self)
+
+    def run(self):
+        self.accept()
+
+    def cancel(self):
+        print("Tiling canceled.")
+        self.reject()
+
+    def help(self):
+        print("Help requested.")
+
 if __name__ == '__main__':
+    # supress web engine logging
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--enable-logging --log-level=3"
+
     app = QApplication(sys.argv)
     widget = MapWindow()
 
