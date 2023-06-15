@@ -37,16 +37,20 @@ class MapWindow(QDialog):
         self.vbox_group.addStretch()
         self.vbox_group.addWidget(self.ok_btn_box, alignment=Qt.AlignCenter)
 
-        groupbox = QGroupBox('Tiles')
-        groupbox.setLayout(self.vbox_group)
+        groupbox_info = QGroupBox('Tiles')
+        groupbox_info.setLayout(self.vbox_group)
 
         central_widget = QWidget()
         map_layout = QHBoxLayout(central_widget)
-        map_layout.addWidget(groupbox)
+        map_layout.addWidget(groupbox_info)
 
+        groupbox_map = QGroupBox('Map')
         self.map_widget = MapWidget()
-        self.map_widget.setContentsMargins(30, 30, 30, 30)
-        map_layout.addWidget(self.map_widget, 10)
+        self.map_widget.setContentsMargins(10, 10, 10, 10)
+        vbox_map = QVBoxLayout()
+        vbox_map.addWidget(self.map_widget)
+        groupbox_map.setLayout(vbox_map)
+        map_layout.addWidget(groupbox_map, 10)
         self.setLayout(map_layout)
 
         # Working with the maps with pyqtlet
