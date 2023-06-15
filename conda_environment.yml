@@ -6,7 +6,6 @@ channels:
 dependencies:
   - python=3.10
   - fiona > 1.9.2
-  - gdal
   - geopandas
   - leafmap
   - mamba
@@ -15,7 +14,6 @@ dependencies:
   - numpy
   - Pillow
   - pip
-  - pyproj
   - pyqt
   - rasterio
   - rioxarray
@@ -24,8 +22,8 @@ dependencies:
   - setuptools
   - shapely
   - sphinx
-  - sphinx-rtd-theme
   - sphinx-tabs
+  - sphinx-rtd-theme
   - spyder
   - xarray
   - xarray-spatial
