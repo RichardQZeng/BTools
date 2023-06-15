@@ -1,7 +1,7 @@
 import os
 import sys
 os.environ['QT_API'] = 'pyqt5'
-from qtpy.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QWidget,
+from qtpy.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QWidget, QTreeWidget, QTreeWidgetItem,
                             QPushButton, QGroupBox, QDialog, QDialogButtonBox)
 from qtpy.QtCore import (Qt, Signal)
 from beratools.pyqtlet2 import L, MapWidget
@@ -17,38 +17,28 @@ class MapWindow(QDialog):
         # delete dialog when close
         self.setAttribute(Qt.WA_DeleteOnClose)
 
-        button_1 = QPushButton(self.tr("Button 1"))
-        button_2 = QPushButton(self.tr("Button 2"))
-        button_3 = QPushButton(self.tr("Button 3"))
-
-        button_1.setFixedSize(120, 50)
-        button_2.setFixedSize(120, 50)
-        button_3.setFixedSize(120, 50)
-
-        button_container = QWidget()
-        button_layout = QVBoxLayout(button_container)
-        button_layout.setSpacing(20)
-        button_layout.addStretch()
-        button_layout.addWidget(button_1)
-        button_layout.addWidget(button_2)
-        button_layout.addWidget(button_3)
-        button_layout.addStretch()
-
         # Add OK/cancel buttons
         self.ok_btn_box = QDialogButtonBox(Qt.Vertical)
-        self.ok_btn_box.addButton("Run", QDialogButtonBox.AcceptRole)
+        self.ok_btn_box.addButton("Run Tiler", QDialogButtonBox.AcceptRole)
         self.ok_btn_box.addButton("Cancel", QDialogButtonBox.RejectRole)
         self.ok_btn_box.addButton("Help", QDialogButtonBox.HelpRole)
+
+        self.ok_btn_box.buttons()[0].setFixedSize(120, 40)
+        self.ok_btn_box.buttons()[1].setFixedSize(120, 40)
+        self.ok_btn_box.buttons()[2].setFixedSize(120, 40)
 
         self.ok_btn_box.accepted.connect(self.run)
         self.ok_btn_box.rejected.connect(self.cancel)
         self.ok_btn_box.helpRequested.connect(self.help)
 
-        hbox_btns = QHBoxLayout()
-        hbox_btns.addWidget(self.ok_btn_box)
+        self.info_layout = QVBoxLayout()  # layout reserved for tiles info widgets
+        self.vbox_group = QVBoxLayout()
+        self.vbox_group.addLayout(self.info_layout)
+        self.vbox_group.addStretch()
+        self.vbox_group.addWidget(self.ok_btn_box, alignment=Qt.AlignCenter)
 
         groupbox = QGroupBox('Tiles')
-        groupbox.setLayout(hbox_btns)
+        groupbox.setLayout(self.vbox_group)
 
         central_widget = QWidget()
         map_layout = QHBoxLayout(central_widget)
@@ -102,6 +92,21 @@ class MapWindow(QDialog):
 
     def help(self):
         print("Help requested.")
+
+    def set_tiles_info(self, tiles_info):
+        tree = QTreeWidget()
+        tree.setColumnCount(2)
+        tree.setHeaderLabels(["Item", "Value"])
+        item = QTreeWidgetItem(['Tiles'])
+        for key, value in tiles_info.items():
+            child = QTreeWidgetItem([key, str(value)])
+            item.addChild(child)
+
+        tree.insertTopLevelItem(0, item)
+        tree.expandAll()
+
+        # add to group widget
+        self.vbox_group.insertWidget(0, tree)
 
 
 if __name__ == '__main__':

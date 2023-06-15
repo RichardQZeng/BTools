@@ -108,6 +108,13 @@ class Tiler:
 
         return False
 
+    def generate_tiles_info(self):
+        tiles_info={}
+        tiles_info['count'] = len(self.clip_data)
+        tiles_info['dimension'] = self.tile_size
+
+        return tiles_info
+
     def cells_to_coord_list(self):
         self.out_crs = CRS('EPSG:4326')
         transformer = Transformer.from_crs(self.in_crs, self.out_crs)
@@ -127,6 +134,7 @@ class Tiler:
         if self.generate_cells():
             coords_list = self.cells_to_coord_list()
             map_window = MapWindow()
+            map_window.set_tiles_info(self.generate_tiles_info())
             map_window.add_polygons_to_map(coords_list)
             map_window.set_view(list(coords_list[0][0]), 10)
             flag = map_window.exec()
