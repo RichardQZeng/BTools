@@ -128,15 +128,25 @@ class Tiler:
                     wgs84_coords = [list(pt) for pt in wgs84_coords]
                     coords_list.append(wgs84_coords)
 
-        return coords_list
+        # find bounds
+        x = [pt[0] for polygon in coords_list for pt in polygon]
+        y = [pt[1] for polygon in coords_list for pt in polygon]
+        x_min = min(x)
+        x_max = max(x)
+        y_min = min(y)
+        y_max = max(y)
+
+        center = [(x_min+x_max)/2, (y_min+y_max)/2]
+
+        return coords_list, [[x_min, y_min], [x_max, y_max]], center
 
     def execute(self):
         if self.generate_cells():
-            coords_list = self.cells_to_coord_list()
+            coords_list, bounds, center = self.cells_to_coord_list()
             map_window = MapWindow()
             map_window.set_tiles_info(self.generate_tiles_info())
             map_window.add_polygons_to_map(coords_list)
-            map_window.set_view(list(coords_list[0][0]), 10)
+            map_window.set_view(center, 10.5)
             flag = map_window.exec()
 
             if flag != QDialog.Accepted:

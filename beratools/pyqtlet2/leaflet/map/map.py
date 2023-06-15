@@ -170,6 +170,10 @@ class Map(Evented):
     def getState(self, callback):
         return self.getJsresponseForMap('getMapState()', callback)
 
+    def getBoundsZoom(self, bounds, callback):
+        js = 'map.getBoundsZoom({bounds})'.format(bounds=bounds)
+        return self.getJsresponseForMap(js, callback)
+
     def hasLayer(self, layer):
         return layer in self._layers
 

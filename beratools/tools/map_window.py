@@ -69,7 +69,11 @@ class MapWindow(QDialog):
         self.map.addLayer(self.multipolygon)
 
     def set_view(self, point, zoom):
-        self.map.setView(point, 10)
+        self.map = self.map.setView(point, 10)
+
+    # bounds is a pair of corner points, LL and UR
+    def fit_bounds(self, bounds):
+        self.map.fitBounds(bounds)
 
     def add_marker_layer(self):
         self.marker = L.marker([12.934056, -77.610029])
