@@ -8,7 +8,7 @@ from beratools.pyqtlet2 import L, MapWidget
 
 
 class MapWindow(QDialog):
-    def __init__(self, polygons, parent=None):
+    def __init__(self, parent=None):
         # Setting up the widgets and layout
         super(MapWindow, self).__init__(parent)
         self.setWindowTitle('Tiler map')
@@ -61,23 +61,13 @@ class MapWindow(QDialog):
 
         # Working with the maps with pyqtlet
         self.map = L.map(self.map_widget)
-        self.map.setView([56.17327276987646, -111.11278261301068], 10)
-        #self.map.setView(polygons[0][0], 10)
-
-        # Coordinate must be in list. tuples are not working
-        self.add_polygons_to_map(polygons)
+        self.map.setView([0, 0], 10)  # this is necessary
 
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(self.map)
 
-        # self.marker = L.marker([12.934056, -77.610029])
-        # self.marker.bindPopup('Maps are a treasure.')
-        # self.map.addLayer(self.marker)
-        #
-        # # Create a icon called markerIcon in the js runtime.
-        # self.map.runJavaScript('var markerIcon = L.icon({iconUrl: "https://leafletjs.com/examples/custom-icons/leaf-red.png"});', 0)
-        #
-        # # Edit the existing python object by accessing it's jsName property
-        # self.map.runJavaScript(f'{self.marker.jsName}.setIcon(markerIcon);', 0)
+        # add marker layer
+        # self.add_marker_layer()
+
         self.show()
 
     def add_polygons_to_map(self, polygons):
@@ -86,6 +76,18 @@ class MapWindow(QDialog):
 
     def set_view(self, point, zoom):
         self.map.setView(point, 10)
+
+    def add_marker_layer(self):
+        self.marker = L.marker([12.934056, -77.610029])
+        self.marker.bindPopup('Maps are a treasure.')
+        self.map.addLayer(self.marker)
+
+        # Create a icon called markerIcon in the js runtime.
+        self.map.runJavaScript('var markerIcon '
+                               '= L.icon({iconUrl: "https://leafletjs.com/examples/custom-icons/leaf-red.png"});', 0)
+
+        # Edit the existing python object by accessing it's jsName property
+        self.map.runJavaScript(f'{self.marker.jsName}.setIcon(markerIcon);', 0)
 
     def accept(self):
         print("Run the tiling.")
@@ -100,6 +102,7 @@ class MapWindow(QDialog):
 
     def help(self):
         print("Help requested.")
+
 
 if __name__ == '__main__':
     # supress web engine logging

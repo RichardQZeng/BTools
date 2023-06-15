@@ -126,9 +126,9 @@ class Tiler:
     def execute(self):
         if self.generate_cells():
             coords_list = self.cells_to_coord_list()
-            map_window = MapWindow(coords_list)
-            # map_window.add_polygons_to_map(coords_list)
-            # map_window.set_view(coords_list[0][0], 10)
+            map_window = MapWindow()
+            map_window.add_polygons_to_map(coords_list)
+            map_window.set_view(list(coords_list[0][0]), 10)
             flag = map_window.exec()
 
             if flag != QDialog.Accepted:
