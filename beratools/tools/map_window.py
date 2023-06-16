@@ -61,11 +61,15 @@ class MapWindow(QDialog):
 
         # add marker layer
         # self.add_marker_layer()
+        L.
 
         self.show()
 
-    def add_polygons_to_map(self, polygons):
-        self.multipolygon = L.polygon(polygons, {'color': 'magenta'})
+    def add_polygons_to_map(self, polygons, color):
+        style = {}
+        style['color'] = color
+        style['fillOpacity'] = 0.1
+        self.multipolygon = L.polygon(polygons, style)
         self.map.addLayer(self.multipolygon)
 
         # this works too. addLayer has to be called first
@@ -131,10 +135,10 @@ if __name__ == '__main__':
 
     # add polygons to map
     polygon_coords_base = [[[17.285044, 78.286671], [16.606174, 80.748015], [17.886816, 83.518482]]]
-    widget.add_polygons_to_map(polygon_coords_base)
+    widget.add_polygons_to_map(polygon_coords_base, 'blue')
 
     polygon_coords = [[[17.385044, 78.486671], [16.506174, 80.648015], [17.686816, 83.218482]],
                       [[13.082680, 80.270718], [12.971599, 77.594563], [15.828126, 78.037279]]]
-    widget.add_polygons_to_map(polygon_coords)
+    widget.add_polygons_to_map(polygon_coords, 'red')
 
     sys.exit(app.exec_())
