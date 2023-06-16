@@ -22,13 +22,13 @@ class OperationCancelledException(Exception):
 def compare_crs(in_line, in_cost_raster):
     line_crs = None
     ras_crs = None
-    in_lin_file = ogr.Open(in_line)
-    line_crs = in_lin_file.GetLayer().GetSpatialRef()
+    in_line_file = ogr.Open(in_line)
+    line_crs = in_line_file.GetLayer().GetSpatialRef()
 
     cost_raster_file = gdal.Open(in_cost_raster)
     ras_crs = cost_raster_file.GetSpatialRef()
 
-    del in_lin_file
+    del in_line_file
     del cost_raster_file
 
     if line_crs and ras_crs:
