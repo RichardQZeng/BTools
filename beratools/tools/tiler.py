@@ -140,10 +140,28 @@ class Tiler:
 
         return coords_list, [[x_min, y_min], [x_max, y_max]], center
 
+    def shapefile_to_coord_list(self):
+        lines = read_lines_from_shapefile(self.in_line)
+        line_coords = []
+
+        coords_list = []
+        for line in lines:
+            coords = line['coordinates']
+            for pt in coords:
+                coords_list.append(list(pt))
+
+            line_coords.append(coords_list)
+
+        return line_coords
+
     def execute(self):
         if self.generate_cells():
             coords_list, bounds, center = self.cells_to_coord_list()
             map_window = MapWindow()
+
+            # add lines to map
+            # lines = self.shapefile_to_coord_list()
+            # map_window.add_polylines_to_map(lines, 'gray')
 
             # add AOI polygon and tile polygons
             map_window.set_tiles_info(self.generate_tiles_info())
