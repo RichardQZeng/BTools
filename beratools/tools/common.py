@@ -11,6 +11,7 @@
 import rasterio
 import rasterio.mask
 import geopandas as gpd
+import fiona
 
 # constants
 USE_MULTI_PROCESSING = True
@@ -23,6 +24,7 @@ BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
 BT_SHOW_ADVANCED_OPTIONS = False
+
 
 def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
     ras_nodata = BT_NODATA
@@ -58,4 +60,12 @@ def clip_lines(clip_geom, buffer, in_line_file, out_line_file):
     return out_line
 
 
+def read_lines_from_shapefile(in_file):
+    lines = []
+    with fiona.open(in_file) as open_line_file:
+        layer_crs = open_line_file.crs
+        for line in open_line_file:
+            lines.append(line['geometry'])
+
+    return lines
 
