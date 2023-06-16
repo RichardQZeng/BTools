@@ -4,7 +4,7 @@ os.environ['QT_API'] = 'pyqt5'
 from qtpy.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QWidget, QTreeWidget, QTreeWidgetItem,
                             QPushButton, QGroupBox, QDialog, QDialogButtonBox)
 from qtpy.QtCore import (Qt, Signal)
-from beratools.pyqtlet2 import L, MapWidget
+from pyqtlet2 import L, MapWidget
 
 
 class MapWindow(QDialog):
@@ -65,15 +65,20 @@ class MapWindow(QDialog):
         self.show()
 
     def add_polygons_to_map(self, polygons):
-        self.multipolygon = L.polygon(polygons)
+        self.multipolygon = L.polygon(polygons, {'color': 'magenta'})
         self.map.addLayer(self.multipolygon)
 
+        # this works too. addLayer has to be called first
+        # self.map.runJavaScript("var stylePoly = {fillColor:'red',color: 'blue',weight:2,fillOpacity:0.8};", 0)
+        # self.map.runJavaScript(f'{self.multipolygon.jsName}.setStyle(stylePoly);', 0)
+
     def set_view(self, point, zoom):
-        self.map = self.map.setView(point, 10)
+        self.map = self.map.setView(point, zoom)
 
     # bounds is a pair of corner points, LL and UR
     def fit_bounds(self, bounds):
-        self.map.fitBounds(bounds)
+        # self.map.fitBounds(bounds)
+        self.map.runJavaScript(f'{self.map.jsName}.fitBounds(bounds);', 0)
 
     def add_marker_layer(self):
         self.marker = L.marker([12.934056, -77.610029])
