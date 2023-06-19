@@ -15,6 +15,9 @@ import fiona
 
 from osgeo import ogr, gdal, osr
 from rasterio import features
+import tempfile
+from pathlib import Path
+from pyproj import CRS, Transformer
 
 # constants
 USE_MULTI_PROCESSING = True
@@ -75,29 +78,53 @@ def read_lines_from_shapefile(in_file):
 
 def generate_raster_footprint(in_raster):
     inter_img = 'myimage.tif'
-    inter_img_scale = 'myimage_8bit.vrt'
-    mask_path = 'myimage_data_mask.vrt'
-    out_path = 'D:\\Temp'
 
     #  get raster datasource
     src_ds = gdal.Open(in_raster)
-    srcband = src_ds.GetRasterBand(1)
+    width, height = src_ds.RasterXSize, src_ds.RasterYSize
 
     # ensure there is nodata
     # gdal_translate ... -a_nodata 0 ... outimage.vrt
     # gdal_edit -a_nodata 255 somefile.tif
 
-    # gdal_translate -tr 185 185 vendor_image.tif myimage.tif
-    # gdal_translate -outsize 5% 5% vendor_image.tif myimage.tif
-    # gdal_translate -outsize 2048 0 vendor_image.tif myimage.tif
-    options_1 = gdal.TranslateOptions(width=1024, height=1024)
-    gdal.Translate(inter_img, src_ds, options=options_1)
+    # gdal_translate -outsize 1024 0 vendor_image.tif myimage.tif
+    options = None
+    tmp_folder = tempfile.TemporaryDirectory()
+    print('Temporary folder: '.format(tmp_folder.name))
 
-    with rasterio.open('myimage.tif') as src:
-        data = src.read(1)
-        msk = data.read_masks(1)
+    if max(width, height) <= 1024:
+        inter_img = in_raster
+    else:
+        if width >= height:
+            options = gdal.TranslateOptions(width=1024, height=0)
+        else:
+            options = gdal.TranslateOptions(width=0, height=1024)
+
+        inter_img = Path(tmp_folder.name).joinpath(inter_img).as_posix()
+        gdal.Translate(inter_img, src_ds, options=options)
+
+    coords = None
+    with rasterio.open(inter_img) as src:
+        msk = src.read_masks(1)
         shapes = features.shapes(msk, mask=msk)
+        shapes = list(shapes)
+        coords = shapes[0][0]['coordinates'][0]
 
-        if len(shapes) > 0:
-            return shapes[0]
+        coords_geo = []
+        for pt in coords:
+            pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
+            coords_geo.append(pt)
+
+    # clean temporary folder
+    tmp_folder.cleanup()
+
+    in_crs = CRS(src_ds.GetSpatialRef().ExportToWkt())
+    out_crs = CRS('EPSG:4326')
+    transformer = Transformer.from_crs(in_crs, out_crs)
+    coords_geo.pop(-1)
+    coords_geo = list(transformer.itransform(coords_geo))
+    coords_geo = [list(pt) for pt in coords_geo]
+
+    return coords_geo if len(coords_geo) > 0 else None
+
 

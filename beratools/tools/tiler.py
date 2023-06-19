@@ -163,9 +163,13 @@ class Tiler:
             # lines = self.shapefile_to_coord_list()
             # map_window.add_polylines_to_map(lines, 'gray')
 
+            # generate raster footprint and add to the map
+            footprint = generate_raster_footprint(self.in_chm)
+
             # add AOI polygon and tile polygons
             map_window.set_tiles_info(self.generate_tiles_info())
-            map_window.add_polygons_to_map(coords_list, 'magenta')
+            map_window.add_polygons_to_map('cells', coords_list, 'magenta')
+            map_window.add_polygons_to_map('base', footprint, 'green')
             map_window.set_view(center, 10)
             # bounds = [[56.143426823080134, 111.1130415762259], [56.26141944093645, 110.63627702636289]]
             # map_window.fit_bounds(bounds)

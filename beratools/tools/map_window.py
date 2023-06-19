@@ -63,10 +63,10 @@ class MapWindow(QDialog):
         # self.add_marker_layer()
         self.show()
 
-    def add_polygons_to_map(self, polygons, color):
+    def add_polygons_to_map(self, layer_name, polygons, color):
         style = {'fillOpacity': 0.1, 'color': color}
-        multipolygon = L.polygon(polygons, style)
-        self.map.addLayer(multipolygon)
+        vars()[layer_name] = L.polygon(polygons, style)
+        self.map.addLayer(vars()[layer_name])
 
         # this works too. addLayer has to be called first
         # self.map.runJavaScript("var stylePoly = {fillColor:'red',color: 'blue',weight:2,fillOpacity:0.8};", 0)
