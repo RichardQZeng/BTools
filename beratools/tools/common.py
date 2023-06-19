@@ -13,6 +13,9 @@ import rasterio.mask
 import geopandas as gpd
 import fiona
 
+from osgeo import ogr, gdal, osr
+from rasterio import features
+
 # constants
 USE_MULTI_PROCESSING = True
 USE_SCIPY_DISTANCE = True
@@ -68,4 +71,33 @@ def read_lines_from_shapefile(in_file):
             lines.append(line['geometry'])
 
     return lines
+
+
+def generate_raster_footprint(in_raster):
+    inter_img = 'myimage.tif'
+    inter_img_scale = 'myimage_8bit.vrt'
+    mask_path = 'myimage_data_mask.vrt'
+    out_path = 'D:\\Temp'
+
+    #  get raster datasource
+    src_ds = gdal.Open(in_raster)
+    srcband = src_ds.GetRasterBand(1)
+
+    # ensure there is nodata
+    # gdal_translate ... -a_nodata 0 ... outimage.vrt
+    # gdal_edit -a_nodata 255 somefile.tif
+
+    # gdal_translate -tr 185 185 vendor_image.tif myimage.tif
+    # gdal_translate -outsize 5% 5% vendor_image.tif myimage.tif
+    # gdal_translate -outsize 2048 0 vendor_image.tif myimage.tif
+    options_1 = gdal.TranslateOptions(width=1024, height=1024)
+    gdal.Translate(inter_img, src_ds, options=options_1)
+
+    with rasterio.open('myimage.tif') as src:
+        data = src.read(1)
+        msk = data.read_masks(1)
+        shapes = features.shapes(msk, mask=msk)
+
+        if len(shapes) > 0:
+            return shapes[0]
 
