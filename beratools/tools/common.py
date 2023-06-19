@@ -82,6 +82,7 @@ def generate_raster_footprint(in_raster):
     #  get raster datasource
     src_ds = gdal.Open(in_raster)
     width, height = src_ds.RasterXSize, src_ds.RasterYSize
+    coords_geo = []
 
     # ensure there is nodata
     # gdal_translate ... -a_nodata 0 ... outimage.vrt
@@ -89,34 +90,30 @@ def generate_raster_footprint(in_raster):
 
     # gdal_translate -outsize 1024 0 vendor_image.tif myimage.tif
     options = None
-    tmp_folder = tempfile.TemporaryDirectory()
-    print('Temporary folder: '.format(tmp_folder.name))
+    with tempfile.TemporaryDirectory() as tmp_folder:
+        print('Temporary folder: {}'.format(tmp_folder))
 
-    if max(width, height) <= 1024:
-        inter_img = in_raster
-    else:
-        if width >= height:
-            options = gdal.TranslateOptions(width=1024, height=0)
+        if max(width, height) <= 1024:
+            inter_img = in_raster
         else:
-            options = gdal.TranslateOptions(width=0, height=1024)
+            if width >= height:
+                options = gdal.TranslateOptions(width=1024, height=0)
+            else:
+                options = gdal.TranslateOptions(width=0, height=1024)
 
-        inter_img = Path(tmp_folder.name).joinpath(inter_img).as_posix()
-        gdal.Translate(inter_img, src_ds, options=options)
+            inter_img = Path(tmp_folder).joinpath(inter_img).as_posix()
+            gdal.Translate(inter_img, src_ds, options=options)
 
-    coords = None
-    with rasterio.open(inter_img) as src:
-        msk = src.read_masks(1)
-        shapes = features.shapes(msk, mask=msk)
-        shapes = list(shapes)
-        coords = shapes[0][0]['coordinates'][0]
+        coords = None
+        with rasterio.open(inter_img) as src:
+            msk = src.read_masks(1)
+            shapes = features.shapes(msk, mask=msk)
+            shapes = list(shapes)
+            coords = shapes[0][0]['coordinates'][0]
 
-        coords_geo = []
-        for pt in coords:
-            pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
-            coords_geo.append(pt)
-
-    # clean temporary folder
-    tmp_folder.cleanup()
+            for pt in coords:
+                pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
+                coords_geo.append(pt)
 
     in_crs = CRS(src_ds.GetSpatialRef().ExportToWkt())
     out_crs = CRS('EPSG:4326')
