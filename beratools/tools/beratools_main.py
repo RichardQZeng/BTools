@@ -120,8 +120,12 @@ class BeraTools(object):
         self.exe_path = path_str
 
     def save_setting(self, key, value):
-        settings = {}
+        # check setting directory existence
+        data_path = Path(self.setting_file).resolve().parent
+        if not data_path.exists():
+            data_path.mkdir()
 
+        settings = {}
         if os.path.isfile(self.setting_file):
             # read the settings.json file if it exists
             with open(self.setting_file, 'r') as read_settings_file:
