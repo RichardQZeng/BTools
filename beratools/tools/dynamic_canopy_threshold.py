@@ -51,7 +51,7 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
     #             print("Wraning: index and OLnFID are not consistency at index: {}.".format(row))
     #             print("Please check data")
     #             exit()
-    if proc_segments.lower() == 'true':
+    if proc_segments == True:
         line_seg=split_into_segments(line_seg)
     else:
         pass
