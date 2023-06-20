@@ -9,7 +9,7 @@ import json
 import rasterio
 import rasterio.mask
 from osgeo import gdal, ogr
-from shapely.geometry import shape, mapping, LineString, Point
+from shapely.geometry import shape, mapping, LineString, Point, MultiLineString
 
 from dijkstra_algorithm import *
 from common import *
@@ -57,7 +57,12 @@ def centerline(callback, in_line, in_cost, line_radius,
     with fiona.open(in_line) as open_line_file:
         layer_crs = open_line_file.crs
         for line in open_line_file:
-            input_lines.append(line['geometry'])
+            if line.geometry['type'] != 'MultiLineString':
+                input_lines.append(line['geometry'])
+            else:
+                print('MultiLineString found.')
+                geoms = shape(line['geometry']).geoms
+
 
     if proc_segments:
         pass
@@ -68,8 +73,10 @@ def centerline(callback, in_line, in_cost, line_radius,
     fiona_features = []
     all_lines = []
     features = []
+    id = 0
     for line in input_lines:
-        all_lines.append((line, line_radius, in_cost))
+        all_lines.append((line, line_radius, in_cost, id))
+        id += 1
 
     print('{} lines to be processed.'.format(len(all_lines)))
     if USE_MULTI_PROCESSING:
@@ -192,14 +199,22 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
     # TODO: the last element in tuple is point ID
     # TODO: deal with multipart line
+    print('pt_start: {}, {}'.format(pt_start[0], pt_start[1]))
     if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
         print("Point initialization error. Input is tuple.")
+        return None, None
 
-    start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
-    end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
-    start_tuple = start_tuples[0]
+    start_tuples = []
+    end_tuples = []
+    start_tuple = []
+    try:
+        start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
+        end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
+        start_tuple = start_tuples[0]
+    except Exception as e:
+        print(e)
 
-    print("Searching least cost path...")
+    print("Searching least cost path for line with id: {}".format(line_args[3]))
     result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
 
     if result is None:
@@ -244,7 +259,7 @@ def execute_multiprocessing(line_args, processes, verbose):
                 if verbose:
                     print("Loop {} done.".format(step))
 
-                print('%{}'.format(step/total_steps*100))
+                print('%{}'.format(step/total_steps*100), flush=True)
         return features
     except OperationCancelledException:
         print("Operation cancelled")
