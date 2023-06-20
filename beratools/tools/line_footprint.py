@@ -56,7 +56,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value,
 
     Ori_total_feat=len(line_seg)
 
-    if proc_segments.lower() == 'true':
+    if proc_segments== True:
         Proc_Seg = True
         print("Spliting lines into segments...")
         line_seg = split_into_segments(line_seg)
