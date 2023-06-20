@@ -240,13 +240,11 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             exit()
 
         else:
-            if proc_segments.lower() == 'true':
-                proc_segments = True
+            if proc_segments == True:
                 print("Spliting lines into segments...")
                 line_seg = split_into_segments(line_seg)
                 print("Spliting lines into segments...Done")
             else:
-                proc_segments = False
                 line_seg = split_into_Equal_Nth_segments(line_seg)
             print('%{}'.format(20))
             worklnbuffer = geopandas.GeoDataFrame.copy((line_seg))
