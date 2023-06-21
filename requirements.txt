@@ -9,6 +9,7 @@ numpy
 Pillow
 pip
 pyqt
+pyqtlet2
 rasterio
 rioxarray
 scikit-image

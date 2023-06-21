@@ -14,6 +14,10 @@ dependencies:
   - numpy
   - Pillow
   - pip
+    # works for regular pip packages
+    - pyqtlet2
+    # and for wheels
+    # - http://URL_TO_THE_WHEEL.whl
   - pyqt
   - rasterio
   - rioxarray
