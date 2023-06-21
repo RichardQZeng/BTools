@@ -4,12 +4,15 @@ from multiprocessing.pool import Pool
 
 import numpy as np
 import pyproj
-import fiona
+
 import json
 import rasterio
 import rasterio.mask
 from osgeo import gdal, ogr
+import fiona
+from fiona import Feature, Geometry
 from shapely.geometry import shape, mapping, LineString, Point, MultiLineString
+
 
 from dijkstra_algorithm import *
 from common import *
@@ -62,6 +65,10 @@ def centerline(callback, in_line, in_cost, line_radius,
             else:
                 print('MultiLineString found.')
                 geoms = shape(line['geometry']).geoms
+                for item in geoms:
+                    line_part = Geometry.from_dict(item)
+                    if line_part:
+                        input_lines.append(line_part)
 
 
     if proc_segments:
@@ -214,7 +221,7 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     except Exception as e:
         print(e)
 
-    print("Searching least cost path for line with id: {}".format(line_args[3]))
+    print("Searching least cost path for line with id: {}".format(line_args[3]), flush=True)
     result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
 
     if result is None:
