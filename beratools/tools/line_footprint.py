@@ -144,7 +144,7 @@ def process_single_line(dict_segment):
     exp_shk_cell = dict_segment['exp_shk_cell']
     # out_footprint=dict_segment['out_footprint']
     shapefile_proj = dict_segment['Proj_crs']
-    orginal_col_name_list = dict_segment['orgi_col']
+    orginal_col_name_list = dict_segment['org_col']
 
     # segment line feature ID
     FID = dict_segment['OLnSEG']
@@ -381,7 +381,7 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         print("Input line feature is corrupted, exit!")
         exit()
 
-    # Add tools arguments into geodataframe record
+    # Add tools arguments into GeoDataFrame record
     for record in list_of_segment:
         record['in_canopy_r'] = in_canopy_r
         record['in_cost_r'] = in_cost_r
@@ -391,9 +391,9 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         record['exp_shk_cell'] = exp_shk_cell
         record['proc_seg'] = proc_seg
         record['out_footprint'] = out_footprint
-        record['orgi_col'] = field_list_col
+        record['org_col'] = field_list_col
 
-    # return list of geodataframe represents each line or segment
+    # return list of GeoDataFrame represents each line or segment
     return list_of_segment
 
 
