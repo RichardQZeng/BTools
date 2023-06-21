@@ -136,7 +136,7 @@ class BeraTools(object):
         else:
             print("Settings file not exist, creating one.")
 
-        if value:
+        if value is not None:
             if 'gui_parameters' not in settings.keys():
                 settings['gui_parameters'] = {}
 

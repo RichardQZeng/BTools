@@ -1058,10 +1058,10 @@ class MainGui(tk.Frame):
     def update_verbose(self):
         if bt.get_verbose_mode():
             bt.set_verbose_mode(False)
-            self.file_menu.entryconfig(2, label="Print Tool Output")
+            self.file_menu.entryconfig(1, label="Print Tool Output")
         else:
             bt.set_verbose_mode(True)
-            self.file_menu.entryconfig(2, label="Do Not Print Tool Output")
+            self.file_menu.entryconfig(1, label="Do Not Print Tool Output")
 
     def update_selected_bera_tool(self):
         selected_item = -1
