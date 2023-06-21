@@ -204,9 +204,6 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     # get row col for points
     ras_transform = rasterio.transform.AffineTransformer(out_transform)
 
-    # TODO: the last element in tuple is point ID
-    # TODO: deal with multipart line
-    print('pt_start: {}, {}'.format(pt_start[0], pt_start[1]))
     if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
         print("Point initialization error. Input is tuple.")
         return None, None
