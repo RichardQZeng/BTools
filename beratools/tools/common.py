@@ -18,11 +18,13 @@ from rasterio import features
 import tempfile
 from pathlib import Path
 from pyproj import CRS, Transformer
+import argparse
+import json
 
 # constants
 USE_MULTI_PROCESSING = True
 USE_SCIPY_DISTANCE = True
-USE_PATHOS_MULTIPROCESSING = True
+USE_PATHOS_MULTIPROCESSING = False
 
 BT_NODATA = -9999
 BT_DEBUGGING = False
@@ -124,4 +126,21 @@ def generate_raster_footprint(in_raster):
 
     return coords_geo if len(coords_geo) > 0 else None
 
+
+def check_arguments():
+    # Get tool arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input', type=json.loads)
+    parser.add_argument('-p', '--processes')
+    parser.add_argument('-v', '--verbose')
+    args = parser.parse_args()
+
+    verbose = True if args.verbose == 'True' else False
+    for item in args.input:
+        if args.input[item] == 'false':
+            args.input[item] = False
+        elif args.input[item] == 'true':
+            args.input[item] = True
+
+    return args, verbose
 

@@ -10,11 +10,12 @@ import shapely
 from shapely import *
 from rasterio import features, mask
 from scipy import ndimage
-import argparse
-import json
 from multiprocessing.pool import Pool
+import itertools
 
 from common import *
+
+GROUPING_SEGMENT = False
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -74,6 +75,9 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     if USE_MULTI_PROCESSING:
         footprint_list = execute_multiprocessing(list_dict_segment_all, processes)
     else:
+        process_single_line = process_single_line_segment
+        if GROUPING_SEGMENT:
+            process_single_line = process_single_line_whole
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
             print("ID:{} is Done".format(row['OLnFID']))
@@ -91,8 +95,9 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     dissolved_results.to_file(out_footprint)
     print('%{}'.format(100))
 
-    print('Finishing footprint processing @ {}\n (or in {} second)'
-          .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), time.time()-start_time))
+    # print('Finishing footprint processing @ {}\n (or in {} second)'
+    #      .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), time.time()-start_time))
+    print('Finishing footprint processing in {} seconds)'.format(time.time()-start_time))
 
 
 def field_name_list(fc):
@@ -124,10 +129,26 @@ def has_field(fc, fi):
         return False
 
 
-def process_single_line(dict_segment):
+def process_single_line_whole(line):
+    if len(line) > 0:
+        print('Processing line with ID: {}'.format(line[0]['OLnFID']), flush=True)
+    footprints = []
+    for line_seg in line:
+        footprint = process_single_line_segment(line_seg)
+        footprints.append(footprint)
+
+    footprint_merge = pandas.concat(footprints)
+    footprint_merge.dissolve()
+    footprint_merge.drop(columns=['OLnSEG'])
+    return footprint_merge
+
+
+def process_single_line_segment(dict_segment):
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
-    print('Processing line with ID: {}'.format(dict_segment['id']), flush=True)
+    if not GROUPING_SEGMENT:
+        print('Processing line with ID: {}'.format(dict_segment['OLnSEG']), flush=True)
+
     in_canopy_r = dict_segment['in_canopy_r']
     in_cost_r = dict_segment['in_cost_r']
     # CorridorTh_field=dict_segment['CorridorTh_field']
@@ -289,6 +310,7 @@ def process_single_line(dict_segment):
         out_data = pandas.DataFrame({'OLnFID': [OID], 'OLnSEG': [FID], 'geometry': poly})
         out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
+        print('Single line processing done', flush=True)
         return out_gdata
 
     except Exception as e:
@@ -360,16 +382,13 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
     i = 0
     # process when shapefile is not an empty feature class
     if len(line_seg) > 0:
-
         for row in range(0, len(line_seg)):
             # creates a geometry object
             feat = line_seg.loc[row].geometry
-
-            feature_attributes = {'seg_length': feat.length, 'geometry': feat, 'Proj_crs': line_seg.crs, 'id': i}
+            feature_attributes = {'seg_length': feat.length, 'geometry': feat, 'Proj_crs': line_seg.crs}
             # feature_attributes['seg_length'] = feat.length
             # feature_attributes['geometry'] = feat
             # feature_attributes['Proj_crs'] = line_seg.crs
-            # feature_attributes['id'] = i
 
             for col_name in keep_field_name:
                 feature_attributes[col_name] = line_seg.loc[row, col_name]
@@ -394,7 +413,16 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         record['org_col'] = field_list_col
 
     # return list of GeoDataFrame represents each line or segment
-    return list_of_segment
+    if GROUPING_SEGMENT:
+        # group line segments by line id
+        key_func = lambda x: x['OLnFID']
+        lines = []
+        for key, group in itertools.groupby(list_of_segment, key_func):
+            lines.append(list(group))
+
+        return lines
+    else:
+        return list_of_segment
 
 
 def execute_multiprocessing(line_args, processes):
@@ -405,6 +433,10 @@ def execute_multiprocessing(line_args, processes):
             # chunksize = math.ceil(total_steps / processes)
             # chunk_size = 1000
             step = 0
+            process_single_line = process_single_line_segment
+            if GROUPING_SEGMENT:
+                process_single_line = process_single_line_whole
+
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):  # , chunksize=chunk_size):
                 if BT_DEBUGGING:
@@ -413,6 +445,7 @@ def execute_multiprocessing(line_args, processes):
                 step += 1
                 print('%{}'.format(step/total_steps*100), flush=True)
 
+        print('Multiprocessing done.')
         return features
     except OperationCancelledException:
         print("Operation cancelled")
@@ -424,13 +457,20 @@ if __name__ == '__main__':
     print('Starting footprint processing @ {}'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
     # Get tool arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=json.loads)
-    parser.add_argument('-p', '--processes')
-    parser.add_argument('-v', '--verbose')
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('-i', '--input', type=json.loads)
+    # parser.add_argument('-p', '--processes')
+    # parser.add_argument('-v', '--verbose')
+    # args = parser.parse_args()
+    #
+    # verbose = True if args.verbose == 'True' else False
+    # for item in args.input:
+    #     if args.input[item] == 'false':
+    #         args.input[item] = False
+    #     elif args.input[item] == 'true':
+    #         args.input[item] = True
 
-    verbose = True if args.verbose == 'True' else False
+    in_args, in_verbose = check_arguments()
 
-    line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
+    line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 
