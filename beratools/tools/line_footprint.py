@@ -429,7 +429,6 @@ def execute_multiprocessing(line_args, processes):
         total_steps = len(line_args)
         features = []
 
-        pool = Pool(processes)
         with Pool(processes) as pool:
             # chunksize = math.ceil(total_steps / processes)
             # chunk_size = 1000
