@@ -15,7 +15,7 @@ import itertools
 
 from common import *
 
-GROUPING_SEGMENT = False
+GROUPING_SEGMENT = True
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -146,9 +146,6 @@ def process_single_line_whole(line):
 def process_single_line_segment(dict_segment):
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
-    if not GROUPING_SEGMENT:
-        print('Processing line with ID: {}'.format(dict_segment['OLnSEG']), flush=True)
-
     in_canopy_r = dict_segment['in_canopy_r']
     in_cost_r = dict_segment['in_cost_r']
     # CorridorTh_field=dict_segment['CorridorTh_field']
@@ -310,7 +307,9 @@ def process_single_line_segment(dict_segment):
         out_data = pandas.DataFrame({'OLnFID': [OID], 'OLnSEG': [FID], 'geometry': poly})
         out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
-        print('Single line processing done', flush=True)
+        if not GROUPING_SEGMENT:
+            print('Processing line with ID: {}, done.'.format(dict_segment['OLnSEG']), flush=True)
+
         return out_gdata
 
     except Exception as e:
@@ -429,6 +428,8 @@ def execute_multiprocessing(line_args, processes):
     try:
         total_steps = len(line_args)
         features = []
+
+        pool = Pool(processes)
         with Pool(processes) as pool:
             # chunksize = math.ceil(total_steps / processes)
             # chunk_size = 1000
@@ -443,7 +444,8 @@ def execute_multiprocessing(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
-                print('%{}'.format(step/total_steps*100), flush=True)
+                print('Step {} of {}'.format(step, total_steps), flush=True)
+                print('%{} '.format(step/total_steps*100), flush=True)
 
         print('Multiprocessing done.')
         return features
