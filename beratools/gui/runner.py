@@ -1417,17 +1417,29 @@ class MainGui(tk.Frame):
         A custom callback for dealing with tool output.
         """
         value = str(value)
+
         if "%" in value:
             try:
                 str_array = value.split(" ")
-                label = value.replace(
-                    str_array[len(str_array) - 1], "").strip()
-                progress = float(
-                    str_array[len(str_array) - 1].replace("%", "").strip())
+                str_array_enum = enumerate(str_array)
+                index = 0
+                for item in str_array_enum:
+                    if '%' in item[1]:
+                        index = item[0]
+                        break
+
+                str_array_new = str_array[0:index+1]
+                if index > 0:
+                    str_array_new.insert(0, str_array[index-1])
+
+                value = ' '.join(str_array_new)
+
+                label = value.replace(str_array_new[-1], "").strip(' "')
+                progress = float(str_array_new[-1].replace("%", "").strip())
                 self.progress_var.set(int(progress))
                 self.progress_label['text'] = label
             except ValueError as e:
-                print("Problem converting parsed data into number: ", e)
+                print("custom_callback: Problem converting parsed data into number: ", e)
             except Exception as e:
                 print(e)
         else:
