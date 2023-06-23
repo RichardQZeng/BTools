@@ -20,7 +20,7 @@ import json
 import multiprocessing
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
-from tools.common import *
+from .common import *
 
 running_windows = platform.system() == 'Windows'
 if running_windows:
@@ -254,6 +254,13 @@ class BeraTools(object):
                 sys.stdout.flush()
                 if line != '':
                     if not self.cancel_op:
+                        # remove esc string which origin is unknown
+                        rm_str = '\x1b[0m'
+                        if rm_str in line:
+                            if BT_DEBUGGING:
+                                callback('Problem caught: '+line)
+                            line = line.replace(rm_str, '')
+
                         callback(line.strip())
                     else:
                         self.cancel_op = False
