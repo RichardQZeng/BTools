@@ -2,6 +2,8 @@ import os
 import time
 import warnings
 
+# from pathos.helpers import mp
+
 import pandas
 import geopandas
 import numpy
@@ -14,9 +16,11 @@ from scipy import ndimage
 from multiprocessing.pool import Pool
 import itertools
 
+
 from common import *
 
 GROUPING_SEGMENT = True
+LP_SEGMENT_LENGTH = 100
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -131,9 +135,6 @@ def has_field(fc, fi):
 
 
 def process_single_line_whole(line):
-    if len(line) > 0:
-        print('Processing line with ID: {}. \n'.format(line[0]['OLnFID']), flush=True)
-
     footprints = []
     for line_seg in line:
         footprint = process_single_line_segment(line_seg)
@@ -142,6 +143,10 @@ def process_single_line_whole(line):
     footprint_merge = pandas.concat(footprints)
     footprint_merge.dissolve()
     footprint_merge.drop(columns=['OLnSEG'])
+
+    if len(line) > 0:
+        print('process_single_line_whole: Processing line with ID: {}, done. \n'
+              .format(line[0]['OLnFID']), flush=True)
     return footprint_merge
 
 
@@ -311,7 +316,8 @@ def process_single_line_segment(dict_segment):
         out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         if not GROUPING_SEGMENT:
-            print('Processing line with ID: {}, done.'.format(dict_segment['OLnSEG']), flush=True)
+            print('process_single_line_segment: Processing line with ID: {}, done.'
+                  .format(dict_segment['OLnSEG']), flush=True)
 
         return out_gdata
 
@@ -327,7 +333,7 @@ def split_line_fc(line):
 
 def split_line_npart(line):
     # Work out n parts for each line (divided by 30m)
-    n = math.ceil(line.length/30)
+    n = math.ceil(line.length/LP_SEGMENT_LENGTH)
     if n > 1:
         # divided line into n-1 equal parts;
         distances = numpy.linspace(0, line.length, n)
@@ -436,14 +442,14 @@ def execute_multiprocessing(line_args, processes):
 
         with Pool(processes) as pool:
             # chunksize = math.ceil(total_steps / processes)
-            # chunk_size = 1000
+            chunk_size = 1
             step = 0
             process_single_line = process_single_line_segment
             if GROUPING_SEGMENT:
                 process_single_line = process_single_line_whole
 
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_single_line, line_args):  # , chunksize=chunk_size):
+            for result in pool.imap_unordered(process_single_line, line_args, chunksize=chunk_size):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
