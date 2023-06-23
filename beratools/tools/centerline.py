@@ -271,12 +271,12 @@ def execute_multiprocessing(line_args, processes, verbose):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=json.loads)
-    parser.add_argument('-p', '--processes')
-    parser.add_argument('-v', '--verbose')
-    args = parser.parse_args()
-
-    verbose = True if args.verbose == 'True' else False
-
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('-i', '--input', type=json.loads)
+    # parser.add_argument('-p', '--processes')
+    # parser.add_argument('-v', '--verbose')
+    # args = parser.parse_args()
+    #
+    # verbose = True if args.verbose == 'True' else False
+    in_args, in_verbose = check_arguments()
     centerline(print, **args.input, processes=int(args.processes), verbose=verbose)

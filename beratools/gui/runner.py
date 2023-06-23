@@ -19,6 +19,7 @@ import re  # Added by Rachel for snake_to_camel function
 import json
 import platform
 import glob
+import shlex
 
 import threading
 import signal
@@ -1420,7 +1421,7 @@ class MainGui(tk.Frame):
 
         if "%" in value:
             try:
-                str_array = value.split(" ")
+                str_array = shlex.split(value)  # keep string in double quotes
                 str_array_enum = enumerate(str_array)
                 index = 0
                 for item in str_array_enum:
