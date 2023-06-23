@@ -12,15 +12,15 @@
 from __future__ import print_function
 import os
 from os import path
-from pathlib import Path
 import sys
+from pathlib import Path
 import platform
 import re
 import json
 import multiprocessing
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
-from .common import *
+from tools.common import *
 
 running_windows = platform.system() == 'Windows'
 if running_windows:

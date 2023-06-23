@@ -147,7 +147,7 @@ def process_single_line_whole(line):
     footprint_merge.drop(columns=['OLnSEG'])
 
     if len(line) > 0:
-        print('process_single_line_whole: Processing line with ID: {}, done. \n'
+        print('process_single_line_whole: Processing line with ID: {}, done.'
               .format(line[0]['OLnFID']), flush=True)
     return footprint_merge
 
