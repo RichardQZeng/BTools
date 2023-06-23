@@ -1,3 +1,4 @@
+import os
 import time
 import warnings
 
@@ -131,7 +132,8 @@ def has_field(fc, fi):
 
 def process_single_line_whole(line):
     if len(line) > 0:
-        print('Processing line with ID: {}'.format(line[0]['OLnFID']), flush=True)
+        print('Processing line with ID: {}. \n'.format(line[0]['OLnFID']), flush=True)
+
     footprints = []
     for line_seg in line:
         footprint = process_single_line_segment(line_seg)
@@ -155,7 +157,8 @@ def process_single_line_segment(dict_segment):
         corridor_th_value = float(corridor_th_value)
         if corridor_th_value < 0.0:
             corridor_th_value = 3.0
-    except ValueError:
+    except ValueError as e:
+        print(e)
         corridor_th_value = 3.0
 
     max_ln_width = dict_segment['max_ln_width']
@@ -314,6 +317,8 @@ def process_single_line_segment(dict_segment):
 
     except Exception as e:
         print('Exception: {}'.format(e))
+        print('Line footprint: 318')
+        return None
 
 
 def split_line_fc(line):
@@ -443,8 +448,8 @@ def execute_multiprocessing(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
-                print('Step {} of {}'.format(step, total_steps), flush=True)
-                print('%{} '.format(step/total_steps*100), flush=True)
+                step_str = ' "Step {} of {}" '.format(step, total_steps)
+                print(step_str + ' %{} '.format(step/total_steps*100), flush=True)
 
         print('Multiprocessing done.')
         return features
@@ -470,7 +475,6 @@ if __name__ == '__main__':
     #         args.input[item] = False
     #     elif args.input[item] == 'true':
     #         args.input[item] = True
-
     in_args, in_verbose = check_arguments()
 
     line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
