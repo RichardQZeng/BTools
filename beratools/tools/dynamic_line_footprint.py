@@ -55,6 +55,7 @@ import sys
 # to suppress panadas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
 
+
 class OperationCancelledException(Exception):
     pass
 
@@ -77,9 +78,9 @@ def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
     flatten_mean_result_ndarray = result_ndarray[1].data.reshape(-1)
 
     # Re-shaping the array
-    reshape_Std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
+    reshape_std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
     reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-    return reshape_Std_ndarray, reshape_mean_ndarray
+    return reshape_std_ndarray, reshape_mean_ndarray
 
 
 def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
@@ -95,6 +96,7 @@ def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
     smooth_cost_array = smooth1 / float(max_line_dist)
 
     return smooth_cost_array
+
 
 def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
     aM1a = (cc_mean - cc_std)
@@ -115,10 +117,11 @@ def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, co
 
     return result
 
+
 def dyn_canopy_cost_raster(args):
     in_chm = args[0]
     canopy_ht_threshold = args[1]
-    Tree_radius = args[2]
+    tree_radius = args[2]
     max_line_dist = args[3]
     canopy_avoid = args[4]
     exponent = args[5]
@@ -128,16 +131,13 @@ def dyn_canopy_cost_raster(args):
     out_transform = args[9]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
-
-
-    tree_radius = float(Tree_radius)  # get the round up integer number for tree search radius
+    tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
     max_line_dist = float(max_line_dist)
     canopy_avoid = float(canopy_avoid)
     cost_raster_exponent = float(exponent)
 
-    (cell_x, cell_y) = res
-
     # print('Loading CHM............')
+    (cell_x, cell_y) = res
     band1_ndarray = in_chm
 
     # print('Preparing Kernel window............')
@@ -152,15 +152,17 @@ def dyn_canopy_cost_raster(args):
     # Smoothing raster
     cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, cell_x, cell_y)
     avoidance = max(min(float(canopy_avoid), 1), 0)
-    dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance,
-                                          cost_raster_exponent)
-    dyn_cost_ndarray[numpy.isnan(dyn_cost_ndarray)]=nodata
+    dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
+                                          cc_smooth, avoidance,cost_raster_exponent)
+    dyn_cost_ndarray[numpy.isnan(dyn_cost_ndarray)] = nodata
     return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform
+
 
 def split_line_fc(line):
     return list(map(LineString, zip(line.coords[:-1], line.coords[1:])))
 
-def split_line_nPart(line):
+
+def split_line_npart(line):
     # Work out n parts for each line (divided by 30m)
     n = math.ceil(line.length / 30)
     if n > 1:
@@ -194,7 +196,7 @@ def split_into_Equal_Nth_segments(df):
     crs = odf.crs
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = numpy.nan
-    df = odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry), axis=1))
+    df = odf.assign(geometry=odf.apply(lambda x: split_line_npart(x.geometry), axis=1))
     df = df.explode(index_parts=True)
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
