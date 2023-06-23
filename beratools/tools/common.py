@@ -22,7 +22,7 @@ import argparse
 import json
 
 # constants
-USE_MULTI_PROCESSING = True
+USE_MULTI_PROCESSING = False
 USE_SCIPY_DISTANCE = True
 USE_PATHOS_MULTIPROCESSING = False
 

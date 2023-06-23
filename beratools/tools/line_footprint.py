@@ -85,7 +85,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
             process_single_line = process_single_line_whole
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
-            print("ID:{} is Done".format(row['OLnFID']))
+            print("ID:{} is Done".format(row[0]['OLnFID']))
 
     print('Generating shapefile...........')
     
@@ -238,7 +238,8 @@ def process_single_line_segment(dict_segment):
 
         # generate the cost raster to source point
         mcp_source = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
-        source_cost_acc = mcp_source.find_costs(source)[0]
+        costs = mcp_source.find_costs(source)
+        source_cost_acc = costs[0]
         del mcp_source
 
         # Rasterize destination point
