@@ -86,6 +86,8 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
             print("ID:{} is Done".format(row[0]['OLnFID']))
+            if row[0]['OLnFID'] == 25:
+                pass
 
     print('Generating shapefile...........')
     
@@ -236,10 +238,19 @@ def process_single_line_segment(dict_segment):
                                                out=None, fill=0, all_touched=True, default_value=1, dtype=None)
         source = numpy.transpose(numpy.nonzero(rasterized_source))
 
+        # TODO: further investigate and submit issue to skimage
+        # There is a severe bug in skimage find_costs
+        # when nan is present in clip_cost_r, find_costs cause access violation
+        # no message/exception will be caught
+        # change all nan to -9999 for workaround
+        with numpy.nditer(clip_cost_r, op_flags=['readwrite']) as it:
+            for x in it:
+                if math.isnan(x[...]):
+                    x[...] = -9999
+
         # generate the cost raster to source point
         mcp_source = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
-        costs = mcp_source.find_costs(source)
-        source_cost_acc = costs[0]
+        source_cost_acc, traceback = mcp_source.find_costs(source)
         del mcp_source
 
         # Rasterize destination point
@@ -249,7 +260,7 @@ def process_single_line_segment(dict_segment):
 
         # generate the cost raster to destination point
         mcp_dest = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
-        dest_cost_acc = mcp_dest.find_costs(destination)[0]
+        dest_cost_acc, traceback = mcp_dest.find_costs(destination)
         del mcp_dest
 
         # Generate corridor raster

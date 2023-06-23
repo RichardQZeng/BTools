@@ -205,10 +205,11 @@ def split_into_Equal_Nth_segments(df):
 
 
 def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, proc_segments, out_footprint,
-       tree_radius,max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
+                           tree_radius,max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
+    use_corridor_th_col = True
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
-    # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
 
+    # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
     if not 'DynCanTh' in line_seg.columns.array:
         print("Cannot find {} column in input line data.\n "
               "Please run Dynamic Canopy Threshold first".format('DynCanTh'))
@@ -225,7 +226,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                                                                                              'CorridorTh'))
         line_seg['CorridorTh'] = 3.0
     else:
-        use_CorridorThCol = True
+        use_corridor_th_col = True
 
     if not 'OLnSEG' in line_seg.columns.array:
         # print(
@@ -277,7 +278,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         for row in range(0, len(list_dict_segment_all)):
             l=list(list_dict_segment_all[row])
             l.append(float(max_line_dist))
-            l.append(use_CorridorThCol)
+            l.append(use_corridor_th_col)
             list_dict_segment_all[row]=tuple(l)
 
         # pass center lines for footprint
@@ -378,6 +379,16 @@ def dyn_process_single_line(segment):
                                                fill=0, all_touched=True, default_value=1)
         source = numpy.transpose(numpy.nonzero(rasterized_source))
 
+        # TODO: further investigate and submit issue to skimage
+        # There is a severe bug in skimage find_costs
+        # when nan is present in clip_cost_r, find_costs cause access violation
+        # no message/exception will be caught
+        # change all nan to -9999 for workaround
+        with numpy.nditer(in_cost_r, op_flags=['readwrite']) as it:
+            for x in it:
+                if math.isnan(x[...]):
+                    x[...] = -9999
+
         # generate the cost raster to source point
         mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
         source_cost_acc = mcp_source.find_costs(source)[0]
@@ -464,6 +475,7 @@ def dyn_process_single_line(segment):
         print('Exception: {}'.format(e))
     except:
         print(sys.exc_info())
+
 
 def multiprocessing_Dyn_FP(line_args, processes):
     try:
