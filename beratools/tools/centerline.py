@@ -150,21 +150,19 @@ class MinCostPathHelper:
         return LineString(path_points_raw), attr_vals
 
     @staticmethod
-    def block2matrix(block):
+    def block2matrix_numpy(block, nodata):
         contains_negative = False
-        matrix = [[None if block.isNoData(i, j) else block.value(i, j) for j in range(block.width())]
-                  for i in range(block.height())]
+        with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
+            for x in it:
+                if np.isclose(x, nodata):
+                    x[...] = 9999
+                elif x < 0:
+                    contains_negative = True
 
-        for l in matrix:
-            for v in l:
-                if v is not None:
-                    if v < 0:
-                        contains_negative = True
-
-        return matrix, contains_negative
+        return block, contains_negative
 
     @staticmethod
-    def block2matrix_numpy(block, nodata):
+    def block2matrix(block, nodata):
         contains_negative = False
         width, height = block.shape
         # TODO: deal with nodata
@@ -196,7 +194,12 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     ras_nodata = raster_file.meta['nodata']
     if not ras_nodata:
         ras_nodata = BT_NODATA
-    matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
+
+    USE_NUMPY_FOR_DIJKSTRA = False
+    if USE_NUMPY_FOR_DIJKSTRA:
+        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
+    else:
+        matrix, contains_negative = MinCostPathHelper.block2matrix(out_image[0], ras_nodata)
 
     if contains_negative:
         raise Exception('ERROR: Raster has negative values.')
@@ -219,7 +222,10 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         print(e)
 
     print("Searching least cost path for line with id: {}".format(line_args[3]), flush=True)
-    result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
+    if USE_NUMPY_FOR_DIJKSTRA:
+        result = dijkstra_np(start_tuple, end_tuples, matrix)
+    else:
+        result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
 
     if result is None:
         # raise Exception
@@ -279,4 +285,4 @@ if __name__ == '__main__':
     #
     # verbose = True if args.verbose == 'True' else False
     in_args, in_verbose = check_arguments()
-    centerline(print, **args.input, processes=int(args.processes), verbose=verbose)
+    centerline(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
