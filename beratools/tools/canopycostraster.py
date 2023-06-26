@@ -79,7 +79,7 @@ def np_cc_map(out_canopy_r, chm, in_array, min_ht):
     print('Generating Canopy Closure Raster.......')
 
     # canopy_ndarray = numpy.where(in_array >= min_ht, 1., 0.).astype(float)
-    canopy_ndarray=numpy.ma.where(in_array>min_ht,1.,0.).astype(float)
+    canopy_ndarray=numpy.ma.where(in_array>min_ht, 1., 0.).astype(float)
     canopy_ndarray = numpy.ma.filled(canopy_ndarray, chm.nodata)
     try:
         write_canopy = rasterio.open(out_canopy_r, 'w', **chm.profile)
@@ -107,10 +107,10 @@ def fs_raster(in_ndarray, kernel):
     return mean_result, stdev_result
 
 
-def fs_raster_stdmean(in_ndarray, kernel,nodata ):
+def fs_raster_stdmean(in_ndarray, kernel, nodata):
     # This function uses xrspatial whcih can handle large data but slow
-    in_ndarray[in_ndarray==nodata] = numpy.nan
-    result_ndarray= xrspatial.focal._focal_stats_cpu(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
+    in_ndarray[in_ndarray == nodata] = numpy.nan
+    result_ndarray = xrspatial.focal._focal_stats_cpu(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
 
     # Flattening the array
     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
@@ -122,7 +122,7 @@ def fs_raster_stdmean(in_ndarray, kernel,nodata ):
     return reshape_std_ndarray, reshape_mean_ndarray
 
 
-def smooth_cost(in_raster, search_dist,sampling):
+def smooth_cost(in_raster, search_dist, sampling):
     print('Generating Cost Raster .......')
     from tempfile import mkdtemp
     import os.path as path
@@ -135,7 +135,7 @@ def smooth_cost(in_raster, search_dist,sampling):
         a_in_mat = numpy.memmap(filename, in_raster.dtype, 'w+', shape=in_raster.shape)
         a_in_mat[:] = in_raster[:]
         a_in_mat.flush()
-        euc_dist_array = ndimage.distance_transform_edt(numpy.logical_not(a_in_mat),sampling=sampling)
+        euc_dist_array = ndimage.distance_transform_edt(numpy.logical_not(a_in_mat), sampling=sampling)
         del a_in_mat, in_raster
         shutil.rmtree(path.dirname(filename))
     else:
@@ -172,7 +172,6 @@ def np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, chm, avoidance, c
 # TODO: deal with NODATA
 def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_line_dist,
                        canopy_avoidance, exponent, out_canopy, out_cost, processes, verbose):
-
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(tree_radius)
     max_line_dist = float(max_line_dist)
@@ -206,7 +205,7 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
     # Calculating focal statistic from canopy raster
     #
     # Alternative: (only work on large cell size
-    if cell_y >1 and cell_x > 1:
+    if cell_y > 1 and cell_x > 1:
         cc_mean, cc_std = fs_raster(canopy_ndarray, kernel)
     else:
         cc_std, cc_mean = fs_raster_stdmean(canopy_ndarray, kernel, chm.nodata)
@@ -221,19 +220,21 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=json.loads)
-    parser.add_argument('-p', '--processes')
-    parser.add_argument('-v', '--verbose')
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('-i', '--input', type=json.loads)
+    # parser.add_argument('-p', '--processes')
+    # parser.add_argument('-v', '--verbose')
+    # args = parser.parse_args()
+    #
+    # verbose = True if args.verbose == 'True' else False
 
-    verbose = True if args.verbose == 'True' else False
+    in_args, in_verbose = check_arguments()
 
     start_time = time.time()
     print('Starting Canopy and Cost Raster processing\n @ {}'.format(
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
-    canopy_cost_raster(print, **args.input, processes=int(args.processes), verbose=verbose)
+    canopy_cost_raster(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Finishing Dynamic Canopy Threshold calculation in {} seconds)'.format(round(time.time() - start_time, 5)))
 
 

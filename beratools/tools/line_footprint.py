@@ -494,6 +494,5 @@ if __name__ == '__main__':
     #     elif args.input[item] == 'true':
     #         args.input[item] = True
     in_args, in_verbose = check_arguments()
-
     line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 
