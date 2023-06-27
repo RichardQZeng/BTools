@@ -97,9 +97,16 @@ def centerline(callback, in_line, in_cost, line_radius,
             if feat_geometry and feat_attributes:
                 features.append((feat_geometry, feat_attributes))
 
+    i = 0
     for feature in features:
         if not feature[0] or not feature[1]:
             continue
+
+        if len(feature[0]) <= 1:
+            print('Less than two points in the list {}, ignore'.format(i))
+            continue
+
+        i += 1
 
         # Save lines to shapefile
         single_feature = {
@@ -157,8 +164,8 @@ class MinCostPathHelper:
         contains_negative = False
         with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
             for x in it:
-                if np.isclose(x, nodata):
-                    x[...] = 9999
+                if np.isclose(x, nodata) or np.isnan(x):
+                    x[...] = 9999.0
                 elif x < 0:
                     contains_negative = True
 
@@ -199,7 +206,7 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     if not ras_nodata:
         ras_nodata = BT_NODATA
 
-    USE_NUMPY_FOR_DIJKSTRA = False
+    USE_NUMPY_FOR_DIJKSTRA = True
     if USE_NUMPY_FOR_DIJKSTRA:
         matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
     else:
@@ -225,7 +232,8 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     except Exception as e:
         print(e)
 
-    print("Searching least cost path for line with id: {}".format(line_args[3]), flush=True)
+    print(" Searching least cost path for line with id: {} ".format(line_args[3]), flush=True)
+
     if USE_NUMPY_FOR_DIJKSTRA:
         result = dijkstra_np(start_tuple, end_tuples, matrix)
     else:

@@ -31,6 +31,7 @@ from skimage.graph import route_through_array
 from math import sqrt
 import queue
 import collections
+from common import *
 
 sqrt2 = sqrt(2)
 
@@ -276,6 +277,7 @@ def dijkstra_np(start_tuple, end_tuples, matrix):
     # source and destination are free
     start_node = start_tuple[0]
     end_node = end_tuples[0][0]
+
     matrix[start_node[0], start_node[1]] = 0
     matrix[end_node[0], end_node[1]] = 0
     path, cost = route_through_array(matrix, start_node, end_node)
