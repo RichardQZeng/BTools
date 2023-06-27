@@ -12,6 +12,7 @@ import rasterio
 import rasterio.mask
 import geopandas as gpd
 import fiona
+import numpy as np
 
 from osgeo import ogr, gdal, osr
 from rasterio import features
@@ -22,7 +23,7 @@ import argparse
 import json
 
 # constants
-USE_MULTI_PROCESSING = True
+USE_MULTI_PROCESSING = False
 USE_SCIPY_DISTANCE = True
 USE_PATHOS_MULTIPROCESSING = False
 
@@ -128,6 +129,13 @@ def generate_raster_footprint(in_raster):
     coords_geo = [list(pt) for pt in coords_geo]
 
     return coords_geo if len(coords_geo) > 0 else None
+
+
+def remove_nan_from_array(matrix):
+    with np.nditer(matrix, op_flags=['readwrite']) as it:
+        for x in it:
+            if np.isnan(x[...]):
+                x[...] = -9999
 
 
 def check_arguments():

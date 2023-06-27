@@ -386,10 +386,11 @@ def dyn_process_single_line(segment):
         # when nan is present in clip_cost_r, find_costs cause access violation
         # no message/exception will be caught
         # change all nan to -9999 for workaround
-        with numpy.nditer(in_cost_r, op_flags=['readwrite']) as it:
-            for x in it:
-                if math.isnan(x[...]):
-                    x[...] = -9999
+        remove_nan_from_array(in_cost_r)
+        # with numpy.nditer(in_cost_r, op_flags=['readwrite']) as it:
+        #     for x in it:
+        #         if math.isnan(x[...]):
+        #             x[...] = -9999
 
         # generate the cost raster to source point
         mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
