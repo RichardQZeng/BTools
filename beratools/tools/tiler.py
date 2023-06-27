@@ -109,10 +109,7 @@ class Tiler:
         return False
 
     def generate_tiles_info(self):
-        tiles_info={}
-        tiles_info['count'] = len(self.clip_data)
-        tiles_info['dimension'] = self.tile_size
-
+        tiles_info = {'count': len(self.clip_data), 'dimension': self.tile_size}
         return tiles_info
 
     def cells_to_coord_list(self):
@@ -187,7 +184,7 @@ class Tiler:
                 'geometry': 'Polygon'
             }
             driver = 'ESRI Shapefile'
-            out_line_file = fiona.open(out_cells_file, 'w', driver, schema, in_crs)
+            out_line_file = fiona.open(out_cells_file, 'w', driver, schema, self.in_crs)
             for item in self.clip_data:
                 feature = {
                     'geometry': mapping(item['geometry'])

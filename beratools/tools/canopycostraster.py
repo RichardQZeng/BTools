@@ -231,10 +231,11 @@ if __name__ == '__main__':
     in_args, in_verbose = check_arguments()
 
     start_time = time.time()
-    print('Starting Canopy and Cost Raster processing\n @ {}'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+    print('Starting Canopy and Cost Raster processing\n @ {}'
+          .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
     canopy_cost_raster(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
-    print('Finishing Dynamic Canopy Threshold calculation in {} seconds)'.format(round(time.time() - start_time, 5)))
+    print('Canopy and Cost Raster processing is done in {} seconds)'
+          .format(round(time.time() - start_time, 5)))
 
 

@@ -13,9 +13,12 @@ import fiona
 from fiona import Feature, Geometry
 from shapely.geometry import shape, mapping, LineString, Point, MultiLineString
 
-
 from dijkstra_algorithm import *
 from common import *
+
+import line_profiler
+profile = line_profiler.LineProfiler()
+import time
 
 
 class OperationCancelledException(Exception):
@@ -178,6 +181,7 @@ class MinCostPathHelper:
         return matrix, contains_negative
 
 
+# @profile
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
     line = line_args[0]
     line_radius = line_args[1]
@@ -285,4 +289,6 @@ if __name__ == '__main__':
     #
     # verbose = True if args.verbose == 'True' else False
     in_args, in_verbose = check_arguments()
+    start_time = time.time()
     centerline(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    print('Elapsed time: {}'.format(time.time() - start_time))
