@@ -5,15 +5,23 @@ channels:
   - conda-forge
 dependencies:
   - python=3.10
+  - dask
+  - dask-core
+  - dask-glm
+  - dask-image
+  - dask-labextension
+  - dask-ml
+  - dask-xgboost
   - fiona > 1.9.2
   - geopandas
   - leafmap
+  - line_profiler
   - mamba
   - matplotlib
   - numba
   - numpy
   - Pillow
-  - pip
+  - pip:
     # works for regular pip packages
     - pyqtlet2
     # and for wheels
