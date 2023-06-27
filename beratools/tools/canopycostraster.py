@@ -110,7 +110,7 @@ def fs_raster(in_ndarray, kernel):
 def fs_raster_stdmean(in_ndarray, kernel, nodata):
     # This function uses xrspatial whcih can handle large data but slow
     in_ndarray[in_ndarray == nodata] = numpy.nan
-    result_ndarray = xrspatial.focal._focal_stats_cpu(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
+    result_ndarray = xrspatial.focal.focal_statsu(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
 
     # Flattening the array
     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
