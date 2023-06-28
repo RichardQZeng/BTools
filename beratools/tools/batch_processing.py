@@ -43,7 +43,6 @@ def create_tool_batch_csv(project, tool_name, tasks):
             task['in_line'] = path_line.as_posix()
             task['in_chm'] = in_chm.as_posix()
             task['out_footprint'] = in_line.with_name(in_line.stem + '_dyn_footprint.shp')
-            task['out_line'] = in_line.with_name(in_line.stem + '_line_attributes.shp').as_posix()
         elif tool_name == 'Forest Line Attributes':
             task['in_line'] = path_line.as_posix()
             task['in_chm'] = in_chm.as_posix()
