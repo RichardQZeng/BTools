@@ -20,7 +20,7 @@ import itertools
 from common import *
 
 GROUPING_SEGMENT = True
-LP_SEGMENT_LENGTH = 100
+LP_SEGMENT_LENGTH = 30
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
