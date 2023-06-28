@@ -21,9 +21,11 @@ from pathlib import Path
 from pyproj import CRS, Transformer
 import argparse
 import json
+from shapely.geometry import LineString
+from fiona import Geometry
 
 # constants
-USE_MULTI_PROCESSING = False
+USE_MULTI_PROCESSING = True
 USE_SCIPY_DISTANCE = True
 USE_PATHOS_MULTIPROCESSING = False
 
@@ -136,6 +138,16 @@ def remove_nan_from_array(matrix):
         for x in it:
             if np.isnan(x[...]):
                 x[...] = -9999
+
+
+# Split LineString to segments at vertices
+def segments(line_coords):
+    if len(line_coords) <= 2:
+        return None
+    else:
+        seg_list = zip(line_coords[:-1], line_coords[1:])
+        line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]
+        return [Geometry.from_dict(line) for line in line_list]
 
 
 def check_arguments():

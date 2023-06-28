@@ -73,9 +73,15 @@ def centerline(callback, in_line, in_cost, line_radius,
                     if line_part:
                         input_lines.append(line_part)
 
-
     if proc_segments:
-        pass
+        # split line segments at vertices
+        input_lines_temp = []
+        for line in input_lines:
+            line_segs = segments(line.coordinates)
+            if line_segs:
+                input_lines_temp += line_segs
+
+        input_lines = input_lines_temp
 
     out_fields_list = ["start_pt_id", "end_pt_id", "total_cost"]
 
@@ -281,7 +287,7 @@ def execute_multiprocessing(line_args, processes, verbose):
                 if verbose:
                     print("Loop {} done.".format(step))
 
-                print('%{}'.format(step/total_steps*100), flush=True)
+                print('"%{}'.format(step/total_steps*100), flush=True)
         return features
     except OperationCancelledException:
         print("Operation cancelled")
@@ -289,13 +295,6 @@ def execute_multiprocessing(line_args, processes, verbose):
 
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-i', '--input', type=json.loads)
-    # parser.add_argument('-p', '--processes')
-    # parser.add_argument('-v', '--verbose')
-    # args = parser.parse_args()
-    #
-    # verbose = True if args.verbose == 'True' else False
     in_args, in_verbose = check_arguments()
     start_time = time.time()
     centerline(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
