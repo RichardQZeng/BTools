@@ -1,24 +1,22 @@
-import argparse
 from collections import OrderedDict
 from multiprocessing.pool import Pool
 
 import numpy as np
-import pyproj
+import time
 
-import json
+import pyproj
 import rasterio
 import rasterio.mask
-from osgeo import gdal, ogr
 import fiona
-from fiona import Feature, Geometry
-from shapely.geometry import shape, mapping, LineString, Point, MultiLineString
+from fiona import Geometry
+from osgeo import gdal, ogr
+from shapely.geometry import shape, mapping, LineString, Point
 
 from dijkstra_algorithm import *
 from common import *
 
 import line_profiler
 profile = line_profiler.LineProfiler()
-import time
 
 
 class OperationCancelledException(Exception):
