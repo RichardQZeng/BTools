@@ -91,6 +91,8 @@ class BeraTools(object):
                     self.__max_procs = gui_settings['max_procs']
                 if 'recent_tool' in gui_settings.keys():
                     self.recent_tool = gui_settings['recent_tool']
+                    if not self.get_bera_tool_api(self.recent_tool):
+                        self.recent_tool = None
         else:
             print("Settings.json not exist.")
 
@@ -462,13 +464,20 @@ class BeraTools(object):
         return param_list
 
     def get_bera_tool_name(self, tool_api):
+        tool_name = None
         for toolbox in self.bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool_api == tool['tool_api']:
-                    return tool['name']
+                    tool_name = tool['name']
+
+        return tool_name
 
     def get_bera_tool_api(self, tool_name):
+        tool_api = None
         for toolbox in self.bera_tools['toolbox']:
             for tool in toolbox['tools']:
                 if tool_name == tool['name']:
-                    return tool['tool_api']
+                    tool_api = tool['tool_api']
+
+        return tool_api
+
