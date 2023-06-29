@@ -208,7 +208,7 @@ class BeraTools(object):
             with open(self.setting_file, 'w') as settings_file:
                 json.dump(gui_settings, settings_file, indent=4)
 
-    def run_tool_bt(self, tool_api, args, callback=None):
+    def run_tool_bt(self, tool_api, args, callback=None, verbose=True):
         """ 
         Runs a tool and specifies tool arguments.
         Returns 0 if completes without error.

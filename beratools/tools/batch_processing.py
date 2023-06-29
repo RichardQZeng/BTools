@@ -90,10 +90,12 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
         print('{} tasks are prepared'.format(steps))
         print('-----------------------------------')
 
-        i = 0
+        step = 0
+        total_steps = len(task_data)
         for task in task_data:
-            print('Starting task #{} ...'.format(i))
-            i += 1
+            print('Starting task #{} ...'.format(step))
+            print(' "PROGRESS_LABEL {} task {} of {}" '.format(batch_tool_name, step, total_steps), flush=True)
+            print(' %{} '.format(step/steps*100), flush=True)
             task = generate_task_params(task)
             code = execute_task(bt.get_bera_tool_api(batch_tool_name), task)
             step += 1
@@ -101,14 +103,12 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
             if code == 2:
                 break
 
-            callback('"{}: task {}" %{}'.format(batch_tool_name, i, step/steps*100))
-
     print('Tasks finished.')
 
 
 def execute_task(tool_api, task):
     # return 2 if task is cancelled
-    return bt.run_tool_bt(tool_api, task)
+    return bt.run_tool_bt(tool_api, task, None, False)
 
 
 def generate_task_params(task):

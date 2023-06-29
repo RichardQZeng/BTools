@@ -100,6 +100,9 @@ class PandasModel(QAbstractTableModel):
         self._df.loc[row] = row_data
         self.dataChanged(row, 0)
 
+    def save_csv(self, csv_file):
+        self._df.to_csv(csv_file, index=False)
+
 class BPDialog(QDialog):
     # signals
     signal_update_tool_widgets = pyqtSignal(int)
@@ -216,6 +219,7 @@ class BPDialog(QDialog):
         QDialog.accept(self)
 
     def run(self):
+        self.model.save_csv(self.filename)
         self.accept()
 
     def reject(self):
@@ -337,6 +341,8 @@ class BPDialog(QDialog):
             df = pd.read_csv(f, sep='\t|;|,|\s+', keep_default_na=False, engine='python',
                              skipinitialspace=True, skip_blank_lines=True)
             f.close()
+            self.filename = path
+
             self.model = PandasModel(df)
             self.table_view.setModel(self.model)
             self.table_view.resizeColumnsToContents()
