@@ -1,21 +1,19 @@
+import os
 import sys
+import time
 import numpy
+
 import rasterio
 import xarray as xr
-import xrspatial.focal
-from xrspatial import convolution, allocation
+from xrspatial import convolution, focal
 from numpy.lib.stride_tricks import as_strided
-import os, json
-import time
-import argparse
-import warnings
 from scipy import ndimage
 
 from common import *
 
-
 # TODO: Rolling Statistics for grid data... an alternative
 # by  Dan Patterson
+
 
 def _check(a, r_c, subok=False):
     """Performs the array checks necessary for stride and block.
@@ -31,9 +29,11 @@ def _check(a, r_c, subok=False):
     """
     if isinstance(r_c, (int, float)):
         r_c = (1, int(r_c))
+
     r, c = r_c
     if a.ndim == 1:
         a = numpy.atleast_2d(a)
+
     r, c = r_c = (min(r, a.shape[0]), min(c, a.shape[1]))
     a = numpy.array(a, copy=False, subok=subok)
     return a, r, c, tuple(r_c)
@@ -62,7 +62,6 @@ def stride(a, r_c):
     :     minimum shape will be (1*r) for 1D array or 2D
     :     array if r<c.  Be aware
     """
-
     a, r, c, r_c = _check(a, r_c)
     shape = (a.shape[0] - r + 1, a.shape[1] - c + 1) + r_c
     strides = a.strides * 2
@@ -79,7 +78,7 @@ def np_cc_map(out_canopy_r, chm, in_array, min_ht):
     print('Generating Canopy Closure Raster.......')
 
     # canopy_ndarray = numpy.where(in_array >= min_ht, 1., 0.).astype(float)
-    canopy_ndarray=numpy.ma.where(in_array>min_ht, 1., 0.).astype(float)
+    canopy_ndarray = numpy.ma.where(in_array > min_ht, 1., 0.).astype(float)
     canopy_ndarray = numpy.ma.filled(canopy_ndarray, chm.nodata)
     try:
         write_canopy = rasterio.open(out_canopy_r, 'w', **chm.profile)
@@ -110,7 +109,7 @@ def fs_raster(in_ndarray, kernel):
 def fs_raster_stdmean(in_ndarray, kernel, nodata):
     # This function uses xrspatial whcih can handle large data but slow
     in_ndarray[in_ndarray == nodata] = numpy.nan
-    result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
+    result_ndarray = focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
 
     # Flattening the array
     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
@@ -177,17 +176,10 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
     max_line_dist = float(max_line_dist)
     canopy_avoidance = float(canopy_avoidance)
     cost_raster_exponent = float(exponent)
-    # out_canopy_r = args.get('out_canopy_r')
-    # out_cost_r = args.get('out_cost_r')
 
     print('In CHM: ' + in_chm)
     chm = rasterio.open(in_chm)
-
-    # chm_info = chm.transform
-    # chm_crs = chm.crs
-    # nodata=chm.nodata
     (cell_x, cell_y) = chm.res
-    # row, col = chm.shape
 
     print('Loading CHM............')
     band1_ndarray = chm.read(1, masked=True)
@@ -196,14 +188,13 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
     print('Preparing Kernel window............')
     kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
     print('%{}'.format(20))
+
     # Generate Canopy Raster and return the Canopy array
     canopy_ndarray = np_cc_map(out_canopy, chm, band1_ndarray, canopy_ht_threshold)
-
     print('%{}'.format(40))
-
     print('Apply focal statistic on raster.....')
+
     # Calculating focal statistic from canopy raster
-    #
     # Alternative: (only work on large cell size
     if cell_y > 1 and cell_x > 1:
         cc_mean, cc_std = fs_raster(canopy_ndarray, kernel)
@@ -220,14 +211,6 @@ def canopy_cost_raster(callback, in_chm, canopy_ht_threshold, tree_radius, max_l
 
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-i', '--input', type=json.loads)
-    # parser.add_argument('-p', '--processes')
-    # parser.add_argument('-v', '--verbose')
-    # args = parser.parse_args()
-    #
-    # verbose = True if args.verbose == 'True' else False
-
     in_args, in_verbose = check_arguments()
 
     start_time = time.time()
