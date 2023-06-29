@@ -103,7 +103,10 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
             if code == 2:
                 break
 
-    print('Tasks finished.')
+        print(' "PROGRESS_LABEL {} {} tasks finished" '.format(batch_tool_name, total_steps), flush=True)
+        print(' %{} '.format(0), flush=True)
+
+    print('Tasks finished.', flush=True)
 
 
 def execute_task(tool_api, task):
