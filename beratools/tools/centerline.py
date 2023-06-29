@@ -98,10 +98,16 @@ def centerline(callback, in_line, in_cost, line_radius,
     if USE_MULTI_PROCESSING:
         features = execute_multiprocessing(all_lines, processes, verbose)
     else:
+        total_steps = len(all_lines)
+        step = 0
         for line in all_lines:
             feat_geometry, feat_attributes = process_single_line(line)
             if feat_geometry and feat_attributes:
                 features.append((feat_geometry, feat_attributes))
+            step += 1
+            if verbose:
+                print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
 
     i = 0
     for feature in features:
@@ -279,15 +285,15 @@ def execute_multiprocessing(line_args, processes, verbose):
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):
-                if verbose:
+                if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
 
                 features.append(result)
                 step += 1
                 if verbose:
-                    print("Loop {} done.".format(step))
+                    print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
+                    print(' %{} '.format(step/total_steps*100), flush=True)
 
-                print('"%{}'.format(step/total_steps*100), flush=True)
         return features
     except OperationCancelledException:
         print("Operation cancelled")

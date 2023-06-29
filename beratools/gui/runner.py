@@ -19,7 +19,6 @@ import re  # Added by Rachel for snake_to_camel function
 import json
 import platform
 import glob
-import shlex
 
 import threading
 import signal
@@ -35,6 +34,7 @@ import webbrowser
 from pathlib import Path
 
 from tools.beratools_main import BeraTools
+from tools.common import *
 from .tooltip import *
 from PIL import Image, ImageTk
 
@@ -1421,29 +1421,22 @@ class MainGui(tk.Frame):
 
         if "%" in value:
             try:
-                str_array = shlex.split(value)  # keep string in double quotes
-                str_array_enum = enumerate(str_array)
-                index = 0
-                for item in str_array_enum:
-                    if '%' in item[1]:
-                        index = item[0]
-                        break
-
-                str_array_new = str_array[0:index+1]
-                if index > 0:
-                    str_array_new.insert(0, str_array[index-1])
-
-                value = ' '.join(str_array_new)
-
-                label = value.replace(str_array_new[-1], "").strip(' "')
-                progress = float(str_array_new[-1].replace("%", "").strip())
+                str_progress = extract_string_from_printout(value, '%')
+                value = value.replace(str_progress, '').strip()  # remove progress string
+                progress = float(str_progress.replace("%", "").strip())
                 self.progress_var.set(int(progress))
-                self.progress_label['text'] = label
             except ValueError as e:
                 print("custom_callback: Problem converting parsed data into number: ", e)
             except Exception as e:
                 print(e)
-        else:
+        elif 'PROGRESS_LABEL' in value:
+            str_label = extract_string_from_printout(value, 'PROGRESS_LABEL')
+            value = value.replace(str_label, '').strip()  # remove progress string
+            value = value.replace('"', '')
+            str_label = str_label.replace("PROGRESS_LABEL", "").strip()
+            self.progress_label['text'] = str_label
+
+        if value != '':
             self.print_line_to_output(value)
 
         self.update()  # this is needed for cancelling and updating the progress bar

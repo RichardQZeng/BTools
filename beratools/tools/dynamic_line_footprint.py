@@ -292,11 +292,15 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         else:
             # Non multi-processing, for debug only
             print("There are {} result to process.".format(len(list_dict_segment_all)))
-            index = 0
+            step = 0
+            total_steps = len(list_dict_segment_all)
             for row in list_dict_segment_all:
                 footprint_list.append(dyn_process_single_line(row))
-                print("FP for line {} is done".format(index))
-                index = index + 1
+                print("Footprint for line {} is done".format(step))
+                print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step/total_steps*100))
+                step += 1
+
     print('%{}'.format(80))
     print("Generate Dynamic footprint.....Done")
     print('Generating shapefile...........')
@@ -493,7 +497,8 @@ def multiprocessing_Dyn_FP(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
-                print('%{}'.format(step / total_steps * 100))
+                print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100))
         return features
     except OperationCancelledException:
         print("Operation cancelled")
@@ -501,7 +506,6 @@ def multiprocessing_Dyn_FP(line_args, processes):
 
 def multiprocessing_dynamic_CC(line_args, processes):
     try:
-
         total_steps = len(line_args)
 
         features = []
@@ -518,13 +522,15 @@ def multiprocessing_dynamic_CC(line_args, processes):
                         print('Got result: {}'.format(result), flush=True)
                     features.append(result)
                     step += 1
-                    print('%{}'.format(step / total_steps * 100))
+                    print(' "PROGRESS_LABEL Dynamic Canopy Cost {} of {}" '.format(step, total_steps), flush=True)
+                    print(' %{} '.format(step/total_steps*100))
             else:
-                index = 0
                 for row in line_args:
                     features.append(dyn_canopy_cost_raster(row))
-                    print("Dynamic CC for line {} is done".format(index))
-                    index = index + 1
+                    print(' "PROGRESS_LABEL Dynamic Canopy Cost {} of {}" '.format(step, total_steps), flush=True)
+                    print(' %{} '.format(step/total_steps*100))
+                    print("Dynamic CC for line {} is done".format(step))
+                    step += 1
 
         return features
 

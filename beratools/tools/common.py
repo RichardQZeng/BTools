@@ -23,6 +23,7 @@ import argparse
 import json
 from shapely.geometry import LineString
 from fiona import Geometry
+import shlex
 
 # constants
 USE_MULTI_PROCESSING = True
@@ -148,6 +149,18 @@ def segments(line_coords):
         seg_list = zip(line_coords[:-1], line_coords[1:])
         line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]
         return [Geometry.from_dict(line) for line in line_list]
+
+
+def extract_string_from_printout(str_print, str_extract):
+    str_array = shlex.split(str_print)  # keep string in double quotes
+    str_array_enum = enumerate(str_array)
+    index = 0
+    for item in str_array_enum:
+        if str_extract in item[1]:
+            index = item[0]
+            break
+    str_out = str_array[index]
+    return str_out.strip()
 
 
 def check_arguments():

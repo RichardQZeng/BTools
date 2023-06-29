@@ -83,11 +83,14 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         process_single_line = process_single_line_segment
         if GROUPING_SEGMENT:
             process_single_line = process_single_line_whole
+
+        total_steps = len(list_dict_segment_all)
+        step = 0
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
-            print("ID:{} is Done".format(row[0]['OLnFID']))
-            if row[0]['OLnFID'] == 25:
-                pass
+            step += 1
+            print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+            print(' %{} '.format(step / total_steps * 100), flush=True)
 
     print('Generating shapefile...........')
     
@@ -467,8 +470,8 @@ def execute_multiprocessing(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
-                step_str = ' "Step {} of {}" '.format(step, total_steps)
-                print(step_str + ' %{} '.format(step/total_steps*100), flush=True)
+                print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step/total_steps*100), flush=True)
 
         print('Multiprocessing done.')
         return features
