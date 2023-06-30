@@ -28,6 +28,7 @@ dependencies:
     # - http://URL_TO_THE_WHEEL.whl
   - pyqt
   - rasterio
+  - ray-all
   - rioxarray
   - scikit-image
   - scipy

@@ -11,6 +11,7 @@ import fiona
 from fiona import Geometry
 from osgeo import gdal, ogr
 from shapely.geometry import shape, mapping, LineString, Point
+import ray
 
 from dijkstra_algorithm import *
 from common import *
@@ -93,11 +94,26 @@ def centerline(callback, in_line, in_cost, line_radius,
         id += 1
 
     print('{} lines to be processed.'.format(len(all_lines)))
-    if USE_MULTI_PROCESSING:
+    step = 0
+
+    if PARALLEL_MODE == PARALLEL_MULTIPROCESSING:
         features = execute_multiprocessing(all_lines, processes, verbose)
-    else:
+    elif PARALLEL_MODE == PARALLEL_RAY:
+        ray.init(log_to_driver=False)
         total_steps = len(all_lines)
-        step = 0
+        process_single_line_ray = ray.remote(process_single_line)
+        result_ids = [process_single_line_ray.remote(line) for line in all_lines]
+
+        while len(result_ids):
+            done_id, result_ids = ray.wait(result_ids) 
+            feat_geometry, feat_attributes = ray.get(done_id[0])
+            features.append((feat_geometry, feat_attributes))
+            print('Done {}'.format(step))
+            step += 1
+
+        # ray.shutdown()
+
+    elif PARALLEL_MODE == PARALLEL_SEQUENTIAL:
         for line in all_lines:
             feat_geometry, feat_attributes = process_single_line(line)
             if feat_geometry and feat_attributes:
@@ -135,11 +151,14 @@ def centerline(callback, in_line, in_cost, line_radius,
     }
 
     driver = 'ESRI Shapefile'
+    print('Writing lines to shapefile')
 
-    out_line_file = fiona.open(out_line, 'w', driver, schema, layer_crs.to_proj4())
-    for feature in fiona_features:
-        out_line_file.write(feature)
-    del out_line_file
+    with fiona.open(out_line, 'w', driver, schema, layer_crs.to_proj4()) as out_line_file:
+        for feature in fiona_features:
+            out_line_file.write(feature)
+
+    if ray.is_initialized():
+        ray.shutdown()
 
 
 class MinCostPathHelper:
