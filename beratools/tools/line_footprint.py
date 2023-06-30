@@ -1,8 +1,5 @@
-import os
 import time
 import warnings
-
-# from pathos.helpers import mp
 
 import pandas
 import geopandas
@@ -15,7 +12,6 @@ from rasterio import features, mask
 from scipy import ndimage
 from multiprocessing.pool import Pool
 import itertools
-
 
 from common import *
 
@@ -78,7 +74,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     footprint_list = []
 
     if USE_MULTI_PROCESSING:
-        footprint_list = execute_multiprocessing(list_dict_segment_all, processes)
+        footprint_list = execute_multiprocessing(list_dict_segment_all, processes, verbose)
     else:
         process_single_line = process_single_line_segment
         if GROUPING_SEGMENT:
@@ -89,8 +85,9 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         for row in list_dict_segment_all:
             footprint_list.append(process_single_line(row))
             step += 1
-            print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-            print(' %{} '.format(step / total_steps * 100), flush=True)
+            if verbose:
+                print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
 
     print('Generating shapefile...........')
     
@@ -105,14 +102,12 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     dissolved_results.to_file(out_footprint)
     print('%{}'.format(100))
 
-    # print('Finishing footprint processing @ {}\n (or in {} second)'
-    #      .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), time.time()-start_time))
     print('Finishing footprint processing in {} seconds)'.format(time.time()-start_time))
 
 
 def field_name_list(fc):
     # return a list of column name from shapefile
-    if isinstance(fc,geopandas.GeoDataFrame):
+    if isinstance(fc, geopandas.GeoDataFrame):
         field_list = fc.columns.array
     else:
         field_list = geopandas.read_file(fc).columns.array
@@ -160,7 +155,6 @@ def process_single_line_segment(dict_segment):
     # (regardless it process the whole line or individual segment)
     in_canopy_r = dict_segment['in_canopy_r']
     in_cost_r = dict_segment['in_cost_r']
-    # CorridorTh_field=dict_segment['CorridorTh_field']
     corridor_th_value = dict_segment['corridor_th_value']
 
     try:
@@ -173,17 +167,13 @@ def process_single_line_segment(dict_segment):
 
     max_ln_width = dict_segment['max_ln_width']
     exp_shk_cell = dict_segment['exp_shk_cell']
-    # out_footprint=dict_segment['out_footprint']
     shapefile_proj = dict_segment['Proj_crs']
     orginal_col_name_list = dict_segment['org_col']
 
-    # segment line feature ID
-    FID = dict_segment['OLnSEG']
-    # original line ID for segment line
-    OID = dict_segment['OLnFID']
+    FID = dict_segment['OLnSEG']  # segment line feature ID
+    OID = dict_segment['OLnFID']  # original line ID for segment line
 
     segment_list = []
-
     feat = dict_segment['geometry']
     for coord in feat.coords:
         segment_list.append(coord)
@@ -247,10 +237,6 @@ def process_single_line_segment(dict_segment):
         # no message/exception will be caught
         # change all nan to -9999 for workaround
         remove_nan_from_array(clip_cost_r)
-        # with numpy.nditer(clip_cost_r, op_flags=['readwrite']) as it:
-        #     for x in it:
-        #         if math.isnan(x[...]):
-        #             x[...] = -9999
 
         # generate the cost raster to source point
         mcp_source = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
@@ -277,13 +263,10 @@ def process_single_line_segment(dict_segment):
         else:
             corr_min = 0.05
 
-        # corridor[numpy.isinf(corridor)]=-9999
-        # masked_corridor = numpy.ma.masked_where(corridor==-9999, corridor)
         # Set minimum as zero and save minimum file
         corridor_min = numpy.ma.where((corridor - corr_min) > corridor_th_value, 1.0, 0.0)
 
         # Process: Stamp CC and Max Line Width
-
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
         temp1 = (corridor_min + clip_canopy_r)
@@ -332,8 +315,7 @@ def process_single_line_segment(dict_segment):
         out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         if not GROUPING_SEGMENT:
-            print('process_single_line_segment: Processing line with ID: {}, done.'
-                  .format(dict_segment['OLnSEG']), flush=True)
+            print('LP:PSLS: Processing line ID: {}, done.'.format(dict_segment['OLnSEG']), flush=True)
 
         return out_gdata
 
@@ -412,9 +394,6 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
             # creates a geometry object
             feat = line_seg.loc[row].geometry
             feature_attributes = {'seg_length': feat.length, 'geometry': feat, 'Proj_crs': line_seg.crs}
-            # feature_attributes['seg_length'] = feat.length
-            # feature_attributes['geometry'] = feat
-            # feature_attributes['Proj_crs'] = line_seg.crs
 
             for col_name in keep_field_name:
                 feature_attributes[col_name] = line_seg.loc[row, col_name]
@@ -441,7 +420,7 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
     # return list of GeoDataFrame represents each line or segment
     if GROUPING_SEGMENT:
         # group line segments by line id
-        key_func = lambda x: x['OLnFID']
+        def key_func(x): return x['OLnFID']
         lines = []
         for key, group in itertools.groupby(list_of_segment, key_func):
             lines.append(list(group))
@@ -451,13 +430,12 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         return list_of_segment
 
 
-def execute_multiprocessing(line_args, processes):
+def execute_multiprocessing(line_args, processes, verbose):
     try:
         total_steps = len(line_args)
         features = []
 
         with Pool(processes) as pool:
-            # chunksize = math.ceil(total_steps / processes)
             chunk_size = 1
             step = 0
             process_single_line = process_single_line_segment
@@ -470,8 +448,9 @@ def execute_multiprocessing(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
                 step += 1
-                print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step/total_steps*100), flush=True)
+                if verbose:
+                    print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                    print(' %{} '.format(step/total_steps*100), flush=True)
 
         print('Multiprocessing done.')
         return features
@@ -484,19 +463,6 @@ if __name__ == '__main__':
     start_time = time.time()
     print('Starting footprint processing @ {}'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
-    # Get tool arguments
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-i', '--input', type=json.loads)
-    # parser.add_argument('-p', '--processes')
-    # parser.add_argument('-v', '--verbose')
-    # args = parser.parse_args()
-    #
-    # verbose = True if args.verbose == 'True' else False
-    # for item in args.input:
-    #     if args.input[item] == 'false':
-    #         args.input[item] = False
-    #     elif args.input[item] == 'true':
-    #         args.input[item] = True
     in_args, in_verbose = check_arguments()
     line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 

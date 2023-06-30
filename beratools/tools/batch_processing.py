@@ -125,13 +125,7 @@ def generate_task_params(task):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=json.loads)
-    parser.add_argument('-p', '--processes')
-    parser.add_argument('-v', '--verbose')
-    args = parser.parse_args()
-    verbose = True if args.verbose == 'True' else False
-
+    in_args, in_verbose = check_arguments()
     app = QApplication(sys.argv)
-    batch_processing(print, **args.input, processes=int(args.processes), verbose=verbose)
+    batch_processing(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     sys.exit(app.exec_())
