@@ -8,6 +8,7 @@
 # License: MIT
 
 # imports
+import sys
 import rasterio
 import rasterio.mask
 import geopandas as gpd
@@ -40,6 +41,7 @@ BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
 BT_SHOW_ADVANCED_OPTIONS = False
+BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
 
 # gdal warning
 gdal.SetConfigOption('CPL_LOG', 'NUL')

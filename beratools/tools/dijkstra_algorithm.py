@@ -36,6 +36,63 @@ from common import *
 sqrt2 = sqrt(2)
 
 
+
+class MinCostPathHelper:
+
+    @staticmethod
+    def _point_to_row_col(pointxy, ras_transform):
+        col, row = ras_transform.rowcol(pointxy.x(), pointxy.y())
+
+        return row, col
+
+    @staticmethod
+    def _row_col_to_point(row_col, ras_transform):
+        x, y = ras_transform.xy(row_col[0], row_col[1])
+        return x, y
+
+    @staticmethod
+    def create_points_from_path(ras_transform, min_cost_path, start_point, end_point):
+        path_points = list(map(lambda row_col: MinCostPathHelper._row_col_to_point(row_col, ras_transform),
+                               min_cost_path))
+        path_points[0] = (start_point.x, start_point.y)
+        path_points[-1] = (end_point.x, end_point.y)
+        return path_points
+
+    @staticmethod
+    def create_path_feature_from_points(path_points, attr_vals):
+        path_points_raw = [[pt.x, pt.y] for pt in path_points]
+
+        return LineString(path_points_raw), attr_vals
+
+    @staticmethod
+    def block2matrix_numpy(block, nodata):
+        contains_negative = False
+        with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
+            for x in it:
+                if np.isclose(x, nodata) or np.isnan(x):
+                    x[...] = 9999.0
+                elif x < 0:
+                    contains_negative = True
+
+        return block, contains_negative
+
+    @staticmethod
+    def block2matrix(block, nodata):
+        contains_negative = False
+        width, height = block.shape
+        # TODO: deal with nodata
+        matrix = [[None if np.isclose(block[i][j], nodata) or np.isclose(block[i][j], BT_NODATA)
+                   else block[i][j] for j in range(height)] for i in range(width)]
+
+        for l in matrix:
+            for v in l:
+                if v is not None:
+                    if v < 0 and not np.isclose(v, BT_NODATA):
+                        contains_negative = True
+
+        return matrix, contains_negative
+
+
 def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
     class Grid:
         def __init__(self, matrix):
@@ -271,8 +328,6 @@ def dijkstra_np(start_tuple, end_tuples, matrix):
     Returns:
         list[list]: list of list of nodes that form the shortest path
     """
-    # initialize cost heuristic map
-    #matrix = matrix.copy()
 
     # source and destination are free
     start_node = start_tuple[0]
