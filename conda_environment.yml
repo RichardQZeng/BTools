@@ -30,6 +30,9 @@ dependencies:
   - rasterio
   - ray-all
   - rioxarray
+  - rpy2
+  - r-base
+  - r-essentials
   - scikit-image
   - scipy
   - setuptools
