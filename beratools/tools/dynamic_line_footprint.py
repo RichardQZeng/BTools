@@ -274,7 +274,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         print("Generate Dynamic footprint.....")
         footprint_list = []
 
-        if PARALLEL_MODE == PARALLEL_MULTIPROCESSING:
+        if PARALLEL_MODE == MODE_MULTIPROCESSING:
             footprint_list = multiprocessing_Dyn_FP(list_dict_segment_all, processes)
         else:
             print("There are {} result to process.".format(len(list_dict_segment_all)))
@@ -488,7 +488,7 @@ def multiprocessing_dynamic_CC(line_args, processes):
 
             step = 0
             # execute tasks in order, process results out of order
-            if PARALLEL_MODE == PARALLEL_MULTIPROCESSING:
+            if PARALLEL_MODE == MODE_MULTIPROCESSING:
                 for result in pool.imap_unordered(dyn_canopy_cost_raster, line_args, chunksize=chunksize):
                     total_steps = len(line_args)
                     if BT_DEBUGGING:

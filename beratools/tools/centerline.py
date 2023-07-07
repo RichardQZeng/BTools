@@ -96,9 +96,9 @@ def centerline(callback, in_line, in_cost, line_radius,
     print('{} lines to be processed.'.format(len(all_lines)))
     step = 0
 
-    if PARALLEL_MODE == PARALLEL_MULTIPROCESSING:
+    if PARALLEL_MODE == MODE_MULTIPROCESSING:
         features = execute_multiprocessing(all_lines, processes, verbose)
-    elif PARALLEL_MODE == PARALLEL_RAY:
+    elif PARALLEL_MODE == MODE_RAY:
         ray.init(log_to_driver=False)
         total_steps = len(all_lines)
         process_single_line_ray = ray.remote(process_single_line)
@@ -113,7 +113,7 @@ def centerline(callback, in_line, in_cost, line_radius,
 
         # ray.shutdown()
 
-    elif PARALLEL_MODE == PARALLEL_SEQUENTIAL:
+    elif PARALLEL_MODE == MODE_SEQUENTIAL:
         for line in all_lines:
             feat_geometry, feat_attributes = process_single_line(line)
             if feat_geometry and feat_attributes:

@@ -73,7 +73,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     # pass single line one at a time for footprint
     footprint_list = []
 
-    if PARALLEL_MODE == PARALLEL_MULTIPROCESSING:
+    if PARALLEL_MODE == MODE_MULTIPROCESSING:
         footprint_list = execute_multiprocessing(list_dict_segment_all, processes, verbose)
     else:
         process_single_line = process_single_line_segment
