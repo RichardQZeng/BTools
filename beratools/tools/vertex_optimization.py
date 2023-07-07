@@ -47,7 +47,7 @@ SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
 BT_NODATA = -9999
 
 
-class VertexOptimization():
+class VertexOptimization:
     def __init__(self, callback, in_line, in_cost, line_radius, out_line, processes, verbose):
         self.in_line = in_line
         self.in_cost = in_cost
@@ -55,24 +55,38 @@ class VertexOptimization():
         self.out_line = out_line
         self.processes = processes
         self.verbose = verbose
+        self.segment_all = None
 
     def execute(self):
+        vertex_grp = []
+        centerlines = []
         try:
-            segment_all = self.split_lines(self.in_line)
+            self.segment_all = self.split_lines(self.in_line)
         except IndexError:
             print(e)
 
         try:
-            vertex_grp = self.groupIntersections(segment_all)
+            vertex_grp = self.groupIntersections(self.segment_all)
         except IndexError:
             print(e)
 
-        pool = multiprocessing.Pool(self.processes)
-        print("Multiprocessing started...")
-        print("Using {} CPU cores".format(processes))
-        centerlines = pool.map(self.process_single_line, vertex_grp)
-        pool.close()
-        pool.join()
+        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+            pool = multiprocessing.Pool(self.processes)
+            print("Multiprocessing started...")
+            print("Using {} CPU cores".format(self.processes))
+            centerlines = pool.map(self.process_single_line, vertex_grp)
+            pool.close()
+            pool.join()
+        elif PARALLEL_MODE == MODE_SEQUENTIAL:
+            i = 0
+            for line in vertex_grp:
+                centerline = self.process_single_line(line)
+                centerlines.append(centerline)
+                i += 1
+                if i > 2:
+                    break
+
+        return centerlines
 
     def least_cost_path(self, in_raster, anchors, line_radius):
         line = shgeo.LineString(anchors)
@@ -132,7 +146,7 @@ class VertexOptimization():
                 total_cost = costs[-1]
 
         feat_attr = (start_tuple[2], end_tuple[2], total_cost)
-        return path_points, feat_attr
+        return LineString(path_points), feat_attr
 
     # Split LineString to segments at vertices
     def segments(self, line_coords):
@@ -152,18 +166,18 @@ class VertexOptimization():
             layer_crs = open_line_file.crs
             for line in open_line_file:
                 if line['geometry']['type'] != 'MultiLineString':
-                    input_lines.append([shape(line['geometry']), line['properties']])
+                    input_lines.append([shape(line['geometry']), dict(line['properties'])])
                 else:
                     print('MultiLineString found.')
                     geoms = shape(line['geometry']).geoms
                     for item in geoms:
-                        input_lines.append([item, line['properties']])
+                        input_lines.append([shape(item), dict(line['properties'])])
 
         # split line segments at vertices
         input_lines_temp = []
         line_no = 0
         for line in input_lines:
-            line_segs = segments(list(line[0].coords))
+            line_segs = self.segments(list(line[0].coords))
             if line_segs:
                 for seg in line_segs:
                     input_lines_temp.append([seg, line_no, line[1], None])
@@ -173,18 +187,16 @@ class VertexOptimization():
 
         return input_lines
 
-    def arcpyLineToPlainLine(self, line):
+    def update_line_vertex(self, line, index, point):
         if not line:
-            return
+            return None
 
-        plain_line = []
-        for part in line:
-            if not part:
-                continue
-            for pt in part:
-                plain_line.append((pt.x, pt.y))
+        if index >= len(line) or index < 0:
+            return line
 
-        return shgeo.LineString(plain_line)
+        coords = list(line.coords)
+        coords[index] = point
+        return LineString(coords)
 
     def intersectionOfLines(self, line_1, line_2):
         # intersection collection, may contain points and lines
@@ -199,19 +211,10 @@ class VertexOptimization():
 
     def closestPointToLine(self, point, line):
         if not line:
-            return
-        if not line[0]:
-            return
+            return None
 
-        pt_list = []
-        for part in line[0]:
-            for pt in part:
-                pt_list.append([pt.x, pt.y])
-
-        line_string = shgeo.LineString(pt_list)
-        pt = line_string.interpolate(line_string.project(shgeo.Point(point)))
-
-        return pt.x, pt.y
+        pt = line.interpolate(line.project(shgeo.Point(point)))
+        return pt
 
     def appendToGroup(self, vertex, vertex_grp, UID):
         """
@@ -219,8 +222,6 @@ class VertexOptimization():
         An anchor point will be added together with line
         """
         pt_added = False
-        global DISTANCE_THRESHOLD
-        global SEGMENT_LENGTH
 
         vertex["lines"][0][2]["UID"] = UID
 
@@ -425,14 +426,14 @@ class VertexOptimization():
             if len(anchors) == 4:
                 # centerline_1 = leastCostPath(Cost_Raster, anchors[0:2], line_processing_radius)
                 # centerline_2 = leastCostPath(Cost_Raster, anchors[2:4], line_processing_radius)
-                self.least_cost_path(self.in_cost, anchors[0:2], self.line_radius)
-                self.least_cost_path(self.in_cost, anchors[2:4], self.line_radius)
+                centerline_1, _ = self.least_cost_path(self.in_cost, anchors[0:2], self.line_radius)
+                centerline_2, _ = self.least_cost_path(self.in_cost, anchors[2:4], self.line_radius)
 
                 if centerline_1 and centerline_2:
                     intersection = self.intersectionOfLines(centerline_1, centerline_2)
             elif len(anchors) == 2:
                 # centerline_1 = leastCostPath(cost_raster, anchors, line_processing_radius)
-                self.least_cost_path(self.in_cost, anchors, self.line_radius)
+                centerline_1, _ = self.least_cost_path(self.in_cost, anchors, self.line_radius)
 
                 if centerline_1:
                     intersection = self.closestPointToLine(vertex["point"], centerline_1)
@@ -441,12 +442,7 @@ class VertexOptimization():
 
         # Update vertices according to intersection, new center lines are returned
         try:
-            temp = []
-
-            temp.append(anchors)
-            temp.append(centerline_1 + centerline_2)
-            temp.append(intersection)
-            temp.append(vertex)
+            temp = [anchors, [centerline_1, centerline_2], intersection, vertex]
             print("Processing vertex {} done".format(vertex["point"]))
         except Exception as e:
             print(e)
@@ -459,7 +455,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     # fields = flmc.GetAllFieldsFromShp(Forest_Line_Feature_Class)
 
     tool_vo = VertexOptimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose)
-    tool_vo.execute()
+    centerlines = tool_vo.execute()
 
     # No line generated, exit
     if len(centerlines) <= 0:
@@ -494,10 +490,8 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
     # Dump all polylines into point array for vertex updates
     ptarray_all = {}
-    for i in segment_all:
-        pt = []
-        pt.append(i[0].getPart())
-        pt.append(i[2])
+    for i in tool_vo.segment_all:
+        pt = [i[0], i[2]]
         ptarray_all[i[1]] = pt
 
     for sublist in centerlines:
@@ -519,7 +513,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
                 if not pt_array or not sublist[2]:
                     continue
                 pt_inter = sublist[2]
-                new_intersection = arcpy.Point(pt_inter[0], pt_inter[1])
+                new_intersection = [pt_inter[0], pt_inter[1]]
 
                 if index == 0 or index == -1:
                     # the first point of first part
@@ -532,12 +526,14 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
                             print(e)
 
                     try:
-                        pt_array[index].replace(replace_index, new_intersection)
+                        # pt_array[index].replace(replace_index, new_intersection)
+                        pt_array = tool_vo.update_line_vertex(pt_array, index, new_intersection)
                     except Exception as e:
                         print(e)
 
                 ptarray_all[lineNo][0] = pt_array
 
+    pass
 
     # # write all new intersections
     # with arcpy.da.InsertCursor(file_anchors, ["SHAPE@"]) as cursor:
