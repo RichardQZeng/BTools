@@ -34,7 +34,7 @@ import time
 
 import uuid
 import shapely.geometry as shgeo
-from shapely.geometry import shape, mapping, Point, LineString, MultiLineString
+from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, GeometryCollection
 import fiona
 import rasterio
 import rasterio.mask
@@ -191,13 +191,15 @@ class VertexOptimization:
         if not line:
             return None
 
-        if index >= len(line) or index < 0:
+        if index >= len(line.coords) or index < -1:
             return line
 
         coords = list(line.coords)
         coords[index] = point
         return LineString(coords)
 
+    # TODO: intersection may return GEOMETRYCOLLECTION or LINESTRIMG
+    # only LINESTRING is dealt with for now
     def intersectionOfLines(self, line_1, line_2):
         # intersection collection, may contain points and lines
         inter = None
@@ -205,7 +207,8 @@ class VertexOptimization:
             inter = line_1.intersection(line_2)
 
         if inter:
-            return inter.centroid.x, inter.centroid.y
+            if type(inter) is GeometryCollection or type(inter) is LineString:
+                return inter.centroid
 
         return inter
 
@@ -512,28 +515,18 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
                 if not pt_array or not sublist[2]:
                     continue
-                pt_inter = sublist[2]
-                new_intersection = [pt_inter[0], pt_inter[1]]
 
+                new_intersection = sublist[2]
+
+                updated_line = pt_array
                 if index == 0 or index == -1:
-                    # the first point of first part
-                    # or the last point of the last part
-                    replace_index = 0
-                    if index == -1:
-                        try:
-                            replace_index = len(pt_array[index]) - 1
-                        except Exception as e:
-                            print(e)
-
                     try:
-                        # pt_array[index].replace(replace_index, new_intersection)
-                        pt_array = tool_vo.update_line_vertex(pt_array, index, new_intersection)
+                        updated_line = tool_vo.update_line_vertex(pt_array, index, new_intersection)
                     except Exception as e:
                         print(e)
 
-                ptarray_all[lineNo][0] = pt_array
+                ptarray_all[lineNo][0] = updated_line
 
-    pass
 
     # # write all new intersections
     # with arcpy.da.InsertCursor(file_anchors, ["SHAPE@"]) as cursor:
