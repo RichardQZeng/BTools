@@ -54,6 +54,8 @@ class FileSelector(tk.Frame):
             self.file_type = j['parameter_type']['ExistingFile']
         elif "NewFile" in self.parameter_type:
             self.file_type = j['parameter_type']['NewFile']
+        if "Directory" in self.parameter_type:
+            self.file_type = j['parameter_type']['Directory']
         self.optional = j['optional']
         # default_value = j['default_value']
 
@@ -100,7 +102,7 @@ class FileSelector(tk.Frame):
     def select_file(self):
         try:
             result = self.value.get()
-            if self.parameter_type == "Directory":
+            if "Directory" in self.parameter_type:
                 result = filedialog.askdirectory(initialdir=self.runner.working_dir, title="Select directory")
             elif "ExistingFile" in self.parameter_type or "NewFile" in self.parameter_type:
                 file_types = [('All files', '*.*')]
