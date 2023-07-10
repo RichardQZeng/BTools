@@ -9,22 +9,26 @@
 
 # imports
 import sys
-import rasterio
-import rasterio.mask
-import geopandas as gpd
-import fiona
-import numpy as np
-
-from osgeo import ogr, gdal, osr
-from rasterio import features
 import tempfile
 from pathlib import Path
-from pyproj import CRS, Transformer
-import argparse
+from collections import OrderedDict
+
 import json
-from shapely.geometry import LineString
-from fiona import Geometry
 import shlex
+import argparse
+import numpy as np
+
+import rasterio
+import rasterio.mask
+from rasterio import features
+
+import fiona
+from fiona import Geometry
+from shapely.geometry import shape, mapping, Point, LineString
+import geopandas as gpd
+
+from osgeo import ogr, gdal, osr
+from pyproj import CRS, Transformer
 
 # constants
 MODE_MULTIPROCESSING = 1
@@ -185,4 +189,36 @@ def check_arguments():
             args.input[item] = True
 
     return args, verbose
+
+
+def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=None):
+    if len(geoms) < 1:
+        return
+
+    if fields is None:
+        fields = []
+    if properties is None:
+        properties = []
+
+    geom_type = mapping(geoms[0])['type']
+    props_tuple = zip(fields, properties, strict=True)  # if lengths are not the same, ValueError raises
+    props_schema = [(item, type(value).__name__) for item, value in props_tuple]
+
+    schema = {
+        'geometry': geom_type,
+        'properties': OrderedDict(props_schema)
+    }
+
+    driver = 'ESRI Shapefile'
+    print('Writing to shapefile {}'.format(out_file))
+
+    with fiona.open(out_file, 'w', driver, schema, crs) as out_line_file:
+        feat_tuple = zip(geoms, properties)
+        for geom, prop in feat_tuple:
+            feature = {
+                'geometry': mapping(geom),
+                'properties': OrderedDict(list(zip(fields, prop)))
+            }
+
+            out_line_file.write(feature)
 

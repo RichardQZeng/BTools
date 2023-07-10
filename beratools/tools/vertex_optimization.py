@@ -31,6 +31,7 @@ import multiprocessing
 import numpy as np
 import math
 import time
+from pathlib import Path
 
 import uuid
 import shapely.geometry as shgeo
@@ -163,7 +164,7 @@ class VertexOptimization:
     def split_lines(self, in_line):
         input_lines = []
         with fiona.open(in_line) as open_line_file:
-            layer_crs = open_line_file.crs
+            self.crs = open_line_file.crs
             for line in open_line_file:
                 if line['geometry']['type'] != 'MultiLineString':
                     input_lines.append([shape(line['geometry']), dict(line['properties'])])
@@ -502,7 +503,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
             continue
         if len(sublist) > 0:
             for pt in sublist[0]:
-                anchor_list.append(pt)
+                anchor_list.append(Point(pt))
             for line in sublist[1]:
                 leastcost_list.append(line)
 
@@ -527,36 +528,19 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
                 ptarray_all[lineNo][0] = updated_line
 
+    line_path = Path(out_line)
+    file_name = line_path.stem
+    file_leastcost = line_path.with_stem(file_name + '_leastcost').as_posix()
+    file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
+    file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
 
-    # # write all new intersections
-    # with arcpy.da.InsertCursor(file_anchors, ["SHAPE@"]) as cursor:
-    #     for pt in anchor_list:
-    #         if pt:
-    #             cursor.insertRow([arcpy.Point(pt[0], pt[1])])
-    #
-    # with arcpy.da.InsertCursor(file_leastcost, ["SHAPE@"]) as cursor:
-    #     for line in leastcost_list:
-    #         if line:
-    #             cursor.insertRow([line])
-    #
-    # # write all new intersections
-    # with arcpy.da.InsertCursor(file_inter, ["SHAPE@"]) as cursor:
-    #     for pt in inter_list:
-    #         if pt:
-    #             cursor.insertRow([arcpy.Point(pt[0], pt[1])])
-    #
-    # with arcpy.da.InsertCursor(Out_Centerline, ["SHAPE@"] + fields) as cursor:
-    #     for line in ptarray_all.values():
-    #         if line:
-    #             try:
-    #                 if line[0].count > 0:
-    #                     row = [arcpy.Polyline(line[0])]
-    #                     for i in fields:
-    #                         row.append(line[1][i])
-    #
-    #                     cursor.insertRow(row)
-    #             except Exception as e:
-    #                 print("Write output lines: {}".format(e))
+    fields = []
+    properites = []
+    all_lines = [value[0] for key, value in ptarray_all.items()]
+    save_features_to_shapefile(out_line, tool_vo.crs, all_lines, fields, properites)
+    save_features_to_shapefile(file_leastcost, tool_vo.crs, leastcost_list, fields, properites)
+    save_features_to_shapefile(file_anchors, tool_vo.crs, anchor_list, fields, properites)
+    save_features_to_shapefile(file_inter, tool_vo.crs, inter_list, fields, properites)
 
 
 if __name__ == '__main__':
