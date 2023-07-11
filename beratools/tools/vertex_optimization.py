@@ -83,9 +83,9 @@ class VertexOptimization:
             for line in vertex_grp:
                 centerline = self.process_single_line(line)
                 centerlines.append(centerline)
-                i += 1
-                if i > 2:
-                    break
+                # i += 1
+                # if i > 2:
+                #     break
 
         return centerlines
 
@@ -151,15 +151,16 @@ class VertexOptimization:
 
     # Split LineString to segments at vertices
     def segments(self, line_coords):
-        if len(line_coords) < 2:
-            return None
-        elif len(line_coords) == 2:
-            return [shape({'type': 'LineString', 'coordinates': line_coords})]
-        else:
+        if len(line_coords) == 2:
+            line = shape({'type': 'LineString', 'coordinates': line_coords})
+            if not np.isclose(line.length, 0.0):
+                return [line]
+        elif len(line_coords) > 2:
             seg_list = zip(line_coords[:-1], line_coords[1:])
-            line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]
-            return [shape(line) for line in line_list]
+            line_list = [shape({'type': 'LineString', 'coordinates': coords}) for coords in seg_list]
+            return [line for line in line_list if not np.isclose(line.length, 0.0)]
 
+        return None
 
     def split_lines(self, in_line):
         input_lines = []
@@ -199,7 +200,6 @@ class VertexOptimization:
         coords[index] = point
         return LineString(coords)
 
-    # TODO: intersection may return GEOMETRYCOLLECTION or LINESTRIMG
     # only LINESTRING is dealt with for now
     def intersectionOfLines(self, line_1, line_2):
         # intersection collection, may contain points and lines
@@ -207,8 +207,9 @@ class VertexOptimization:
         if line_1 and line_2:
             inter = line_1.intersection(line_2)
 
+        # TODO: intersection may return GEOMETRYCOLLECTION, LINESTRIMG or MultiLineString
         if inter:
-            if type(inter) is GeometryCollection or type(inter) is LineString:
+            if type(inter) is GeometryCollection or type(inter) is LineString or type(inter) is MultiLineString:
                 return inter.centroid
 
         return inter
@@ -235,6 +236,8 @@ class VertexOptimization:
         index = vertex["lines"][0][1]
         pts = self.ptsInLine(line)
 
+        pt_1 = None
+        pt_2 = None
         if index == 0:
             pt_1 = point
             pt_2 = pts[1]
@@ -243,14 +246,21 @@ class VertexOptimization:
             pt_2 = pts[-2]
 
         # Calculate anchor point
-        dist_pt = math.sqrt(sum((px - qx) ** 2.0 for px, qx in zip([pt_1.x, pt_1.y], [pt_2.x, pt_2.y])))
+        dist_pt = 0.0
+        if pt_1 and pt_2:
+            dist_pt = pt_1.distance(pt_2)
+
+        # TODO: check why two points are the same
+        if np.isclose(dist_pt, 0.0):
+            return
+
         X = pt_1.x + (pt_2.x - pt_1.x) * SEGMENT_LENGTH / dist_pt
         Y = pt_1.y + (pt_2.y - pt_1.y) * SEGMENT_LENGTH / dist_pt
         vertex["lines"][0].insert(-1, [X, Y])  # add anchor point to list (the third element)
 
         for item in vertex_grp:
-            if abs(point.x - item["point"][0]) < DISTANCE_THRESHOLD and abs(
-                    point.y - item["point"][1]) < DISTANCE_THRESHOLD:
+            if abs(point.x - item["point"][0]) < DISTANCE_THRESHOLD and \
+               abs(point.y - item["point"][1]) < DISTANCE_THRESHOLD:
                 item["lines"].append(vertex["lines"][0])
                 pt_added = True
 
@@ -422,8 +432,8 @@ class VertexOptimization:
             print("No anchors retrieved")
             return None
 
-        centerline_1 = [None]
-        centerline_2 = [None]
+        centerline_1 = None
+        centerline_2 = None
         intersection = None
 
         try:

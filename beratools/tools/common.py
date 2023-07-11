@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 from collections import OrderedDict
+from itertools import zip_longest
 
 import json
 import shlex
@@ -32,10 +33,10 @@ from pyproj import CRS, Transformer
 
 # constants
 MODE_MULTIPROCESSING = 1
-MODE_RAY = 2
-MODE_SEQUENTIAL = 3
+MODE_SEQUENTIAL = 2
+MODE_RAY = 3
 
-PARALLEL_MODE = MODE_SEQUENTIAL
+PARALLEL_MODE = MODE_MULTIPROCESSING
 
 USE_SCIPY_DISTANCE = True
 
@@ -213,12 +214,19 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
     print('Writing to shapefile {}'.format(out_file))
 
     with fiona.open(out_file, 'w', driver, schema, crs) as out_line_file:
-        feat_tuple = zip(geoms, properties)
-        for geom, prop in feat_tuple:
-            feature = {
-                'geometry': mapping(geom),
-                'properties': OrderedDict(list(zip(fields, prop)))
-            }
+        feat_tuple = zip_longest(geoms, properties)
 
-            out_line_file.write(feature)
+        try:
+            for geom, prop in feat_tuple:
+                prop_zip = {} if prop is None else OrderedDict(list(zip(fields, prop)))
+
+                if geom:
+                    feature = {
+                        'geometry': mapping(geom),
+                        'properties': prop_zip
+                    }
+
+                    out_line_file.write(feature)
+        except Exception as e:
+            print(e)
 
