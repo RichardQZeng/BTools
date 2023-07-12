@@ -33,6 +33,7 @@ dependencies:
   - rpy2
   - r-base
   - r-essentials
+  - r-lidr
   - scikit-image
   - scipy
   - setuptools
