@@ -35,7 +35,8 @@ from pathlib import Path
 
 import uuid
 import shapely.geometry as shgeo
-from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, GeometryCollection
+from shapely.geometry import shape, mapping, Point, LineString, \
+     MultiLineString, GeometryCollection, Polygon
 import fiona
 import rasterio
 import rasterio.mask
@@ -57,6 +58,10 @@ class VertexOptimization:
         self.processes = processes
         self.verbose = verbose
         self.segment_all = None
+
+        # calculate cost raster footprint
+        footprint_coords = generate_raster_footprint(in_cost, latlon=False)
+        self.cost_footprint = Polygon(footprint_coords)
 
     def execute(self):
         vertex_grp = []
@@ -112,7 +117,8 @@ class VertexOptimization:
         # get row col for points
         ras_transform = rasterio.transform.AffineTransformer(out_transform)
 
-        if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
+        if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or \
+           type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
             print("Point initialization error. Input is tuple.")
             return None, None
 
@@ -165,15 +171,21 @@ class VertexOptimization:
     def split_lines(self, in_line):
         input_lines = []
         with fiona.open(in_line) as open_line_file:
+            i = 0
             self.crs = open_line_file.crs
             for line in open_line_file:
+                props = OrderedDict(line['properties'])
                 if line['geometry']['type'] != 'MultiLineString':
-                    input_lines.append([shape(line['geometry']), dict(line['properties'])])
+                    props[BT_UID] = i
+                    input_lines.append([shape(line['geometry']), props])
+                    i += 1
                 else:
                     print('MultiLineString found.')
                     geoms = shape(line['geometry']).geoms
                     for item in geoms:
-                        input_lines.append([shape(item), dict(line['properties'])])
+                        props[BT_UID] = i
+                        input_lines.append([shape(item), props])
+                        i += 1
 
         # split line segments at vertices
         input_lines_temp = []
@@ -288,6 +300,7 @@ class VertexOptimization:
         pt_index: 0 is start vertex, -1 is end vertex
         """
         vertex_grp = []
+        i = 0
         try:
             for line in lines:
                 point_list = self.ptsInLine(line[0])
@@ -299,8 +312,10 @@ class VertexOptimization:
                 # Add line to groups based on proximity of two end points to group
                 pt_start = {"point": [point_list[0].x, point_list[0].y], "lines": [[line[0], 0, {"lineNo": line[1]}]]}
                 pt_end = {"point": [point_list[-1].x, point_list[-1].y], "lines": [[line[0], -1, {"lineNo": line[1]}]]}
-                self.appendToGroup(pt_start, vertex_grp, line[2]['Id'])
-                self.appendToGroup(pt_end, vertex_grp, line[2]['Id'])
+                self.appendToGroup(pt_start, vertex_grp, line[2][BT_UID])
+                self.appendToGroup(pt_end, vertex_grp, line[2][BT_UID])
+                # print(i)
+                i += 1
         except Exception as e:
             # TODO: test traceback
             print(e)
@@ -410,10 +425,23 @@ class VertexOptimization:
         if not pt_start_1 or not pt_end_1:
             print("Anchors not found")
 
+        # if points are outside of cost footprint, set to None
+        points = [pt_start_1, pt_end_1, pt_start_2, pt_end_2]
+        for index, pt in enumerate(points):
+            if pt:
+                if not self.cost_footprint.contains(Point(pt)):
+                    points[index] = None
+
         if len(slopes) == 4 or len(slopes) == 3:
-            return pt_start_1, pt_end_1, pt_start_2, pt_end_2
+            if None in points:
+                return None
+            else:
+                return points
         elif len(slopes) == 2 or len(slopes) == 1:
-            return pt_start_1, pt_end_1
+            if None in (pt_start_1, pt_end_1):
+                return None
+            else:
+                return pt_start_1, pt_end_1
 
     def process_single_line(self, vertex):
         """
@@ -429,7 +457,8 @@ class VertexOptimization:
             print(e)
 
         if not anchors:
-            print("No anchors retrieved")
+            if BT_DEBUGGING:
+                print("No anchors retrieved")
             return None
 
         centerline_1 = None
@@ -438,15 +467,12 @@ class VertexOptimization:
 
         try:
             if len(anchors) == 4:
-                # centerline_1 = leastCostPath(Cost_Raster, anchors[0:2], line_processing_radius)
-                # centerline_2 = leastCostPath(Cost_Raster, anchors[2:4], line_processing_radius)
                 centerline_1, _ = self.least_cost_path(self.in_cost, anchors[0:2], self.line_radius)
                 centerline_2, _ = self.least_cost_path(self.in_cost, anchors[2:4], self.line_radius)
 
                 if centerline_1 and centerline_2:
                     intersection = self.intersectionOfLines(centerline_1, centerline_2)
             elif len(anchors) == 2:
-                # centerline_1 = leastCostPath(cost_raster, anchors, line_processing_radius)
                 centerline_1, _ = self.least_cost_path(self.in_cost, anchors, self.line_radius)
 
                 if centerline_1:
@@ -465,9 +491,6 @@ class VertexOptimization:
 
 
 def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose):
-    # Prepare input lines for multiprocessing
-    # fields = flmc.GetAllFieldsFromShp(Forest_Line_Feature_Class)
-
     tool_vo = VertexOptimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose)
     centerlines = tool_vo.execute()
 
@@ -475,26 +498,6 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     if len(centerlines) <= 0:
         print("No lines generated, exit")
         return
-
-    # # Create output centerline shapefile
-    # flmc.log("Create centerline shapefile...")
-    # arcpy.CreateFeatureclass_management(os.path.dirname(Out_Centerline), os.path.basename(Out_Centerline),
-    #                                     "POLYLINE", Forest_Line_Feature_Class, "DISABLED",
-    #                                     "DISABLED", Forest_Line_Feature_Class)
-    #
-    # # write out new intersections
-    # file_name = os.path.splitext(Out_Centerline)
-    #
-    # file_leastcost = file_name[0] + "_leastcost" + file_name[1]
-    # arcpy.CreateFeatureclass_management(os.path.dirname(file_leastcost), os.path.basename(file_leastcost),
-    #                                     "POLYLINE", "", "DISABLED", "DISABLED", Forest_Line_Feature_Class)
-    #
-    # file_anchors = file_name[0] + "_anchors" + file_name[1]
-    # arcpy.CreateFeatureclass_management(os.path.dirname(file_anchors), os.path.basename(file_anchors),
-    #                                     "POINT", "", "DISABLED", "DISABLED", Forest_Line_Feature_Class)
-    # file_inter = file_name[0] + "_intersections" + file_name[1]
-    # arcpy.CreateFeatureclass_management(os.path.dirname(file_inter), os.path.basename(file_inter),
-    #                                     "POINT", "", "DISABLED", "DISABLED", Forest_Line_Feature_Class)
 
     # Flatten centerlines which is a list of list
     anchor_list = []

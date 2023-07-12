@@ -48,6 +48,8 @@ BT_LABEL_MIN_WIDTH = 130
 BT_SHOW_ADVANCED_OPTIONS = False
 BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
 
+BT_UID = 'BT_UID'
+
 # gdal warning
 gdal.SetConfigOption('CPL_LOG', 'NUL')
 
@@ -96,7 +98,7 @@ def read_lines_from_shapefile(in_file):
     return lines
 
 
-def generate_raster_footprint(in_raster):
+def generate_raster_footprint(in_raster, latlon=True):
     inter_img = 'myimage.tif'
 
     #  get raster datasource
@@ -135,12 +137,15 @@ def generate_raster_footprint(in_raster):
                 pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
                 coords_geo.append(pt)
 
-    in_crs = CRS(src_ds.GetSpatialRef().ExportToWkt())
-    out_crs = CRS('EPSG:4326')
-    transformer = Transformer.from_crs(in_crs, out_crs)
     coords_geo.pop(-1)
-    coords_geo = list(transformer.itransform(coords_geo))
-    coords_geo = [list(pt) for pt in coords_geo]
+
+    if latlon:
+        in_crs = CRS(src_ds.GetSpatialRef().ExportToWkt())
+        out_crs = CRS('EPSG:4326')
+        transformer = Transformer.from_crs(in_crs, out_crs)
+
+        coords_geo = list(transformer.itransform(coords_geo))
+        coords_geo = [list(pt) for pt in coords_geo]
 
     return coords_geo if len(coords_geo) > 0 else None
 
@@ -193,6 +198,10 @@ def check_arguments():
 
 
 def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=None):
+    # remove all None items
+    # TODO: check geom type consistency
+    geoms = [item for item in geoms if item is not None]
+
     if len(geoms) < 1:
         return
 
@@ -201,7 +210,11 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
     if properties is None:
         properties = []
 
-    geom_type = mapping(geoms[0])['type']
+    try:
+        geom_type = mapping(geoms[0])['type']
+    except Exception as e:
+        print(e)
+
     props_tuple = zip(fields, properties, strict=True)  # if lengths are not the same, ValueError raises
     props_schema = [(item, type(value).__name__) for item, value in props_tuple]
 
