@@ -15,12 +15,12 @@
 #
 # ---------------------------------------------------------------------------
 #
-# dynCCMap_LineFootprint.py
+# line_footprint_dynamic.py
 # Script Author: Maverick Fong
 # Date: 2023-May
 # Use open sources python library for produce dynamic footprint from dynamic canopy and cost raster with lines and CHM input.
 # Prerequisite:  Line feature class must have the attribute Fields: "OLnFID" adn CHM raster
-# dynCCMap_LineFootprint.py
+# line_footprint_dynamic.py
 # This script is part of the BERA toolset
 # Webpage: https://github.com/
 #

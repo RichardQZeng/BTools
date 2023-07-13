@@ -219,7 +219,7 @@
                     ]
                 },
                 {
-                    "name": "Line Footprint",
+                    "name": "Line Footprint by Static Threshold",
                     "info": "Creates footprint polygons for each input line based on a least cost corridor method and individual line thresholds.",
                     "multiprocessing": true,
                     "batch_processing": true,
@@ -312,11 +312,11 @@
                     ]
                 },
                 {
-                    "name": "Dynamic CC and Line Footprint(Full)",
+                    "name": "Line Footprint by Dynamic Threshold",
                     "info": "Creates dynamic footprint polygons for each input line based on a least cost corridor method and individual line canopy thresholds and cost raster.",
                     "multiprocessing": true,
                     "batch_processing": true,
-                    "tool_api": "dynCCMap_LineFootprint",
+                    "tool_api": "line_footprint_dynamic",
                     "paramFile": "\\Scripts\\FLM_DLFP_params.txt",
                     "image": "../Images/FLM_IO_LineFootprint.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/DynLineFootprintFS.html",
@@ -467,7 +467,7 @@
                     "info": "Calculates a series of attributes related to forest line shape, size and microtopography. Line-derived attributes include: length, bearing, orientation and sinuosity; Polygon-derived attributes include: area, average width, perimeter and perimeter-area ratio; CHM-derived attributes include: average vegetation height, vegetation volume and vegetation roughness.",
                     "multiprocessing": true,
                     "batch_processing": true,
-                    "tool_api": "ForestLineAttributes",
+                    "tool_api": "forest_line_attributes",
                     "paramFile": "\\Scripts\\FLM_FLA_params.txt",
                     "image": "../Images/FLM_IO_ForestLineAttributes.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Attribution/ForestLineAttributes.html",
@@ -1123,7 +1123,7 @@
                     ]
                 },
                 {
-                    "name": "LiDAR-->LPI raster and eLAI raster. (LidR LAScatalog Processing)",
+                    "name": "LiDAR to LPI raster and eLAI raster",
                     "info": "Generate LiDAR penetration index (LPI) raster and effective leaf area index (eLAI) raster based on Beer's Law from classified point cloud.",
                     "multiprocessing": true,
                     "batch_processing": false,
