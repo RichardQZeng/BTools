@@ -383,8 +383,12 @@ class BeraTools(object):
     def get_bera_tool_parameters(self, tool_name):
         new_params = {'parameters': []}
         tool = {}
+        batch_tool_list = []
         for toolbox in self.bera_tools['toolbox']:
             for single_tool in toolbox['tools']:
+                if single_tool['batch_processing']:
+                    batch_tool_list.append(single_tool['name'])
+
                 if tool_name == single_tool['name']:
                     tool = single_tool
 
@@ -407,12 +411,7 @@ class BeraTools(object):
             if not param['output']:
                 if param['type'] == 'list':
                     if tool_name == 'Batch Processing':
-                        tool_list = self.tools_list
-                        if 'Tiler' in tool_list:
-                            tool_list.remove('Tiler')
-                        if 'Batch Processing' in tool_list:
-                            tool_list.remove('Batch Processing')
-                        new_param['parameter_type'] = {'OptionList': tool_list}
+                        new_param['parameter_type'] = {'OptionList': batch_tool_list}
                         new_param['data_type'] = 'String'
                     else:
                         new_param['parameter_type'] = {'OptionList': param['data']}
