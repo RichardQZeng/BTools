@@ -223,7 +223,7 @@
                     "info": "Creates footprint polygons for each input line based on a least cost corridor method and individual line thresholds.",
                     "multiprocessing": true,
                     "batch_processing": true,
-                    "tool_api": "line_footprint",
+                    "tool_api": "line_footprint_static",
                     "paramFile": "\\Scripts\\FLM_LFP_params.txt",
                     "image": "../Images/FLM_IO_LineFootprint.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/LineFootprint.html",
