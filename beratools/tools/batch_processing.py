@@ -26,6 +26,7 @@ def create_tool_batch_csv(project, tool_name, tasks):
         path_canopy = in_chm.with_name(in_chm.stem+'_canopy.tif')
         path_cost = in_chm.with_name(in_chm.stem+'_cost.tif')
 
+        # TODO: change to tool api
         if tool_name == 'Canopy Cost Raster':
             task['in_chm'] = in_chm.as_posix()
             task['out_canopy'] = path_canopy.as_posix()
@@ -34,12 +35,12 @@ def create_tool_batch_csv(project, tool_name, tasks):
             task['in_line'] = in_line.as_posix()
             task['in_cost'] = path_cost.as_posix()
             task['out_line'] = path_line.as_posix()
-        elif tool_name == 'Line Footprint':
+        elif tool_name == 'Line Footprint by Static Threshold':
             task['in_line'] = path_line.as_posix()
             task['in_canopy'] = path_canopy.as_posix()
             task['in_cost'] = path_cost.as_posix()
             task['out_footprint'] = path_footprint.as_posix()
-        elif tool_name == 'Dynamic CC and Line Footprint(Full)':
+        elif tool_name == 'Line Footprint by Dynamic Threshold':
             task['in_line'] = path_line.as_posix()
             task['in_chm'] = in_chm.as_posix()
             task['out_footprint'] = in_line.with_name(in_line.stem + '_dyn_footprint.shp')
