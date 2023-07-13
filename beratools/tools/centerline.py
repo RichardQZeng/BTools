@@ -16,8 +16,10 @@ import ray
 from dijkstra_algorithm import *
 from common import *
 
-import line_profiler
-profile = line_profiler.LineProfiler()
+# import line_profiler
+# profile = line_profiler.LineProfiler()
+
+from memory_profiler import profile
 
 
 class OperationCancelledException(Exception):
@@ -161,7 +163,7 @@ def centerline(callback, in_line, in_cost, line_radius,
         ray.shutdown()
 
 
-# @profile
+@profile
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
     line = line_args[0]
     line_radius = line_args[1]

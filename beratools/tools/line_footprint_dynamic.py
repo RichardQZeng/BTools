@@ -28,7 +28,7 @@
 # cost corridor method and individual line thresholds.
 #
 # ---------------------------------------------------------------------------
-from dynamic_line_footprint import *
+from line_footprint_functions import *
 from dynamic_canopy_threshold import *
 
 if __name__ == '__main__':

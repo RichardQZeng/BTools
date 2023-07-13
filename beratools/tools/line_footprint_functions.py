@@ -15,12 +15,9 @@
 #
 # ---------------------------------------------------------------------------
 #
-# FLM_LineFootprint.py
-# Script Author: Gustavo Lopes Queiroz
-# Date: 2020-Jan-22
 # Refactor to use for produce dynamic footprint from dynamic canopy and cost raster with open source libraries
 # Prerequisite:  Line feature class must have the attribute Fields:"CorridorTh" "DynCanTh" "OLnFID"
-# dynamic_line_footprint.py
+# line_footprint_function.py
 # Maverick Fong
 # Date: 2023-Dec
 # This script is part of the BERA toolset
@@ -49,6 +46,7 @@ import shapely
 from shapely import LineString
 from common import *
 import sys
+
 
 # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -109,7 +107,6 @@ def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, co
     result = numpy.power(eM, float(cost_raster_exponent))
 
     return result
-
 
 def dyn_canopy_cost_raster(args):
     in_chm = args[0]
