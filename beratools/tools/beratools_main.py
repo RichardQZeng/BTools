@@ -382,78 +382,81 @@ class BeraTools(object):
 
     def get_bera_tool_parameters(self, tool_name):
         new_params = {'parameters': []}
-
+        tool = {}
         for toolbox in self.bera_tools['toolbox']:
-            for tool in toolbox['tools']:
-                if tool_name == tool['name']:
-                    new_params['tool_api'] = tool['tool_api']
-                    new_params['tech_link'] = tool['tech_link']
+            for single_tool in toolbox['tools']:
+                if tool_name == single_tool['name']:
+                    tool = single_tool
 
-                    # convert json format for parameters
-                    for param in tool['parameters']:
-                        new_param = {'name': param['parameter']}
-                        if 'variable' in param.keys():
-                            new_param['flag'] = param['variable']
-                            # restore saved parameters
-                            saved_value = self.get_saved_tool_parameter(tool['tool_api'], param['variable'])
-                            if saved_value is not None:
-                                new_param['saved_value'] = saved_value
-                        else:
-                            new_param['flag'] = 'FIXME'
+        for key, value in tool.items():
+            if key != 'parameters':
+                new_params[key] = value
 
-                        if not param['output']:
-                            if param['type'] == 'list':
-                                if tool_name == 'Batch Processing':
-                                    tool_list = self.tools_list
-                                    if 'Tiler' in tool_list:
-                                        tool_list.remove('Tiler')
-                                    if 'Batch Processing' in tool_list:
-                                        tool_list.remove('Batch Processing')
-                                    new_param['parameter_type'] = {'OptionList': tool_list}
-                                    new_param['data_type'] = 'String'
-                                else:
-                                    new_param['parameter_type'] = {'OptionList': param['data']}
-                                    new_param['data_type'] = 'String'
-                                    if param['typelab'] == 'text':
-                                        new_param['data_type'] = 'String'
-                                    elif param['typelab'] == 'int':
-                                        new_param['data_type'] = 'Integer'
-                                    elif param['typelab'] == 'float':
-                                        new_param['data_type'] = 'Float'
-                                    elif param['typelab'] == 'bool':
-                                        new_param['data_type'] = 'Boolean'
-                            elif param['type'] == 'text':
-                                new_param['parameter_type'] = 'String'
-                            elif param['type'] == 'number':
-                                if param['typelab'] == 'int':
-                                    new_param['parameter_type'] = 'Integer'
-                                else:
-                                    new_param['parameter_type'] = 'Float'
-                            elif param['type'] == 'file':
-                                new_param['parameter_type'] = {'ExistingFile': [param['typelab']]}
-                            else:
-                                new_param['parameter_type'] = {'ExistingFile': ''}
-                        else:
-                            new_param["parameter_type"] = {'NewFile': [param['typelab']]}
+        # convert json format for parameters
+        for param in tool['parameters']:
+            new_param = {'name': param['parameter']}
+            if 'variable' in param.keys():
+                new_param['flag'] = param['variable']
+                # restore saved parameters
+                saved_value = self.get_saved_tool_parameter(tool['tool_api'], param['variable'])
+                if saved_value is not None:
+                    new_param['saved_value'] = saved_value
+            else:
+                new_param['flag'] = 'FIXME'
 
-                        new_param['description'] = param['description']
+            if not param['output']:
+                if param['type'] == 'list':
+                    if tool_name == 'Batch Processing':
+                        tool_list = self.tools_list
+                        if 'Tiler' in tool_list:
+                            tool_list.remove('Tiler')
+                        if 'Batch Processing' in tool_list:
+                            tool_list.remove('Batch Processing')
+                        new_param['parameter_type'] = {'OptionList': tool_list}
+                        new_param['data_type'] = 'String'
+                    else:
+                        new_param['parameter_type'] = {'OptionList': param['data']}
+                        new_param['data_type'] = 'String'
+                        if param['typelab'] == 'text':
+                            new_param['data_type'] = 'String'
+                        elif param['typelab'] == 'int':
+                            new_param['data_type'] = 'Integer'
+                        elif param['typelab'] == 'float':
+                            new_param['data_type'] = 'Float'
+                        elif param['typelab'] == 'bool':
+                            new_param['data_type'] = 'Boolean'
+                elif param['type'] == 'text':
+                    new_param['parameter_type'] = 'String'
+                elif param['type'] == 'number':
+                    if param['typelab'] == 'int':
+                        new_param['parameter_type'] = 'Integer'
+                    else:
+                        new_param['parameter_type'] = 'Float'
+                elif param['type'] == 'file':
+                    new_param['parameter_type'] = {'ExistingFile': [param['typelab']]}
+                else:
+                    new_param['parameter_type'] = {'ExistingFile': ''}
+            else:
+                new_param["parameter_type"] = {'NewFile': [param['typelab']]}
 
-                        if param['type'] == 'raster':
-                            for i in new_param["parameter_type"].keys():
-                                new_param['parameter_type'][i] = 'Raster'
-                        elif param['type'] == 'vector':
-                            for i in new_param["parameter_type"].keys():
-                                new_param['parameter_type'][i] = 'Vector'
-                        elif  param['type'] == 'Directory':
-                            new_param['parameter_type'] = {'Directory': [param['typelab']]}
+            new_param['description'] = param['description']
 
-                        new_param['default_value'] = param['default']
-                        if "optional" in param.keys():
-                            new_param['optional'] = param['optional']
-                        else:
-                            new_param['optional'] = False
+            if param['type'] == 'raster':
+                for i in new_param["parameter_type"].keys():
+                    new_param['parameter_type'][i] = 'Raster'
+            elif param['type'] == 'vector':
+                for i in new_param["parameter_type"].keys():
+                    new_param['parameter_type'][i] = 'Vector'
+            elif  param['type'] == 'Directory':
+                new_param['parameter_type'] = {'Directory': [param['typelab']]}
 
-                        new_params['parameters'].append(new_param)
+            new_param['default_value'] = param['default']
+            if "optional" in param.keys():
+                new_param['optional'] = param['optional']
+            else:
+                new_param['optional'] = False
+
+            new_params['parameters'].append(new_param)
 
         return new_params
 
