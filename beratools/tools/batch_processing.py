@@ -9,6 +9,7 @@ from beratools_main import *
 bt = BeraTools()
 
 
+# TODO: Check input file existence
 def create_tool_batch_csv(project, tool_name, tasks):
     tool_api = tool_name
     proj_path = Path(project)
