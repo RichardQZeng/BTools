@@ -119,6 +119,7 @@ def dyn_canopy_cost_raster(args):
     nodata = args[7]
     line_df = args[8]
     out_transform = args[9]
+    use_corridor_th_col = args[10]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
@@ -143,9 +144,9 @@ def dyn_canopy_cost_raster(args):
     cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, cell_x, cell_y)
     avoidance = max(min(float(canopy_avoid), 1), 0)
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
-                                          cc_smooth, avoidance,cost_raster_exponent)
+                                          cc_smooth, avoidance, cost_raster_exponent)
     dyn_cost_ndarray[numpy.isnan(dyn_cost_ndarray)] = nodata
-    return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform
+    return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform, max_line_dist, use_corridor_th_col
 
 
 def split_line_fc(line):
@@ -197,6 +198,21 @@ def split_into_equal_nth_segments(df):
     return gdf
 
 
+def generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
+                       max_line_dist, canopy_avoidance, exponent, use_corridor_th_col):
+    line_args = []
+    for record in range(0, len(work_in_buffer)):
+        line_buffer = work_in_buffer.loc[record, 'geometry']
+        clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
+                                                           nodata=-9999, filled=True)
+        clipped_raster = numpy.squeeze(clipped_raster, axis=0)
+        nodata = -9999
+        line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
+               float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
+               line_seg.iloc[[record]], out_transform, use_corridor_th_col])
+
+    return line_args
+
 def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, proc_segments, out_footprint,
                            tree_radius,max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
     use_corridor_th_col = True
@@ -241,31 +257,36 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             work_in_buffer = geopandas.GeoDataFrame.copy((line_seg))
             work_in_buffer['geometry'] = shapely.buffer(work_in_buffer['geometry'], distance=float(max_ln_width),
                                                         cap_style=1)
-            line_args = []
+            # line_args = []
             print("Prepare CHMs for Dynamic cost raster......")
-            for record in range(0, len(work_in_buffer)):
-                line_buffer = work_in_buffer.loc[record, 'geometry']
-                clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
-                                                                   nodata=-9999, filled=True)
-                clipped_raster = numpy.squeeze(clipped_raster, axis=0)
-                nodata = -9999
-                line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']),
-                                  float(tree_radius), float(max_line_dist), float(canopy_avoidance),
-                                  float(exponent), raster.res, nodata, line_seg.iloc[[record]], out_transform])
+            # for record in range(0, len(work_in_buffer)):
+            #     line_buffer = work_in_buffer.loc[record, 'geometry']
+            #     clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
+            #                                                        nodata=-9999, filled=True)
+            #     clipped_raster = numpy.squeeze(clipped_raster, axis=0)
+            #     nodata = -9999
+            #     line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']),
+            #                       float(tree_radius), float(max_line_dist), float(canopy_avoidance),
+            #                       float(exponent), raster.res, nodata, line_seg.iloc[[record]], out_transform])
+
+            line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
+                                           max_line_dist, canopy_avoidance, exponent, use_corridor_th_col)
 
             print("Prepare CHMs for Dynamic cost raster......Done")
             print('%{}'.format(30))
 
             print('Generate Dynamic cost raster.....')
-            list_dict_segment_all = multiprocessing_dynamic_CC(line_args, processes)
+            list_dict_segment_all = line_args
+            # list_dict_segment_all = multiprocessing_dynamic_CC(line_args, processes)
+            # dyn_canopy_cost_raster(line)
             print('Generate Dynamic cost raster.....Done')
             print('%{}'.format(50))
 
-        for row in range(0, len(list_dict_segment_all)):
-            l = list(list_dict_segment_all[row])
-            l.append(float(max_line_dist))
-            l.append(use_corridor_th_col)
-            list_dict_segment_all[row] = tuple(l)
+        # for row in range(0, len(list_dict_segment_all)):
+        #     l = list(list_dict_segment_all[row])
+        #     l.append(float(max_line_dist))
+        #     l.append(use_corridor_th_col)
+        #     list_dict_segment_all[row] = tuple(l)
 
         # pass center lines for footprint
         print("Generate Dynamic footprint.....")
@@ -300,6 +321,8 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
 
 def dyn_process_single_line(segment):
+    segment = dyn_canopy_cost_raster(segment)
+
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
     df = segment[0]
@@ -458,12 +481,13 @@ def dyn_process_single_line(segment):
 def multiprocessing_Dyn_FP(line_args, processes):
     try:
         total_steps = len(line_args)
+
         features = []
-        chunksize = math.ceil(total_steps / processes)
+        # chunksize = math.ceil(total_steps / processes)
         with Pool(processes=processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(dyn_process_single_line, line_args, chunksize=chunksize):
+            for result in pool.imap_unordered(dyn_process_single_line, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
@@ -487,7 +511,7 @@ def multiprocessing_dynamic_CC(line_args, processes):
             # execute tasks in order, process results out of order
             if PARALLEL_MODE == MODE_MULTIPROCESSING:
                 for result in pool.imap_unordered(dyn_canopy_cost_raster, line_args, chunksize=chunksize):
-                    total_steps = len(line_args)
+                    # total_steps = len(line_args)
                     if BT_DEBUGGING:
                         print('Got result: {}'.format(result), flush=True)
                     features.append(result)
