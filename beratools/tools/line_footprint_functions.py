@@ -500,13 +500,13 @@ def multiprocessing_dynamic_CC(line_args, processes):
         total_steps = len(line_args)
 
         features = []
-        chunksize = math.ceil(total_steps / processes)
+        # chunksize = math.ceil(total_steps / processes)
         with Pool(processes=int(processes)) as pool:
 
             step = 0
             # execute tasks in order, process results out of order
             if PARALLEL_MODE == MODE_MULTIPROCESSING:
-                for result in pool.imap_unordered(dyn_canopy_cost_raster, line_args, chunksize=chunksize):
+                for result in pool.imap_unordered(dyn_canopy_cost_raster, line_args):
                     # total_steps = len(line_args)
                     if BT_DEBUGGING:
                         print('Got result: {}'.format(result), flush=True)

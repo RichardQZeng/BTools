@@ -41,7 +41,7 @@ PARALLEL_MODE = MODE_MULTIPROCESSING
 USE_SCIPY_DISTANCE = True
 
 BT_NODATA = -9999
-BT_DEBUGGING = False
+BT_DEBUGGING = True
 BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130

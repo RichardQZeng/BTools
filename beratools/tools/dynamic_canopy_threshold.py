@@ -1,10 +1,10 @@
 import os.path
 from multiprocessing.pool import Pool
-import geopandas
+import geopandas as gpd
 import json
 import argparse
 import time
-import pandas
+import pandas as pd
 import numpy as np
 import shapely
 from common import *
@@ -22,7 +22,7 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
 
     file_path, in_file_name = os.path.split(in_line)
     out_file = os.path.join(file_path, 'DynCanTh_'+in_file_name)
-    line_seg = geopandas.GeoDataFrame.from_file(in_line)
+    line_seg = gpd.GeoDataFrame.from_file(in_line)
 
     # check coordinate systems between line and raster features
     with rasterio.open(in_chm) as in_raster:
@@ -56,8 +56,8 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
         pass
 
     # copy original line input to another GeoDataframe
-    workln_dfL = geopandas.GeoDataFrame.copy((line_seg))
-    workln_dfR = geopandas.GeoDataFrame.copy((line_seg))
+    workln_dfL = gpd.GeoDataFrame.copy((line_seg))
+    workln_dfR = gpd.GeoDataFrame.copy((line_seg))
 
     # copy parallel lines for both side of the input lines
     print("Creating offset area for surrounding forest....")
@@ -71,8 +71,8 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
 
     print('%{}'.format(30))
 
-    worklnbuffer_dfL = geopandas.GeoDataFrame.copy((workln_dfL))
-    worklnbuffer_dfR = geopandas.GeoDataFrame.copy((workln_dfR))
+    worklnbuffer_dfL = gpd.GeoDataFrame.copy((workln_dfL))
+    worklnbuffer_dfR = gpd.GeoDataFrame.copy((workln_dfR))
 
     # buffer the parallel line in one side (extend the area into forest)
     worklnbuffer_dfL['geometry'] = shapely.buffer(workln_dfL['geometry'], distance=float(tree_radius),
@@ -109,13 +109,13 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
     print("Forest percentile calculation, Done.")
 
     for index in (line_seg.index):
-        line_seg.loc[index,'L_Pertiels'] = worklnbuffer_dfL.Percentile_L.iloc[index]
-        line_seg.loc[index,'R_Pertiels'] = worklnbuffer_dfR.Percentile_R.iloc[index]
-        line_seg.loc[index,'DynCanTh'] = ((worklnbuffer_dfL.DynCanTh.iloc[index] +
+        line_seg.loc[index, 'L_Pertiels'] = worklnbuffer_dfL.Percentile_L.iloc[index]
+        line_seg.loc[index, 'R_Pertiels'] = worklnbuffer_dfR.Percentile_R.iloc[index]
+        line_seg.loc[index, 'DynCanTh'] = ((worklnbuffer_dfL.DynCanTh.iloc[index] +
                                            worklnbuffer_dfR.DynCanTh.iloc[index])/2.0)
 
     print("Saving dynamic canopy threshold output.....")
-    geopandas.GeoDataFrame.to_file(line_seg, out_file)
+    gpd.GeoDataFrame.to_file(line_seg, out_file)
     print("Saving dynamic canopy threshold output.....Done")
 
     del line_seg, worklnbuffer_dfL, worklnbuffer_dfR, workln_dfL, workln_dfR
@@ -126,7 +126,10 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
 
 
 def split_line_fc(line):
-    return list(map(shapely.LineString, zip(line.coords[:-1], line.coords[1:])))
+    if line:
+        return list(map(shapely.LineString, zip(line.coords[:-1], line.coords[1:])))
+    else:
+        return None
 
 
 def split_into_segments(df):
@@ -140,7 +143,7 @@ def split_into_segments(df):
     df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
+    gdf = gpd.GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
     gdf = gdf.reset_index(drop=True)
     return gdf
@@ -152,23 +155,42 @@ def multiprocessing_copyparallel_lineLR(dfL, dfR, processes, left_dis, right_dis
         total_steps = len(dfL)
 
         for item in dfL.index:
-            item_list = [dfL,dfR, left_dis, right_dist, item]
+            item_list = [dfL, dfR, left_dis, right_dist, item]
             line_arg.append(item_list)
 
         featuresL = []
         featuresR = []
-        chunksize = math.ceil(total_steps / processes)
-        with Pool(processes=int(processes)) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            for resultL, resultR in pool.imap_unordered(copyparallel_lineLR, line_arg, chunksize=chunksize):
+        result = None
+        step = 0
+        # chunksize = math.ceil(total_steps / processes)
+        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+            with Pool(processes=int(processes)) as pool:
+                # execute tasks in order, process results out of order
+                for result in pool.imap_unordered(copyparallel_lineLR, line_arg):
+                    if BT_DEBUGGING:
+                        print(f'Got result: {result}', flush=True)
+                    if result:
+                        featuresL.append(result[0])  # resultL
+                        featuresR.append(result[1])  # resultR
+                    step += 1
+                    print(f' %{step/total_steps*100} ')
+
+                return gpd.GeoDataFrame(pd.concat(featuresL)), \
+                       gpd.GeoDataFrame(pd.concat(featuresR))
+        elif PARALLEL_MODE == MODE_SEQUENTIAL:
+            for line in line_arg:
+                result = copyparallel_lineLR(line)
                 if BT_DEBUGGING:
-                    print('Got result: {}{}'.format(resultL,resultR), flush=True)
-                featuresL.append(resultL)
-                featuresR.append(resultR)
+                    print(f'Got result: {result}', flush=True)
+                if result:
+                    featuresL.append(result[0])  # resultL
+                    featuresR.append(result[1])  # resultR
                 step += 1
-                print('%{}'.format(step / total_steps * 100))
-            return geopandas.GeoDataFrame(pandas.concat(featuresL)), geopandas.GeoDataFrame(pandas.concat(featuresR))
+                print(f' %{step / total_steps * 100} ')
+
+            return gpd.GeoDataFrame(pd.concat(featuresL)), \
+                gpd.GeoDataFrame(pd.concat(featuresR))
+
     except OperationCancelledException:
         print("Operation cancelled")
 
@@ -186,13 +208,13 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM, proc
             item_list = [df.iloc[[item]], CanPercentile, CanThrPercentage, in_CHM, item, PerCol]
             line_arg.append(item_list)
         features = []
-        chunksize = math.ceil(total_steps / processes)
+        # chunksize = math.ceil(total_steps / processes)
         with Pool(processes=int(processes)) as pool:
 
             step = 0
             # execute tasks in order, process results out of order
             try:
-                for result in pool.imap_unordered(cal_percentile, line_arg, chunksize=chunksize):
+                for result in pool.imap_unordered(cal_percentile, line_arg):
                     if BT_DEBUGGING:
                         print('Got result: {}'.format(result), flush=True)
                     features.append(result)
@@ -202,7 +224,7 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM, proc
                 print(Exception)
                 raise
             del line_arg
-            return geopandas.GeoDataFrame(pandas.concat(features))
+            return gpd.GeoDataFrame(pd.concat(features))
 
     except OperationCancelledException:
         print("Operation cancelled")
@@ -268,6 +290,10 @@ def copyparallel_lineLR(line_arg):
     dfR = line_arg[1]
 
     # Simplify input center lines
+    geom = dfL.loc[line_arg[4], 'geometry']
+    if not geom:
+        return None
+
     lineL = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     lineR = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     offset_distL = float(line_arg[2])
@@ -288,7 +314,7 @@ def copyparallel_lineLR(line_arg):
     if not parallel_lineR.is_empty:
         dfR.loc[line_arg[4], 'geometry'] = parallel_lineR
 
-    return dfL.iloc[[line_arg[4]]],dfR.iloc[[line_arg[4]]]
+    return dfL.iloc[[line_arg[4]]], dfR.iloc[[line_arg[4]]]
 
 
 if __name__ == '__main__':

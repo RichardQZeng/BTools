@@ -436,14 +436,14 @@ def execute_multiprocessing(line_args, processes, verbose):
         features = []
 
         with Pool(processes) as pool:
-            chunk_size = 1
+            # chunk_size = 1
             step = 0
             process_single_line = process_single_line_segment
             if GROUPING_SEGMENT:
                 process_single_line = process_single_line_whole
 
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_single_line, line_args, chunksize=chunk_size):
+            for result in pool.imap_unordered(process_single_line, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
                 features.append(result)
