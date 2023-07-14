@@ -328,6 +328,8 @@ def split_line_fc(line):
 
 
 def split_line_npart(line):
+    if not line:
+        return None
     # Work out n parts for each line (divided by 30m)
     n = math.ceil(line.length/LP_SEGMENT_LENGTH)
     if n > 1:
@@ -391,12 +393,13 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         for row in range(0, len(line_seg)):
             # creates a geometry object
             feat = line_seg.loc[row].geometry
-            feature_attributes = {'seg_length': feat.length, 'geometry': feat, 'Proj_crs': line_seg.crs}
+            if feat:
+                feature_attributes = {'seg_length': feat.length, 'geometry': feat, 'Proj_crs': line_seg.crs}
 
-            for col_name in keep_field_name:
-                feature_attributes[col_name] = line_seg.loc[row, col_name]
-            list_of_segment.append(feature_attributes)
-            i += 1
+                for col_name in keep_field_name:
+                    feature_attributes[col_name] = line_seg.loc[row, col_name]
+                list_of_segment.append(feature_attributes)
+                i += 1
 
         print("There are {} lines to be processed.".format(ori_total_feat))
     else:

@@ -209,7 +209,7 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
 
     return line_args
 
-def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, proc_segments, out_footprint,
+def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint,
                            tree_radius,max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
     use_corridor_th_col = True
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
@@ -243,6 +243,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             exit()
 
         else:
+            proc_segments = False
             if proc_segments:
                 print("Spliting lines into segments...")
                 line_seg = split_into_segments(line_seg)
