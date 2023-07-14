@@ -164,6 +164,7 @@ def multiprocessing_copyparallel_lineLR(dfL,dfR,processes, left_dis,right_dist):
     except OperationCancelledException:
         print("Operation cancelled")
 
+
 def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM,processes ,side):
 
     try:
@@ -211,6 +212,10 @@ def cal_percentile(line_arg):
     except:
         print("Assigning variable on index:{} Error: ".format(line_arg) + sys.exc_info())
         exit()
+
+    # TODO: temporary workaround for exception causing not percentile defined
+    percentile = 0
+    Dyn_Canopy_Threshold = 0.05
     try:
         with rasterio.open(in_CHM) as raster:
 
@@ -239,9 +244,10 @@ def cal_percentile(line_arg):
     # return the generated value
     except:
         print(sys.exc_info())
+
     try:
-        df.loc[row_index,PerCol] = percentile
-        df.loc[row_index,'DynCanTh'] = Dyn_Canopy_Threshold
+        df.loc[row_index, PerCol] = percentile
+        df.loc[row_index, 'DynCanTh'] = Dyn_Canopy_Threshold
         return df
     except:
         print("Error writing Percentile and Dynamic Canopy into table: "+sys.exc_info())
