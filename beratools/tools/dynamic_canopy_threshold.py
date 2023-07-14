@@ -5,7 +5,7 @@ import json
 import argparse
 import time
 import pandas
-import numpy
+import numpy as np
 import shapely
 from common import *
 import sys
@@ -16,12 +16,12 @@ class OperationCancelledException(Exception):
     pass
 
 
-def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_dist, canopy_percentile, canopy_thresh_percentage,
-                             tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
+def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_dist, canopy_percentile,
+                             canopy_thresh_percentage, tree_radius, max_line_dist, canopy_avoidance,
+                             exponent, full_step, processes, verbose):
 
-    file_path,in_file_name=os.path.split(in_line)
-    out_file= os.path.join(file_path,'DynCanTh_'+in_file_name)
-
+    file_path, in_file_name = os.path.split(in_line)
+    out_file = os.path.join(file_path, 'DynCanTh_'+in_file_name)
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
 
     # check coordinate systems between line and raster features
@@ -36,39 +36,38 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
         canopy_percentile = 50
 
     # Check the Dynamic Canopy threshold column in data. If it is not, new column will be created
-    if not 'DynCanTh' in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n '{}' column will be create".format('DynCanTh', 'DynCanTh'))
-        line_seg['DynCanTh'] = numpy.nan
+    if 'DynCanTh' not in line_seg.columns.array:
+        print("{} column not found in input line.\n '{}' column is create".format('DynCanTh', 'DynCanTh'))
+        line_seg['DynCanTh'] = np.nan
 
     # Check the OLnFID column in data. If it is not, column will be created
-    if not 'OLnFID' in line_seg.columns.array:
-        print(
-            "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
+    if 'OLnFID' not in line_seg.columns.array:
+        print("{} column not found in input line.\n '{}' column is create".format('OLnFID', 'OLnFID'))
         line_seg['OLnFID'] = line_seg.index
     # else:
     #     for row in line_seg.index:
     #         if row != line_seg.loc[row,'OLnFID']:
-    #             print("Wraning: index and OLnFID are not consistency at index: {}.".format(row))
+    #             print("Warning: index and OLnFID are not consistency at index: {}.".format(row))
     #             print("Please check data")
     #             exit()
-    if proc_segments == True:
-        line_seg=split_into_segments(line_seg)
+    if proc_segments:
+        line_seg = split_into_segments(line_seg)
     else:
         pass
 
-
-    # copy original line input to another Geodataframe
+    # copy original line input to another GeoDataframe
     workln_dfL = geopandas.GeoDataFrame.copy((line_seg))
     workln_dfR = geopandas.GeoDataFrame.copy((line_seg))
 
-
     # copy parallel lines for both side of the input lines
     print("Creating offset area for surrounding forest....")
-    workln_dfL, workln_dfR = multiprocessing_copyparallel_lineLR(workln_dfL, workln_dfR, processes, left_dis=float(off_ln_dist), right_dist=-float(off_ln_dist))
-    workln_dfR=workln_dfR.sort_values(by=['OLnFID'])
-    workln_dfL=workln_dfL.sort_values(by=['OLnFID'])
-    workln_dfL=workln_dfL.reset_index(drop=True)
-    workln_dfR=workln_dfR.reset_index(drop=True)
+    workln_dfL, workln_dfR = multiprocessing_copyparallel_lineLR(workln_dfL, workln_dfR, processes,
+                                                                 left_dis=float(off_ln_dist),
+                                                                 right_dist=-float(off_ln_dist))
+    workln_dfR = workln_dfR.sort_values(by=['OLnFID'])
+    workln_dfL = workln_dfL.sort_values(by=['OLnFID'])
+    workln_dfL = workln_dfL.reset_index(drop=True)
+    workln_dfR = workln_dfR.reset_index(drop=True)
 
     print('%{}'.format(30))
 
@@ -82,18 +81,17 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
                                                   cap_style=2, join_style=2, single_sided=True)
     print("Creating offset area for surrounding forest....Done")
     print('%{}'.format(50))
+
     # create a New column for surrounding forest statistics:
     # 1) Height Percentile (add more in the future)
-    worklnbuffer_dfL['Percentile_L'] = numpy.nan
-    worklnbuffer_dfR['Percentile_R'] = numpy.nan
-    # worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
-    # worklnbuffer_dfR=worklnbuffer_dfR.reset_index(drop=True)
-    line_seg['L_Pertiels'] = numpy.nan
-    line_seg['R_Pertiels'] = numpy.nan
+    worklnbuffer_dfL['Percentile_L'] = np.nan
+    worklnbuffer_dfR['Percentile_R'] = np.nan
+    line_seg['L_Pertiels'] = np.nan
+    line_seg['R_Pertiels'] = np.nan
     print('%{}'.format(80))
 
-    print("Calculating surrounding forest percentile LEFT..")
     # calculate the Height percentile for each parallel area using CHM
+    print("Calculating surrounding forest percentile LEFT..")
     worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, int(canopy_percentile),
                                                   float(canopy_thresh_percentage), in_chm,
                                                   processes, side='left')
@@ -109,46 +107,52 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
 
     print('%{}'.format(90))
     print("Forest percentile calculation, Done.")
+
     for index in (line_seg.index):
-        line_seg.loc[index,'L_Pertiels'] =worklnbuffer_dfL.Percentile_L.iloc[index]
+        line_seg.loc[index,'L_Pertiels'] = worklnbuffer_dfL.Percentile_L.iloc[index]
         line_seg.loc[index,'R_Pertiels'] = worklnbuffer_dfR.Percentile_R.iloc[index]
-        line_seg.loc[index,'DynCanTh']=((worklnbuffer_dfL.DynCanTh.iloc[index]+worklnbuffer_dfR.DynCanTh.iloc[index])/2.0)
+        line_seg.loc[index,'DynCanTh'] = ((worklnbuffer_dfL.DynCanTh.iloc[index] +
+                                           worklnbuffer_dfR.DynCanTh.iloc[index])/2.0)
 
     print("Saving dynamic canopy threshold output.....")
     geopandas.GeoDataFrame.to_file(line_seg, out_file)
     print("Saving dynamic canopy threshold output.....Done")
+
     del line_seg, worklnbuffer_dfL, worklnbuffer_dfR, workln_dfL, workln_dfR
     if full_step:
         return out_file
 
     print('%{}'.format(100))
 
+
 def split_line_fc(line):
     return list(map(shapely.LineString, zip(line.coords[:-1], line.coords[1:])))
 
+
 def split_into_segments(df):
-    odf=df
-    crs=odf.crs
-    if not 'OLnSEG' in odf.columns.array:
-        df['OLnSEG'] = numpy.nan
+    odf = df
+    crs = odf.crs
+    if 'OLnSEG' not in odf.columns.array:
+        df['OLnSEG'] = np.nan
     else:
         pass
-    df=odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
-    df=df.explode()
+    df = odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
+    df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf=geopandas.GeoDataFrame(df,geometry=df.geometry,crs=crs)
-    gdf=gdf.sort_values(by=['OLnFID','OLnSEG'])
-    gdf=gdf.reset_index(drop=True)
-    return  gdf
-def multiprocessing_copyparallel_lineLR(dfL,dfR,processes, left_dis,right_dist):
-    try:
+    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
+    gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
+    gdf = gdf.reset_index(drop=True)
+    return gdf
 
+
+def multiprocessing_copyparallel_lineLR(dfL, dfR, processes, left_dis, right_dist):
+    try:
         line_arg = []
         total_steps = len(dfL)
 
         for item in dfL.index:
-            item_list = [dfL,dfR, left_dis,right_dist, item]
+            item_list = [dfL,dfR, left_dis, right_dist, item]
             line_arg.append(item_list)
 
         featuresL = []
@@ -157,20 +161,19 @@ def multiprocessing_copyparallel_lineLR(dfL,dfR,processes, left_dis,right_dist):
         with Pool(processes=int(processes)) as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for resultL,resultR in pool.imap_unordered(copyparallel_lineLR, line_arg,chunksize=chunksize):
+            for resultL, resultR in pool.imap_unordered(copyparallel_lineLR, line_arg, chunksize=chunksize):
                 if BT_DEBUGGING:
                     print('Got result: {}{}'.format(resultL,resultR), flush=True)
                 featuresL.append(resultL)
                 featuresR.append(resultR)
                 step += 1
                 print('%{}'.format(step / total_steps * 100))
-            return geopandas.GeoDataFrame(pandas.concat(featuresL)),geopandas.GeoDataFrame(pandas.concat(featuresR))
+            return geopandas.GeoDataFrame(pandas.concat(featuresL)), geopandas.GeoDataFrame(pandas.concat(featuresR))
     except OperationCancelledException:
         print("Operation cancelled")
 
 
-def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM,processes ,side):
-
+def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM, processes, side):
     try:
         line_arg = []
         total_steps = len(df)
@@ -204,6 +207,7 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM,proce
     except OperationCancelledException:
         print("Operation cancelled")
 
+
 def cal_percentile(line_arg):
     try:
         df = line_arg[0]
@@ -213,7 +217,8 @@ def cal_percentile(line_arg):
         row_index = line_arg[4]
         PerCol = line_arg[5]
         line_buffer = df.loc[row_index, 'geometry']
-    except:
+    except Exception as e:
+        print(e)
         print("Assigning variable on index:{} Error: ".format(line_arg) + sys.exc_info())
         exit()
 
@@ -222,19 +227,19 @@ def cal_percentile(line_arg):
     Dyn_Canopy_Threshold = 0.05
     try:
         with rasterio.open(in_CHM) as raster:
-
-            clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True, nodata=-9999, filled=True)
-            clipped_raster = numpy.squeeze(clipped_raster, axis=0)
+            clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
+                                                               nodata=-9999, filled=True)
+            clipped_raster = np.squeeze(clipped_raster, axis=0)
 
             # mask all -9999 (nodata) value cells
-            masked_raster = numpy.ma.masked_where(clipped_raster == -9999, clipped_raster)
-            filled_raster=numpy.ma.filled(masked_raster, numpy.nan)
+            masked_raster = np.ma.masked_where(clipped_raster == -9999, clipped_raster)
+            filled_raster = np.ma.filled(masked_raster, np.nan)
 
             # Calculate the percentile
-            # masked_mean = numpy.ma.mean(masked_raster)
-            percentile = numpy.nanpercentile(filled_raster, CanPercentile,method='hazen')
-            median = numpy.nanmedian(filled_raster)
-            if percentile>0.05:#(percentile+median)>0.0:
+            # masked_mean = np.ma.mean(masked_raster)
+            percentile = np.nanpercentile(filled_raster, CanPercentile,method='hazen')
+            median = np.nanmedian(filled_raster)
+            if percentile>0.05:  # (percentile+median)>0.0:
                 # ((50 Percentile + user defined percentile)/2)x(User defined Canopy Threshold Percentage)
                 # Dyn_Canopy_Threshold = ((percentile+median)/2.0) * (CanThrPercentage / 100.0)
                 # (user defined percentile)x(User defined Canopy Threshold Percentage)
@@ -246,22 +251,23 @@ def cal_percentile(line_arg):
             del clipped_raster, out_transform
         del raster
     # return the generated value
-    except:
+    except Exception as e:
+        print(e)
         print(sys.exc_info())
 
     try:
         df.loc[row_index, PerCol] = percentile
         df.loc[row_index, 'DynCanTh'] = Dyn_Canopy_Threshold
         return df
-    except:
+    except Exception as e:
         print("Error writing Percentile and Dynamic Canopy into table: "+sys.exc_info())
 
 
 def copyparallel_lineLR(line_arg):
-
     dfL = line_arg[0]
     dfR = line_arg[1]
-    #Simplify input center lines
+
+    # Simplify input center lines
     lineL = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     lineR = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     offset_distL = float(line_arg[2])
@@ -272,21 +278,16 @@ def copyparallel_lineLR(line_arg):
     # of sign of the distance. This method is kept for backwards compatibility for now,
     # but it is recommended to use offset_curve() instead.
     # (ref: https://shapely.readthedocs.io/en/stable/manual.html#object.offset_curve)
-
-    # parallel_lineL = shapely.offset_curve(geometry=lineL, distance=offset_distL,
-    #                                       join_style=shapely.BufferJoinStyle.mitre)
-    # parallel_lineR = shapely.offset_curve(geometry=lineR, distance=offset_distR,
-    #                                       join_style=shapely.BufferJoinStyle.mitre)
-
-    parallel_lineL = lineL.parallel_offset(distance=offset_distL,side='left',
+    parallel_lineL = lineL.parallel_offset(distance=offset_distL, side='left',
                                           join_style=shapely.BufferJoinStyle.mitre)
-    parallel_lineR = lineR.parallel_offset(distance=-offset_distR,side='right',
+    parallel_lineR = lineR.parallel_offset(distance=-offset_distR, side='right',
                                          join_style=shapely.BufferJoinStyle.mitre)
 
     if not parallel_lineL.is_empty:
         dfL.loc[line_arg[4], 'geometry'] = parallel_lineL
     if not parallel_lineR.is_empty:
         dfR.loc[line_arg[4], 'geometry'] = parallel_lineR
+
     return dfL.iloc[[line_arg[4]]],dfR.iloc[[line_arg[4]]]
 
 
