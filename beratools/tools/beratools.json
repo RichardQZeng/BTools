@@ -289,17 +289,6 @@
                             "optional": true
                         },
                         {
-                            "variable": "proc_segments",
-                            "parameter": "Process Segments",
-                            "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
                             "variable": "out_footprint",
                             "parameter": "Output Shapefile",
                             "description": "Output footprint polygons.",
@@ -360,17 +349,6 @@
                             "default": 0,
                             "output": false,
                             "optional": true
-                        },
-                        {
-                            "variable": "proc_segments",
-                            "parameter": "Process Segments",
-                            "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process each segment between each vertex of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": false
                         },
                         {
                             "variable": "out_footprint",

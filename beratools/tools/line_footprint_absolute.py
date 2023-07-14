@@ -15,9 +15,6 @@ import itertools
 
 from common import *
 
-GROUPING_SEGMENT = True
-LP_SEGMENT_LENGTH = 30
-
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
 
@@ -27,7 +24,7 @@ class OperationCancelledException(Exception):
 
 
 def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max_ln_width,
-                   exp_shk_cell, proc_segments, out_footprint, processes, verbose):
+                   exp_shk_cell, out_footprint, processes, verbose):
     corridor_th_field = 'CorridorTh'
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     max_ln_width = float(max_ln_width)
@@ -60,6 +57,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
 
     ori_total_feat = len(line_seg)
 
+    proc_segments = False
     if proc_segments:
         print("Splitting lines into segments...")
         line_seg = split_into_segments(line_seg)

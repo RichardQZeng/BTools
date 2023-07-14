@@ -16,7 +16,7 @@ class OperationCancelledException(Exception):
     pass
 
 
-def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_dist, canopy_percentile,
+def dynamic_canopy_threshold(callback, in_line, in_chm, off_ln_dist, canopy_percentile,
                              canopy_thresh_percentage, tree_radius, max_line_dist, canopy_avoidance,
                              exponent, full_step, processes, verbose):
 
@@ -50,6 +50,7 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
     #             print("Warning: index and OLnFID are not consistency at index: {}.".format(row))
     #             print("Please check data")
     #             exit()
+    proc_segments = False
     if proc_segments:
         line_seg = split_into_segments(line_seg)
     else:

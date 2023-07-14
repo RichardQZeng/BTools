@@ -151,7 +151,7 @@ def split_line_fc(line):
 
 def split_line_npart(line):
     # Work out n parts for each line (divided by 30m)
-    n = math.ceil(line.length / 30)
+    n = math.ceil(line.length / LP_SEGMENT_LENGTH)
     if n > 1:
         # divided line into n-1 equal parts;
         distances = numpy.linspace(0, line.length, n)

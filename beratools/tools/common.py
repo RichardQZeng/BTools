@@ -50,6 +50,9 @@ BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
 
 BT_UID = 'BT_UID'
 
+GROUPING_SEGMENT = True
+LP_SEGMENT_LENGTH = 30
+
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
     # gdal warning
