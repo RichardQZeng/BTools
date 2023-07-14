@@ -48,10 +48,6 @@ from common import *
 import sys
 
 
-# to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
-warnings.simplefilter(action='ignore', category=UserWarning)
-
-
 class OperationCancelledException(Exception):
     pass
 

@@ -92,19 +92,23 @@ def dynamic_canopy_threshold(callback, in_line, in_chm, proc_segments, off_ln_di
     line_seg['R_Pertiels'] = numpy.nan
     print('%{}'.format(80))
 
-    print("Calculating surrounding forest percentile..")
+    print("Calculating surrounding forest percentile LEFT..")
     # calculate the Height percentile for each parallel area using CHM
-    worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, int(canopy_percentile), float(canopy_thresh_percentage), in_chm, processes, side='left')
+    worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, int(canopy_percentile),
+                                                  float(canopy_thresh_percentage), in_chm,
+                                                  processes, side='left')
     worklnbuffer_dfL = worklnbuffer_dfL.sort_values(by=['OLnFID'])
     worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
-    print("Calculating surrounding forest percentile....")
-    worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, int(canopy_percentile), float(canopy_thresh_percentage), in_chm,
+
+    print("Calculating surrounding forest percentile RIGHT....")
+    worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, int(canopy_percentile),
+                                                  float(canopy_thresh_percentage), in_chm,
                                                   processes, side='right')
     worklnbuffer_dfR = worklnbuffer_dfR.sort_values(by=['OLnFID'])
     worklnbuffer_dfR = worklnbuffer_dfR.reset_index(drop=True)
 
     print('%{}'.format(90))
-    print("Calculating surrounding forest percentile....Done")
+    print("Forest percentile calculation, Done.")
     for index in (line_seg.index):
         line_seg.loc[index,'L_Pertiels'] =worklnbuffer_dfL.Percentile_L.iloc[index]
         line_seg.loc[index,'R_Pertiels'] = worklnbuffer_dfR.Percentile_R.iloc[index]
@@ -185,7 +189,7 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM,proce
             step = 0
             # execute tasks in order, process results out of order
             try:
-                for result in pool.imap_unordered(cal_percentile, line_arg,chunksize=chunksize):
+                for result in pool.imap_unordered(cal_percentile, line_arg, chunksize=chunksize):
                     if BT_DEBUGGING:
                         print('Got result: {}'.format(result), flush=True)
                     features.append(result)
