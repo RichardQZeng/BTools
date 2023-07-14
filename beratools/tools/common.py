@@ -50,8 +50,17 @@ BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
 
 BT_UID = 'BT_UID'
 
-# gdal warning
-gdal.SetConfigOption('CPL_LOG', 'NUL')
+# suppress all kinds of warnings
+if not BT_DEBUGGING:
+    # gdal warning
+    gdal.SetConfigOption('CPL_LOG', 'NUL')
+
+    # suppress warnings
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
+    warnings.simplefilter(action='ignore', category=UserWarning)
 
 
 def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
