@@ -16,7 +16,7 @@ class OperationCancelledException(Exception):
     pass
 
 
-def dynamic_canopy_threshold(callback, in_line, in_chm, off_ln_dist, canopy_percentile,
+def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_percentile,
                              canopy_thresh_percentage, tree_radius, max_line_dist, canopy_avoidance,
                              exponent, full_step, processes, verbose):
 
@@ -331,7 +331,7 @@ if __name__ == '__main__':
     args.input['full_step'] = False
 
     verbose = True if args.verbose == 'True' else False
-    dynamic_canopy_threshold(print, **args.input, processes=int(args.processes), verbose=verbose)
+    canopy_threshold_relative(print, **args.input, processes=int(args.processes), verbose=verbose)
 
     print('%{}'.format(100))
     print('Finishing Dynamic Canopy Threshold calculation @ {}\n(or in {} second)'.format(

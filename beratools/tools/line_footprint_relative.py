@@ -30,7 +30,7 @@
 #
 # ---------------------------------------------------------------------------
 from line_footprint_functions import *
-from dynamic_canopy_threshold import *
+from canopy_threshold_relative import *
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     del args.input['out_footprint'], args.input['exp_shk_cell'], args.input['max_ln_width']
 
     verbose = True if args.verbose == 'True' else False
-    dy_cl_line = dynamic_canopy_threshold(print, **args.input, processes=int(args.processes), verbose=verbose)
+    dy_cl_line = canopy_threshold_relative(print, **args.input, processes=int(args.processes), verbose=verbose)
     args = parser.parse_args()
     args.input['full_step'] = True
     args.input["in_line"]=dy_cl_line

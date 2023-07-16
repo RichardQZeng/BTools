@@ -792,7 +792,7 @@
                     "info": "Compute dynamic canopy threshold for each input line and update attributes.",
                     "multiprocessing": true,
                     "batch_processing": false,
-                    "tool_api": "dynamic_canopy_threshold",
+                    "tool_api": "canopy_threshold_relative",
                     "paramFile": "\\Scripts\\FLM_DCANO_params.txt",
                     "image": "../Images/FLM_IO_LineFootprint.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/DynCanThr.html",
