@@ -175,6 +175,8 @@ class VertexOptimization:
             self.crs = open_line_file.crs
             for line in open_line_file:
                 props = OrderedDict(line['properties'])
+                if not line['geometry']:
+                    continue
                 if line['geometry']['type'] != 'MultiLineString':
                     props[BT_UID] = i
                     input_lines.append([shape(line['geometry']), props])
@@ -491,6 +493,9 @@ class VertexOptimization:
 
 
 def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose):
+    if not compare_crs(in_line, in_cost):
+        return
+
     tool_vo = VertexOptimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose)
     centerlines = tool_vo.execute()
 

@@ -4,7 +4,6 @@ from multiprocessing.pool import Pool
 import numpy as np
 import time
 
-import pyproj
 import rasterio
 import rasterio.mask
 import fiona
@@ -24,32 +23,6 @@ from memory_profiler import profile
 
 class OperationCancelledException(Exception):
     pass
-
-
-def compare_crs(in_line, in_cost_raster):
-    line_crs = None
-    ras_crs = None
-    in_line_file = ogr.Open(in_line)
-    line_crs = in_line_file.GetLayer().GetSpatialRef()
-
-    cost_raster_file = gdal.Open(in_cost_raster)
-    ras_crs = cost_raster_file.GetSpatialRef()
-
-    del in_line_file
-    del cost_raster_file
-
-    if line_crs and ras_crs:
-        if line_crs.IsSameGeogCS(ras_crs):
-            print('Check: Input file Spatial Reference are the same, continue.')
-            return True
-        else:
-            line_crs_norm = pyproj.CRS(line_crs.ExportToWkt())
-            ras_crs_norm = pyproj.CRS(ras_crs.ExportToWkt())
-            if ras_crs_norm.name == line_crs_norm.name:
-                print('Same crs, continue.')
-                return True
-
-    return False
 
 
 def centerline(callback, in_line, in_cost, line_radius,

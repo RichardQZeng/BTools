@@ -255,3 +255,30 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
         except Exception as e:
             print(e)
 
+
+def compare_crs(shp_file, raster_file):
+    line_crs = None
+    ras_crs = None
+    in_line_file = ogr.Open(shp_file)
+    line_crs = in_line_file.GetLayer().GetSpatialRef()
+
+    cost_raster_file = gdal.Open(raster_file)
+    ras_crs = cost_raster_file.GetSpatialRef()
+
+    del in_line_file
+    del cost_raster_file
+
+    if line_crs and ras_crs:
+        if line_crs.IsSameGeogCS(ras_crs):
+            print('Check: Input file Spatial Reference are the same, continue.')
+            return True
+        else:
+            line_crs_norm = CRS(line_crs.ExportToWkt())
+            ras_crs_norm = CRS(ras_crs.ExportToWkt())
+            if ras_crs_norm.name == line_crs_norm.name:
+                print('Same crs, continue.')
+                return True
+
+        print('Different GCS, please check.')
+
+    return False
