@@ -188,36 +188,6 @@ def r_lpi_lai_with_focalR(arg):
 
     print("Calculating LPI adn eLAI: {}....Done".format(filename))
 
-def find_pulse_density(ctg,out_folder ):
-    r = robjects.r
-
-    cache_folder = os.path.join(out_folder, "Cache")
-
-    if not os.path.exists(cache_folder):
-        os.makedirs(cache_folder)
-
-    r('''
-       routine <- function(chunk){ 
-      las <- readLAS(chunk)
-      if (is.empty(las)) return(NULL)
-      las <- retrieve_pulses(las)
-      pulse<-rasterize_density(las, res=1,pkg="terra")
-      pulse_density<-global(pulse,"mean",na.rm=TRUE)$mean
-      # output is a list
-      return(pulse_density)
-       }
-       ''')
-    routine = r['routine']
-    list_pd = r.catalog_apply(ctg, routine)
-    point_density,pulse_density=numpy.nanmean(numpy.array(list_pd),axis=0)
-
-    # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
-    mean_pd = math.pow(3 / pulse_density, 1 / 2)
-    # mean_pd = math.pow(5 / pulse_density, 1 / 2)
-    cell_size = round(0.05 * round(mean_pd / 0.05), 2)
-
-    return (cell_size)
-
 
 def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, focal_radius, pulse_density,
               cell_size, mean_scanning_angle, out_folder, processes, verbose):
@@ -273,7 +243,6 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
         os.makedirs(eLAI_folder)
 
     lascat = r.readLAScatalog(in_las_folder,filter= "-drop_class 7")
-    pulse_density = find_pulse_density(lascat,out_folder)
     cache_folder = cache_folder.replace("\\","/")
     # dtm_folder = dtm_folder.replace("\\", "/") + "/{*}_dtm"
 
