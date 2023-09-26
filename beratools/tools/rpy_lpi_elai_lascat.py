@@ -172,7 +172,26 @@ def r_lpi_lai_with_focalR(arg):
     # At this stage no process for CHM
 
     print("Calculating LPI adn eLAI: {}....Done".format(filename))
+def f_pulse_density(ctg, out_folder, processes, verbose):
+    r = robjects.r
+    print('Calculate cell size from average point cloud density...')
+    cache_folder = os.path.join(out_folder, "Cache")
+    # assign R script file to local variable
+    r_pd_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r_point_density.r')
+    # Defining the R script and loading the instance in Python
+    r['source'](r_pd_script)
+    # Loading the function defined in R script.
+    rpd_routine = robjects.globalenv['pd_routine']
+    # Invoking the R function
+    list_pd=rpd_routine(ctg)
 
+    pulse_density=numpy.nanmean(numpy.array(list_pd))
+
+    # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
+    mean_pd = math.pow(3 / pulse_density, 1 / 2)
+    # mean_pd = math.pow(5 / pulse_density, 1 / 2)
+    result = round(0.05 * round(mean_pd / 0.05), 2)
+    return (result)
 
 def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, focal_radius, pulse_density,
               cell_size, mean_scanning_angle, out_folder, processes, verbose):
@@ -182,21 +201,11 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     import psutil
     stats = psutil.virtual_memory()  # returns a named tuple
     available = getattr(stats, 'available')/1024000000
-    if 2<processes<=60:
-        if available<= 50:
-            rprocesses=4
-        elif 50< available<= 150:
-            rprocesses=8
-        elif 150< available<= 250:
-            rprocesses=12
-        else:
-            rprocesses = 4
+    if 2<processes<=8:
+        rprocesses = 6
     else:
         rprocesses=2
 
-
-    r.plan(r.multisession,workers=rprocesses)
-    r.set_lidr_threads(math.ceil(rprocesses))
 
 
     cache_folder=os.path.join(out_folder,"Cache")
@@ -230,7 +239,7 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     if not os.path.exists(eLAI_folder):
         os.makedirs(eLAI_folder)
 
-    lascat = r.readLAScatalog(in_las_folder,filter= "-drop_class 7")
+    lascat = lidR.readLAScatalog(in_las_folder,filter= "-drop_class 7")
     cache_folder = cache_folder.replace("\\","/")
     # dtm_folder = dtm_folder.replace("\\", "/") + "/{*}_dtm"
     # chm_folder = chm_folder.replace("\\","/") + "/{*}_chm"
@@ -247,7 +256,7 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
 
     if cell_size<=0:
         if pulse_density<=0:
-            cell_size=pulse_density(lascat,out_folder,processes, verbose)
+            cell_size=f_pulse_density(lascat,out_folder,processes, verbose)
 
     #assign R script file to local variable
     generate_pd_Rscript=os.path.join(os.path.dirname(os.path.abspath(__file__)),'r_generate_pd_focalraster.r')
@@ -257,10 +266,8 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     generate_pd =robjects.globalenv['generate_pd']
     # Invoking the R function
     generate_pd(lascat, radius_fr_CHM, focal_radius, cell_size, cache_folder, cut_ht, PD_Ground_folder,
-                    PD_Total_folder)
+                    PD_Total_folder,rprocesses)
 
-    # reset R mutilsession back to default
-    r.plan("default")
 
     # At this stage no process for CHM
     #  locate the point density raster for generating eLAI and LPI
@@ -464,8 +471,9 @@ if __name__ == '__main__':
         # check manual input for cell size and pulse density
         if not isinstance(cell_size, float) or cell_size <= 0.00:
             if not isinstance(pulse_density, int) or pulse_density <= 0.00:
-                print("Invalid cell size and average pulse density provided.\n Default cell will size be adopted (1m).")
-                in_args.input['cell_size'] = 1.0
+                print("Invalid cell size and average pulse density provided.\n"
+                      "Cell size will be calulated based on aveage point density.")
+                in_args.input['cell_size'] = 0.0
                 in_args.input['pulse_density'] = 0
             else:
                 # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
