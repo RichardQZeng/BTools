@@ -1,13 +1,15 @@
 #create a 'generate_pd' function
 generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
-    cut_ht,PD_Ground_folder,PD_Total_folder){
+    cut_ht,PD_Ground_folder,PD_Total_folder,rprocesses){
     library(terra)
     library(lidR)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
 
     opts <- paste0("-drop_class 7")
 
     print("Processing using R packages.")
-
 
     folder <- paste0(cache_folder,"/nlidar/n_{*}" )
     opt_output_files(ctg) <- opt_output_files(ctg) <- folder
@@ -93,4 +95,6 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
     opt_output_files(ctg2) <- paste0(PD_Ground_folder,"/{*}_PD_Gfocalsum")
     opt_stop_early(ctg2) <- FALSE
     catalog_apply(ctg2, pd_ground,radius=focal_radius,cell_size=cell_size,cut_ht=cut_ht,.options=opt)
+    # reset R mutilsession back to default
+    plan("default")
     }
