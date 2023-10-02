@@ -18,7 +18,7 @@ from common import *
 # import line_profiler
 # profile = line_profiler.LineProfiler()
 
-from memory_profiler import profile
+# from memory_profiler import profile
 
 
 class OperationCancelledException(Exception):
@@ -37,15 +37,18 @@ def centerline(callback, in_line, in_cost, line_radius,
     with fiona.open(in_line) as open_line_file:
         layer_crs = open_line_file.crs
         for line in open_line_file:
-            if line.geometry['type'] != 'MultiLineString':
-                input_lines.append(line['geometry'])
+            if line.geometry:
+                if line.geometry['type'] != 'MultiLineString':
+                    input_lines.append(line['geometry'])
+                else:
+                    print('MultiLineString found.')
+                    geoms = shape(line['geometry']).geoms
+                    for item in geoms:
+                        line_part = Geometry.from_dict(item)
+                        if line_part:
+                            input_lines.append(line_part)
             else:
-                print('MultiLineString found.')
-                geoms = shape(line['geometry']).geoms
-                for item in geoms:
-                    line_part = Geometry.from_dict(item)
-                    if line_part:
-                        input_lines.append(line_part)
+                print(f'Line {line.id} has empty geometry.')
 
     if proc_segments:
         # split line segments at vertices
@@ -136,7 +139,7 @@ def centerline(callback, in_line, in_cost, line_radius,
         ray.shutdown()
 
 
-@profile
+# @profile
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
     line = line_args[0]
     line_radius = line_args[1]
@@ -177,14 +180,23 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
         end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
         start_tuple = start_tuples[0]
+        end_tuple = end_tuples[0]
+
+        # regulate end poit coords in case they are out of index of matrix
+        mat_size = matrix.shape
+        mat_size = (mat_size[0]-1, mat_size[0]-1)
+        start_tuple = (min(start_tuple[0], mat_size), start_tuple[1], start_tuple[2])
+        end_tuple = (min(end_tuple[0], mat_size), end_tuple[1], end_tuple[2])
+
     except Exception as e:
         print(e)
 
     print(" Searching least cost path for line with id: {} ".format(line_args[3]), flush=True)
 
     if USE_NUMPY_FOR_DIJKSTRA:
-        result = dijkstra_np(start_tuple, end_tuples, matrix)
+        result = dijkstra_np(start_tuple, end_tuple, matrix)
     else:
+        # TODO: change end_tuples to end_tuple
         result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
 
     if result is None:
@@ -197,17 +209,16 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         return None, None
 
     path_points = None
-    for path, costs, end_tuples in result:
-        for end_tuple in end_tuples:
-            path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
-                                                                    start_tuple[1], end_tuple[1])
-            if output_linear_reference:
-                # TODO: code not reached
-                # add linear reference
-                for point, cost in zip(path_points, costs):
-                    point.addMValue(cost)
+    for path, costs, end_tuple in result:
+        path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
+                                                                start_tuple[1], end_tuple[1])
+        if output_linear_reference:
+            # TODO: code not reached
+            # add linear reference
+            for point, cost in zip(path_points, costs):
+                point.addMValue(cost)
 
-            total_cost = costs[-1]
+        total_cost = costs[-1]
 
     feat_attr = (start_tuple[2], end_tuple[2], total_cost)
     return path_points, feat_attr
