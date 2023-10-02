@@ -15,20 +15,32 @@ from multiprocessing.pool import Pool
 from common import *
 class OperationCancelledException(Exception):
     pass
-r_library=os.path.join(os.path.expanduser('~'), "AppData\\Local\\R\\win-library")
-try:
-    aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\R-core\\R")
-    for i in range((winreg.QueryInfoKey(aKey))[0]):
-        aValue_name = winreg.EnumKey(aKey, i)
-        oKey = winreg.OpenKey(aKey, aValue_name)
-        r_install_path = winreg.QueryValueEx(oKey, "installPath")[0]
-    os.environ['R_HOME'] = r_install_path
-    os.environ['R_USER'] = os.path.expanduser('~')
-    if os.path.isdir(r_library):
-        os.environ['R_LIBS_USER'] = r_library
-    else:
-        os.makedirs(r_library)
-        os.environ['R_LIBS_USER'] = r_library
+# r_library=os.path.join(os.path.expanduser('~'), "AppData\\Local\\R\\win-library")
+current_env_path= os.environ['CONDA_PREFIX']
+
+# try: # separate R env
+#     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\R-core\\R")
+#     for i in range((winreg.QueryInfoKey(aKey))[0]):
+#         aValue_name = winreg.EnumKey(aKey, i)
+#         oKey = winreg.OpenKey(aKey, aValue_name)
+#         r_install_path = winreg.QueryValueEx(oKey, "installPath")[0]
+#     os.environ['R_HOME'] = r_install_path
+#     os.environ['R_USER'] = os.path.expanduser('~')
+#     if os.path.isdir(r_library):
+#         os.environ['R_LIBS_USER'] = r_library
+#     else:
+#         os.makedirs(r_library)
+#         os.environ['R_LIBS_USER'] = r_library
+#
+# except FileNotFoundError:
+#     print("Warning: Please install R for this process!!")
+#     exit()
+
+try: # integrated R env
+    if os.path.isdir(current_env_path):
+        os.environ['R_HOME'] =os.path.join(current_env_path,r"Lib\R")
+        os.environ['R_USER'] = os.path.expanduser('~')
+        os.environ['R_LIBS_USER'] = os.path.join(current_env_path,r"Lib\R\library")
 
 except FileNotFoundError:
     print("Warning: Please install R for this process!!")
@@ -50,8 +62,8 @@ def lpi_lai(arg):
     radius = float(arg[6])
     tfocal_filename = filename + "_tfocal_py.tif"
     gfocal_filename = filename + "_gfocal_py.tif"
-    out_tfocal = os.path.join(out_folder, tfocal_filename)
-    out_gfocal = os.path.join(out_folder, gfocal_filename)
+    # out_tfocal = os.path.join(out_folder, tfocal_filename)
+    # out_gfocal = os.path.join(out_folder, gfocal_filename)
 
     ## output files variables
     out_lpi_fielname = filename + "_LPI_py.tif"
@@ -130,21 +142,12 @@ def fs_raster_stdmean(in_ndarray, kernel, nodata):
 
 def r_lpi_lai_with_focalR(arg):
     r = robjects.r
-    terra = importr('terra')
-    # chm=arg[0]
     pdTotal=arg[0]
     pdGround=arg[1]
     out_folder=arg[2]
     filename=arg[3]
     scan_angle=float(arg[4])
 
-
-    ##variable for not calling R
-    # cell_size =float(arg[5])
-    tfocal_filename = filename + "_tfocal_r.tif"
-    gfocal_filename = filename + "_gfocal_R.tif"
-    # out_tfocal = os.path.join(out_folder, tfocal_filename)
-    # out_gfocal = os.path.join(out_folder, gfocal_filename)
 
     ## output files variables
     out_lpi_fielname = filename + "_LPI_r.tif"
@@ -156,38 +159,39 @@ def r_lpi_lai_with_focalR(arg):
 
     radius = float(arg[6])
     print("Calculating LPI and eLAI for {}....".format(filename))
-    r(''' #create a 'rlpi_elai' function
-    library(terra)
-    library(sf)
-    library(sp)
-    rlpi_elai <- function(pdTotal,pdGround,radius,scan_angle,out_lpi,out_elai){
-    
-    total_focal <- rast(pdTotal)
-    ground_focal <- rast(pdGround)
 
-    # pdTotal_SpatRaster <- rast(pdTotal)
-    # pdGround_SpatRaster <- rast(pdGround)
-    ground_focal <- extend(ground_focal, ext(total_focal))
-    
-    # lpi
-    lpi = ground_focal / total_focal
-    #lpi
-    lpi[is.infinite(lpi)] = NA
-
-    elai = -cos(((scan_angle / 2.0)/180)*pi)/0.5 * log(lpi)
-    elai[is.infinite(elai)] = NA
-    elai[elai==0 | elai==-0 ] = 0
-    
-    writeRaster(lpi,out_lpi,overwrite=TRUE)
-    writeRaster(elai,out_elai,overwrite=TRUE)
-
-    }''')
-
-    rlpi_elai = r['rlpi_elai']
+    # assign R script file to local variable
+    rlpi_elai_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r_cal_lpi_elai.r')
+    # Defining the R script and loading the instance in Python
+    r['source'](rlpi_elai_script)
+    # Loading the function defined in R script.
+    rlpi_elai = robjects.globalenv['rlpi_elai']
+    # Invoking the R function
     rlpi_elai(pdTotal,pdGround,radius,scan_angle,out_lpi,out_elai)
 
-    print("Calculating LPI adn eLAI: {}....Done".format(filename))
+    # At this stage no process for CHM
 
+    print("Calculating LPI adn eLAI: {}....Done".format(filename))
+def f_pulse_density(ctg, out_folder, processes, verbose):
+    r = robjects.r
+    print('Calculate cell size from average point cloud density...')
+    cache_folder = os.path.join(out_folder, "Cache")
+    # assign R script file to local variable
+    r_pd_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r_point_density.r')
+    # Defining the R script and loading the instance in Python
+    r['source'](r_pd_script)
+    # Loading the function defined in R script.
+    rpd_routine = robjects.globalenv['pd_routine']
+    # Invoking the R function
+    list_pd=rpd_routine(ctg)
+
+    pulse_density=numpy.nanmean(numpy.array(list_pd))
+
+    # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
+    mean_pd = math.pow(3 / pulse_density, 1 / 2)
+    # mean_pd = math.pow(5 / pulse_density, 1 / 2)
+    result = round(0.05 * round(mean_pd / 0.05), 2)
+    return (result)
 
 def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, focal_radius, pulse_density,
               cell_size, mean_scanning_angle, out_folder, processes, verbose):
@@ -197,18 +201,11 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     import psutil
     stats = psutil.virtual_memory()  # returns a named tuple
     available = getattr(stats, 'available')/1024000000
-    if available<= 50:
-        rprocesses=4
-    elif 50< available<= 150:
-        rprocesses=8
-    elif 150< available<= 250:
-        rprocesses=12
+    if 2<processes<=8:
+        rprocesses = 6
     else:
-        rprocesses = 4
+        rprocesses=2
 
-
-    r.plan(r.multisession,workers=rprocesses)
-    r.set_lidr_threads(math.ceil(rprocesses))
 
 
     cache_folder=os.path.join(out_folder,"Cache")
@@ -242,271 +239,38 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     if not os.path.exists(eLAI_folder):
         os.makedirs(eLAI_folder)
 
-    lascat = r.readLAScatalog(in_las_folder,filter= "-drop_class 7")
+    lascat = lidR.readLAScatalog(in_las_folder,filter= "-drop_class 7")
     cache_folder = cache_folder.replace("\\","/")
     # dtm_folder = dtm_folder.replace("\\", "/") + "/{*}_dtm"
-
-    # chm_folder = chm_folder.replace("\\","/")
+    # chm_folder = chm_folder.replace("\\","/") + "/{*}_chm"
     PD_Total_folder = PD_folder.replace("\\","/")+"/Total"
     PD_Ground_folder = PD_folder.replace("\\", "/") + "/Ground"
     LPI_folder = LPI_folder.replace("\\", "/")
     eLAI_folder = eLAI_folder.replace("\\", "/")
 
     if not in_polygon_file=="":
-        r.vect(in_polygon_file)
+        try:
+            r.vect(in_polygon_file)
+        except FileNotFoundError:
+            print("Could not locate shapefile, all area will be process")
 
     if cell_size<=0:
         if pulse_density<=0:
-            cell_size=pulse_density(lascat,out_folder,processes, verbose)
+            cell_size=f_pulse_density(lascat,out_folder,processes, verbose)
 
-##############################################################
-    r('''#create a 'generate_pd' function
-    generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
-    cut_ht,PD_Ground_folder,PD_Total_folder){
-    library(terra)
-    library(lidR)
-
-    opts <- paste0("-drop_class 7")
-
-    print("Processing using R packages.")
-   
-
-    # routine <- function(chunk)
-    # {
-    # las <- readLAS(chunk)
-    # if (is.empty(las)) return(NULL)
-    # las <- retrieve_pulses(las)
-    # las <- filter_poi(las,buffer==0)
-    # }
-    # opt <- list(need_output_file =TRUE, autocrop = TRUE)
-    # opt_laz_compression(ctg) <- TRUE
-    # opt_chunk_alignment(ctg) <- c(0,0)
-    # opt_output_files(ctg) <- paste0(cache_folder,"/{*}")
-    # opt_stop_early(ctg) <- FALSE
-    # catalog_apply(ctg, routine,.options=opt)
-
-    #load normalized LAS with pulse info (debug only)
-    # ctg2<- readLAScatalog( paste0(cache_folder,"/nlidar"))
-
-    # print("Normalize point cloud using K-nearest neighbour IDW....")
-    folder <- paste0(cache_folder,"/nlidar/n_{*}" )
-    opt_output_files(ctg) <- opt_output_files(ctg) <- folder
-    opt_laz_compression(ctg) <- TRUE
-    opt_chunk_alignment(ctg) <- c(0,0)
-
-    #normalized LAS with pulse info
-    normalize_height(ctg, algorithm=knnidw())
-    
-    print("Generate pulse density (total focal sum) raster....")
-
-    pd_total <- function(chunk,radius,cell_size)
-    {
-    las <- readLAS(chunk)
-    if (is.empty(las)) return(NULL)
-
-    las_1 <- filter_poi(readLAS(chunk), buffer==0)
-    # hull <- st_convex_hull(las_1)
-    bbox <- ext(las_1)
-
-    # convert to SpatialPolygons
-    # bbox <- vect(hull)
-
-    las <- filter_poi(las, Classification != 7L)
-    las <- retrieve_pulses(las)
-    density_raster_total <- rasterize_density(las, res=cell_size,pkg="terra")[[2]]
-    
-    tfw <- focalMat(density_raster_total, radius, "circle")
-
-    tfw[tfw>0] = 1
-    tfw[tfw==0] = NA
-
-    Total_focal <- focal(density_raster_total, w=tfw, fun="sum", na.rm=TRUE,na.policy="omit",fillvalue=NA,expand=FALSE)
-    Total_focal <- crop(Total_focal,bbox)
-    }
-    opt <- list(need_output_file =TRUE, autocrop = TRUE)
-    opt_chunk_alignment(ctg) <- c(0,0)
-    ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-    # opt_output_files(ctg) <- paste0(PD_Total_folder,"/{*}_PD_Total")
-    opt_output_files(ctg) <- paste0(PD_Total_folder,"/{*}_PD_Tfocalsum")
-    opt_stop_early(ctg) <- FALSE
-    catalog_apply(ctg, pd_total,radius=focal_radius,cell_size=cell_size,.options=opt)
-
-    #load normalized LAS
-    ht<- paste0("-drop_class 7 -drop_z_above ",cut_ht)
-    ctg2<- readLAScatalog( paste0(cache_folder,"/nlidar"), filter = ht)
-
-
-    print("Generate pulse density (ground focal sum) raster....")
-    pd_ground <- function(chunk,radius,cell_size,cut_ht)
-    {
-    las <- readLAS(chunk)
-    if (is.empty(las)) return(NULL)
-
-    las_1 <- filter_poi(readLAS(chunk), buffer==0)
-    # hull <- st_convex_hull(las_1)
-
-    # convert to SpatialPolygons
-    # bbox <- vect(hull)
-    bbox <- ext(las_1)
-
-    las <- retrieve_pulses(las)
-    density_raster_ground <- rasterize_density(las, res=cell_size,pkg="terra")[[2]]
-    
-
-    gfw <- focalMat(density_raster_ground, radius, "circle")
-    gfw[gfw>0] = 1
-    gfw[gfw==0] = NA
-
-    Ground_focal <- focal(density_raster_ground, w=gfw, fun="sum",na.policy="omit",na.rm=TRUE,fillvalue=NA,expand=FALSE)
-    ground_focal <- crop(Ground_focal,bbox)
-
-    }
-    opt <- list(need_output_file =TRUE, autocrop = TRUE)
-    opt_chunk_alignment(ctg2) <- c(0,0)
-    ctg2@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-    # opt_output_files(ctg2) <- paste0(PD_Ground_folder,"/{*}_PD_Ground")
-    opt_output_files(ctg2) <- paste0(PD_Ground_folder,"/{*}_PD_Gfocalsum")
-    opt_stop_early(ctg2) <- FALSE
-    catalog_apply(ctg2, pd_ground,radius=focal_radius,cell_size=cell_size,cut_ht=cut_ht,.options=opt)
-
-     }''')
-
-    generate_pd = r['generate_pd']
-
+    #assign R script file to local variable
+    generate_pd_Rscript=os.path.join(os.path.dirname(os.path.abspath(__file__)),'r_generate_pd_focalraster.r')
+    # Defining the R script and loading the instance in Python
+    r['source'](generate_pd_Rscript)
+    # Loading the function defined in R script.
+    generate_pd =robjects.globalenv['generate_pd']
+    # Invoking the R function
     generate_pd(lascat, radius_fr_CHM, focal_radius, cell_size, cache_folder, cut_ht, PD_Ground_folder,
-                    PD_Total_folder)#dtm_folder, chm_folder,
+                    PD_Total_folder,rprocesses)
 
-###########################################################
-#fasterRaster
-    #
-    # r('''#create a 'fasterRaster_pd' function
-    # fasterRaster_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
-    # dtm_folder,chm_folder,cut_ht,PD_Ground_folder,PD_Total_folder,rprocesses){
-    # library(terra)
-    # library(rgrass)
-    # library(fasterRaster)
-    # library(lidR)
-    #
-    #
-    # opts <- paste0("-drop_class 7")
-    #
-    # print("Processing using R packages.")
-    # print("Retrieving pulses information....")
-    #
-    # routine <- function(chunk)
-    # {
-    # las <- readLAS(chunk)
-    # if (is.empty(las)) return(NULL)
-    # las <- retrieve_pulses(las)
-    # las <- filter_poi(las,buffer==0)
-    # }
-    # opt <- list(need_output_file =TRUE, autocrop = TRUE)
-    # opt_laz_compression(ctg) <- TRUE
-    # opt_chunk_alignment(ctg) <- c(0,0)
-    # opt_output_files(ctg) <- paste0(cache_folder,"/{*}")
-    # opt_stop_early(ctg) <- FALSE
-    # catalog_apply(ctg, routine,.options=opt)
-    #
-    #
-    # #load normalized LAS with pulse info (debug only)
-    # # ctg2<- readLAScatalog( paste0(cache_folder,"/nlidar"))
-    #
-    # print("Normalize point cloud using K-nearest neighbour IDW....")
-    # folder <- paste0(cache_folder,"/nlidar/n_{*}" )
-    # opt_output_files(ctg) <- opt_output_files(ctg) <- folder
-    # opt_laz_compression(ctg) <- TRUE
-    # # opt_filter(ctg) <- opts
-    # opt_chunk_alignment(ctg) <- c(0,0)
-    #
-    # #normalized LAS with pulse info
-    # normalize_height(ctg, algorithm=knnidw())
-    #
-    # #load LAS with pulse info
-    # ctg <- readLAScatalog(cache_folder,filter=opts)
-    # print("Generate pulse density (total focal sum) raster....")
-    #
-    # pd_total <- function(chunk,radius,cell_size)
-    # {
-    # las <- readLAS(chunk)
-    # if (is.empty(las)) return(NULL)
-    #
-    # las_1 <- filter_poi(readLAS(chunk), buffer==0)
-    # hull <- st_convex_hull(las_1)
-    #
-    #
-    # # convert to SpatialPolygons
-    # bbox <- vect(hull)
-    #
-    # las <- filter_poi(las, Classification != 7L)
-    # density_raster_total <- rasterize_density(las, res=cell_size)#,pkg="terra")
-    # # density_raster_total <- mask(density_raster_total,bbox,touches=FALSE)
-    #
-    # # tfw <- focalMat(density_raster_total, radius, "circle")
-    # #
-    # # tfw[tfw>0] = 1
-    # # tfw[tfw==0] = NA
-    # #
-    # # Total_focal <- fasterFocal(density_raster_total, w=tfw, fun=sum, na.rm=TRUE,cores=rprocesses, forceMulti=TRUE)
-    # # total_focal <- mask(as(Total_focal,"SpatRaster"),bbox,touches=FALSE)
-    # }
-    # opt <- list(need_output_file =TRUE, autocrop = TRUE)
-    # opt_chunk_alignment(ctg) <- c(0,0)
-    # ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-    # opt_output_files(ctg) <- paste0(PD_Total_folder,"/{*}_PD_Total")
-    # # opt_output_files(ctg) <- paste0(PD_Total_folder,"/{*}_PD_Tfocalsum")
-    # opt_stop_early(ctg) <- FALSE
-    # catalog_apply(ctg, pd_total,radius=focal_radius,cell_size=cell_size,.options=opt)
-    #
-    #
-    # ht<- paste0("-drop_class 7 -drop_z_above ",cut_ht)
-    # ctg2<- readLAScatalog( paste0(cache_folder,"/nlidar"), filter = ht)
-    #
-    #
-    # print("Generate pulse density (ground focal sum) raster....")
-    # pd_ground <- function(chunk,radius,cell_size,cut_ht)
-    # {
-    # las <- readLAS(chunk)
-    # if (is.empty(las)) return(NULL)
-    #
-    # las_1 <- filter_poi(readLAS(chunk), buffer==0)
-    # hull <- st_convex_hull(las_1)
-    #
-    # # convert to SpatialPolygons
-    # bbox <- vect(hull)
-    #
-    #
-    # density_raster_ground <- rasterize_density(las, res=cell_size)#,pkg="terra")
-    # density_raster_ground <- mask(density_raster_ground,bbox,touches=FALSE)
-    #
-    # # gfw <- focalMat(density_raster_ground, radius, "circle")
-    # # gfw[gfw>0] = 1
-    # # gfw[gfw==0] = NA
-    # #
-    # # Ground_focal <- fasterFocal(density_raster_ground, w=gfw, fun=sum,na.rm=TRUE,cores=rprocesses, forceMulti=TRUE)
-    # # ground_focal <- mask(as(Ground_focal,"SpatRaster"),bbox,touches=FALSE)
-    #
-    # }
-    # opt <- list(need_output_file =TRUE, autocrop = TRUE)
-    # opt_chunk_alignment(ctg2) <- c(0,0)
-    # ctg2@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-    # opt_output_files(ctg2) <- paste0(PD_Ground_folder,"/{*}_PD_Ground")
-    # # opt_output_files(ctg2) <- paste0(PD_Ground_folder,"/{*}_PD_Gfocalsum")
-    # opt_stop_early(ctg2) <- FALSE
-    # catalog_apply(ctg2, pd_ground,radius=focal_radius,cell_size=cell_size,cut_ht=cut_ht,.options=opt)
-    #
-    #  }''')
-    #
-    # fasterRaster_pd = r['fasterRaster_pd']
-    #
-    # fasterRaster_pd(lascat, radius_fr_CHM, focal_radius, cell_size, cache_folder, dtm_folder, chm_folder, cut_ht,
-    #             PD_Ground_folder,
-    #             PD_Total_folder,rprocesses)
-##############################################
-#################################################################
 
-    # generate_LPI(lascat, radius_fr_CHM, focal_radius, cell_size, cache_folder, dtm_folder, chm_folder, cut_ht, LPI_folder)
     # At this stage no process for CHM
-
+    #  locate the point density raster for generating eLAI and LPI
     pd_total_filelist=[]
     pd_ground_filelist = []
 
@@ -526,46 +290,47 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     # At this stage no process for finding average cell size from all CHM
     radius_fr_CHM = False
     if radius_fr_CHM:
-        chm_filelist = []
-        for root, dirs, files in sorted(os.walk(os.path.join(out_folder, "CHM"))):
-            for file in files:
-                if file.endswith("_chm.tif"):
-                    chm_filelist.append(os.path.join(root, file))
-        del root, dirs, files
-
-        if len(pd_total_filelist) == len(pd_ground_filelist) == len(chm_filelist):
-            for i in range(0, len(pd_total_filelist)):
-                chm_filename = os.path.splitext(os.path.split(chm_filelist[i])[1])[0]
-                pdtotal_filename = os.path.splitext(os.path.split(pd_total_filelist[i])[1])[0]
-                pdGround_filename = os.path.splitext(os.path.split(pd_ground_filelist[i])[1])[0]
-                result_list = []
-                if chm_filename[0:-4] == pdtotal_filename[0:-13] == pdGround_filename[2:-13]:
-                    result_list.append(chm_filelist[i])
-                    result_list.append(pd_total_filelist[i])
-                    result_list.append(pd_ground_filelist[i])
-                    result_list.append(out_folder)
-                    result_list.append(chm_filename[0:-4])
-                    result_list.append(mean_scanning_angle)
-                    result_list.append(cell_size)
-                    result_list.append(focal_radius)
-                    args_list.append(result_list)
-
-        try:
-            total_steps = len(args_list)
-            features = []
-            with Pool(processes=int(processes)) as pool:
-                step = 0
-                # execute tasks in order, process results out of order
-                for result in pool.imap_unordered(lpi_lai, args_list):
-                    if BT_DEBUGGING:
-                        print('Got result: {}'.format(result), flush=True)
-                    features.append(result)
-                    step += 1
-                    print('%{}'.format(step / total_steps * 100))
-
-        except OperationCancelledException:
-            print("Operation cancelled")
-            exit()
+        pass
+        # chm_filelist = []
+        # for root, dirs, files in sorted(os.walk(os.path.join(out_folder, "CHM"))):
+        #     for file in files:
+        #         if file.endswith("_chm.tif"):
+        #             chm_filelist.append(os.path.join(root, file))
+        # del root, dirs, files
+        #
+        # if len(pd_total_filelist) == len(pd_ground_filelist) == len(chm_filelist):
+        #     for i in range(0, len(pd_total_filelist)):
+        #         chm_filename = os.path.splitext(os.path.split(chm_filelist[i])[1])[0]
+        #         pdtotal_filename = os.path.splitext(os.path.split(pd_total_filelist[i])[1])[0]
+        #         pdGround_filename = os.path.splitext(os.path.split(pd_ground_filelist[i])[1])[0]
+        #         result_list = []
+        #         if chm_filename[0:-4] == pdtotal_filename[0:-13] == pdGround_filename[2:-13]:
+        #             result_list.append(chm_filelist[i])
+        #             result_list.append(pd_total_filelist[i])
+        #             result_list.append(pd_ground_filelist[i])
+        #             result_list.append(out_folder)
+        #             result_list.append(chm_filename[0:-4])
+        #             result_list.append(mean_scanning_angle)
+        #             result_list.append(cell_size)
+        #             result_list.append(focal_radius)
+        #             args_list.append(result_list)
+        #
+        # try:
+        #     total_steps = len(args_list)
+        #     features = []
+        #     with Pool(processes=int(processes)) as pool:
+        #         step = 0
+        #         # execute tasks in order, process results out of order
+        #         for result in pool.imap_unordered(lpi_lai, args_list):
+        #             if BT_DEBUGGING:
+        #                 print('Got result: {}'.format(result), flush=True)
+        #             features.append(result)
+        #             step += 1
+        #             print('%{}'.format(step / total_steps * 100))
+        #
+        # except OperationCancelledException:
+        #     print("Operation cancelled")
+        #     exit()
     else:
         # processing LPI_eLAI
         # prepare arguments
@@ -585,8 +350,28 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
                     result_list.append(focal_radius)
                     args_list.append(result_list)
 
-        for i in range(0,len(args_list)):
-            r_lpi_lai_with_focalR(args_list[i])
+        # for i in range(0,len(args_list)):
+        #     r_lpi_lai_with_focalR(args_list[i])
+        # Multi-processing eLAI and LPI raster using R package.
+        try:
+            total_steps = len(args_list)
+            if processes>= total_steps:
+                processes=total_steps
+
+            features = []
+            with Pool(processes=int(processes)) as pool:
+                step = 0
+                # execute tasks in order, process results out of order
+                for result in pool.imap_unordered(r_lpi_lai_with_focalR, args_list):
+                    if BT_DEBUGGING:
+                        print('Got result: {}'.format(result), flush=True)
+                    features.append(result)
+                    step += 1
+                    print('%{}'.format(step / total_steps * 100))
+
+        except OperationCancelledException:
+            print("Operation cancelled")
+            exit()
 
     # import shutil
     # shutil.rmtree(cache_folder,ignore_errors=True)
@@ -602,8 +387,8 @@ if __name__ == '__main__':
     utils = importr('utils')
     base = importr('base')
     utils.chooseCRANmirror(ind=12) # select the 12th mirror in the list: Canada
-    print("Checking and loading R packages....")
-    CRANpacknames = ['lidR','rgrass','rlas','future','terra','comprehenr','na.tools','sf','sp','devtools','fasterRaster']
+    print("Checking R packages....")
+    CRANpacknames = ['lidR','rgrass','rlas','future','terra','comprehenr','na.tools','sf','sp','devtools']#,'fasterRaster']
     CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
     need_fasterRaster = False
     if len(CRANnames_to_install) > 0:
@@ -627,6 +412,7 @@ if __name__ == '__main__':
     # loading R packages
     # utils = importr('utils')
     # base = importr('base')
+    print("Loading R packages....")
     na = importr('na.tools')
     terra = importr('terra')
     lidR = importr('lidR')
@@ -657,9 +443,19 @@ if __name__ == '__main__':
                 print("Error input file: Please check effective LiDAR data extend shapefile")
                 exit()
     # check existence of input las/laz folder
-    if not os.path.exists(os.path.dirname(in_las_folder)):
-        print("Can't locate the input las/laz folder.  Please check.")
+    if not os.path.exists(in_las_folder):
+        print("Error! Cannot locate LAS/LAZ folder, please check.")
         exit()
+    else:
+        found = False
+        for files in os.listdir(in_las_folder):
+            if files.endswith(".las") or files.endswith(".laz"):
+                found = True
+                break
+        if not found:
+            print("Error! Cannot locate input LAS file(s), please check!")
+            exit()
+
 
     #if doing focal radius divided from point cloud CHM
     if radius_fr_CHM==True:
@@ -675,8 +471,9 @@ if __name__ == '__main__':
         # check manual input for cell size and pulse density
         if not isinstance(cell_size, float) or cell_size <= 0.00:
             if not isinstance(pulse_density, int) or pulse_density <= 0.00:
-                print("Invalid cell size and average pulse density provided.\n Default cell will size be adopted (1m).")
-                in_args.input['cell_size'] = 1.0
+                print("Invalid cell size and average pulse density provided.\n"
+                      "Cell size will be calulated based on aveage point density.")
+                in_args.input['cell_size'] = 0.0
                 in_args.input['pulse_density'] = 0
             else:
                 # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
@@ -700,6 +497,7 @@ if __name__ == '__main__':
         in_args.input['mean_scanning_angle']=mean_scanning_angle
 
     print("Checking input parameters....Done")
+
 
     pd_raster(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 
