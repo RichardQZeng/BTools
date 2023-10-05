@@ -22,7 +22,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
-def hh_raster(callback,in_las_folder,Min_ws,lawn_range,out_folder, processes, verbose):
+def hh_raster(callback,in_las_folder,Min_ws,lawn_range,cell_size,out_folder, processes, verbose):
 
     r = robjects.r
     import psutil
@@ -47,9 +47,9 @@ def hh_raster(callback,in_las_folder,Min_ws,lawn_range,out_folder, processes, ve
     r['source'](Beratools_R_script)
     # Loading the function defined in R script.
     r_hh_function = robjects.globalenv['hh_function']
-    r_pd2cellsize =robjects.globalenv['pd2cellsize']
+    #r_pd2cellsize =robjects.globalenv['pd2cellsize']
     # Invoking the R function
-    cell_size=r_pd2cellsize(in_las_folder)
+    # cell_size=r_pd2cellsize(in_las_folder)
     r_hh_function(in_las_folder,cell_size, Min_ws, lawn_range, out_folder,rprocesses)
 
 if __name__ == '__main__':
@@ -79,6 +79,13 @@ if __name__ == '__main__':
     print("Checking input parameters....")
     in_args, in_verbose = check_arguments()
     in_las_folder=in_args.input["in_las_folder"]
+    try:
+        cell_size=float(in_args.input["cell_size"])
+        in_args.input["cell_size"] = cell_size
+    except ValueError:
+        print("Invalid input of cell_size, default value will be used")
+        in_args.input["cell_size"]=1.0
+
     try:
         ws=float(in_args.input["Min_ws"])
         in_args.input["Min_ws"] = ws
@@ -110,6 +117,7 @@ if __name__ == '__main__':
     if not os.path.exists(out_folder):
        print("Warning! Cannot locate output folder, It will be created.")
        os.makedirs(out_folder)
+
 
     print("Checking input parameters....Done")
 
