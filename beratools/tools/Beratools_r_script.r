@@ -162,11 +162,11 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
 hh_function <- function(in_las_folder,cell_size, Min_ws, lawn_range, out_folder,rprocesses){
 library(lidR)
 library(terra)
-upper<- abs(lawn_range)
-lower <-upper*-1
+
+print('Generate Hummock/ Hollow Raster....')
 ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
 
-HH_raster <- function(chunk,radius,cell_size,upper,lower)
+HH_raster <- function(chunk,radius,cell_size,lawn_range)
 {
   las <- readLAS(chunk)
   if (is.empty(las)) return(NULL)
@@ -188,52 +188,17 @@ HH_raster <- function(chunk,radius,cell_size,upper,lower)
 
   rdtm <- focal(dtm, w=gfw, fun="mean",na.policy="omit",na.rm=TRUE,fillvalue=NA,expand=TRUE)
   cond_raster<- rdtm-dtm
-  cond_raster[cond_raster< lower ]=-777 #Hummock
-  cond_raster[cond_raster> upper]=777 #Hollow
+  upper<- abs(lawn_range)
+  lower <- upper*-1
 
-  cond_raster[cond_raster== -777 ]=1 #Hummock
-  cond_raster[cond_raster==777]=-1 #Hollow
-
-  return(list(dtm,rdtm,cond_raster))
-
+  HH<-ifel(cond_raster< lower,-1,ifel(cond_raster > upper,1,0))
 }
-MultiWrite = function(output_list, file)
-{
-  dtm = output_list[[1]]
-  print(dtm)
-  rdtm = output_list[[2]]
-  print(rdtm)
-  cond_raster=output_list[[3]]
-  print(cond_raster)
-  path1 = gsub("@@@","dtm", file)
-  path2 = gsub("@@@","rdtm", file)
-  path3 = gsub("@@@","HH", file)
-
-  path1 = paste0(path1, ".tif")
-  path2 = paste0(path2, ".tif")
-  path3 = paste0(path3, ".tif")
-
-  terra::writeRaster(dtm,path1,overwrite=TRUE)
-  terra::writeRaster(rdtm,path2,overwrite=TRUE)
-  terra::writeRaster(cond_raster,path3,overwrite=TRUE)
-
-}
-MultiWriteDiver = list(
-  write = MultiWrite,
-  extension = "",
-  object = "output_list",
-  path = "file",
-  param = list(overwrite=TRUE))
-
 
 opt_chunk_alignment(ctg) <- c(0,0)
-opt_output_files(ctg) <- paste0(out_folder,"/out/@@@_{*}")
+opt_output_files(ctg) <- paste0(out_folder,"/result/HH_{*}")
 ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-ctg@output_options$drivers$Raster$param$overwrite <- TRUE
-ctg@output_options$drivers$list <- MultiWriteDiver
-
 opt_stop_early(ctg) <- TRUE
-out<-catalog_apply(ctg,HH_raster,radius=3,cell_size=cell_size,upper=upper,lower=lower)
+out<-catalog_apply(ctg,HH_raster,radius=3,cell_size=cell_size,lawn_range=lawn_range)
 
 
 }
