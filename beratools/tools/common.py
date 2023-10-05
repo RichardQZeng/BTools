@@ -171,8 +171,10 @@ def remove_nan_from_array(matrix):
 
 # Split LineString to segments at vertices
 def segments(line_coords):
-    if len(line_coords) <= 2:
+    if len(line_coords) < 2:
         return None
+    elif len(line_coords) == 2:
+        return [Geometry.from_dict({'type': 'LineString', 'coordinates': line_coords})]
     else:
         seg_list = zip(line_coords[:-1], line_coords[1:])
         line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]

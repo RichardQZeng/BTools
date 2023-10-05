@@ -317,7 +317,7 @@ def backtrack(initial_node, desired_node, distances):
     return list(reversed(path))
 
 
-def dijkstra_np(start_tuple, end_tuples, matrix):
+def dijkstra_np(start_tuple, end_tuple, matrix):
     """Dijkstras algorithm for finding the shortest path between two nodes in a graph.
 
     Args:
@@ -331,11 +331,18 @@ def dijkstra_np(start_tuple, end_tuples, matrix):
 
     # source and destination are free
     start_node = start_tuple[0]
-    end_node = end_tuples[0][0]
+    end_node = end_tuple[0]
+    path = None
+    costs = None
 
-    matrix[start_node[0], start_node[1]] = 0
-    matrix[end_node[0], end_node[1]] = 0
-    path, cost = route_through_array(matrix, start_node, end_node)
-    costs = [0.0 for i in range(len(path))]
+    try:
+        matrix[start_node[0], start_node[1]] = 0
+        matrix[end_node[0], end_node[1]] = 0
 
-    return [(path, costs, end_tuples)]
+        path, cost = route_through_array(matrix, start_node, end_node)
+        costs = [0.0 for i in range(len(path))]
+    except Exception as e:
+        print(e)
+        return None
+
+    return [(path, costs, end_tuple)]

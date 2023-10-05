@@ -138,9 +138,17 @@ def process_single_line_whole(line):
         footprint = process_single_line_segment(line_seg)
         footprints.append(footprint)
 
-    footprint_merge = pandas.concat(footprints)
-    footprint_merge.dissolve()
-    footprint_merge.drop(columns=['OLnSEG'])
+    if footprints:
+        if not all(item is None for item in footprints):
+            footprint_merge = pandas.concat(footprints)
+            footprint_merge.dissolve()
+            footprint_merge.drop(columns=['OLnSEG'])
+        else:
+            print(f'Empty footprint returned.')
+            return None
+    else:
+        print(f'Empty footprint returned.')
+        return None
 
     if len(line) > 0:
         print('process_single_line_whole: Processing line with ID: {}, done.'
