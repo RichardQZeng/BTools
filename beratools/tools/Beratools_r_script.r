@@ -323,5 +323,5 @@ zquan_f <- ~list(
 
 )
 
-m<-pixel_metrics(ctg,func=zquan_f)
+m<-pixel_metrics(ctg,func=zquan_f,res=cell_size)
 }
