@@ -1102,8 +1102,49 @@
                         },
                         {
                             "variable": "out_folder",
-                            "parameter": "Output folder for detected tree shapefile",
-                            "description": "Output folder for detected tree shapefile (.shp).",
+                            "parameter": "Output folder for height metrics raster.",
+                            "description": "Output folder for height metrics raster (.tif).",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+		{
+                    "name": "Height Metrics from LiDAR Data",
+                    "info": "Height Metrics (Zmax, Zmean, Zsd, ZQ45-ZQ95 (percentile) from Lidar data using lidR package.",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_api": "Ht_metrics",
+                    "paramFile": "\\Scripts\\Ht_metrics.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {  "variable": "cell_size",
+                            "parameter": "Base area in meter (cell size).",
+                            "description": "Define the base area (raster cell size) for Height metrics.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for height metrics raster.",
+                            "description": "Output folder for height metrics raster (.tif).",
                             "type": "Directory",
                             "typelab": "",
                             "default": "",
