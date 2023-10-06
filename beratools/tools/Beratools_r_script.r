@@ -292,3 +292,36 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
    out<-catalog_apply(n_las, ctg_detect_tree,Min_ws,hmin,out_folder,.options = options)
   }
 #########################################################################################################################################
+lidR_pixel_metrics <- function(in_las_folder,cell_size,out_folder,rprocesses){
+
+library(lidR)
+library(terra)
+library(future)
+update.packages(list('terra','lidR','future'))
+library(lidR)
+library(terra)
+library(future)
+
+
+plan(multisession,workers=rprocesses)
+set_lidr_threads(rprocesses)
+
+ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+opt_output_files(ctg) <- paste0(out_folder,"/{*}_metrics_zq")
+ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+
+zquan_f <- ~list(
+  zmax = max(Z),
+  zmin = min(Z),
+  zsd = sd(Z),
+  zq45 = quantile(Z, probs = 0.45),
+  zq55 = quantile(Z, probs = 0.55),
+  zq56 = quantile(Z, probs = 0.65),
+  zq75 = quantile(Z, probs = 0.75),
+  zq85 = quantile(Z, probs = 0.85),
+  zq95 = quantile(Z, probs = 0.95)
+
+)
+
+m<-pixel_metrics(ctg,func=zquan_f)
+}
