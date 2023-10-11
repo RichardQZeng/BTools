@@ -20,7 +20,9 @@ import json
 import multiprocessing
 from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
+from tools.lapis_all import *
 from tools.common import *
+
 
 running_windows = platform.system() == 'Windows'
 if running_windows:
@@ -237,8 +239,19 @@ class BeraTools(object):
             args_string = str(args).replace("'", '"')
             args_string = args_string.replace('True', 'true')
             args_string = args_string.replace('False', 'false')
-            args_tool = ['python', os.path.join(r'..\tools', tool_api + '.py'),
-                         '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
+
+            tool_name = self.get_bera_tool_name(tool_api)
+            tool_type = self.get_bera_tool_type(tool_name)
+            if tool_type == 'python':
+                args_tool = ['python', os.path.join(r'..\tools', tool_api + '.py'),
+                             '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
+            elif tool_type == 'executable':
+                print(globals().get(tool_api))
+                args_tool = globals()[tool_api](print)
+                # change working dir
+                work_dir = os.getcwd()
+                lapis_path = Path(work_dir).parent.joinpath('./third_party/Lapis_0_8')
+                os.chdir(lapis_path.as_posix())
 
             if running_windows and self.start_minimized:
                 si = STARTUPINFO()
@@ -250,6 +263,7 @@ class BeraTools(object):
             else:
                 proc = Popen(args_tool, shell=False, stdout=PIPE,
                              stderr=STDOUT, bufsize=1, universal_newlines=True)
+
 
             while proc is not None:
                 line = proc.stdout.readline()
@@ -487,4 +501,13 @@ class BeraTools(object):
                     tool_api = tool['tool_api']
 
         return tool_api
+
+    def get_bera_tool_type(self, tool_name):
+        tool_type = None
+        for toolbox in self.bera_tools['toolbox']:
+            for tool in toolbox['tools']:
+                if tool_name == tool['name']:
+                    tool_type = tool['tool_type']
+
+        return tool_type
 

@@ -1,17 +1,20 @@
 
 from random import random
-from time import sleep
+import time
 from multiprocessing.pool import Pool
 from numpy import mean
+from tools.common import *
+from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
 
 class OperationCancelledException(Exception):
     pass
 
 
-def lapis_all(callback, in_dtm, in_las, out_dir)
+def lapis_all(callback=None, in_dtm=None, in_las=None, out_dir=None, processes=None, verbose=None):
     callback('tool_template tool done.')
-    return 
+    args_tool = "D:/BERA_Tools/BERATools/beratools/third_party/Lapis_0_8/Lapis.exe --ini-file D:/Temp/lapis/Lapis_parameters/parameters.ini"
+    return args_tool
 
 
 # task executed in a worker process
@@ -21,7 +24,7 @@ def worker(task_data):
     print(f'Task {len(task_data)} with {value} executed', flush=True)
 
     # block for a moment
-    sleep(value * 10)
+    time.sleep(value * 10)
 
     # return the generated value
     return value
@@ -47,8 +50,13 @@ def execute_multiprocessing():
 
 
 if __name__ == '__main__':
-    in_args, in_verbose = check_arguments()
+    # in_args, in_verbose = check_arguments()
     start_time = time.time()
-    lapis_all(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    # lapis_all(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    args_tool = ['D:/BERA_Tools/BERATools/beratools/third_party/Lapis_0_8/Lapis.exe', '--ini-file',
+                 'D:/Temp/lapis/Lapis_parameters/parameters.ini']
+    proc = Popen(args_tool, shell=False, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True)
+
+
     print('Elapsed time: {}'.format(time.time() - start_time))
 

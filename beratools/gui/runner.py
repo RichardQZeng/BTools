@@ -1340,7 +1340,6 @@ class MainGui(tk.Frame):
 
         # disable button
         # self.run_button.config(text='Running', state='disabled')
-
         if bt.run_tool_bt(self.current_tool_api, args, self.custom_callback) == 1:
             print("Error running {}".format(self.tool_name))
             # restore Run button
