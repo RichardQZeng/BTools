@@ -443,6 +443,9 @@ class BeraTools(object):
             if param['type'] == 'raster':
                 for i in new_param["parameter_type"].keys():
                     new_param['parameter_type'][i] = 'Raster'
+            elif param['type'] == 'lidar':
+                for i in new_param["parameter_type"].keys():
+                    new_param['parameter_type'][i] = 'Lidar'
             elif param['type'] == 'vector':
                 for i in new_param["parameter_type"].keys():
                     new_param['parameter_type'][i] = 'Vector'
