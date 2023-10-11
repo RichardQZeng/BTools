@@ -38,25 +38,6 @@ chm2trees<-function(in_chm,Min_ws,hmin,out_folder,rprocesses)
 
   }
 
-###############################################################################################################
-
-dtm_raster <- function (chunk){
-  update.packages(checkBuilt = TRUE, ask=FALSE)
-  library(lidR)
-  las <- readLAS(chunk)
-  if (is.empty(las)) return(NULL)
-
-  las_1 <- filter_poi(readLAS(chunk), buffer==0)
-  hull <- st_convex_hull(las_1)
-
-  # convert to SpatialPolygons
-  bbox <- vect(hull)
-  # bbox <- ext(las_1)
-
-  #las to DTM
-  dtm<-rasterize_terrain(ctg,res=pdt, algorithm = knnidw())}
-
-
 ##################################################################################################################
 #create a 'generate_pd' function
 generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
@@ -222,7 +203,7 @@ pd2cellsize <- function(in_las_folder){
 
   return(list(output))
   }
-
+  opt_progress(ctg) <- FALSE
   pd_list<-catalog_apply(ctg,find_cellsize)
   pulse_density<-mean(unlist(pd_list))
   mean_pd = (3 / pulse_density)^(1 / 2)
@@ -247,6 +228,7 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
 
     #normailize point cloud using K-nearest neighbour IDW
     print("Normalize the data...")
+    opt_progress(ctg) <- FALSE
     n_las<-normalize_height(ctg,algorithm=knnidw())
     opt_filter(n_las)<-'-drop_below 0'
 
@@ -255,41 +237,76 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
     opt_output_files(n_las)<- opt_output_files(n_las)<-paste0(out_folder,"/chm/{*}_chm")
     n_las@output_options$drivers$SpatRaster$param$overwrite <- TRUE
     n_las@output_options$drivers$Raster$param$overwrite <- TRUE
+    opt_progress(n_las) <- FALSE
 #     chm <- rasterize_canopy(n_las, cell_size, pitfree(thresholds = c(0,3,10,15,22,30,38), max_edge = c(0, 1.5)), pkg = "terra")
     chm <- rasterize_canopy(n_las, cell_size, dsmtin(max_edge = 8), pkg = "terra")
 
 
-   ctg_detect_tree <- function(chunk,Min_ws,hmin,out_folder){
+   ctg_detect_tree <- function(chunk,Min_ws,hmin,out_folder,cell_size){
         las <- readLAS(chunk)               # read the chunk
         if (is.empty(las)) return(NULL)     # exit if empty
 
-        # find the highest point of the chunk
+        # find the highest, average height point of the chunk
         tallest_ht <- las@header@PHB$`Max Z`
+        Avg_ht<- ((las@header@PHB$`Max Z` + las@header@PHB$`Min Z`)/2)
 
 #Reforestation Standard of Alberta 2018
 #(https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/formain15749/$FILE/reforestation-standard-alberta-may1-2018.pdf, p.53)
-#Live crown ratio is the proportion of total stem length that is covered by living branches. It is expressed as a percentage or decimal of the total tree height. Live crown ratio is a useful indicator of the status of the tree in relation to vigor, photosynthetic leaf area, and is inversely related to stocking density. It is assumed that live crown ratio must be greater than 0.3 (30%) in order for the tree to release well
+#Live crown ratio is the proportion of total stem length that is covered by living branches. It is expressed as a percentage or decimal of the total tree height.
+# Live crown ratio is a useful indicator of the status of the tree in relation to vigor, photosynthetic leaf area, and is inversely related to stocking density.
+# It is assumed that live crown ratio must be greater than 0.3 (30%) in order for the tree to release well
 
-        if (Min_ws>= (0.3*hmin)) {
-            (Min_ws<-Min_ws)}else{
-            (Min_ws<-(0.3*hmin))}
-       f<-function(x){
-          y <- (x*0.3)+Min_ws
-          y[x <hmin ] <- (Min_ws) # Smallest window
-          y[x > tallest_ht] <- 5 # Largest window
-         return(y)
-        }
+   if (Min_ws>= (hmin^0.3)) {
+    (Min_ws<-Min_ws)}else{
+      (Min_ws<-(hmin^0.3))}
+  f<-function(x){
+    y <-(x^0.3)
+    y[x <hmin ] <- Min_ws # largest window
+    y[x > (tallest_ht*0.8)] <- (tallest_ht*0.8)^0.3    # smallest window
+    return(y)}
 
-        ttop <- locate_trees(las, lmf(ws = f,hmin=hmin,shape="circular"),uniqueness = "gpstime")     # make any computation
-#         ttop <- sf::st_crop(ttop, st_bbox(chunk))   # remove the buffer
-        ttop <- crop(vect(ttop), ext(chunk))   # remove the buffer
+# dynamic searching window is based on the function of (tree height x 0.3)
+# dynamic window
+    ttop <- locate_trees(las, lmf(ws = f,hmin=hmin,shape="circular"),uniqueness = "gpstime")
+# Fix searching window (Testing only)
+#         ttop <- locate_trees(las, lmf(ws = 1,hmin=hmin,shape="circular"),uniqueness = "gpstime")
 
+   ttop <- crop(vect(ttop), ext(chunk))   # remove the buffer
+   sum_map<-terra::rasterize(ttop,rast(ext(las),resolution=100),fun=sum)
+
+    return(list(ttop,sum_map))
    }
    options <- list(automerge = TRUE,autocrop = TRUE)
-   opt_output_files(n_las)<-opt_output_files(n_las)<-paste0(out_folder,"/ITD/{*}_trees")
+   opt_output_files(n_las)<-opt_output_files(n_las)<-paste0(out_folder,"/@@@_{*}_{ID}")
    n_las@output_options$drivers$sf$param$append <- FALSE
    n_las@output_options$drivers$SpatVector$param$overwrite <- TRUE
-   out<-catalog_apply(n_las, ctg_detect_tree,Min_ws,hmin,out_folder,.options = options)
+
+
+   opt_progress(n_las) <- FALSE
+    MultiWrite = function(output_list, file)
+  {
+    extent = output_list[[1]]
+    sum_map = output_list[[2]]
+    path1 = gsub("@@@_","", file)
+    path2 = gsub("@@@_","", file)
+
+    path1 = paste0(path1, "_trees.shp")
+    path2 = paste0(path2, "_SumTrees.tif")
+
+
+    terra::writeVector(extent, path1, overwrite = TRUE)
+    terra::writeRaster(sum_map,path2,overwrite=TRUE)
+  }
+  MultiWriteDiver = list(
+    write = MultiWrite,
+    extension = "",
+    object = "output_list",
+    path = "file",
+    param = list())
+
+  n_las@output_options$drivers$list <- MultiWriteDiver
+
+   out<-catalog_apply(n_las, ctg_detect_tree,Min_ws,hmin,out_folder,cell_size,.options = options)
   }
 #########################################################################################################################################
 lidR_pixel_metrics <- function(in_las_folder,cell_size,out_folder,rprocesses){
