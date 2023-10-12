@@ -247,7 +247,7 @@ class BeraTools(object):
                              '-i', args_string, '-p', str(self.get_max_procs()), '-v', str(self.verbose)]
             elif tool_type == 'executable':
                 print(globals().get(tool_api))
-                args_tool = globals()[tool_api](print)
+                args_tool = globals()[tool_api](args_string)
                 # change working dir
                 work_dir = os.getcwd()
                 lapis_path = Path(work_dir).parent.joinpath('./third_party/Lapis_0_8')
