@@ -1,7 +1,5 @@
 import os
 import time
-
-
 from common import *
 class OperationCancelledException(Exception):
     pass
@@ -49,7 +47,7 @@ def points2trees(callback,in_las_folder,Min_ws,hmin,out_folder, processes, verbo
     r_points2trees = robjects.globalenv['points2trees']
     r_pd2cellsize =robjects.globalenv['pd2cellsize']
     # Invoking the R function
-    cell_size=r_pd2cellsize(in_las_folder)
+    cell_size=r_pd2cellsize(in_las_folder,rprocesses)
     r_points2trees(in_las_folder, Min_ws, hmin, out_folder,rprocesses,cell_size)
 
 if __name__ == '__main__':
