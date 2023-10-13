@@ -757,15 +757,15 @@
                     ]
                 },
                 {
-                    "name": "Forest Matrix",
-                    "info": "Compute surrounding forest matrix from centerline and update attributes.",
+                    "name": "Surface Area Ratio (SAR)",
+                    "info": "Compute Surface Area Ratio (SAR) from centerline into adjacent forest.",
                     "multiprocessing": true,
                     "batch_processing": false,
                     "tool_type": "python",
                     "tool_api": "surface_area_ratio",
-                    "paramFile": "\\Scripts\\FLM_DCANO_params.txt",
-                    "image": "../Images/FLM_IO_LineFootprint.gif",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/DynCanThr.html",
+                    "paramFile": "\\Scripts\\FLM_SAR_params.txt",
+                    "image": "../Images/SAR.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/SAR.html",
                     "parameters":[
                         {   "variable": "in_line",
                             "parameter": "Center-lines Feature Class",
@@ -782,14 +782,14 @@
                             "description": "The information of the raster cells contain.",
                             "type": "list",
                             "typelab": "text",
-                            "data": ["DEM","RGB"],
+                            "data": ["DEM"],
                             "default": "DEM",
                             "output": false,
                             "optional": false
                         },
                         {   "variable": "in_raster",
                             "parameter": "Input Raster",
-                            "description": "Input raster image (e.g CHM, DEM, DTM or RGB) used calculate the surrounding forest matrix.",
+                            "description": "Input raster image (e.g CHM or DTM) used calculate the surrounding forest matrix.",
                             "type": "raster",
                             "typelab": "TIF",
                             "default": "",
@@ -1212,6 +1212,68 @@
                             "typelab": "",
                             "default": "",
                             "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Finding Vegetation Coverage from Lidar data",
+                    "info": "Finding Vegetation Coverage from Lidar data using range of vegetation layer height.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_vegcoverage",
+                    "paramFile": "\\Scripts\\RPY_vegcoverage_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for the raster results.",
+                            "description": "Output folder for the raster results.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "hmin",
+                            "parameter": "Minimum height",
+                            "description": "Minimum height of vegetation layer.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 3.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "hmax",
+                            "parameter": "Maximum height",
+                            "description": "Maximum height of vegetation layer.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 10.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Output area based (cell size) raster of vegetation coverage.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 5.0,
+                            "output": false,
                             "optional": false
                         }
                     ]
