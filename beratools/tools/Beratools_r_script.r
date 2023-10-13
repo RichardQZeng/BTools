@@ -284,7 +284,7 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
 #         ttop <- locate_trees(las, lmf(ws = 1,hmin=hmin,shape="circular"),uniqueness = "gpstime")
 
    ttop <- crop(vect(ttop), ext(chunk))   # remove the buffer
-   sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=100),fun=sum)
+   sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=cell_size),fun=sum)
 
     return(list(ttop,sum_map))
    }
@@ -319,15 +319,10 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
 #########################################################################################################################################
 ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
 {
-
+   update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
-    update.packages(list('terra','lidR','future'))
-    library(lidR)
-    library(terra)
-    library(future)
-
 
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
@@ -336,7 +331,7 @@ ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
     opt_output_files(ctg) <- paste0(out_folder,"/{*}_lite_metrics_z")
     ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
     opt_progress(ctg) <- FALSE
-
+    print('Generate height metrics......')
     zmetrics_f <- ~list(
       zmax = max(Z),
       zmin = min(Z),
@@ -352,8 +347,7 @@ ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
       zq85 = quantile(Z, probs = 0.85),
       zq90 = quantile(Z, probs = 0.90),
       zq95 = quantile(Z, probs = 0.95)
-
-    )
+      )
 
     m<-pixel_metrics(ctg,func=zmetrics_f,res=cell_size)
 }
@@ -386,14 +380,20 @@ veg_cover_percentage<-function(in_las_folder,out_folder,hmin,hmax,cell_size,rpro
             if (is.empty(las)) return(NULL)
 
             total_pcount<-pixel_metrics(las,func= ~length(Z),pkg = "terra" ,res=cell_size,start = c(0, 0))
-
+             # replace NA with 0
+            total_pcount<- classify(total_pcount, cbind(NA, 0))
             Veg_pcount<-pixel_metrics(las,func= ~length(Z),filter= ~Z>=hmin & Z<=hmax,pkg = "terra" ,res=cell_size,start = c(0, 0))
-
+             # replace NA with 0
+            Veg_pcount<- classify(Veg_pcount, cbind(NA, 0))
             veg_percetage<- Veg_pcount/total_pcount
-
+             # replace NA with 0
+            veg_percetage<- classify(veg_percetage, cbind(NA, 0))
             total_pcount<-crop(total_pcount,ext(chunk))
+
             Veg_pcount<-crop(Veg_pcount,ext(chunk))
+
             veg_percetage<-crop(veg_percetage,ext(chunk))
+
             return(list(total_pcount,Veg_pcount,veg_percetage))
 
         }
@@ -428,5 +428,48 @@ veg_cover_percentage<-function(in_las_folder,out_folder,hmin,hmax,cell_size,rpro
         n_ctg@output_options$drivers$SpatRaster$param$overwrite<-TRUE
         n_ctg@output_options$drivers$list <- MultiWriteDiver
         out<-catalog_apply(n_ctg, veg_cover_pmetric,hmin,hmax,out_folder,cell_size)
+}
+#########################################################################################
+percentage_aboveDBH<-function(in_las_folder,out_folder,DBH,cell_size,rprocesses)
+{
+    update.packages(list('terra','lidR','future'))
+    library(lidR)
+    library(terra)
+    library(future)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    opt_output_files(ctg) <- paste0(out_folder,'/normalized/n_{*}')
+    opt_progress(ctg) <- FALSE
+    print('Normalize point cloud...')
+    n_ctg<- normalize_height(ctg,algorithm=knnidw())
+
+#debug only######
+#      n_ctg<- readLAScatalog(paste0(out_folder,'/normalized'),filter='-drop_below 0')
+#########
+        print('Calculating percentage returns above DBH ....')
+        compute_aboveDBH <- function(chunk,DBH,out_folder,cell_size)
+        {
+            las <- readLAS(chunk)
+
+            if (is.empty(las)) return(NULL)
+
+            total_pcount<-pixel_metrics(las,func= ~length(NumberOfReturns),pkg = "terra" ,res=cell_size,start = c(0, 0))
+
+            abvDBH_pcount<-pixel_metrics(las,func= ~length(NumberOfReturns),filter= ~Z>=DBH, pkg = "terra" ,res=cell_size,start = c(0, 0))
+
+            abvDBH_percetage<- abvDBH_pcount/total_pcount
+            # replace NA with 0
+            abvDBH_percetage<- classify(abvDBH_percetage, cbind(NA, 0))
+            abvDBH_percetage<-crop(abvDBH_percetage,ext(chunk))
+
+
+        }
+
+        opt_output_files(n_ctg)<-paste0(out_folder,"/result/{*}_return_above_DBH")
+        n_ctg@output_options$drivers$SpatRaster$param$overwrite<-TRUE
+        out<-catalog_apply(n_ctg, compute_aboveDBH,DBH,out_folder,cell_size)
 }
 #########################################################################################
