@@ -44,6 +44,7 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
     cut_ht,PD_Ground_folder,PD_Total_folder,rprocesses){
     library(terra)
     library(lidR)
+    library(future)
 
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
@@ -143,6 +144,11 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
 hh_function <- function(in_las_folder,cell_size, Min_ws, lawn_range, out_folder,rprocesses){
 library(lidR)
 library(terra)
+library(future)
+
+plan(multisession,workers=rprocesses)
+set_lidr_threads(rprocesses)
+
 
 print('Generate Hummock/ Hollow Raster....')
 ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
@@ -184,9 +190,14 @@ out<-catalog_apply(ctg,HH_raster,radius=3,cell_size=cell_size,lawn_range=lawn_ra
 
 }
 ###################################################################################################################################
-pd2cellsize <- function(in_las_folder){
+pd2cellsize <- function(in_las_folder,rprocesses){
 
     library(lidR)
+    library(future)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
 
   print("Calculate average cell size from point density...")
   if (is(in_las_folder,"LAS") & is(in_las_folder, "LAScatalog"))
@@ -226,8 +237,9 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
     opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/normalized/n_{*}")
 
 
+
     #normailize point cloud using K-nearest neighbour IDW
-    print("Normalize the data...")
+    print("Normalize lidar data...")
     opt_progress(ctg) <- FALSE
     n_las<-normalize_height(ctg,algorithm=knnidw())
     opt_filter(n_las)<-'-drop_below 0'
@@ -241,7 +253,7 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
 #     chm <- rasterize_canopy(n_las, cell_size, pitfree(thresholds = c(0,3,10,15,22,30,38), max_edge = c(0, 1.5)), pkg = "terra")
     chm <- rasterize_canopy(n_las, cell_size, dsmtin(max_edge = 8), pkg = "terra")
 
-
+    print("Compute approximate tree positions ...")
    ctg_detect_tree <- function(chunk,Min_ws,hmin,out_folder,cell_size){
         las <- readLAS(chunk)               # read the chunk
         if (is.empty(las)) return(NULL)     # exit if empty
@@ -272,7 +284,7 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
 #         ttop <- locate_trees(las, lmf(ws = 1,hmin=hmin,shape="circular"),uniqueness = "gpstime")
 
    ttop <- crop(vect(ttop), ext(chunk))   # remove the buffer
-   sum_map<-terra::rasterize(ttop,rast(ext(las),resolution=100),fun=sum)
+   sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=100),fun=sum)
 
     return(list(ttop,sum_map))
    }
@@ -280,11 +292,8 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
    opt_output_files(n_las)<-opt_output_files(n_las)<-paste0(out_folder,"/@@@_{*}_{ID}")
    n_las@output_options$drivers$sf$param$append <- FALSE
    n_las@output_options$drivers$SpatVector$param$overwrite <- TRUE
-
-
    opt_progress(n_las) <- FALSE
-    MultiWrite = function(output_list, file)
-  {
+   MultiWrite = function(output_list, file){
     extent = output_list[[1]]
     sum_map = output_list[[2]]
     path1 = gsub("@@@_","", file)
@@ -292,7 +301,6 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
 
     path1 = paste0(path1, "_trees.shp")
     path2 = paste0(path2, "_SumTrees.tif")
-
 
     terra::writeVector(extent, path1, overwrite = TRUE)
     terra::writeRaster(sum_map,path2,overwrite=TRUE)
@@ -309,36 +317,116 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
    out<-catalog_apply(n_las, ctg_detect_tree,Min_ws,hmin,out_folder,cell_size,.options = options)
   }
 #########################################################################################################################################
-lidR_pixel_metrics <- function(in_las_folder,cell_size,out_folder,rprocesses){
+ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
+{
 
-library(lidR)
-library(terra)
-library(future)
-update.packages(list('terra','lidR','future'))
-library(lidR)
-library(terra)
-library(future)
+    library(lidR)
+    library(terra)
+    library(future)
+    update.packages(list('terra','lidR','future'))
+    library(lidR)
+    library(terra)
+    library(future)
 
 
-plan(multisession,workers=rprocesses)
-set_lidr_threads(rprocesses)
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
 
-ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
-opt_output_files(ctg) <- paste0(out_folder,"/{*}_metrics_zq")
-ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    opt_output_files(ctg) <- paste0(out_folder,"/{*}_lite_metrics_z")
+    ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+    opt_progress(ctg) <- FALSE
 
-zquan_f <- ~list(
-  zmax = max(Z),
-  zmin = min(Z),
-  zsd = sd(Z),
-  zq45 = quantile(Z, probs = 0.45),
-  zq55 = quantile(Z, probs = 0.55),
-  zq56 = quantile(Z, probs = 0.65),
-  zq75 = quantile(Z, probs = 0.75),
-  zq85 = quantile(Z, probs = 0.85),
-  zq95 = quantile(Z, probs = 0.95)
+    zmetrics_f <- ~list(
+      zmax = max(Z),
+      zmin = min(Z),
+      zsd = sd(Z),
+      zq45 = quantile(Z, probs = 0.45),
+      zq50 = quantile(Z, probs = 0.50),
+      zq55 = quantile(Z, probs = 0.55),
+      zq60 = quantile(Z, probs = 0.60),
+      zq65 = quantile(Z, probs = 0.65),
+      zq70 = quantile(Z, probs = 0.70),
+      zq75 = quantile(Z, probs = 0.75),
+      zq80 = quantile(Z, probs = 0.80),
+      zq85 = quantile(Z, probs = 0.85),
+      zq90 = quantile(Z, probs = 0.90),
+      zq95 = quantile(Z, probs = 0.95)
 
-)
+    )
 
-m<-pixel_metrics(ctg,func=zquan_f,res=cell_size)
+    m<-pixel_metrics(ctg,func=zmetrics_f,res=cell_size)
 }
+
+######################################################################################
+veg_cover_percentage<-function(in_las_folder,out_folder,hmin,hmax,cell_size,rprocesses)
+{
+    update.packages(list('terra','lidR','future'))
+    library(lidR)
+    library(terra)
+    library(future)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    opt_output_files(ctg) <- paste0(out_folder,'/normalized/n_{*}')
+    opt_progress(ctg) <- FALSE
+    print('Normalize point cloud...')
+    n_ctg<- normalize_height(ctg,algorithm=knnidw())
+
+#debug only######
+#     n_ctg<- readLAScatalog(paste0(out_folder,'/normalized'),filter='-drop_below 0')
+#########
+        print('Calculating vegetation coverage ....')
+        veg_cover_pmetric <- function(chunk,hmin,hmax,out_folder,cell_size)
+        {
+            las <- readLAS(chunk)
+
+            if (is.empty(las)) return(NULL)
+
+            total_pcount<-pixel_metrics(las,func= ~length(Z),pkg = "terra" ,res=cell_size,start = c(0, 0))
+
+            Veg_pcount<-pixel_metrics(las,func= ~length(Z),filter= ~Z>=hmin & Z<=hmax,pkg = "terra" ,res=cell_size,start = c(0, 0))
+
+            veg_percetage<- Veg_pcount/total_pcount
+
+            total_pcount<-crop(total_pcount,ext(chunk))
+            Veg_pcount<-crop(Veg_pcount,ext(chunk))
+            veg_percetage<-crop(veg_percetage,ext(chunk))
+            return(list(total_pcount,Veg_pcount,veg_percetage))
+
+        }
+
+
+        MultiWrite = function(output_list, file)
+        {
+          total_pcount = output_list[[1]]
+          Veg_pcount = output_list[[2]]
+          veg_CovPer=output_list[[3]]
+          path1 = gsub("_@@@","_Total_Ncount", file)
+          path2 = gsub("_@@@","_Veg_Ncount", file)
+          path3 = gsub("_@@@","_Veg_CovPer", file)
+          path1 = paste0(path1, ".tif")
+          path2 = paste0(path2, ".tif")
+          path3 = paste0(path3, ".tif")
+
+          terra::writeRaster(total_pcount,path1,overwrite=TRUE)
+          terra::writeRaster(Veg_pcount,path2,overwrite=TRUE)
+          terra::writeRaster(veg_CovPer,path3,overwrite=TRUE)
+
+
+        }
+        MultiWriteDiver = list(
+          write = MultiWrite,
+          extension = "",
+          object = "output_list",
+          path = "file",
+          param = list())
+
+        opt_output_files(n_ctg)<-paste0(out_folder,"/result/{*}_@@@")
+        n_ctg@output_options$drivers$SpatRaster$param$overwrite<-TRUE
+        n_ctg@output_options$drivers$list <- MultiWriteDiver
+        out<-catalog_apply(n_ctg, veg_cover_pmetric,hmin,hmax,out_folder,cell_size)
+}
+#########################################################################################
