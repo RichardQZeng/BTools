@@ -46,7 +46,7 @@ def ht_metrics(callback,in_las_folder,cell_size,out_folder, processes, verbose):
     # Defining the R script and loading the instance in Python
     r['source'](Beratools_R_script)
     # Loading the function defined in R script.
-    r_ht_metrics_function = robjects.globalenv['lidR_pixel_metrics']
+    r_ht_metrics_function = robjects.globalenv['ht_metrics_lite']
     #r_pd2cellsize =robjects.globalenv['pd2cellsize']
     # Invoking the R function
     # cell_size=r_pd2cellsize(in_las_folder)
