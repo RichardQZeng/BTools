@@ -1,8 +1,8 @@
 /.idea
 /.vscode
-/.data
 /.spyproject
 /data
+.data
 /beratools/gui/icons/grass
 /beratools/__pycache__
 /beratools/tools/__pycache__
