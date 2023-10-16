@@ -100,14 +100,14 @@ def clip_lines(clip_geom, buffer, in_line_file, out_line_file):
     return out_line
 
 
-def read_lines_from_shapefile(in_file):
-    lines = []
-    with fiona.open(in_file) as open_line_file:
-        layer_crs = open_line_file.crs
-        for line in open_line_file:
-            lines.append(line['geometry'])
+def read_geoms_from_shapefile(in_file):
+    geoms = []
+    with fiona.open(in_file) as open_file:
+        layer_crs = open_file.crs
+        for geom in open_file:
+            geoms.append(geom['geometry'])
 
-    return lines
+    return geoms
 
 
 def generate_raster_footprint(in_raster, latlon=True):
@@ -258,26 +258,31 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
             print(e)
 
 
-def compare_crs(shp_file, raster_file):
-    line_crs = None
-    ras_crs = None
-    in_line_file = ogr.Open(shp_file)
-    line_crs = in_line_file.GetLayer().GetSpatialRef()
+def vector_crs(vector_file):
+    in_line_file = ogr.Open(vector_file)
+    vec_crs = in_line_file.GetLayer().GetSpatialRef()
 
+    del in_line_file
+    return vec_crs
+
+
+def raster_crs(raster_file):
     cost_raster_file = gdal.Open(raster_file)
     ras_crs = cost_raster_file.GetSpatialRef()
 
-    del in_line_file
     del cost_raster_file
+    return ras_crs
 
-    if line_crs and ras_crs:
-        if line_crs.IsSameGeogCS(ras_crs):
+
+def compare_crs(crs_org, crs_dst):
+    if crs_org and crs_dst:
+        if crs_org.IsSameGeogCS(crs_dst):
             print('Check: Input file Spatial Reference are the same, continue.')
             return True
         else:
-            line_crs_norm = CRS(line_crs.ExportToWkt())
-            ras_crs_norm = CRS(ras_crs.ExportToWkt())
-            if ras_crs_norm.name == line_crs_norm.name:
+            crs_org_norm = CRS(crs_org.ExportToWkt())
+            crs_dst_norm = CRS(crs_dst.ExportToWkt())
+            if crs_org_norm.name == crs_dst_norm.name:
                 print('Same crs, continue.')
                 return True
 

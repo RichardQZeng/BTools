@@ -493,7 +493,7 @@ class VertexOptimization:
 
 
 def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose):
-    if not compare_crs(in_line, in_cost):
+    if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
         return
 
     tool_vo = VertexOptimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose)

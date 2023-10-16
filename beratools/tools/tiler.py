@@ -138,7 +138,7 @@ class Tiler:
         return coords_list, [[x_min, y_min], [x_max, y_max]], center
 
     def shapefile_to_coord_list(self):
-        lines = read_lines_from_shapefile(self.in_line)
+        lines = read_geoms_from_shapefile(self.in_line)
         line_coords = []
 
         coords_list = []

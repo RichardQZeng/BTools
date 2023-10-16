@@ -27,7 +27,7 @@ class OperationCancelledException(Exception):
 
 def centerline(callback, in_line, in_cost, line_radius,
                proc_segments, out_line, processes, verbose):
-    if not compare_crs(in_line, in_cost):
+    if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
         print("Line and CHM spatial references are not same, please check.")
         return
 
