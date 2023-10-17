@@ -1080,6 +1080,16 @@
                             "output": false,
                             "optional": false
                         },
+                        {   "variable": "is_normalized",
+                            "parameter": "Normalized lidar data",
+                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": false
+                        },
                         {
                             "variable": "Min_ws",
                             "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
@@ -1099,6 +1109,25 @@
                             "default": 3.0,
                             "output": false,
                             "optional": false
+                        },
+                        {   "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Raster cell size (base area) for generate tree density map.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 5.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "do_nCHM",
+                            "parameter": "Generate normalized CHM",
+                            "description": "Generate normalized CHM from normalized lidar data (Option output).",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": true
                         },
                         {
                             "variable": "out_folder",
@@ -1236,6 +1265,16 @@
                             "output": false,
                             "optional": false
                         },
+                        {   "variable": "is_normalized",
+                            "parameter": "Normalized lidar data",
+                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": false
+                        },
                         {
                             "variable": "out_folder",
                             "parameter": "Output folder for the raster results.",
@@ -1298,6 +1337,16 @@
                         "output": false,
                         "optional": false
                     },
+                    {   "variable": "is_normalized",
+                            "parameter": "Normalized lidar data",
+                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": false
+                        },
                     {
                         "variable": "out_folder",
                         "parameter": "Output folder for the raster results.",
@@ -1318,7 +1367,6 @@
                         "output": false,
                         "optional": false
                     },
-
                     {
                         "variable": "cell_size",
                         "parameter": "Raster cell size",
@@ -1326,6 +1374,80 @@
                         "type": "number",
                         "typelab": "float",
                         "default": 5.0,
+                        "output": false,
+                        "optional": false
+                    }
+                ]
+                },
+        {
+                "name": "Normalize Lidar data",
+                "info": "Normalize Lidar data using K-nearest neighbourhood Invert distance weighting (Knnidw).",
+                "batch_processing": false,
+                "tool_type": "python",
+                "tool_api": "rpy_nor_lidar_knnidw",
+                "paramFile": "\\Scripts\\rpy_nor_lidar_knnidw_params.txt",
+                "image": "",
+                "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                "parameters": [
+                    {
+                        "variable": "in_las_folder",
+                        "parameter": "Input folder",
+                        "description": "Input LiDAR point cloud folder.",
+                        "type": "Directory",
+                        "typelab": "",
+                        "default": "",
+                        "output": false,
+                        "optional": false
+                    },
+                    {
+                        "variable": "out_folder",
+                        "parameter": "Output folder",
+                        "description": "Output folder for the normalised lidar data results.",
+                        "type": "Directory",
+                        "typelab": "",
+                        "default": "",
+                        "output": true,
+                        "optional": false
+                    }
+                ]
+                },
+        {
+                "name": "Generate CHM from Lidar Data",
+                "info": "Generate CHM using using triangulation algorithm from Lidar Data.",
+                "batch_processing": false,
+                "tool_type": "python",
+                "tool_api": "rpy_chm_by_dsmtin",
+                "paramFile": "\\Scripts\\rpy_chm_by_dsmtin_params.txt",
+                "image": "",
+                "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                "parameters": [
+                    {
+                        "variable": "in_las_folder",
+                        "parameter": "Input folder",
+                        "description": "Input LiDAR point cloud folder.",
+                        "type": "Directory",
+                        "typelab": "",
+                        "default": "",
+                        "output": false,
+                        "optional": false
+                    },
+                    {
+                        "variable": "out_folder",
+                        "parameter": "Output folder",
+                        "description": "Output folder for the CHM raster results.",
+                        "type": "Directory",
+                        "typelab": "",
+                        "default": "",
+                        "output": true,
+                        "optional": false
+                    },
+                    {
+                        "variable": "CHMcell_size",
+                        "parameter": "Raster cell size",
+                        "description": "Output cell size of the raster.",
+                        "type": "number",
+                        "typelab": "float",
+                        "default": 1.0,
                         "output": false,
                         "optional": false
                     }
