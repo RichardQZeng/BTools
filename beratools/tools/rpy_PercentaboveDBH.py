@@ -20,7 +20,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
-def percentage_aboveDBH(callback,in_las_folder,out_folder,DBH,cell_size,processes, verbose):
+def percentage_aboveDBH(callback,in_las_folder,is_normalized,out_folder,DBH,cell_size,processes, verbose):
 
     r = robjects.r
     import psutil
@@ -46,7 +46,7 @@ def percentage_aboveDBH(callback,in_las_folder,out_folder,DBH,cell_size,processe
     # Loading the function defined in R script.
     r_percentage_aboveDBH = robjects.globalenv['percentage_aboveDBH']
     # Invoking the R function
-    r_percentage_aboveDBH(in_las_folder,out_folder,DBH,cell_size,rprocesses)
+    r_percentage_aboveDBH(in_las_folder,is_normalized,out_folder,DBH,cell_size,rprocesses)
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -86,7 +86,12 @@ if __name__ == '__main__':
         print("Invalid input of DBH, default value is used")
         in_args.input["DBH"] =1.35
 
+    try:
+        is_normalized=bool(in_args.input["is_normalized"])
 
+    except ValueError:
+        print("Invalid input of checking normalized data box, normalize data will be carried")
+        in_args.input["is_normalized"] =False
 
     try:
         cell_size = float(in_args.input["cell_size"])
