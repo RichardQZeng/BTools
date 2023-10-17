@@ -1,5 +1,6 @@
 chm2trees<-function(in_chm,Min_ws,hmin,out_folder,rprocesses)
   {
+    update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
@@ -42,6 +43,7 @@ chm2trees<-function(in_chm,Min_ws,hmin,out_folder,rprocesses)
 #create a 'generate_pd' function
 generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
     cut_ht,PD_Ground_folder,PD_Total_folder,rprocesses){
+    update.packages(list('terra','lidR','future'))
     library(terra)
     library(lidR)
     library(future)
@@ -142,8 +144,10 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
     }
 #########################################################################################################################
 hh_function <- function(in_las_folder,cell_size, Min_ws, lawn_range, out_folder,rprocesses){
+update.packages(list('terra','lidR','future','sf'))
 library(lidR)
 library(terra)
+library(sf)
 library(future)
 
 plan(multisession,workers=rprocesses)
@@ -179,6 +183,7 @@ HH_raster <- function(chunk,radius,cell_size,lawn_range)
   lower <- upper*-1
 
   HH<-ifel(cond_raster< lower,-1,ifel(cond_raster > upper,1,0))
+  hh<- crop(HH,ext(bbox))
 }
 
 opt_chunk_alignment(ctg) <- c(0,0)
@@ -191,7 +196,7 @@ out<-catalog_apply(ctg,HH_raster,radius=3,cell_size=cell_size,lawn_range=lawn_ra
 }
 ###################################################################################################################################
 pd2cellsize <- function(in_las_folder,rprocesses){
-
+    update.packages(list('lidR','future'))
     library(lidR)
     library(future)
 
@@ -214,7 +219,7 @@ pd2cellsize <- function(in_las_folder,rprocesses){
 
   return(list(output))
   }
-  opt_progress(ctg) <- FALSE
+  opt_progress(ctg) <- TRUE
   pd_list<-catalog_apply(ctg,find_cellsize)
   pulse_density<-mean(unlist(pd_list))
   mean_pd = (3 / pulse_density)^(1 / 2)
@@ -223,8 +228,9 @@ pd2cellsize <- function(in_las_folder,rprocesses){
 }
 ##################################################################################
 
-points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
+points2trees<-function(in_folder,is_normalized,Min_ws,hmin,out_folder,rprocesses,CHMcell_size,cell_size)
   {
+  update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
@@ -232,26 +238,28 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
 
+    #normailize point cloud using K-nearest neighbour IDW
+    if (!(is_normalized)){
     #read Las file and drop any noise from the point cloud
     ctg<- readLAScatalog(in_folder,filter='-drop_class 7')
     opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/normalized/n_{*}")
-
-
-
-    #normailize point cloud using K-nearest neighbour IDW
     print("Normalize lidar data...")
-    opt_progress(ctg) <- FALSE
+    opt_progress(ctg) <- TRUE
     n_las<-normalize_height(ctg,algorithm=knnidw())
-    opt_filter(n_las)<-'-drop_below 0'
+    opt_filter(n_las)<-'-drop_below 0'}
+    else{
+    n_las<- readLAScatalog(in_folder,filter='-drop_class 7 -drop_below 0')
+    }
 
 #     # create a CHM from point cloud for visualization
-    print("Generate normalized CHM...")
-    opt_output_files(n_las)<- opt_output_files(n_las)<-paste0(out_folder,"/chm/{*}_chm")
-    n_las@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-    n_las@output_options$drivers$Raster$param$overwrite <- TRUE
-    opt_progress(n_las) <- FALSE
-#     chm <- rasterize_canopy(n_las, cell_size, pitfree(thresholds = c(0,3,10,15,22,30,38), max_edge = c(0, 1.5)), pkg = "terra")
-    chm <- rasterize_canopy(n_las, cell_size, dsmtin(max_edge = 8), pkg = "terra")
+    if (CHMcell_size !=-999){
+        print("Generate normalized CHM...")
+        opt_output_files(n_las)<- opt_output_files(n_las)<-paste0(out_folder,"/chm/{*}_chm")
+        n_las@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+        n_las@output_options$drivers$Raster$param$overwrite <- TRUE
+        opt_progress(n_las) <- TRUE
+    #     chm <- rasterize_canopy(n_las, cell_size, pitfree(thresholds = c(0,3,10,15,22,30,38), max_edge = c(0, 1.5)), pkg = "terra")
+        chm <- rasterize_canopy(n_las, CHMcell_size, dsmtin(max_edge = (3*CHMcell_size)), pkg = "terra")}
 
     print("Compute approximate tree positions ...")
    ctg_detect_tree <- function(chunk,Min_ws,hmin,out_folder,cell_size){
@@ -262,19 +270,15 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
         tallest_ht <- las@header@PHB$`Max Z`
         Avg_ht<- ((las@header@PHB$`Max Z` + las@header@PHB$`Min Z`)/2)
 
-#Reforestation Standard of Alberta 2018
-#(https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/formain15749/$FILE/reforestation-standard-alberta-may1-2018.pdf, p.53)
-#Live crown ratio is the proportion of total stem length that is covered by living branches. It is expressed as a percentage or decimal of the total tree height.
-# Live crown ratio is a useful indicator of the status of the tree in relation to vigor, photosynthetic leaf area, and is inversely related to stocking density.
-# It is assumed that live crown ratio must be greater than 0.3 (30%) in order for the tree to release well
-
-   if (Min_ws>= (hmin^0.3)) {
+   if (Min_ws>= (hmin^(0.3^(1/2)))) {
     (Min_ws<-Min_ws)}else{
-      (Min_ws<-(hmin^0.3))}
+      (Min_ws<-(hmin^(0.3^(1/2))))}
   f<-function(x){
-    y <-(x^0.3)
-    y[x <hmin ] <- Min_ws # largest window
-    y[x > (tallest_ht*0.8)] <- (tallest_ht*0.8)^0.3    # smallest window
+    y <-(x^(0.3^(1/2)))
+#     y[x <hmin ] <- Min_ws # largest window
+#     y[x > (tallest_ht*0.8)] <- (tallest_ht*0.8)^0.3    # smallest window
+    y[x <hmin ] <- Min_ws # smallest window
+    y[x > (Avg_ht)*1.2] <- (Avg_ht*1.2)^(0.3^(1/2))    # largest window
     return(y)}
 
 # dynamic searching window is based on the function of (tree height x 0.3)
@@ -284,37 +288,40 @@ points2trees<-function(in_folder,Min_ws,hmin,out_folder,rprocesses,cell_size)
 #         ttop <- locate_trees(las, lmf(ws = 1,hmin=hmin,shape="circular"),uniqueness = "gpstime")
 
    ttop <- crop(vect(ttop), ext(chunk))   # remove the buffer
-   sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=cell_size),fun=sum)
+   sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=cell_size,crs=crs(ttop)),fun=sum)
+   sum_map<- classify(sum_map, cbind(NA, 0))
 
     return(list(ttop,sum_map))
    }
    options <- list(automerge = TRUE,autocrop = TRUE)
-   opt_output_files(n_las)<-opt_output_files(n_las)<-paste0(out_folder,"/@@@_{*}_{ID}")
+   opt_output_files(n_las)<-opt_output_files(n_las)<-paste0(out_folder,"/@@@_{*}")
    n_las@output_options$drivers$sf$param$append <- FALSE
    n_las@output_options$drivers$SpatVector$param$overwrite <- TRUE
-   opt_progress(n_las) <- FALSE
+   opt_progress(n_las) <- TRUE
    MultiWrite = function(output_list, file){
     extent = output_list[[1]]
     sum_map = output_list[[2]]
     path1 = gsub("@@@_","", file)
     path2 = gsub("@@@_","", file)
 
-    path1 = paste0(path1, "_trees.shp")
-    path2 = paste0(path2, "_SumTrees.tif")
+    path1 = paste0(path1, "_trees_above",hmin,"m.shp")
+    path2 = paste0(path2, "_Trees_counts_above",hmin,"m.tif")
 
     terra::writeVector(extent, path1, overwrite = TRUE)
     terra::writeRaster(sum_map,path2,overwrite=TRUE)
+
   }
-  MultiWriteDiver = list(
+  MultiWriteDriver = list(
     write = MultiWrite,
     extension = "",
     object = "output_list",
     path = "file",
     param = list())
 
-  n_las@output_options$drivers$list <- MultiWriteDiver
+  n_las@output_options$drivers$list <- MultiWriteDriver
 
    out<-catalog_apply(n_las, ctg_detect_tree,Min_ws,hmin,out_folder,cell_size,.options = options)
+
   }
 #########################################################################################################################################
 ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
@@ -330,7 +337,7 @@ ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
     ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
     opt_output_files(ctg) <- paste0(out_folder,"/{*}_lite_metrics_z")
     ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-    opt_progress(ctg) <- FALSE
+    opt_progress(ctg) <-  TRUE
     print('Generate height metrics......')
     zmetrics_f <- ~list(
       zmax = max(Z),
@@ -353,7 +360,7 @@ ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
 }
 
 ######################################################################################
-veg_cover_percentage<-function(in_las_folder,out_folder,hmin,hmax,cell_size,rprocesses)
+veg_cover_percentage<-function(in_las_folder,is_normalized,out_folder,hmin,hmax,cell_size,rprocesses)
 {
     update.packages(list('terra','lidR','future'))
     library(lidR)
@@ -363,15 +370,16 @@ veg_cover_percentage<-function(in_las_folder,out_folder,hmin,hmax,cell_size,rpro
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
 
+    if (!(is_normalized)){
     ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
     opt_output_files(ctg) <- paste0(out_folder,'/normalized/n_{*}')
-    opt_progress(ctg) <- FALSE
+    opt_progress(ctg) <- TRUE
     print('Normalize point cloud...')
-    n_ctg<- normalize_height(ctg,algorithm=knnidw())
+    n_ctg<- normalize_height(ctg,algorithm=knnidw())}
+    else{
+    n_ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7 -drop_below 0')
+    }
 
-#debug only######
-#     n_ctg<- readLAScatalog(paste0(out_folder,'/normalized'),filter='-drop_below 0')
-#########
         print('Calculating vegetation coverage ....')
         veg_cover_pmetric <- function(chunk,hmin,hmax,out_folder,cell_size)
         {
@@ -382,55 +390,61 @@ veg_cover_percentage<-function(in_las_folder,out_folder,hmin,hmax,cell_size,rpro
             total_pcount<-pixel_metrics(las,func= ~length(Z),pkg = "terra" ,res=cell_size,start = c(0, 0))
              # replace NA with 0
             total_pcount<- classify(total_pcount, cbind(NA, 0))
+            set.names(total_pcount,"Total_Ncount",index=1)
+
+
             Veg_pcount<-pixel_metrics(las,func= ~length(Z),filter= ~Z>=hmin & Z<=hmax,pkg = "terra" ,res=cell_size,start = c(0, 0))
              # replace NA with 0
             Veg_pcount<- classify(Veg_pcount, cbind(NA, 0))
+            set.names(Veg_pcount,"Veg_Ncount",index=1)
+
             veg_percetage<- Veg_pcount/total_pcount
              # replace NA with 0
             veg_percetage<- classify(veg_percetage, cbind(NA, 0))
+             set.names(veg_percetage,"Veg_CovPer",index=1)
+
             total_pcount<-crop(total_pcount,ext(chunk))
-
             Veg_pcount<-crop(Veg_pcount,ext(chunk))
-
             veg_percetage<-crop(veg_percetage,ext(chunk))
 
-            return(list(total_pcount,Veg_pcount,veg_percetage))
+            x<-c(total_pcount,Veg_pcount,veg_percetage)
 
         }
 
+#
+#         MultiWrite = function(output_list, file)
+#         {
+#           total_pcount = output_list[[1]]
+#           Veg_pcount = output_list[[2]]
+#           veg_CovPer=output_list[[3]]
+#           path1 = gsub("_@@@","_Total_Ncount", file)
+#           path2 = gsub("_@@@","_Veg_Ncount", file)
+#           path3 = gsub("_@@@","_Veg_CovPer", file)
+#           path1 = paste0(path1, ".tif")
+#           path2 = paste0(path2, ".tif")
+#           path3 = paste0(path3, ".tif")
+#
+#           terra::writeRaster(total_pcount,path1,overwrite=TRUE)
+#           terra::writeRaster(Veg_pcount,path2,overwrite=TRUE)
+#           terra::writeRaster(veg_CovPer,path3,overwrite=TRUE)
+#
+#
+#         }
+#         MultiWriteDiver = list(
+#           write = MultiWrite,
+#           extension = "",
+#           object = "output_list",
+#           path = "file",
+#           param = list())
 
-        MultiWrite = function(output_list, file)
-        {
-          total_pcount = output_list[[1]]
-          Veg_pcount = output_list[[2]]
-          veg_CovPer=output_list[[3]]
-          path1 = gsub("_@@@","_Total_Ncount", file)
-          path2 = gsub("_@@@","_Veg_Ncount", file)
-          path3 = gsub("_@@@","_Veg_CovPer", file)
-          path1 = paste0(path1, ".tif")
-          path2 = paste0(path2, ".tif")
-          path3 = paste0(path3, ".tif")
-
-          terra::writeRaster(total_pcount,path1,overwrite=TRUE)
-          terra::writeRaster(Veg_pcount,path2,overwrite=TRUE)
-          terra::writeRaster(veg_CovPer,path3,overwrite=TRUE)
-
-
-        }
-        MultiWriteDiver = list(
-          write = MultiWrite,
-          extension = "",
-          object = "output_list",
-          path = "file",
-          param = list())
-
-        opt_output_files(n_ctg)<-paste0(out_folder,"/result/{*}_@@@")
+        opt_output_files(n_ctg)<-paste0(out_folder,"/result/{*}_veg_cover_percentage")
         n_ctg@output_options$drivers$SpatRaster$param$overwrite<-TRUE
-        n_ctg@output_options$drivers$list <- MultiWriteDiver
+#         n_ctg@output_options$drivers$list <- MultiWriteDiver
         out<-catalog_apply(n_ctg, veg_cover_pmetric,hmin,hmax,out_folder,cell_size)
+
 }
 #########################################################################################
-percentage_aboveDBH<-function(in_las_folder,out_folder,DBH,cell_size,rprocesses)
+percentage_aboveDBH<-function(in_las_folder,is_normalized,out_folder,DBH,cell_size,rprocesses)
 {
     update.packages(list('terra','lidR','future'))
     library(lidR)
@@ -440,15 +454,16 @@ percentage_aboveDBH<-function(in_las_folder,out_folder,DBH,cell_size,rprocesses)
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
 
+    if (!(is_normalized)){
     ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
     opt_output_files(ctg) <- paste0(out_folder,'/normalized/n_{*}')
-    opt_progress(ctg) <- FALSE
+    opt_progress(ctg) <- TRUE
     print('Normalize point cloud...')
-    n_ctg<- normalize_height(ctg,algorithm=knnidw())
+    n_ctg<- normalize_height(ctg,algorithm=knnidw())}
+    else{
+    n_ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7 -drop_below 0')
+    }
 
-#debug only######
-#      n_ctg<- readLAScatalog(paste0(out_folder,'/normalized'),filter='-drop_below 0')
-#########
         print('Calculating percentage returns above DBH ....')
         compute_aboveDBH <- function(chunk,DBH,out_folder,cell_size)
         {
@@ -473,3 +488,35 @@ percentage_aboveDBH<-function(in_las_folder,out_folder,DBH,cell_size,rprocesses)
         out<-catalog_apply(n_ctg, compute_aboveDBH,DBH,out_folder,cell_size)
 }
 #########################################################################################
+normalized_lidar_knnidw <- function(in_las_folder,out_folder,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+    #read Las file and drop any noise from the point cloud
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/normalized/n_{*}")
+    print("Normalize lidar data...")
+    opt_progress(ctg) <- TRUE
+    n_las<-normalize_height(ctg,algorithm=knnidw())
+}
+#########################################################################################
+chm_by_dsmtin <- function(in_las_folder,out_folder,CHMcell_size,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+        ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+        print("Generate CHM...")
+        opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_chm")
+        ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+        ctg@output_options$drivers$Raster$param$overwrite <- TRUE
+        opt_progress(ctg) <- TRUE
+        chm <- rasterize_canopy(ctg, CHMcell_size, dsmtin(max_edge = (3*CHMcell_size)), pkg = "terra")
+    }
