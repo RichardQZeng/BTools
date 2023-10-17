@@ -20,7 +20,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
-def veg_cover_percentage(callback,in_las_folder,out_folder,hmin,hmax,cell_size,processes, verbose):
+def veg_cover_percentage(callback,in_las_folder,is_normalized,out_folder,hmin,hmax,cell_size,processes, verbose):
 
     r = robjects.r
     import psutil
@@ -46,7 +46,7 @@ def veg_cover_percentage(callback,in_las_folder,out_folder,hmin,hmax,cell_size,p
     # Loading the function defined in R script.
     r_veg_metrics = robjects.globalenv['veg_cover_percentage']
     # Invoking the R function
-    r_veg_metrics(in_las_folder,out_folder,hmin,hmax,cell_size,rprocesses)
+    r_veg_metrics(in_las_folder,is_normalized,out_folder,hmin,hmax,cell_size,rprocesses)
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -99,6 +99,13 @@ if __name__ == '__main__':
         else:
             in_args.input["hmin"] = 3.0
             in_args.input["hmax"] = 10.0
+
+    try:
+        is_normalized=bool(in_args.input["is_normalized"])
+
+    except ValueError:
+        print("Invalid input of checking normalized data box, normalize data will be carried")
+        in_args.input["is_normalized"] =False
 
     try:
         cell_size = float(in_args.input["cell_size"])
