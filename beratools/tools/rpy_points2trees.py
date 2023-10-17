@@ -20,7 +20,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
-def points2trees(callback,in_las_folder,Min_ws,hmin,out_folder, processes, verbose):
+def points2trees(callback,in_las_folder,is_normalized,Min_ws,hmin,cell_size,do_nCHM,out_folder, processes, verbose):
 
     r = robjects.r
     import psutil
@@ -47,8 +47,12 @@ def points2trees(callback,in_las_folder,Min_ws,hmin,out_folder, processes, verbo
     r_points2trees = robjects.globalenv['points2trees']
     r_pd2cellsize =robjects.globalenv['pd2cellsize']
     # Invoking the R function
-    cell_size=r_pd2cellsize(in_las_folder,rprocesses)
-    r_points2trees(in_las_folder, Min_ws, hmin, out_folder,rprocesses,cell_size)
+    if do_nCHM:
+         CHMcell_size=r_pd2cellsize(in_las_folder,rprocesses)
+         r_points2trees(in_las_folder,is_normalized, Min_ws, hmin, out_folder,rprocesses,CHMcell_size,cell_size)
+    else:
+        CHMcell_size=-999
+        r_points2trees(in_las_folder, is_normalized, Min_ws, hmin, out_folder, rprocesses, CHMcell_size,cell_size)
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -85,10 +89,29 @@ if __name__ == '__main__':
         in_args.input["Min_ws"]=2.5
     try:
         hmin=float(in_args.input["hmin"])
-        in_args.input["hmin"]=hmin
+        if hmin>=20:
+            print("Invalid input of minimum height (<=20) of a tree, maximum is used")
+            in_args.input["hmin"] = 20.0
+        else:
+            in_args.input["hmin"]=hmin
+    except ValueError:
+        print("Invalid input of minimum height (<=10) of a tree, default is used")
+        in_args.input["hmin"] =3.0
+
+    try:
+        is_normalized=bool(in_args.input["is_normalized"])
+
+    except ValueError:
+        print("Invalid input of checking normalized data box, normalize data will be carried")
+        in_args.input["is_normalized"] =False
+
+    try:
+        cell_size = float(in_args.input["cell_size"])
+        in_args.input["cell_size"] = cell_size
     except ValueError:
         print("Invalid input of minimum height of a tree, default is used")
-        in_args.input["hmin"] =3.0
+        in_args.input["cell_size"] = 5.0
+
 
     out_folder=in_args.input["out_folder"]
 
