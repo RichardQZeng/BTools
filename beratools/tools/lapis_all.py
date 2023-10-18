@@ -14,7 +14,7 @@ class OperationCancelledException(Exception):
 def lapis_all(args, callback=print, processes=None, verbose=None):
     lapis_path = '../third_party/Lapis_0_8/Lapis.exe'
     lapis_path = Path(__file__).parent.joinpath(lapis_path).resolve()
-    ini_file = Path(__file__).parents[1].joinpath(r'..\.data\lapis.ini').resolve().as_posix()
+    ini_file = Path(__file__).parents[2].joinpath(r'.\.data\lapis.ini').resolve().as_posix()
 
     arg_parsed = json.loads(args)
     in_dtm = arg_parsed['in_dtm']
