@@ -110,6 +110,16 @@ def read_geoms_from_shapefile(in_file):
     return geoms
 
 
+# Read feature from shapefile
+def read_feature_from_shapefile(in_file):
+    shapes = []
+    with fiona.open(in_file) as open_file:
+        for feat in open_file:
+            shapes.append([shape(feat.geometry), feat.properties])
+
+    return shapes
+
+
 def generate_raster_footprint(in_raster, latlon=True):
     inter_img = 'myimage.tif'
 
