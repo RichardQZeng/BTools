@@ -28,9 +28,11 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
     # Read input line features
     layer_crs = None
     input_lines = []
-    with fiona.open(in_line) as open_line_file:
-        layer_crs = open_line_file.crs
-        for line in open_line_file:
+    in_properties = None
+    with fiona.open(in_line) as in_file_vector:
+        layer_crs = in_file_vector.crs
+        in_properties = in_file_vector.meta['schema']['properties']
+        for line in in_file_vector:
             if line.geometry:
                 if line.geometry.type != 'MultiLineString':
                     input_lines.append([line.geometry, line.properties])
@@ -44,7 +46,8 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
             else:
                 print(f'Line {line.id} has empty geometry.')
 
-    out_fields_list = ["ecosite"]
+    out_fields_list = OrderedDict(in_properties)
+    out_fields_list["ecosite"] = 'str'
 
     # Create search tree
     feats = read_feature_from_shapefile(in_ecosite)
@@ -58,12 +61,12 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
     id = 0
     for line in input_lines:
         line_geom = shape(line[0])
-        line_prop = line[2]
+        line_prop = line[1]
         index_query = tree.query(line_geom)
         geoms_intersected = []
         for i in index_query:
-            geoms_intersected.append(geoms[i])
-        all_lines.append(([line_geom, line_prop], geoms_intersected, id))
+            geoms_intersected.append({'geom': geoms[i], 'prop': feats[i][1]})  # polygon has property
+        all_lines.append(({'geom': line_geom, 'prop': line_prop}, geoms_intersected, id))
         id += 1
 
     print('{} lines to be processed.'.format(len(all_lines)))
@@ -105,8 +108,8 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
         for line in feature:
             try:
                 single_line = {
-                    'geometry': mapping(line),
-                    'properties': OrderedDict(list(zip(out_fields_list, ['treed area'])))  # TODO: add attributes
+                    'geometry': mapping(line[0]),
+                    'properties': line[1]  # TODO: add attributes
                 }
             except Exception as e:
                 print(e)
@@ -115,9 +118,7 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
 
     schema = {
         'geometry': 'LineString',
-        'properties': OrderedDict([
-            ('ecosite', 'str'),
-        ])
+        'properties': out_fields_list
     }
 
     driver = 'ESRI Shapefile'
@@ -134,6 +135,7 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
 
 def split_line_with_polygon(lines, polygon):
     line_list = []
+
     for line in lines:
         line_collection = split(line, polygon)
 
@@ -144,23 +146,39 @@ def split_line_with_polygon(lines, polygon):
     return line_list
 
 
-# param
 # @profile
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
-    line = line_args[0]
-    geoms = line_args[1]
+    """
+    Parameters
+    ----------
+    line_args : tuple
+        line_args has three items: {line geometry, line properties}, intersected polygons (list) and line ID
 
-    lines = [line]
-    if len(geoms) == 0:  # none intersecting polygons
-        return [line]
-    else:
-        for geom in geoms:
-            lines = split_line_with_polygon(lines, geom)
+    Returns
+    --------
+    list
+        The return list consist of split lines by intersection with polygons
 
-        if len(lines) == 0:
-            pass
+    """
+    in_geom = line_args[0]
+    polygons = line_args[1]
 
-    return lines
+    out_geom = [in_geom['geom']]
+    if len(polygons) > 0:  # none intersecting polygons
+        for poly in polygons:
+            out_geom = split_line_with_polygon(out_geom, poly['geom'])
+
+    final_geoms = []
+    if len(out_geom) > 0:
+        for i in out_geom:
+            temp_prop = in_geom['prop']
+            for j in polygons:
+                if j['geom'].contains(i):
+                    temp_prop['ecosite'] = j['prop']['ecosite']  # TODO: specify 'ecosite' field name
+                    final_geoms.append([i, temp_prop])
+
+
+    return final_geoms
 
 
 def execute_multiprocessing(line_args, processes, verbose):
