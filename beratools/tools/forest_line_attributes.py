@@ -231,9 +231,14 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
     heightAnalysis = line_args[3]
     args = line_args[4]
 
+    if type(result_identity) == geopandas.geodataframe.GeoDataFrame:
+        if result_identity.empty:
+            return result_identity
+    elif not result_identity:
+        return result_identity
+
     if heightAnalysis:  # with CHM
         with rasterio.open(args['in_chm']) as in_CHM:
-
             cell_size_x = in_CHM.transform[0]
             cell_size_y = -in_CHM.transform[4]
 
@@ -351,10 +356,17 @@ def identity_polygon(line_args):
     if not 'OLnSEG' in in_fp_polygon.columns.array:
         in_fp_polygon = in_fp_polygon.assign(OLnSEG=0)
 
-    identity = in_fp_polygon.overlay(in_cl_buffer, how='identity')
-    identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
-    identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
-    identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
+    identity = None
+    try:
+        # TODO: determine when there is empty polygon
+        if not in_fp_polygon.empty:
+            identity = in_fp_polygon.overlay(in_cl_buffer, how='identity')
+            identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
+            identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
+            identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
+    except Exception as e:
+        print(e)
+
     return identity
 
 
@@ -378,19 +390,18 @@ if __name__ == '__main__':
     # assign Tool arguments
     in_cl = args.input["in_line"]
     in_fp = args.input["in_footprint"]
-    in_CHMR = args.input["in_chm"]
+    in_chmr = args.input["in_chm"]
     sampling_type = args.input["sampling_type"]
     seg_len = float(args.input["seg_len"])
     ln_split_Tol = float(args.input["ln_split_Tol"])
-    Max_ln_width = float(args.input["Max_ln_width"])
-    Out_AttSeg = args.input["Out_AttSeg"]
+    max_ln_width = float(args.input["max_ln_width"])
 
     # Vaild input footprint shapefile has geometry
     in_fp_shp = geopandas.GeoDataFrame.from_file(in_fp)
     in_ln_shp = geopandas.GeoDataFrame.from_file(in_cl)
 
     # check coordinate systems between line and raster features
-    with rasterio.open(in_CHMR) as in_raster:
+    with rasterio.open(in_chmr) as in_raster:
         if in_fp_shp.crs.to_epsg() != in_raster.crs.to_epsg():
             print("Line and raster spatial references are not the same, please check.")
             exit()
@@ -424,7 +435,7 @@ if __name__ == '__main__':
         elif not "OLnSEG" in in_fp_shp.columns.array:
             in_fp_shp['OLnSEG'] = 0
     try:
-        with rasterio.open(in_CHMR) as in_CHM:
+        with rasterio.open(in_chmr) as in_CHM:
             heightAnalysis = True
         del in_CHM
     except Exception as error_in_CHM:
@@ -461,13 +472,13 @@ if __name__ == '__main__':
             # Buffer seg straigth line or whole ln for identify footprint polygon
             if isinstance(Straight_lines, geopandas.GeoDataFrame):
                 in_cl_buffer = geopandas.GeoDataFrame.copy(Straight_lines)
-                in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+                in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
             else:
                 in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-                in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+                in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
         else:
             in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+            in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
             in_fp_shp = in_cl_buffer
 
     else:  # LINE-CROSSINGS
@@ -500,10 +511,10 @@ if __name__ == '__main__':
 
             # buffer whole ln for identify footprint polygon
             in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+            in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
         else:
             in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-            in_cl_buffer['geometry'] = in_cl_buffer.buffer(Max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+            in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
             in_fp_shp = in_cl_buffer
         # print(Att_seg_lines)
 
@@ -615,7 +626,11 @@ if __name__ == '__main__':
             for result in pool.imap_unordered(Fill_Attributes, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
-                features.append(result)
+
+                if type(result) == geopandas.geodataframe.GeoDataFrame:
+                    if not result.empty:
+                        features.append(result)
+
                 step += 1
                 print('%{}'.format(step / total_steps * 100))
 
@@ -651,7 +666,7 @@ if __name__ == '__main__':
     print('%{}'.format(90))
     print('Saving output.....')
     # Save attributed lines
-    geopandas.GeoDataFrame.to_file(output_att_line, args.input['Out_AttSeg'])
+    geopandas.GeoDataFrame.to_file(output_att_line, args.input['out_line'])
 
     print('%{}'.format(100))
     print('Finishing Forest Line Attributes processing @ {}\n (or in {} second)'.format(time.strftime("%a, %d %b %Y %H:%M:%S"
