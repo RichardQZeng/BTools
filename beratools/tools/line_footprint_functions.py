@@ -62,7 +62,7 @@ def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
 
 def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
     # This function uses xrspatial which can handle large data but slow
-    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster .......")
+    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
     ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
     result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
 
@@ -77,7 +77,7 @@ def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
 
 
 def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
-    # print('Generating Cost Raster .......')
+    # print('Generating Cost Raster ...')
 
     # scipy way to do Euclidean distance transform
     euc_dist_array = None
@@ -125,11 +125,11 @@ def dyn_canopy_cost_raster(args):
     canopy_avoid = float(canopy_avoid)
     cost_raster_exponent = float(exponent)
 
-    # print('Loading CHM............')
+    # print('Loading CHM ...')
     (cell_x, cell_y) = res
     band1_ndarray = in_chm
 
-    # print('Preparing Kernel window............')
+    # print('Preparing Kernel window ...')
     kernel = convolution.circle_kernel(cell_x, cell_y, math.ceil(tree_radius))
 
     # Generate Canopy Raster and return the Canopy array
@@ -229,8 +229,9 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         line_seg['OLnFID'] = line_seg.index
 
     if 'CorridorTh' not in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n '{}' column will be created"
-              .format('CorridorTh', 'CorridorTh'))
+        if BT_DEBUGGING:
+            print("Cannot find {} column in input line data".format('CorridorTh'))
+        print(" New column created: {}".format('CorridorTh'))
         line_seg['CorridorTh'] = 3.0
     else:
         use_corridor_th_col = True
@@ -259,7 +260,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                                                         distance=float(max_ln_width),
                                                         cap_style=1)
             # line_args = []
-            print("Prepare CHMs for Dynamic cost raster......")
+            print("Prepare CHMs for Dynamic cost raster ...")
             # for record in range(0, len(work_in_buffer)):
             #     line_buffer = work_in_buffer.loc[record, 'geometry']
             #     clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
@@ -273,14 +274,14 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
                                            max_line_dist, canopy_avoidance, exponent, use_corridor_th_col)
 
-            print("Prepare CHMs for Dynamic cost raster......Done")
+            print("Task done.")
             print('%{}'.format(30))
 
-            print('Generate Dynamic cost raster.....')
+            print('Generating Dynamic cost raster ...')
             list_dict_segment_all = line_args
             # list_dict_segment_all = multiprocessing_dynamic_CC(line_args, processes)
             # dyn_canopy_cost_raster(line)
-            print('Generate Dynamic cost raster.....Done')
+            print('Task done.')
             print('%{}'.format(50))
 
         # for row in range(0, len(list_dict_segment_all)):
@@ -290,7 +291,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         #     list_dict_segment_all[row] = tuple(l)
 
         # pass center lines for footprint
-        print("Generate Dynamic footprint.....")
+        print("Generating Dynamic footprint ...")
         footprint_list = []
 
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
@@ -307,8 +308,8 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                 step += 1
 
     print('%{}'.format(80))
-    print("Generate Dynamic footprint.....Done")
-    print('Generating shapefile...........')
+    print("Task done.")
+    print('Generating shapefile ...')
     results = gpd.GeoDataFrame(pd.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
     results = results.reset_index(drop=True)
@@ -316,7 +317,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
     # dissolved polygon group by column 'OLnFID'
     dissolved_results = results.dissolve(by='OLnFID', as_index=False)
     dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
-    print("Saving output.....")
+    print("Saving output ...")
     dissolved_results.to_file(out_footprint)
     print('%{}'.format(100))
 
@@ -536,12 +537,13 @@ def multiprocessing_dynamic_CC(line_args, processes):
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Starting Dynamic Footprint processing\n @ {}'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+    print('Dynamic Footprint processing started')
+    print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     in_args, in_verbose = check_arguments()
     dynamic_line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 
     print('%{}'.format(100))
-    print('Finishing Dynamic Footprint processes @ {}\n(or in {} second)'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
+    print('Dynamic Footprint processing finished')
+    print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
+    print('Total processing time (seconds): {}'.format(round(time.time() - start_time, 3)))

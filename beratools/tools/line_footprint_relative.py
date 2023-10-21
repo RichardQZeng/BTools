@@ -34,8 +34,8 @@ from canopy_threshold_relative import *
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Starting Dynamic CC and Footprint processing\n @ {}'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+    print('Dynamic CC and Footprint processing started')
+    print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
@@ -55,8 +55,9 @@ if __name__ == '__main__':
     dynamic_line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
 
     print('%{}'.format(100))
-    print('Finishing Dynamic Footprint processes @ {}\n(or in {} second)'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
+    print('Dynamic CC and Footprint processes finished')
+    print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
+    print('Total processing time (seconds): {}'.format(round(time.time() - start_time, 3)))
 
 
 
