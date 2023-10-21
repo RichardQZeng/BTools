@@ -45,15 +45,14 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         line_seg['OLnFID'] = line_seg.index
 
     if 'CorridorTh' not in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n '{}' "
-              "column will be created".format('CorridorTh', 'CorridorTh'))
+        if BT_DEBUGGING:
+            print("Cannot find {} column in input line data".format('CorridorTh'))
+        print("New column created: {}".format('CorridorTh'))
         line_seg['CorridorTh'] = corridor_th_value
     else:
         corridor_th_value = float(9999999)
     if 'OLnSEG' not in line_seg.columns.array:
         line_seg['OLnSEG'] = 0
-        # print("Cannot find {} column in input line data.\n '{}' column will be created "
-        #      "base on input Features ID".format('OLnSEG', 'OLnSEG'))
 
     ori_total_feat = len(line_seg)
 
@@ -87,7 +86,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
                 print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format(step / total_steps * 100), flush=True)
 
-    print('Generating shapefile...........')
+    print('Generating shapefile ...')
     
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
@@ -96,7 +95,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     # dissolved polygon group by column 'OLnFID'
     dissolved_results = results.dissolve(by='OLnFID', as_index=False)
     dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
-    print("Saving output.....")
+    print("Saving output ...")
     dissolved_results.to_file(out_footprint)
     print('%{}'.format(100))
 
@@ -470,7 +469,7 @@ def execute_multiprocessing(line_args, processes, verbose):
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Starting footprint processing @ {}'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+    print('Starting footprint processing @ {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     in_args, in_verbose = check_arguments()
     line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)

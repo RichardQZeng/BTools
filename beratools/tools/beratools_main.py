@@ -288,9 +288,11 @@ class BeraTools(object):
                 else:
                     break
 
-            callback('------------------------------------')
-            callback('{} tool finished'.format(self.get_bera_tool_name(tool_api)))
-            callback('------------------------------------')
+            out_str = '{} tool finished'.format(self.get_bera_tool_name(tool_api))
+            sep_str = '-' * len(out_str)
+            callback(sep_str)
+            callback(out_str)
+            callback(sep_str)
 
             return 0
         except (OSError, ValueError, CalledProcessError) as err:

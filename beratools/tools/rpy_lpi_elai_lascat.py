@@ -80,7 +80,7 @@ def lpi_lai(arg):
     #     ndarray[ndarray <0.0] = numpy.NaN
     #     radius = math.ceil(numpy.nanmean(ndarray) * 2)
 
-    print("Calculating LPI and eLAI for {}....".format(filename))
+    print("Calculating LPI and eLAI for {} ...".format(filename))
     with rasterio.open(pdTotal) as pd_total:
         with rasterio.open(pdGround) as pd_Ground:
             raster_profile=pd_total.profile
@@ -108,22 +108,22 @@ def lpi_lai(arg):
     del pd_Ground
     lpi_array = numpy.divide(pd_ground_ndarray, pd_total_ndarray, out=numpy.zeros_like(pd_ground_ndarray), where=pd_total_ndarray != 0)
 
-    print("Calculating LPI: {}....".format(filename))
+    print("Calculating LPI: {} ...".format(filename))
     write_lpi = rasterio.open(out_lpi, 'w', **raster_profile)
     write_lpi.write(lpi_array, 1)
     write_lpi.close()
     del write_lpi
     print('%{}'.format(80))
-    print("Calculating LPI: {}....Done".format(filename))
+    print("Calculating LPI: {} ...Done".format(filename))
 
-    print("Calculating eLAI: {}....".format(filename))
+    print("Calculating eLAI: {} ...".format(filename))
     elai_array = ((math.cos(((scan_angle / 2.0) / 180.0) * math.pi)) / 0.5) * (numpy.log(lpi_array)) * -1
 
     write_elai = rasterio.open(out_elai, 'w', **raster_profile)
     write_elai.write(elai_array, 1)
     write_elai.close()
     del write_elai
-    print("Calculating eLAI: {}....Done".format(filename))
+    print("Calculating eLAI: {} ... Done".format(filename))
 
 def fs_raster_stdmean(in_ndarray, kernel, nodata):
 
@@ -158,7 +158,7 @@ def r_lpi_lai_with_focalR(arg):
     out_elai = os.path.join(eLAI_folder, out_elai_fielname)
 
     radius = float(arg[6])
-    print("Calculating LPI and eLAI for {}....".format(filename))
+    print("Calculating LPI and eLAI for {} ...".format(filename))
 
     # assign R script file to local variable
     rlpi_elai_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r_cal_lpi_elai.r')
@@ -171,7 +171,7 @@ def r_lpi_lai_with_focalR(arg):
 
     # At this stage no process for CHM
 
-    print("Calculating LPI adn eLAI: {}....Done".format(filename))
+    print("Calculating LPI adn eLAI: {} ... Done".format(filename))
 def f_pulse_density(ctg, out_folder, processes, verbose):
     r = robjects.r
     print('Calculate cell size from average point cloud density...')
@@ -380,14 +380,14 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Starting generate LPA and eLAI raster processing\n @ {}'
-          .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+    print('Starting generating LPA and eLAI raster processing\n @ {}'
+          .format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     r=robjects.r
     utils = importr('utils')
     base = importr('base')
     utils.chooseCRANmirror(ind=12) # select the 12th mirror in the list: Canada
-    print("Checking R packages....")
+    print("Checking R packages ...")
     CRANpacknames = ['lidR','rgrass','rlas','future','terra','comprehenr','na.tools','sf','sp','devtools']#,'fasterRaster']
     CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
     need_fasterRaster = False
@@ -412,7 +412,7 @@ if __name__ == '__main__':
     # loading R packages
     # utils = importr('utils')
     # base = importr('base')
-    print("Loading R packages....")
+    print("Loading R packages ...")
     na = importr('na.tools')
     terra = importr('terra')
     lidR = importr('lidR')
@@ -420,7 +420,7 @@ if __name__ == '__main__':
     sp = importr('sp')
     future=importr('future')
 
-    print("Checking input parameters....")
+    print("Checking input parameters ...")
 
 
     aoi_shapefile=in_args.input['in_polygon_file']
@@ -496,12 +496,7 @@ if __name__ == '__main__':
     else:
         in_args.input['mean_scanning_angle']=mean_scanning_angle
 
-    print("Checking input parameters....Done")
-
+    print("Checking input parameters ... Done")
 
     pd_raster(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
-
-
-
-    print('Generate LPA and eLAI rasters are done in {} seconds)'
-          .format(round(time.time() - start_time, 5)))
+    print('Task is done in {} seconds)'.format(round(time.time() - start_time, 5)))

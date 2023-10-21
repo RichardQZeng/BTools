@@ -23,8 +23,9 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
 
     # Check the OLnFID column in data. If it is not, column will be created
     if not 'OLnFID' in in_ln_shp.columns.array:
-        print(
-            "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
+        if BT_DEBUGGING:
+            print("Cannot find {} column in input line data")
+        print("New column created: {}".format('OLnFID', 'OLnFID'))
         in_ln_shp['OLnFID'] = in_ln_shp.index
 
     # Copy all the input line into geodataframe
@@ -374,7 +375,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     print('Starting attribute Forest Line Attributes \n@ {}'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+        time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     # Get tool arguments
     parser = argparse.ArgumentParser()
@@ -425,7 +426,7 @@ if __name__ == '__main__':
             HasOLnFID = True
         else:  # future code: get the orginal centerlines ID and write into subset of centerlines column "OLnFID"
             HasOLnFID = False
-            print("Please prepare original line feature's ID (FID) ....")
+            print("Please prepare original line feature's ID (FID) ...")
             exit()
 
         if 'Fr_Seg_Ln' in in_fp_shp.columns.array:
@@ -524,7 +525,7 @@ if __name__ == '__main__':
     result_identity = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_cl_buffer.crs)
     result_Att = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_cl_buffer.crs)
     print(
-        "There are {} original footprint to be identified by {} segment lines....".format(len(in_fp_shp.index),
+        "There are {} original footprint to be identified by {} segment lines ...".format(len(in_fp_shp.index),
                                                                                           len(in_cl_buffer)))
     print('%{}'.format(30))
 
@@ -593,7 +594,7 @@ if __name__ == '__main__':
 
     print("Identifies are done.")
 
-    print("Prepare for filling attributes........")
+    print("Prepare for filling attributes ...")
     # prepare list of result_identity,Att_seg_lines,areaAnalysis,heightAnalysis,args.input
     line_args = []
     for index in range(0, len(features)):
@@ -606,7 +607,7 @@ if __name__ == '__main__':
         line_args.append(list_item)
 
         # ##Linear attributes
-    print("Adding attributes......")
+    print("Adding attributes ...")
     print('%{}'.format(60))
 
     # Sequence processing Fill Attributes
@@ -664,11 +665,11 @@ if __name__ == '__main__':
         output_att_line = Att_seg_lines.merge(footprint_att, how='left', on=['Disso_ID'])
 
     print('%{}'.format(90))
-    print('Saving output.....')
+    print('Saving output ...')
     # Save attributed lines
     geopandas.GeoDataFrame.to_file(output_att_line, args.input['out_line'])
 
     print('%{}'.format(100))
-    print('Finishing Forest Line Attributes processing @ {}\n (or in {} second)'.format(time.strftime("%a, %d %b %Y %H:%M:%S"
+    print('Finishing Forest Line Attributes processing @ {}\n (or in {} second)'.format(time.strftime("%d %b %Y %H:%M:%S"
                                                                                        , time.localtime()),
                                                                          round(time.time() - start_time, 5)))

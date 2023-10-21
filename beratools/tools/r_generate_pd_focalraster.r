@@ -19,12 +19,12 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
 
 
     #normalized LAS with pulse info
-   print("Indexing LAS Tiles...")
+   print("Indexing LAS Tiles ...")
    lidR:::catalog_laxindex(ctg)
-   print("Normalize point cloud using K-nearest neighbour IDW....")
+   print("Normalize point cloud using K-nearest neighbour IDW ...")
    normalize_height(ctg, algorithm=knnidw())
 
-    print("Generate point density (total focal sum) raster....")
+    print("Generating point density (total focal sum) raster ...")
 
     pd_total <- function(chunk,radius,cell_size)
     {
@@ -64,7 +64,7 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
     lidR:::catalog_laxindex(ctg2)
 
 
-    print("Generate point density (ground focal sum) raster....")
+    print("Generating point density (ground focal sum) raster ...")
     pd_ground <- function(chunk,radius,cell_size,cut_ht)
     {
     las <- readLAS(chunk)

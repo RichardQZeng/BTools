@@ -57,16 +57,16 @@ def zonal_threshold(callback, in_line, in_canopy_raster, canopy_search_r, min_ca
 
         line_arg.append(list_items)
     print('%{}'.format(60))
-    print("Calculating zonal statistic.....")
+    print("Calculating zonal statistic ...")
     features=[]
     # for row in range(0,len(line_arg)):
     #     features.append(zonal_prepare(line_arg[row]))
     features=execute_multiprocessing(line_arg)
-    print("Merging results.....")
+    print("Merging results ...")
     results = geopandas.GeoDataFrame(pandas.concat(features))
     results['geometry']=line_seg['geometry']
 
-    print("Saving output.....")
+    print("Saving output ...")
     print('%{}'.format(100))
     #Debug save
     geopandas.GeoDataFrame.to_file(results,out_line )
@@ -127,7 +127,7 @@ def execute_multiprocessing(line_args):
 if __name__ == '__main__':
     start_time = time.time()
     print('Starting zonal threshold calculation processing @ {}'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+        time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
@@ -141,4 +141,4 @@ if __name__ == '__main__':
 
     print('%{}'.format(100))
     print('Finishing zonal threshold calculation processing @ {} (or in {} second)'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
+        time.strftime("%d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))

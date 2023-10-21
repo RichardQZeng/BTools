@@ -55,13 +55,13 @@ def hh_raster(callback,in_las_folder,Min_ws,lawn_range,cell_size,out_folder, pro
 if __name__ == '__main__':
     start_time = time.time()
     print('Hummock and Hollow detection from LiDAR process.\n'
-          '@ {}'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+          '@ {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     r=robjects.r
     utils = importr('utils')
     base = importr('base')
     utils.chooseCRANmirror(ind=12) # select the 12th mirror in the list: Canada
-    print("Checking R packages....")
+    print("Checking R packages ...")
     CRANpacknames = ['lidR','rgrass','rlas','future','terra'] # ,'comprehenr','na.tools','sf','sp']#,'devtools','gdal']#,'fasterRaster']
     CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
 
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     del CRANpacknames,CRANnames_to_install
 
-    print("Checking input parameters....")
+    print("Checking input parameters ...")
     in_args, in_verbose = check_arguments()
     in_las_folder=in_args.input["in_las_folder"]
     try:
@@ -119,7 +119,7 @@ if __name__ == '__main__':
        os.makedirs(out_folder)
 
 
-    print("Checking input parameters....Done")
+    print("Checking input parameters ... Done")
 
     hh_raster(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 

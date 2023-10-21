@@ -65,10 +65,10 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
     #normalized LAS with pulse info
    print("Indexing LAS Tiles...")
    lidR:::catalog_laxindex(ctg)
-   print("Normalize point cloud using K-nearest neighbour IDW....")
+   print("Normalize point cloud using K-nearest neighbour IDW ...")
    normalize_height(ctg, algorithm=knnidw())
 
-    print("Generate point density (total focal sum) raster....")
+    print("Generating point density (total focal sum) raster ...")
 
     pd_total <- function(chunk,radius,cell_size)
     {
@@ -108,7 +108,7 @@ generate_pd <- function(ctg,radius_fr_CHM,focal_radius,cell_size,cache_folder,
     lidR:::catalog_laxindex(ctg2)
 
 
-    print("Generate point density (ground focal sum) raster....")
+    print("Generating point density (ground focal sum) raster ...")
     pd_ground <- function(chunk,radius,cell_size,cut_ht)
     {
     las <- readLAS(chunk)
@@ -154,7 +154,7 @@ plan(multisession,workers=rprocesses)
 set_lidr_threads(rprocesses)
 
 
-print('Generate Hummock/ Hollow Raster....')
+print('Generating Hummock/ Hollow Raster ...')
 ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
 
 HH_raster <- function(chunk,radius,cell_size,lawn_range)
@@ -253,7 +253,7 @@ points2trees<-function(in_folder,is_normalized,Min_ws,hmin,out_folder,rprocesses
 
 #     # create a CHM from point cloud for visualization
     if (CHMcell_size !=-999){
-        print("Generate normalized CHM...")
+        print("Generating normalized CHM ...")
         opt_output_files(n_las)<- opt_output_files(n_las)<-paste0(out_folder,"/chm/{*}_chm")
         n_las@output_options$drivers$SpatRaster$param$overwrite <- TRUE
         n_las@output_options$drivers$Raster$param$overwrite <- TRUE
@@ -338,7 +338,7 @@ ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
     opt_output_files(ctg) <- paste0(out_folder,"/{*}_lite_metrics_z")
     ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
     opt_progress(ctg) <-  TRUE
-    print('Generate height metrics......')
+    print('Generating height metrics ...')
     zmetrics_f <- ~list(
       zmax = max(Z),
       zmin = min(Z),
@@ -380,7 +380,7 @@ veg_cover_percentage<-function(in_las_folder,is_normalized,out_folder,hmin,hmax,
     n_ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7 -drop_below 0')
     }
 
-        print('Calculating vegetation coverage ....')
+        print('Calculating vegetation coverage ...')
         veg_cover_pmetric <- function(chunk,hmin,hmax,out_folder,cell_size)
         {
             las <- readLAS(chunk)
@@ -464,7 +464,7 @@ percentage_aboveDBH<-function(in_las_folder,is_normalized,out_folder,DBH,cell_si
     n_ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7 -drop_below 0')
     }
 
-        print('Calculating percentage returns above DBH ....')
+        print('Calculating percentage returns above DBH ...')
         compute_aboveDBH <- function(chunk,DBH,out_folder,cell_size)
         {
             las <- readLAS(chunk)
@@ -513,7 +513,7 @@ chm_by_dsmtin <- function(in_las_folder,out_folder,CHMcell_size,rprocesses){
     set_lidr_threads(rprocesses)
 
         ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
-        print("Generate CHM...")
+        print("Generating CHM...")
         opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_chm")
         ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
         ctg@output_options$drivers$Raster$param$overwrite <- TRUE

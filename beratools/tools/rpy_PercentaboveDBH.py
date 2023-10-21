@@ -51,13 +51,13 @@ def percentage_aboveDBH(callback,in_las_folder,is_normalized,out_folder,DBH,cell
 if __name__ == '__main__':
     start_time = time.time()
     print('Finding percentage returns above DBH height process\n @ {}'
-          .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+          .format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     r=robjects.r
     utils = importr('utils')
     base = importr('base')
     utils.chooseCRANmirror(ind=12) # select the 12th mirror in the list: Canada
-    print("Checking R packages....")
+    print("Checking R packages ...")
     CRANpacknames = ['lidR','future','terra'] # ,'comprehenr','na.tools','sf','sp']#,'devtools','gdal']#,'fasterRaster']
     CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
 
@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     del CRANpacknames,CRANnames_to_install
 
-    print("Checking input parameters....")
+    print("Checking input parameters ...")
     in_args, in_verbose = check_arguments()
     in_las_folder=in_args.input["in_las_folder"]
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
        print("Warning! Cannot locate output folder, It will be created.")
        os.makedirs(out_folder)
 
-    print("Checking input parameters....Done")
+    print("Checking input parameters ... Done")
 
     percentage_aboveDBH(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 

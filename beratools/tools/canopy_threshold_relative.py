@@ -37,12 +37,17 @@ def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_per
 
     # Check the Dynamic Canopy threshold column in data. If it is not, new column will be created
     if 'DynCanTh' not in line_seg.columns.array:
-        print("{} column not found in input line.\n '{}' column is create".format('DynCanTh', 'DynCanTh'))
+        if BT_DEBUGGING:
+            print("{} column not found in input line".format('DynCanTh'))
+        print("New column created: {}".format('DynCanTh'))
         line_seg['DynCanTh'] = np.nan
 
     # Check the OLnFID column in data. If it is not, column will be created
     if 'OLnFID' not in line_seg.columns.array:
-        print("{} column not found in input line.\n '{}' column is create".format('OLnFID', 'OLnFID'))
+        if BT_DEBUGGING:
+            print("{} column not found in input line".format('OLnFID'))
+
+        print("New column created: {}".format('OLnFID'))
         line_seg['OLnFID'] = line_seg.index
     # else:
     #     for row in line_seg.index:
@@ -61,7 +66,7 @@ def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_per
     workln_dfR = gpd.GeoDataFrame.copy((line_seg))
 
     # copy parallel lines for both side of the input lines
-    print("Creating offset area for surrounding forest....")
+    print("Creating offset area for surrounding forest ...")
     workln_dfL, workln_dfR = multiprocessing_copyparallel_lineLR(workln_dfL, workln_dfR, processes,
                                                                  left_dis=float(off_ln_dist),
                                                                  right_dist=-float(off_ln_dist))
@@ -80,7 +85,7 @@ def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_per
                                                   cap_style=2, join_style=2, single_sided=True)
     worklnbuffer_dfR['geometry'] = shapely.buffer(workln_dfR['geometry'], distance=-float(tree_radius),
                                                   cap_style=2, join_style=2, single_sided=True)
-    print("Creating offset area for surrounding forest....Done")
+    print("Task done.")
     print('%{}'.format(50))
 
     # create a New column for surrounding forest statistics:
@@ -92,14 +97,15 @@ def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_per
     print('%{}'.format(80))
 
     # calculate the Height percentile for each parallel area using CHM
-    print("Calculating surrounding forest percentile LEFT..")
+    print("Calculating surrounding forest percentile LEFT ...")
     worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, int(canopy_percentile),
                                                   float(canopy_thresh_percentage), in_chm,
                                                   processes, side='left')
     worklnbuffer_dfL = worklnbuffer_dfL.sort_values(by=['OLnFID'])
     worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
+    print("Task done.")
 
-    print("Calculating surrounding forest percentile RIGHT....")
+    print("Calculating surrounding forest percentile RIGHT ...")
     worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, int(canopy_percentile),
                                                   float(canopy_thresh_percentage), in_chm,
                                                   processes, side='right')
@@ -107,7 +113,7 @@ def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_per
     worklnbuffer_dfR = worklnbuffer_dfR.reset_index(drop=True)
 
     print('%{}'.format(90))
-    print("Forest percentile calculation, Done.")
+    print("Task done.")
 
     for index in (line_seg.index):
         line_seg.loc[index, 'L_Pertiels'] = worklnbuffer_dfL.Percentile_L.iloc[index]
@@ -115,9 +121,9 @@ def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_per
         line_seg.loc[index, 'DynCanTh'] = ((worklnbuffer_dfL.DynCanTh.iloc[index] +
                                            worklnbuffer_dfR.DynCanTh.iloc[index])/2.0)
 
-    print("Saving dynamic canopy threshold output.....")
+    print("Saving dynamic canopy threshold output ...")
     gpd.GeoDataFrame.to_file(line_seg, out_file)
-    print("Saving dynamic canopy threshold output.....Done")
+    print("Task done.")
 
     del line_seg, worklnbuffer_dfL, worklnbuffer_dfR, workln_dfL, workln_dfR
     if full_step:
@@ -321,7 +327,7 @@ def copyparallel_lineLR(line_arg):
 if __name__ == '__main__':
     start_time = time.time()
     print('Starting Dynamic Canopy Threshold calculation processing\n @ {}'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
+        time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
@@ -335,4 +341,4 @@ if __name__ == '__main__':
 
     print('%{}'.format(100))
     print('Finishing Dynamic Canopy Threshold calculation @ {}\n(or in {} second)'.format(
-        time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
+        time.strftime("%d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
