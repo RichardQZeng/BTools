@@ -129,11 +129,12 @@ class VertexOptimization:
             start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
             end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
             start_tuple = start_tuples[0]
+            end_tuple = end_tuples[0]
         except Exception as e:
             print(e)
 
         print(" Searching least cost path for line with id", flush=True)
-        result = dijkstra_np(start_tuple, end_tuples, matrix)
+        result = dijkstra_np(start_tuple, end_tuple, matrix)
 
         if result is None:
             # raise Exception
@@ -146,11 +147,9 @@ class VertexOptimization:
 
         path_points = None
         for path, costs, end_tuples in result:
-            for end_tuple in end_tuples:
-                path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
-                                                                        start_tuple[1], end_tuple[1])
-
-                total_cost = costs[-1]
+            path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
+                                                                    start_tuple[1], end_tuple[1])
+            total_cost = costs[-1]
 
         feat_attr = (start_tuple[2], end_tuple[2], total_cost)
         return LineString(path_points), feat_attr
