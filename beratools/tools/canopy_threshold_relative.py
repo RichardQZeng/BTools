@@ -17,8 +17,8 @@ class OperationCancelledException(Exception):
 
 
 def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_percentile,
-                             canopy_thresh_percentage, tree_radius, max_line_dist, canopy_avoidance,
-                             exponent, full_step, processes, verbose):
+                              canopy_thresh_percentage, tree_radius, max_line_dist, canopy_avoidance,
+                              exponent, full_step, processes, verbose):
 
     file_path, in_file_name = os.path.split(in_line)
     out_file = os.path.join(file_path, 'DynCanTh_'+in_file_name)
@@ -49,12 +49,7 @@ def canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canopy_per
 
         print("New column created: {}".format('OLnFID'))
         line_seg['OLnFID'] = line_seg.index
-    # else:
-    #     for row in line_seg.index:
-    #         if row != line_seg.loc[row,'OLnFID']:
-    #             print("Warning: index and OLnFID are not consistency at index: {}.".format(row))
-    #             print("Please check data")
-    #             exit()
+
     proc_segments = False
     if proc_segments:
         line_seg = split_into_segments(line_seg)
