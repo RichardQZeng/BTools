@@ -42,15 +42,15 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--processes')
     parser.add_argument('-v', '--verbose')
     args = parser.parse_args()
-    args.input['full_step']=True
+    args.input['full_step'] = True
     del args.input['out_footprint'], args.input['exp_shk_cell'], args.input['max_ln_width']
 
     verbose = True if args.verbose == 'True' else False
     dy_cl_line = canopy_threshold_relative(print, **args.input, processes=int(args.processes), verbose=verbose)
     args = parser.parse_args()
     args.input['full_step'] = True
-    args.input["in_line"]=dy_cl_line
-    del args.input['off_ln_dist'], args.input['canopy_percentile'],args.input['canopy_thresh_percentage']
+    args.input["in_line"] = dy_cl_line
+    del args.input['off_ln_dist'], args.input['canopy_percentile'], args.input['canopy_thresh_percentage']
     verbose = True if args.verbose == 'True' else False
     dynamic_line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
 

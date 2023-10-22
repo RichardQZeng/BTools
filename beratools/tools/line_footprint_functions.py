@@ -248,9 +248,9 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         else:
             proc_segments = False
             if proc_segments:
-                print("Spliting lines into segments...")
+                print("Splitting lines into segments...")
                 line_seg = split_into_segments(line_seg)
-                print("Spliting lines into segments...Done")
+                print("Splitting lines into segments...Done")
             else:
                 line_seg = split_into_equal_nth_segments(line_seg)
 
@@ -261,16 +261,6 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                                                         cap_style=1)
             # line_args = []
             print("Prepare CHMs for Dynamic cost raster ...")
-            # for record in range(0, len(work_in_buffer)):
-            #     line_buffer = work_in_buffer.loc[record, 'geometry']
-            #     clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
-            #                                                        nodata=-9999, filled=True)
-            #     clipped_raster = np.squeeze(clipped_raster, axis=0)
-            #     nodata = -9999
-            #     line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']),
-            #                       float(tree_radius), float(max_line_dist), float(canopy_avoidance),
-            #                       float(exponent), raster.res, nodata, line_seg.iloc[[record]], out_transform])
-
             line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
                                            max_line_dist, canopy_avoidance, exponent, use_corridor_th_col)
 
@@ -279,23 +269,15 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
             print('Generating Dynamic cost raster ...')
             list_dict_segment_all = line_args
-            # list_dict_segment_all = multiprocessing_dynamic_CC(line_args, processes)
-            # dyn_canopy_cost_raster(line)
             print('Task done.')
             print('%{}'.format(50))
-
-        # for row in range(0, len(list_dict_segment_all)):
-        #     l = list(list_dict_segment_all[row])
-        #     l.append(float(max_line_dist))
-        #     l.append(use_corridor_th_col)
-        #     list_dict_segment_all[row] = tuple(l)
 
         # pass center lines for footprint
         print("Generating Dynamic footprint ...")
         footprint_list = []
 
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
-            footprint_list = multiprocessing_Dyn_FP(list_dict_segment_all, processes)
+            footprint_list = multiprocessing_footprint_relative(list_dict_segment_all, processes)
         else:
             print("There are {} result to process.".format(len(list_dict_segment_all)))
             step = 0
@@ -309,7 +291,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
     print('%{}'.format(80))
     print("Task done.")
-    print('Generating shapefile ...')
+    print('Writing shapefile ...')
     results = gpd.GeoDataFrame(pd.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
     results = results.reset_index(drop=True)
@@ -480,11 +462,11 @@ def dyn_process_single_line(segment):
         print(sys.exc_info())
 
 
-def multiprocessing_Dyn_FP(line_args, processes):
+def multiprocessing_footprint_relative(line_args, processes):
     try:
         total_steps = len(line_args)
 
-        features = []
+        feats = []
         # chunksize = math.ceil(total_steps / processes)
         with Pool(processes=processes) as pool:
             step = 0
@@ -492,24 +474,23 @@ def multiprocessing_Dyn_FP(line_args, processes):
             for result in pool.imap_unordered(dyn_process_single_line, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
-                features.append(result)
+                feats.append(result)
                 step += 1
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format(step / total_steps * 100))
-        return features
+        return feats
     except OperationCancelledException:
         print("Operation cancelled")
         return None
 
 
-def multiprocessing_dynamic_CC(line_args, processes):
+def multiprocessing_canopy_cost_relative(line_args, processes):
     try:
         total_steps = len(line_args)
 
         features = []
         # chunksize = math.ceil(total_steps / processes)
         with Pool(processes=int(processes)) as pool:
-
             step = 0
             # execute tasks in order, process results out of order
             if PARALLEL_MODE == MODE_MULTIPROCESSING:
@@ -519,12 +500,12 @@ def multiprocessing_dynamic_CC(line_args, processes):
                         print('Got result: {}'.format(result), flush=True)
                     features.append(result)
                     step += 1
-                    print(' "PROGRESS_LABEL Dynamic Canopy Cost {} of {}" '.format(step, total_steps), flush=True)
+                    print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
                     print(' %{} '.format(step/total_steps*100))
             else:
                 for row in line_args:
                     features.append(dyn_canopy_cost_raster(row))
-                    print(' "PROGRESS_LABEL Dynamic Canopy Cost {} of {}" '.format(step, total_steps), flush=True)
+                    print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
                     print(' %{} '.format(step/total_steps*100))
                     print("Dynamic CC for line {} is done".format(step))
                     step += 1
