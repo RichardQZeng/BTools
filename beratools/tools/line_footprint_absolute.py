@@ -311,8 +311,8 @@ def process_single_line_segment(dict_segment):
 
         # create a shapely multipolygon
         multi_polygon = []
-        for shape, value in out_polygon:
-            multi_polygon.append(shapely.geometry.shape(shape))
+        for shp, value in out_polygon:
+            multi_polygon.append(shapely.geometry.shape(shp))
         poly = shapely.geometry.MultiPolygon(multi_polygon)
 
         # create a pandas dataframe for the FP
