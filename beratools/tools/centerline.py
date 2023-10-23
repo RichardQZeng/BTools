@@ -13,7 +13,7 @@ from shapely.geometry import shape, mapping, LineString, Point
 import ray
 
 from dijkstra_algorithm import *
-from common import *
+# from common import *
 
 # import line_profiler
 # profile = line_profiler.LineProfiler()
@@ -73,12 +73,12 @@ def centerline(callback, in_line, in_cost, line_radius,
 
     print('{} lines to be processed.'.format(len(all_lines)))
     step = 0
+    total_steps = len(all_lines)
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         features = execute_multiprocessing(all_lines, processes, verbose)
     elif PARALLEL_MODE == MODE_RAY:
         ray.init(log_to_driver=False)
-        total_steps = len(all_lines)
         process_single_line_ray = ray.remote(process_single_line)
         result_ids = [process_single_line_ray.remote(line) for line in all_lines]
 
@@ -137,74 +137,6 @@ def centerline(callback, in_line, in_cost, line_radius,
 
     if ray.is_initialized():
         ray.shutdown()
-
-
-def find_least_cost_path(out_image, out_transform, ras_nodata, line_id, pt_start, pt_end,
-                         find_nearest=True, output_linear_reference=False):
-    if USE_NUMPY_FOR_DIJKSTRA:
-        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
-    else:
-        matrix, contains_negative = MinCostPathHelper.block2matrix(out_image[0], ras_nodata)
-
-    if contains_negative:
-        raise Exception('ERROR: Raster has negative values.')
-
-    # get row col for points
-    ras_transform = rasterio.transform.AffineTransformer(out_transform)
-
-    if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
-        print("Point initialization error. Input is tuple.")
-        return None, None
-
-    start_tuples = []
-    end_tuples = []
-    start_tuple = []
-    try:
-        start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
-        end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
-        start_tuple = start_tuples[0]
-        end_tuple = end_tuples[0]
-
-        # regulate end poit coords in case they are out of index of matrix
-        mat_size = matrix.shape
-        mat_size = (mat_size[0] - 1, mat_size[0] - 1)
-        start_tuple = (min(start_tuple[0], mat_size), start_tuple[1], start_tuple[2])
-        end_tuple = (min(end_tuple[0], mat_size), end_tuple[1], end_tuple[2])
-
-    except Exception as e:
-        print(e)
-
-    print(" Searching least cost path for line with id: {} ".format(line_id), flush=True)
-
-    if USE_NUMPY_FOR_DIJKSTRA:
-        result = dijkstra_np(start_tuple, end_tuple, matrix)
-    else:
-        # TODO: change end_tuples to end_tuple
-        result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
-
-    if result is None:
-        # raise Exception
-        return None, None
-
-    if len(result) == 0:
-        # raise Exception
-        print('No result returned.')
-        return None, None
-
-    path_points = None
-    for path, costs, end_tuple in result:
-        path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
-                                                                start_tuple[1], end_tuple[1])
-        if output_linear_reference:
-            # TODO: code not reached
-            # add linear reference
-            for point, cost in zip(path_points, costs):
-                point.addMValue(cost)
-
-        total_cost = costs[-1]
-
-    feat_attr = (start_tuple[2], end_tuple[2], total_cost)
-    return path_points, feat_attr
 
 
 # @profile
