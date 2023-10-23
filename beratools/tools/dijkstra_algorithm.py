@@ -347,12 +347,24 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
     return [(path, costs, end_tuple)]
 
 
-def find_least_cost_path(out_image, out_transform, ras_nodata, line_id, pt_start, pt_end,
+def find_least_cost_path(meta, out_image, out_transform, line_id, line,
                          find_nearest=True, output_linear_reference=False):
+    ras_nodata = meta['nodata']
+    if not ras_nodata:
+        ras_nodata = BT_NODATA
+
+    pt_start = line.coords[0]
+    pt_end = line.coords[-1]
+
+    image_shp = out_image.shape
+    image_data = out_image[0]
+    if len(image_shp) == 2:
+        image_data = out_image
+
     if USE_NUMPY_FOR_DIJKSTRA:
-        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
+        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(image_data, ras_nodata)
     else:
-        matrix, contains_negative = MinCostPathHelper.block2matrix(out_image[0], ras_nodata)
+        matrix, contains_negative = MinCostPathHelper.block2matrix(image_data, ras_nodata)
 
     if contains_negative:
         raise Exception('ERROR: Raster has negative values.')

@@ -14,6 +14,8 @@ from multiprocessing.pool import Pool
 import itertools
 
 from common import *
+from dijkstra_algorithm import *
+
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -133,9 +135,11 @@ def has_field(fc, fi):
 
 def process_single_line_whole(line):
     footprints = []
+    lines = []
     for line_seg in line:
         footprint = process_single_line_segment(line_seg)
-        footprints.append(footprint)
+        footprints.append(footprint[0])
+        lines.append(footprint[1])
 
     if footprints:
         if not all(item is None for item in footprints):
@@ -262,6 +266,9 @@ def process_single_line_segment(dict_segment):
         corridor = source_cost_acc + dest_cost_acc
         corridor = numpy.ma.masked_invalid(corridor)
 
+        # find least cost path in corridor raster
+        lc_path = find_least_cost_path(out_meta, corridor, out_transform2, 9999, feat)
+
         # Calculate minimum value of corridor raster
         if numpy.ma.min(corridor) is not None:
             corr_min = float(numpy.ma.min(corridor))
@@ -322,7 +329,7 @@ def process_single_line_segment(dict_segment):
         if not GROUPING_SEGMENT:
             print('LP:PSLS: Processing line ID: {}, done.'.format(dict_segment['OLnSEG']), flush=True)
 
-        return out_gdata
+        return out_gdata, lc_path
 
     except Exception as e:
         print('Exception: {}'.format(e))
@@ -469,8 +476,10 @@ def execute_multiprocessing(line_args, processes, verbose):
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Starting footprint processing @ {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
+    print('Footprint processing started')
+    print('Current time: {}'.format(time.strftime("%b %Y %H:%M:%S", time.localtime())))
 
     in_args, in_verbose = check_arguments()
     line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    print('Current time: {}'.format(time.strftime("%b %Y %H:%M:%S", time.localtime())))
 
