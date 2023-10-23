@@ -268,7 +268,6 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             print('%{}'.format(30))
 
             print('Generating Dynamic cost raster ...')
-            list_dict_segment_all = line_args
             print('Task done.')
             print('%{}'.format(50))
 
@@ -277,12 +276,12 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         footprint_list = []
 
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
-            footprint_list = multiprocessing_footprint_relative(list_dict_segment_all, processes)
+            footprint_list = multiprocessing_footprint_relative(line_args, processes)
         else:
-            print("There are {} result to process.".format(len(list_dict_segment_all)))
+            print("There are {} result to process.".format(len(line_args)))
             step = 0
-            total_steps = len(list_dict_segment_all)
-            for row in list_dict_segment_all:
+            total_steps = len(line_args)
+            for row in line_args:
                 footprint_list.append(dyn_process_single_line(row))
                 print("Footprint for line {} is done".format(step))
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)

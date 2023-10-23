@@ -64,22 +64,22 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     else:
         line_seg = split_into_equal_nth_segments(line_seg)
 
-    list_dict_segment_all = line_prepare(callback, line_seg, in_canopy, in_cost, corridor_th_field, corridor_th_value,
+    line_args = line_prepare(callback, line_seg, in_canopy, in_cost, corridor_th_field, corridor_th_value,
                                          max_ln_width, exp_shk_cell, proc_segments, out_footprint, ori_total_feat)
 
     # pass single line one at a time for footprint
     footprint_list = []
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        footprint_list = execute_multiprocessing(list_dict_segment_all, processes, verbose)
+        footprint_list = execute_multiprocessing(line_args, processes, verbose)
     else:
         process_single_line = process_single_line_segment
         if GROUPING_SEGMENT:
             process_single_line = process_single_line_whole
 
-        total_steps = len(list_dict_segment_all)
+        total_steps = len(line_args)
         step = 0
-        for row in list_dict_segment_all:
+        for row in line_args:
             footprint_list.append(process_single_line(row))
             step += 1
             if verbose:
