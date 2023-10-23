@@ -65,7 +65,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         line_seg = split_into_equal_nth_segments(line_seg)
 
     line_args = line_prepare(callback, line_seg, in_canopy, in_cost, corridor_th_field, corridor_th_value,
-                                         max_ln_width, exp_shk_cell, proc_segments, out_footprint, ori_total_feat)
+                             max_ln_width, exp_shk_cell, proc_segments, out_footprint, ori_total_feat)
 
     # pass single line one at a time for footprint
     footprint_list = []

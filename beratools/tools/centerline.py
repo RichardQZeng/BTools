@@ -139,25 +139,8 @@ def centerline(callback, in_line, in_cost, line_radius,
         ray.shutdown()
 
 
-# @profile
-def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
-    line = line_args[0]
-    line_radius = line_args[1]
-    in_cost_raster = line_args[2]
-
-    line_buffer = shape(line).buffer(float(line_radius))
-    pt_start = line['coordinates'][0]
-    pt_end = line['coordinates'][-1]
-
-    # buffer clip
-    with(rasterio.open(in_cost_raster)) as raster_file:
-        out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True, nodata=BT_NODATA)
-
-    ras_nodata = raster_file.meta['nodata']
-    if not ras_nodata:
-        ras_nodata = BT_NODATA
-
-    USE_NUMPY_FOR_DIJKSTRA = True
+def find_least_cost_path(out_image, out_transform, ras_nodata, line_id, pt_start, pt_end,
+                         find_nearest=True, output_linear_reference=False):
     if USE_NUMPY_FOR_DIJKSTRA:
         matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
     else:
@@ -184,14 +167,14 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
         # regulate end poit coords in case they are out of index of matrix
         mat_size = matrix.shape
-        mat_size = (mat_size[0]-1, mat_size[0]-1)
+        mat_size = (mat_size[0] - 1, mat_size[0] - 1)
         start_tuple = (min(start_tuple[0], mat_size), start_tuple[1], start_tuple[2])
         end_tuple = (min(end_tuple[0], mat_size), end_tuple[1], end_tuple[2])
 
     except Exception as e:
         print(e)
 
-    print(" Searching least cost path for line with id: {} ".format(line_args[3]), flush=True)
+    print(" Searching least cost path for line with id: {} ".format(line_id), flush=True)
 
     if USE_NUMPY_FOR_DIJKSTRA:
         result = dijkstra_np(start_tuple, end_tuple, matrix)
@@ -222,6 +205,28 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
     feat_attr = (start_tuple[2], end_tuple[2], total_cost)
     return path_points, feat_attr
+
+
+# @profile
+def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
+    line = line_args[0]
+    line_radius = line_args[1]
+    in_cost_raster = line_args[2]
+
+    line_buffer = shape(line).buffer(float(line_radius))
+    pt_start = line['coordinates'][0]
+    pt_end = line['coordinates'][-1]
+
+    # buffer clip
+    with rasterio.open(in_cost_raster) as raster_file:
+        out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True, nodata=BT_NODATA)
+
+    ras_nodata = raster_file.meta['nodata']
+    if not ras_nodata:
+        ras_nodata = BT_NODATA
+
+    line_id = line_args[3]
+    return find_least_cost_path(out_image, out_transform, ras_nodata, line_id, pt_start, pt_end)
 
 
 def execute_multiprocessing(line_args, processes, verbose):
