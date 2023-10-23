@@ -264,13 +264,6 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
                                            max_line_dist, canopy_avoidance, exponent, use_corridor_th_col)
 
-            print("Task done.")
-            print('%{}'.format(30))
-
-            print('Generating Dynamic cost raster ...')
-            print('Task done.')
-            print('%{}'.format(50))
-
         # pass center lines for footprint
         print("Generating Dynamic footprint ...")
         footprint_list = []

@@ -143,14 +143,14 @@ def centerline(callback, in_line, in_cost, line_radius,
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
     line = line_args[0]
     line_radius = line_args[1]
-    in_raster = line_args[2]
+    in_cost_raster = line_args[2]
 
     line_buffer = shape(line).buffer(float(line_radius))
     pt_start = line['coordinates'][0]
     pt_end = line['coordinates'][-1]
 
     # buffer clip
-    with(rasterio.open(in_raster)) as raster_file:
+    with(rasterio.open(in_cost_raster)) as raster_file:
         out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True, nodata=BT_NODATA)
 
     ras_nodata = raster_file.meta['nodata']
