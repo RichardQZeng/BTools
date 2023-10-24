@@ -47,6 +47,7 @@ import shapely
 from shapely import LineString
 from common import *
 import sys
+from dijkstra_algorithm import *
 
 
 class OperationCancelledException(Exception):
@@ -196,8 +197,8 @@ def split_into_equal_nth_segments(df):
     return gdf
 
 
-def generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
-                       max_line_dist, canopy_avoidance, exponent, use_corridor_th_col):
+def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_dist,
+                       canopy_avoidance, exponent, use_corridor_th_col, out_centerline):
     line_args = []
     for record in range(0, len(work_in_buffer)):
         line_buffer = work_in_buffer.loc[record, 'geometry']
@@ -207,13 +208,13 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
         nodata = -9999
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-               line_seg.iloc[[record]], out_transform, use_corridor_th_col])
+               line_seg.iloc[[record]], out_transform, use_corridor_th_col, out_centerline])
 
     return line_args
 
 
-def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint,
-                           tree_radius,max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
+def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,
+                           tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
     use_corridor_th_col = True
     line_seg = gpd.GeoDataFrame.from_file(in_line)
 
@@ -261,21 +262,23 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                                                         cap_style=1)
             # line_args = []
             print("Prepare CHMs for Dynamic cost raster ...")
-            line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
-                                           max_line_dist, canopy_avoidance, exponent, use_corridor_th_col)
+            line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_dist,
+                                           canopy_avoidance, exponent, use_corridor_th_col, out_centerline)
 
         # pass center lines for footprint
         print("Generating Dynamic footprint ...")
+        feat_list = []
+        line_list = []
         footprint_list = []
 
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
-            footprint_list = multiprocessing_footprint_relative(line_args, processes)
+            feat_list = multiprocessing_footprint_relative(line_args, processes)
         else:
             print("There are {} result to process.".format(len(line_args)))
             step = 0
             total_steps = len(line_args)
             for row in line_args:
-                footprint_list.append(dyn_process_single_line(row))
+                feat_list.append(dyn_process_single_line(row))
                 print("Footprint for line {} is done".format(step))
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format(step/total_steps*100))
@@ -283,6 +286,11 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
     print('%{}'.format(80))
     print("Task done.")
+
+    for i in feat_list:
+        footprint_list.append(i[0])
+        line_list.append(i[1])
+
     print('Writing shapefile ...')
     results = gpd.GeoDataFrame(pd.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
@@ -293,10 +301,19 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
     dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
     print("Saving output ...")
     dissolved_results.to_file(out_footprint)
+
+    # save lines to file
+    if out_centerline:
+        save_features_to_shapefile(out_centerline, line_seg.crs, line_list)
+
     print('%{}'.format(100))
 
 
 def dyn_process_single_line(segment):
+    print('Total items in list {}'.format(len(segment)))
+    for i in segment:
+        print('param {}: '.format(i))
+
     segment = dyn_canopy_cost_raster(segment)
 
     # this function takes single line to work the line footprint
@@ -311,6 +328,8 @@ def dyn_process_single_line(segment):
 
     exp_shk_cell = segment[4]
     use_corridor_col = segment[5]
+
+    out_centerline = segment[11]
 
     if use_corridor_col:
         corridor_th_value = df.CorridorTh.iloc[0]
@@ -388,6 +407,12 @@ def dyn_process_single_line(segment):
         corridor = source_cost_acc + dest_cost_acc
         corridor = np.ma.masked_invalid(corridor)
 
+        # find least cost path in corridor raster
+        lc_path = None
+        if out_centerline:
+            mat = corridor.copy()
+            lc_path = find_least_cost_path(out_meta, mat, out_transform2, 9999, feat)
+
         # Calculate minimum value of corridor raster
         if not np.ma.min(corridor) is None:
             corr_min = float(np.ma.min(corridor))
@@ -445,7 +470,7 @@ def dyn_process_single_line(segment):
         out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'geometry': poly})
         out_gdata = gpd.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
-        return out_gdata
+        return out_gdata, lc_path
 
     except Exception as e:
 

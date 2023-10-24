@@ -294,13 +294,23 @@
                         },
                         {
                             "variable": "out_footprint",
-                            "parameter": "Output Shapefile",
+                            "parameter": "Output Footprint Shapefile",
                             "description": "Output footprint polygons.",
                             "type": "vector",
                             "typelab": "SHP",
                             "default": "",
                             "output": true,
                             "optional": false
+                        },
+                        {
+                            "variable": "out_centerline",
+                            "parameter": "Output Centerline Shapefile",
+                            "description": "Output centerline polygons.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": true
                         }
                     ]
                 },
@@ -364,6 +374,16 @@
                             "default": "",
                             "output": true,
                             "optional": false
+                        },
+                        {
+                            "variable": "out_centerline",
+                            "parameter": "Output Centerline Shapefile",
+                            "description": "Output centerline polygons.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": true
                         },
                         {
                             "variable": "off_ln_dist",
@@ -435,7 +455,6 @@
                             "output": false,
                             "optional": true
                         }
-
                     ]
                 }
 
