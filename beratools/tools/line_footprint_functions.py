@@ -119,6 +119,7 @@ def dyn_canopy_cost_raster(args):
     line_df = args[8]
     out_transform = args[9]
     use_corridor_th_col = args[10]
+    out_centerline = args[11]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
@@ -145,7 +146,8 @@ def dyn_canopy_cost_raster(args):
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                           cc_smooth, avoidance, cost_raster_exponent)
     dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = nodata
-    return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform, max_line_dist, use_corridor_th_col
+    return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform,
+            max_line_dist, use_corridor_th_col, out_centerline, nodata)
 
 
 def split_line_fc(line):
@@ -262,8 +264,9 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                                                         cap_style=1)
             # line_args = []
             print("Prepare CHMs for Dynamic cost raster ...")
-            line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_dist,
-                                           canopy_avoidance, exponent, use_corridor_th_col, out_centerline)
+            line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
+                                           max_line_dist, canopy_avoidance, exponent,
+                                           use_corridor_th_col, out_centerline)
 
         # pass center lines for footprint
         print("Generating Dynamic footprint ...")
@@ -310,10 +313,6 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
 
 def dyn_process_single_line(segment):
-    print('Total items in list {}'.format(len(segment)))
-    for i in segment:
-        print('param {}: '.format(i))
-
     segment = dyn_canopy_cost_raster(segment)
 
     # this function takes single line to work the line footprint
@@ -329,7 +328,8 @@ def dyn_process_single_line(segment):
     exp_shk_cell = segment[4]
     use_corridor_col = segment[5]
 
-    out_centerline = segment[11]
+    out_centerline = segment[6]
+    no_data = segment[7]
 
     if use_corridor_col:
         corridor_th_value = df.CorridorTh.iloc[0]
@@ -411,7 +411,7 @@ def dyn_process_single_line(segment):
         lc_path = None
         if out_centerline:
             mat = corridor.copy()
-            lc_path = find_least_cost_path(out_meta, mat, out_transform2, 9999, feat)
+            lc_path = find_least_cost_path(no_data, mat, in_transform, 9999, feat)
 
         # Calculate minimum value of corridor raster
         if not np.ma.min(corridor) is None:
