@@ -154,7 +154,8 @@ def process_single_line_whole(line):
     coord_list = []
     if lines:
         for item in lines:
-            coord_list.append(item[0])
+            if item:
+                coord_list.append(item[0])
 
     multi_line = MultiLineString(coord_list)
 
@@ -284,7 +285,8 @@ def process_single_line_segment(dict_segment):
         corridor = numpy.ma.masked_invalid(corridor)
 
         # find least cost path in corridor raster
-        lc_path = find_least_cost_path(out_meta, corridor, out_transform2, 9999, feat)
+        mat = corridor.copy()
+        lc_path = find_least_cost_path(out_meta, mat, out_transform2, 9999, feat)
 
         # Calculate minimum value of corridor raster
         if numpy.ma.min(corridor) is not None:
