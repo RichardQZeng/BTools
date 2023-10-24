@@ -347,12 +347,8 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
     return [(path, costs, end_tuple)]
 
 
-def find_least_cost_path(meta, out_image, out_transform, line_id, line,
+def find_least_cost_path(ras_nodata, out_image, out_transform, line_id, line,
                          find_nearest=True, output_linear_reference=False):
-    ras_nodata = meta['nodata']
-    if not ras_nodata:
-        ras_nodata = BT_NODATA
-
     pt_start = line.coords[0]
     pt_end = line.coords[-1]
 

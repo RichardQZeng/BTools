@@ -152,7 +152,12 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True, nodata=BT_NODATA)
 
     line_id = line_args[3]
-    return find_least_cost_path(raster_file.meta, out_image, out_transform, line_id, shape(line))
+
+    ras_nodata = raster_file.meta['nodata']
+    if not ras_nodata:
+        ras_nodata = BT_NODATA
+
+    return find_least_cost_path(ras_nodata, out_image, out_transform, line_id, shape(line))
 
 
 def execute_multiprocessing(line_args, processes, verbose):
