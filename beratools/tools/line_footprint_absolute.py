@@ -26,7 +26,7 @@ class OperationCancelledException(Exception):
 
 
 def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max_ln_width,
-                   exp_shk_cell, out_footprint, processes, verbose):
+                   exp_shk_cell, out_footprint, out_centerline, processes, verbose):
     corridor_th_field = 'CorridorTh'
     line_seg = geopandas.GeoDataFrame.from_file(in_line)
     max_ln_width = float(max_ln_width)
@@ -67,7 +67,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         line_seg = split_into_equal_nth_segments(line_seg)
 
     line_args = line_prepare(callback, line_seg, in_canopy, in_cost, corridor_th_field, corridor_th_value,
-                             max_ln_width, exp_shk_cell, proc_segments, out_footprint, ori_total_feat)
+                             max_ln_width, exp_shk_cell, proc_segments, out_footprint, out_centerline, ori_total_feat)
 
     # pass single line one at a time for footprint
     feat_list = []
@@ -109,7 +109,8 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     print('%{}'.format(100))
 
     # save lines to file
-    save_features_to_shapefile(r'D:\Temp\lines\new_lines.shp', line_seg.crs, line_list)
+    if out_centerline:
+        save_features_to_shapefile(out_centerline, line_seg.crs, line_list)
 
     print('Finishing footprint processing in {} seconds)'.format(time.time()-start_time))
 
@@ -285,8 +286,10 @@ def process_single_line_segment(dict_segment):
         corridor = numpy.ma.masked_invalid(corridor)
 
         # find least cost path in corridor raster
-        mat = corridor.copy()
-        lc_path = find_least_cost_path(out_meta, mat, out_transform2, 9999, feat)
+        lc_path = None
+        if dict_segment['out_centerline']:
+            mat = corridor.copy()
+            lc_path = find_least_cost_path(out_meta, mat, out_transform2, 9999, feat)
 
         # Calculate minimum value of corridor raster
         if numpy.ma.min(corridor) is not None:
@@ -341,7 +344,7 @@ def process_single_line_segment(dict_segment):
             multi_polygon.append(shapely.geometry.shape(shp))
         poly = shapely.geometry.MultiPolygon(multi_polygon)
 
-        # create a pandas dataframe for the FP
+        # create a pandas dataframe for the footprint
         out_data = pandas.DataFrame({'OLnFID': [OID], 'OLnSEG': [FID], 'geometry': poly})
         out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
@@ -409,7 +412,7 @@ def split_into_equal_nth_segments(df):
 
 
 def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, corridor_th_value,
-                 max_ln_width, exp_shk_cell, proc_seg, out_footprint, ori_total_feat):
+                 max_ln_width, exp_shk_cell, proc_seg, out_footprint, out_centerline, ori_total_feat):
 
     # get the list of original columns names
     field_list_col = field_name_list(line_seg)
@@ -449,6 +452,7 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         record['exp_shk_cell'] = exp_shk_cell
         record['proc_seg'] = proc_seg
         record['out_footprint'] = out_footprint
+        record['out_centerline'] = out_centerline
         record['org_col'] = field_list_col
 
     # return list of GeoDataFrame represents each line or segment
