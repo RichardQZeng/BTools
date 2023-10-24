@@ -70,10 +70,12 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
                              max_ln_width, exp_shk_cell, proc_segments, out_footprint, ori_total_feat)
 
     # pass single line one at a time for footprint
+    feat_list = []
     footprint_list = []
+    line_list = []
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        footprint_list = execute_multiprocessing(line_args, processes, verbose)
+        feat_list = execute_multiprocessing(line_args, processes, verbose)
     else:
         process_single_line = process_single_line_segment
         if GROUPING_SEGMENT:
@@ -82,13 +84,18 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         total_steps = len(line_args)
         step = 0
         for row in line_args:
-            footprint_list.append(process_single_line(row))
+            feat_list.append(process_single_line(row))
             step += 1
             if verbose:
                 print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format(step / total_steps * 100), flush=True)
 
     print('Generating shapefile ...')
+
+    if feat_list:
+        for i in feat_list:
+            footprint_list.append(i[0])
+            line_list.append(i[1])
     
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
@@ -100,6 +107,9 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     print("Saving output ...")
     dissolved_results.to_file(out_footprint)
     print('%{}'.format(100))
+
+    # save lines to file
+    save_features_to_shapefile(r'D:\Temp\lines\new_lines.shp', line_seg.crs, line_list)
 
     print('Finishing footprint processing in {} seconds)'.format(time.time()-start_time))
 
@@ -141,6 +151,13 @@ def process_single_line_whole(line):
         footprints.append(footprint[0])
         lines.append(footprint[1])
 
+    coord_list = []
+    if lines:
+        for item in lines:
+            coord_list.append(item[0])
+
+    multi_line = MultiLineString(coord_list)
+
     if footprints:
         if not all(item is None for item in footprints):
             footprint_merge = pandas.concat(footprints)
@@ -156,7 +173,7 @@ def process_single_line_whole(line):
     if len(line) > 0:
         print('process_single_line_whole: Processing line with ID: {}, done.'
               .format(line[0]['OLnFID']), flush=True)
-    return footprint_merge
+    return footprint_merge, multi_line
 
 
 def process_single_line_segment(dict_segment):
