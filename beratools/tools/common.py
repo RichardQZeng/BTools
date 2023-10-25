@@ -233,6 +233,7 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
 
     if fields is None:
         fields = []
+        properties = []
     if properties is None:
         properties = []
 
@@ -241,7 +242,7 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
     except Exception as e:
         print(e)
 
-    props_tuple = zip(fields, properties, strict=True)  # if lengths are not the same, ValueError raises
+    props_tuple = zip(fields, properties)  # if lengths are not the same, ValueError raises
     props_schema = [(item, type(value).__name__) for item, value in props_tuple]
 
     schema = {
