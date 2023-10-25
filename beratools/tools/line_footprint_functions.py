@@ -307,7 +307,13 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
     # save lines to file
     if out_centerline:
-        save_features_to_shapefile(out_centerline, line_seg.crs, line_list)
+        geoms = []
+        props = []
+        for i in line_list:
+            geoms.append(LineString(i[0]))
+            props.append(i[1])
+
+        save_features_to_shapefile(out_centerline, line_seg.crs, geoms, properties=props)
 
     print('%{}'.format(100))
 
