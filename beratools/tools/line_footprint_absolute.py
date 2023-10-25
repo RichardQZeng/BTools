@@ -288,8 +288,12 @@ def process_single_line_segment(dict_segment):
         # find least cost path in corridor raster
         lc_path = None
         if dict_segment['out_centerline']:
+            ras_nodata = out_meta['nodata']
+            if not ras_nodata:
+                ras_nodata = BT_NODATA
+
             mat = corridor.copy()
-            lc_path = find_least_cost_path(out_meta, mat, out_transform2, 9999, feat)
+            lc_path = find_least_cost_path(ras_nodata, mat, out_transform2, 9999, feat)
 
         # Calculate minimum value of corridor raster
         if numpy.ma.min(corridor) is not None:
