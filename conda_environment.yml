@@ -1,18 +1,11 @@
 # run: conda env create -f conda_environment.yml
 # see also https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file
-name: bera
+name: bera39
 channels:
   - conda-forge
 dependencies:
-  - python=3.10
-  - dask
-  - dask-core
-  - dask-glm
-  - dask-image
-  - dask-labextension
-  - dask-ml
-  - dask-xgboost
-  - fiona > 1.9.2
+  - python=3.9
+  - fiona
   - geopandas
   - leafmap
   - line_profiler
@@ -21,6 +14,7 @@ dependencies:
   - numba
   - numpy
   - Pillow
+  - pip
   - pip:
     # works for regular pip packages
     - pyqtlet2
