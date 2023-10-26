@@ -368,7 +368,8 @@ def find_least_cost_path(ras_nodata, out_image, out_transform, line_id, line,
     # get row col for points
     ras_transform = rasterio.transform.AffineTransformer(out_transform)
 
-    if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
+    if (type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or
+        type(pt_end[0]) is tuple or type(pt_end[1]) is tuple):
         print("Point initialization error. Input is tuple.")
         return None, None
 

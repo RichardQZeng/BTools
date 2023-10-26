@@ -232,7 +232,7 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
     heightAnalysis = line_args[3]
     args = line_args[4]
 
-    if type(result_identity) == geopandas.geodataframe.GeoDataFrame:
+    if type(result_identity) is geopandas.geodataframe.GeoDataFrame:
         if result_identity.empty:
             return result_identity
     elif not result_identity:
@@ -628,7 +628,7 @@ if __name__ == '__main__':
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
 
-                if type(result) == geopandas.geodataframe.GeoDataFrame:
+                if type(result) is geopandas.geodataframe.GeoDataFrame:
                     if not result.empty:
                         features.append(result)
 

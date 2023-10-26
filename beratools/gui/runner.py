@@ -131,9 +131,9 @@ class FileSelector(tk.Frame):
 
                 # choose default extension to file name
                 first_ext = file_types[0][1]
-                if type(first_ext) == str:
+                if type(first_ext) is str:
                     default_ext = first_ext
-                elif type(first_ext) == tuple:
+                elif type(first_ext) is tuple:
                     default_ext = first_ext[0]
 
                 default_ext = default_ext.replace('*', '')
