@@ -883,12 +883,12 @@
                     ]
                 },
                 {
-                    "name": "Surface Area Ratio (SAR)",
-                    "info": "Compute Surface Area Ratio (SAR) from centerline into adjacent forest.",
+                    "name": "Relative Metrics to line",
+                    "info": "Compute Surface Area Ratio (SAR) and elevation from line to its adjacent forest.",
                     "multiprocessing": true,
                     "batch_processing": false,
                     "tool_type": "python",
-                    "tool_api": "surface_area_ratio",
+                    "tool_api": "ln_relative_metrics",
                     "paramFile": "\\Scripts\\FLM_SAR_params.txt",
                     "image": "../Images/SAR.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/SAR.html",
@@ -1217,19 +1217,9 @@
                             "optional": false
                         },
                         {
-                            "variable": "Min_ws",
-                            "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
-                            "description": "Minimum circular diameter of the dynamic moving window used to detect the local maxima in the units of the input data (usually meters).",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 1.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
                             "variable": "hmin",
-                            "parameter": "Minimum height of a tree.",
-                            "description": "Minimum height of a tree.",
+                            "parameter": "Minimum height of a tree .",
+                            "description": "input a minimum height of a tree.",
                             "type": "number",
                             "typelab": "float",
                             "default": 3.0,
@@ -1269,7 +1259,7 @@
                 },
 		{
                     "name": "Hummock and Hollow from LiDAR Data",
-                    "info": "Hummock and Hollow (Microtopography) detection from Lidar data using dynamic moving windows and lawns threshold.",
+                    "info": "Hummock and Hollow (Micro-topography) detection from Lidar data using dynamic moving windows and lawns threshold.",
                     "multiprocessing": true,
                     "batch_processing": false,
                     "tool_type": "python",
@@ -1310,7 +1300,68 @@
                         },
                         {  "variable": "cell_size",
                             "parameter": "Output raster cell size in meter.",
-                            "description": "Define the output Hummock/Hollow rasters' cell size.",
+                            "description": "Define the output Hummock/Hollow raster' cell size.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "out_folder",
+                            "parameter": "Output folder for results raster.",
+                            "description": "Output folder for hummock and hollow raster (.tif).",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+        {
+                    "name": "Hummock and Hollow from DTM raster Data",
+                    "info": "Hummock and Hollow (Micro-topography) detection from DEM raster using dynamic moving windows and lawns threshold.",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "hummock_hollow_raster",
+                    "paramFile": "\\Scripts\\Hummock_Hollow_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_raster",
+                            "parameter": "Input DEM raster.",
+                            "description": "Input DEM raster.",
+                            "type": "raster",
+                            "typelab": "TIF",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "Min_ws",
+                            "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
+                            "description": "Minimum circular diameter of the dynamic moving window used to detect the local maxima in the units of the input data (usually meters).",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 3.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "lawn_range",
+                            "parameter": "Height consider as lawns.",
+                            "description": "Set the height in meter consider as lawns.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 0.1,
+                            "output": false,
+                            "optional": false
+                        },
+                        {  "variable": "cell_size",
+                            "parameter": "Output raster cell size in meter.",
+                            "description": "Define the output Hummock/Hollow raster' cell size.",
                             "type": "number",
                             "typelab": "float",
                             "default": 1.0,
@@ -1319,8 +1370,8 @@
                         },
                         {
                             "variable": "out_folder",
-                            "parameter": "Output folder for height metrics raster.",
-                            "description": "Output folder for height metrics raster (.tif).",
+                            "parameter": "Output folder for result raster.",
+                            "description": "Output folder for hummock and hollow raster (.tif).",
                             "type": "Directory",
                             "typelab": "",
                             "default": "",
@@ -1331,7 +1382,7 @@
                 },
 		{
                     "name": "Height Metrics from LiDAR Data",
-                    "info": "Height Metrics (Zmax, Zmean, Zsd, ZQ45-ZQ95 (percentile) from Lidar data using lidR package.",
+                    "info": "Height Metrics (Zmax, Zmean, Zsd, ZQ30-ZQ90, ZQ99 (percentile) from Lidar data using lidR package.",
                     "multiprocessing": true,
                     "batch_processing": false,
                     "tool_type": "python",
@@ -1489,7 +1540,7 @@
                         "description": "Define the DBH height in meter.",
                         "type": "number",
                         "typelab": "float",
-                        "default": 1.35,
+                        "default": 1.30,
                         "output": false,
                         "optional": false
                     },
@@ -1538,12 +1589,74 @@
                 ]
                 },
         {
-                "name": "Generate CHM from Lidar Data",
-                "info": "Generate CHM using using triangulation algorithm from Lidar Data.",
+                "name": "Generate DSM or CHM from Lidar Data",
+                "info": "Generate DSM from de-normalized Lidar data or CHM from normalized Lidar data using TIN or PitFree algorithm.",
                 "batch_processing": false,
                 "tool_type": "python",
-                "tool_api": "rpy_chm_by_dsmtin",
-                "paramFile": "\\Scripts\\rpy_chm_by_dsmtin_params.txt",
+                "tool_api": "rpy_dsm_chm_by",
+                "paramFile": "\\Scripts\\rpy_dsm_chm_by_params.txt",
+                "image": "",
+                "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                "parameters": [
+                    {
+                        "variable": "in_las_folder",
+                        "parameter": "Input folder",
+                        "description": "Input LiDAR point cloud folder.",
+                        "type": "Directory",
+                        "typelab": "",
+                        "default": "",
+                        "output": false,
+                        "optional": false
+                    },
+                    {   "variable": "is_normalized",
+                            "parameter": "Normalized lidar data",
+                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": false
+                    },
+                    {
+                        "variable": "out_folder",
+                        "parameter": "Output folder",
+                        "description": "Output folder for the DSM raster results.",
+                        "type": "Directory",
+                        "typelab": "",
+                        "default": "",
+                        "output": true,
+                        "optional": false
+                    },
+                    {
+                        "variable": "cell_size",
+                        "parameter": "Raster cell size",
+                        "description": "Output cell size of the raster.",
+                        "type": "number",
+                        "typelab": "float",
+                        "default": 1.0,
+                        "output": false,
+                        "optional": false
+                    },
+                    {   "variable": "style",
+                            "parameter": "By what algorithms",
+                            "description": "Select the algorithm to generate the DSM raster.",
+                            "type": "list",
+                            "typelab": "text",
+                            "data": ["tin", "pitfree"],
+                            "default": "tin",
+                            "output": false,
+                            "optional": false
+                    }
+                ]
+                },
+        {
+                "name": "Generate DTM from Lidar Data",
+                "info": "Generate DTM Lidar data using TIN, IDW or Kriging algorithm.",
+                "batch_processing": false,
+                "tool_type": "python",
+                "tool_api": "rpy_dtm_by",
+                "paramFile": "\\Scripts\\rpy_dsm_chm_by_params.txt",
                 "image": "",
                 "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
                 "parameters": [
@@ -1560,7 +1673,7 @@
                     {
                         "variable": "out_folder",
                         "parameter": "Output folder",
-                        "description": "Output folder for the CHM raster results.",
+                        "description": "Output folder for the DSM raster results.",
                         "type": "Directory",
                         "typelab": "",
                         "default": "",
@@ -1568,7 +1681,7 @@
                         "optional": false
                     },
                     {
-                        "variable": "CHMcell_size",
+                        "variable": "cell_size",
                         "parameter": "Raster cell size",
                         "description": "Output cell size of the raster.",
                         "type": "number",
@@ -1576,6 +1689,16 @@
                         "default": 1.0,
                         "output": false,
                         "optional": false
+                    },
+                    {   "variable": "style",
+                            "parameter": "By what algorithms",
+                            "description": "Select the algorithm to generate the DSM raster.",
+                            "type": "list",
+                            "typelab": "text",
+                            "data": ["tin","idw", "kriging"],
+                            "default": "tin",
+                            "output": false,
+                            "optional": false
                     }
                 ]
                 }
