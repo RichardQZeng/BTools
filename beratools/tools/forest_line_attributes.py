@@ -360,6 +360,7 @@ def identity_polygon(line_args):
     identity = None
     try:
         # TODO: determine when there is empty polygon
+        # TODO: this will produce empty identity
         if not in_fp_polygon.empty:
             identity = in_fp_polygon.overlay(in_cl_buffer, how='identity')
             identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
