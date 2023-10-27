@@ -6,13 +6,13 @@
             "description":"Tools used to pre-tagging and optimizing line vertices to help centerline and other tools to produce better results.",
             "tools": [
                 {
-                    "name": "Vertex Optimization",
-                    "info": "Relocating line intersections to seismic line paths",
+                    "name": "Footprint Fixed Width",
+                    "info": "Generating fixed width line footprint",
                     "multiprocessing": true,
                     "batch_processing": true,
                     "tool_type": "python",
-                    "tool_api": "vertex_optimization",
-                    "paramFile": "\\Scripts\\FLM_VO_params.txt",
+                    "tool_api": "footprint_fixed",
+                    "paramFile": "\\Scripts\\FLM_FF_params.txt",
                     "image": "../Images/FLM_IO_VertexOptimization.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Pre-processing/VertexOptimization.html",
                     "parameters":[
@@ -27,29 +27,40 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_cost",
-                            "parameter": "Cost Raster",
-                            "description": "Input raster image used to calculate the least cost path.",
-                            "type": "raster",
-                            "typelab": "TIF",
+                            "variable": "in_footprint",
+                            "parameter": "Footprint",
+                            "description": "Input footprint.",
+                            "type": "vector",
+                            "typelab": "SHP",
                             "default": "",
                             "output": false,
                             "optional": false
                         },
                         {
-                            "variable": "line_radius",
-                            "parameter": "Line Processing Radius",
-                            "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
+                            "variable": "n_samples",
+                            "parameter": "Sampling number",
+                            "description": "Sampling number for each line.",
                             "type": "number",
                             "typelab": "number",
-                            "default": 35,
+                            "default": 10,
                             "output": false,
                             "optional": true
                         },
                         {
-                            "variable": "out_line",
-                            "parameter": "Output Center-Line",
-                            "description": "Output optimized center-line shapefile.",
+							"variable": "max_width",
+                            "parameter": "Use maximum width",
+                            "description": "Use maximum width",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": true,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+                            "variable": "out_footprint",
+                            "parameter": "Output Fixed Footprint",
+                            "description": "Output fixed width footprint shapefile.",
                             "type": "vector",
                             "typelab": "SHP",
                             "default": "",
@@ -151,6 +162,59 @@
                             "description": "Output cost raster used in subsequent FLM tools for least-cost analysis.",
                             "type": "raster",
                             "typelab": "TIF",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Vertex Optimization",
+                    "info": "Relocating line intersections to seismic line paths",
+                    "multiprocessing": true,
+                    "batch_processing": true,
+                    "tool_type": "python",
+                    "tool_api": "vertex_optimization",
+                    "paramFile": "\\Scripts\\FLM_VO_params.txt",
+                    "image": "../Images/FLM_IO_VertexOptimization.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Pre-processing/VertexOptimization.html",
+                    "parameters":[
+                        {
+                            "variable": "in_line",
+                            "parameter": "Forest Lines Feature Class",
+                            "description": "Input polyline shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "in_cost",
+                            "parameter": "Cost Raster",
+                            "description": "Input raster image used to calculate the least cost path.",
+                            "type": "raster",
+                            "typelab": "TIF",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "line_radius",
+                            "parameter": "Line Processing Radius",
+                            "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
+                            "type": "number",
+                            "typelab": "number",
+                            "default": 35,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+                            "variable": "out_line",
+                            "parameter": "Output Center-Line",
+                            "description": "Output optimized center-line shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
                             "default": "",
                             "output": true,
                             "optional": false
