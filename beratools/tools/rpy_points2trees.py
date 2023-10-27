@@ -20,7 +20,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
-def points2trees(callback,in_las_folder,is_normalized,Min_ws,hmin,cell_size,do_nCHM,out_folder, processes, verbose):
+def points2trees(callback,in_las_folder,is_normalized,hmin,cell_size,do_nCHM,out_folder, processes, verbose):
 
     r = robjects.r
     import psutil
@@ -49,10 +49,11 @@ def points2trees(callback,in_las_folder,is_normalized,Min_ws,hmin,cell_size,do_n
     # Invoking the R function
     if do_nCHM:
          CHMcell_size=r_pd2cellsize(in_las_folder,rprocesses)
-         r_points2trees(in_las_folder,is_normalized, Min_ws, hmin, out_folder,rprocesses,CHMcell_size,cell_size)
+         print("CHM raster output cell size is: {}m".format(CHMcell_size))
+         r_points2trees(in_las_folder,is_normalized,  hmin, out_folder,rprocesses,CHMcell_size,cell_size)
     else:
         CHMcell_size=-999
-        r_points2trees(in_las_folder, is_normalized, Min_ws, hmin, out_folder, rprocesses, CHMcell_size,cell_size)
+        r_points2trees(in_las_folder, is_normalized, hmin, out_folder, rprocesses, CHMcell_size,cell_size)
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -81,12 +82,12 @@ if __name__ == '__main__':
     print("Checking input parameters ...")
     in_args, in_verbose = check_arguments()
     in_las_folder=in_args.input["in_las_folder"]
-    try:
-        ws=float(in_args.input["Min_ws"])
-        in_args.input["Min_ws"] = ws
-    except ValueError:
-        print("Invalid input of circular diameter, default is used")
-        in_args.input["Min_ws"]=2.5
+    # try:
+    #     ws=float(in_args.input["Min_ws"])
+    #     in_args.input["Min_ws"] = ws
+    # except ValueError:
+    #     print("Invalid input of circular diameter, default is used")
+    #     in_args.input["Min_ws"]=2.5
     try:
         hmin=float(in_args.input["hmin"])
         if hmin>=20:
@@ -95,8 +96,21 @@ if __name__ == '__main__':
         else:
             in_args.input["hmin"]=hmin
     except ValueError:
-        print("Invalid input of minimum height (<=10) of a tree, default is used")
+        print("Invalid input of minimum height (<=20) of a tree, default is used")
         in_args.input["hmin"] =3.0
+
+    # try:
+    #     hmax=float(in_args.input["hmax"])
+    #     if hmax<=hmin:
+    #         print("Invalid input of maximum height (>minimum height) of a tree, default is used")
+    #         in_args.input["hmax"] = 999.0
+    #     elif hmax==999:
+    #         in_args.input["hmax"] = 999.0
+    #     else:
+    #         in_args.input["hmax"] = hmax
+    # except ValueError:
+    #     print("Invalid input of minimum height (<=10) of a tree, default is used")
+    #     in_args.input["hmin"] =999.0
 
     try:
         is_normalized=bool(in_args.input["is_normalized"])

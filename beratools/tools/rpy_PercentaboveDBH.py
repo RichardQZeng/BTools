@@ -84,7 +84,7 @@ if __name__ == '__main__':
             in_args.input["DBH"] = DBH
     except ValueError:
         print("Invalid input of DBH, default value is used")
-        in_args.input["DBH"] =1.35
+        in_args.input["DBH"] =1.3
 
     try:
         is_normalized=bool(in_args.input["is_normalized"])
