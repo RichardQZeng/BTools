@@ -178,22 +178,75 @@ HH_raster <- function(chunk,radius,cell_size,lawn_range)
   gfw[gfw==0] = NA
 
   rdtm <- focal(dtm, w=gfw, fun="mean",na.policy="omit",na.rm=TRUE,fillvalue=NA,expand=TRUE)
-  cond_raster<- rdtm-dtm
-  upper<- abs(lawn_range)
-  lower <- upper*-1
+  cond_raster<- (rdtm-dtm)
+  positive<- abs(lawn_range)
+  negative <- positive*-1
 
-  HH<-ifel(cond_raster< lower,-1,ifel(cond_raster > upper,1,0))
+  HH<-ifel(cond_raster< negative,1,ifel(cond_raster > positive,-1,0))
+
+  cont_hh<- (crop(cond_raster,ext(bbox)))*-1
   hh<- crop(HH,ext(bbox))
+
+  return(list(cont_hh,hh))
 }
+ MultiWrite = function(output_list, file){
+    chh = output_list[[1]]
+    hh = output_list[[2]]
+    path1 = gsub("@@@_","CHH_", file)
+    path2 = gsub("@@@_","HH_", file)
+
+    path1 = paste0(path1, ".tif")
+    path2 = paste0(path2, ".tif")
+
+    terra::writeRaster(chh, path1, overwrite = TRUE)
+    terra::writeRaster(hh,path2,overwrite=TRUE)
+
+  }
+  MultiWriteDriver = list(
+    write = MultiWrite,
+    extension = "",
+    object = "output_list",
+    path = "file",
+    param = list())
+
+  ctg@output_options$drivers$list <- MultiWriteDriver
 
 opt_chunk_alignment(ctg) <- c(0,0)
-opt_output_files(ctg) <- paste0(out_folder,"/result/HH_{*}")
+opt_output_files(ctg) <- paste0(out_folder,"/@@@_{*}")
 ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
 opt_stop_early(ctg) <- TRUE
-out<-catalog_apply(ctg,HH_raster,radius=3,cell_size=cell_size,lawn_range=lawn_range)
+out<-catalog_apply(ctg,HH_raster,radius=Min_ws,cell_size=cell_size,lawn_range=lawn_range)
+ # reset R mutilsession back to default
+    plan("default")
+
+}
+#########################################################################################################################
+hh_function_byraster <- function(in_raster,cell_size, Min_ws, lawn_range, out_folder,rprocesses){
+update.packages(list('terra'))
+
+library(terra)
+
+print('Generating Hummock/ Hollow Raster ...')
+in_dtm<- rast(in_raster)
+filename<-substr(basename(in_raster),1,nchar(basename(in_raster))-4)
+
+  gfw <- focalMat(in_dtm, Min_ws, "circle")
+  gfw[gfw>0] = 1
+  gfw[gfw==0] = NA
+
+  rdtm <- focal(in_dtm, w=gfw, fun="mean",na.policy="omit",na.rm=TRUE,fillvalue=NA,expand=TRUE)
+  cond_raster<- (rdtm-in_dtm)
+  writeRaster(cond_raster,paste0(out_folder,"/CHH_",filename,".tif"),overwrite=TRUE)
+  positive<- abs(lawn_range)
+  negative <- positive*-1
+
+  HH<-ifel(cond_raster< negative,1,ifel(cond_raster > positive,-1,0))
+  writeRaster(HH,paste0(out_folder,"/HH_",filename,".tif"),overwrite=TRUE)
 
 
 }
+
+
 ###################################################################################################################################
 pd2cellsize <- function(in_las_folder,rprocesses){
     update.packages(list('lidR','future'))
@@ -204,7 +257,7 @@ pd2cellsize <- function(in_las_folder,rprocesses){
     set_lidr_threads(rprocesses)
 
 
-  print("Calculate average cell size from point density...")
+  print("Calculate raster output's average cell size from point density...")
   if (is(in_las_folder,"LAS") & is(in_las_folder, "LAScatalog"))
         {ctg<-in_las_folder}
     else{ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')}
@@ -228,7 +281,7 @@ pd2cellsize <- function(in_las_folder,rprocesses){
 }
 ##################################################################################
 
-points2trees<-function(in_folder,is_normalized,Min_ws,hmin,out_folder,rprocesses,CHMcell_size,cell_size)
+points2trees<-function(in_folder,is_normalized,hmin,out_folder,rprocesses,CHMcell_size,cell_size)
   {
   update.packages(list('terra','lidR','future'))
     library(lidR)
@@ -239,17 +292,17 @@ points2trees<-function(in_folder,is_normalized,Min_ws,hmin,out_folder,rprocesses
     set_lidr_threads(rprocesses)
 
     #normailize point cloud using K-nearest neighbour IDW
-    if (!(is_normalized)){
+    if (is_normalized){
+    n_las<- readLAScatalog(in_folder,filter='-drop_class 7 -drop_below 0')
+    }
+    else{
     #read Las file and drop any noise from the point cloud
     ctg<- readLAScatalog(in_folder,filter='-drop_class 7')
     opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/normalized/n_{*}")
     print("Normalize lidar data...")
     opt_progress(ctg) <- TRUE
     n_las<-normalize_height(ctg,algorithm=knnidw())
-    opt_filter(n_las)<-'-drop_below 0'}
-    else{
-    n_las<- readLAScatalog(in_folder,filter='-drop_class 7 -drop_below 0')
-    }
+    opt_filter(n_las)<-'-drop_class 7 -drop_below 0'}
 
 #     # create a CHM from point cloud for visualization
     if (CHMcell_size !=-999){
@@ -260,26 +313,28 @@ points2trees<-function(in_folder,is_normalized,Min_ws,hmin,out_folder,rprocesses
         opt_progress(n_las) <- TRUE
     #     chm <- rasterize_canopy(n_las, cell_size, pitfree(thresholds = c(0,3,10,15,22,30,38), max_edge = c(0, 1.5)), pkg = "terra")
         chm <- rasterize_canopy(n_las, CHMcell_size, dsmtin(max_edge = (3*CHMcell_size)), pkg = "terra")}
+    # find the xth mean highest of the project area
+#     qxth0<-pixel_metrics(n_las,func=quantile(Z, probs = percentile),res=cell_size)
+#     vqxth<-values(qxth0,mat=TRUE)
+#     mqxth<-mean(vqxth,na.rm=TRUE)
+
 
     print("Compute approximate tree positions ...")
-   ctg_detect_tree <- function(chunk,Min_ws,hmin,out_folder,cell_size){
+   ctg_detect_tree <- function(chunk,hmin,out_folder,cell_size){
         las <- readLAS(chunk)               # read the chunk
         if (is.empty(las)) return(NULL)     # exit if empty
+#         quarter_ht<- ((las@header@PHB$`Max Z` + las@header@PHB$`Min Z`)/4)
 
-        # find the highest, average height point of the chunk
-        tallest_ht <- las@header@PHB$`Max Z`
-        Avg_ht<- ((las@header@PHB$`Max Z` + las@header@PHB$`Min Z`)/2)
+        f<-function(x){
+#         y = 0.4443*(x^0.7874)
+        y = 0.478676*(x^0.695289)
+    y[x <hmin ] <- 0.478676*(hmin^0.695289)# Min_ws # smallest window
+#   y[x > (quarter_ht)] <- 0.478676*(quarter_ht^0.695289)    # largest window
+#     y= 0.39328*x
+#     y[x <hmin ] <- 0.39328*hmin # largest window
+#     y[x > (quarter_ht)] <- 0.39328*quarter_ht    # smallest window
 
-   if (Min_ws>= (hmin^(0.3^(1/2)))) {
-    (Min_ws<-Min_ws)}else{
-      (Min_ws<-(hmin^(0.3^(1/2))))}
-  f<-function(x){
-    y <-(x^(0.3^(1/2)))
-#     y[x <hmin ] <- Min_ws # largest window
-#     y[x > (tallest_ht*0.8)] <- (tallest_ht*0.8)^0.3    # smallest window
-    y[x <hmin ] <- Min_ws # smallest window
-    y[x > (Avg_ht)*1.2] <- (Avg_ht*1.2)^(0.3^(1/2))    # largest window
-    return(y)}
+  return(y)}
 
 # dynamic searching window is based on the function of (tree height x 0.3)
 # dynamic window
@@ -288,40 +343,42 @@ points2trees<-function(in_folder,is_normalized,Min_ws,hmin,out_folder,rprocesses
 #         ttop <- locate_trees(las, lmf(ws = 1,hmin=hmin,shape="circular"),uniqueness = "gpstime")
 
    ttop <- crop(vect(ttop), ext(chunk))   # remove the buffer
-   sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=cell_size,crs=crs(ttop)),fun=sum)
-   sum_map<- classify(sum_map, cbind(NA, 0))
+#    sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=cell_size,crs=crs(ttop)),fun=sum)
+#    sum_map<- classify(sum_map, cbind(NA, 0))
 
-    return(list(ttop,sum_map))
+#     return(list(ttop,sum_map))
    }
    options <- list(automerge = TRUE,autocrop = TRUE)
-   opt_output_files(n_las)<-opt_output_files(n_las)<-paste0(out_folder,"/@@@_{*}")
+#    opt_output_files(n_las)<-opt_output_files(n_las)<-paste0(out_folder,"/@@@_{*}")
+   opt_output_files(n_las)<-paste0(out_folder,"/{*}_tree_min_",hmin,"_m")
    n_las@output_options$drivers$sf$param$append <- FALSE
    n_las@output_options$drivers$SpatVector$param$overwrite <- TRUE
    opt_progress(n_las) <- TRUE
-   MultiWrite = function(output_list, file){
-    extent = output_list[[1]]
-    sum_map = output_list[[2]]
-    path1 = gsub("@@@_","", file)
-    path2 = gsub("@@@_","", file)
+#    MultiWrite = function(output_list, file){
+#     extent = output_list[[1]]
+#     sum_map = output_list[[2]]
+#     path1 = gsub("@@@_","", file)
+#     path2 = gsub("@@@_","", file)
+#
+#     path1 = paste0(path1, "_trees_above",hmin,"m.shp")
+#     path2 = paste0(path2, "_Trees_counts_above",hmin,"m.tif")
+#
+#     terra::writeVector(extent, path1, overwrite = TRUE)
+#     terra::writeRaster(sum_map,path2,overwrite=TRUE)
+#
+#   }
+#   MultiWriteDriver = list(
+#     write = MultiWrite,
+#     extension = "",
+#     object = "output_list",
+#     path = "file",
+#     param = list())
 
-    path1 = paste0(path1, "_trees_above",hmin,"m.shp")
-    path2 = paste0(path2, "_Trees_counts_above",hmin,"m.tif")
+#   n_las@output_options$drivers$list <- MultiWriteDriver
 
-    terra::writeVector(extent, path1, overwrite = TRUE)
-    terra::writeRaster(sum_map,path2,overwrite=TRUE)
-
-  }
-  MultiWriteDriver = list(
-    write = MultiWrite,
-    extension = "",
-    object = "output_list",
-    path = "file",
-    param = list())
-
-  n_las@output_options$drivers$list <- MultiWriteDriver
-
-   out<-catalog_apply(n_las, ctg_detect_tree,Min_ws,hmin,out_folder,cell_size,.options = options)
-
+   out<-catalog_apply(n_las, ctg_detect_tree,hmin,out_folder,cell_size,.options = options)
+ # reset R mutilsession back to default
+    plan("default")
   }
 #########################################################################################################################################
 ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
@@ -334,7 +391,7 @@ ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
 
-    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7 -drop_below 0')
     opt_output_files(ctg) <- paste0(out_folder,"/{*}_lite_metrics_z")
     ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
     opt_progress(ctg) <-  TRUE
@@ -343,20 +400,27 @@ ht_metrics_lite <- function(in_las_folder,cell_size,out_folder,rprocesses)
       zmax = max(Z),
       zmin = min(Z),
       zsd = sd(Z),
-      zq45 = quantile(Z, probs = 0.45),
+#       zq25 = quantile(Z, probs = 0.25),
+      zq30 = quantile(Z, probs = 0.30),
+#       zq35 = quantile(Z, probs = 0.35),
+      zq40 = quantile(Z, probs = 0.40),
+#       zq45 = quantile(Z, probs = 0.45),
       zq50 = quantile(Z, probs = 0.50),
-      zq55 = quantile(Z, probs = 0.55),
+#       zq55 = quantile(Z, probs = 0.55),
       zq60 = quantile(Z, probs = 0.60),
-      zq65 = quantile(Z, probs = 0.65),
+#       zq65 = quantile(Z, probs = 0.65),
       zq70 = quantile(Z, probs = 0.70),
-      zq75 = quantile(Z, probs = 0.75),
+#       zq75 = quantile(Z, probs = 0.75),
       zq80 = quantile(Z, probs = 0.80),
-      zq85 = quantile(Z, probs = 0.85),
+#       zq85 = quantile(Z, probs = 0.85),
       zq90 = quantile(Z, probs = 0.90),
-      zq95 = quantile(Z, probs = 0.95)
-      )
+#       zq95 = quantile(Z, probs = 0.95),
+      zq99 = quantile(Z, probs = 0.99)
+       )
 
     m<-pixel_metrics(ctg,func=zmetrics_f,res=cell_size)
+     # reset R mutilsession back to default
+    plan("default")
 }
 
 ######################################################################################
@@ -441,6 +505,8 @@ veg_cover_percentage<-function(in_las_folder,is_normalized,out_folder,hmin,hmax,
         n_ctg@output_options$drivers$SpatRaster$param$overwrite<-TRUE
 #         n_ctg@output_options$drivers$list <- MultiWriteDiver
         out<-catalog_apply(n_ctg, veg_cover_pmetric,hmin,hmax,out_folder,cell_size)
+         # reset R mutilsession back to default
+    plan("default")
 
 }
 #########################################################################################
@@ -453,15 +519,16 @@ percentage_aboveDBH<-function(in_las_folder,is_normalized,out_folder,DBH,cell_si
 
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
-
-    if (!(is_normalized)){
+    sDBH<-DBH
+    if (is_normalized){
+    print('Loading normalize point cloud...')
+    n_ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7 -drop_below 0')}
+    else{
     ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
     opt_output_files(ctg) <- paste0(out_folder,'/normalized/n_{*}')
     opt_progress(ctg) <- TRUE
     print('Normalize point cloud...')
-    n_ctg<- normalize_height(ctg,algorithm=knnidw())}
-    else{
-    n_ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7 -drop_below 0')
+    n_ctg<- normalize_height(ctg,algorithm=knnidw())
     }
 
         print('Calculating percentage returns above DBH ...')
@@ -476,16 +543,19 @@ percentage_aboveDBH<-function(in_las_folder,is_normalized,out_folder,DBH,cell_si
             abvDBH_pcount<-pixel_metrics(las,func= ~length(NumberOfReturns),filter= ~Z>=DBH, pkg = "terra" ,res=cell_size,start = c(0, 0))
 
             abvDBH_percetage<- abvDBH_pcount/total_pcount
+            set.names(abvDBH_percetage,"Per_abvDBH",index=1)
             # replace NA with 0
             abvDBH_percetage<- classify(abvDBH_percetage, cbind(NA, 0))
             abvDBH_percetage<-crop(abvDBH_percetage,ext(chunk))
-
-
         }
+        sDBH<-as.character(sDBH)
+        sDBH<-gsub("\\.","p",sDBH)
 
-        opt_output_files(n_ctg)<-paste0(out_folder,"/result/{*}_return_above_DBH")
+        opt_output_files(n_ctg)<-paste0(out_folder,"/{*}_return_above_",sDBH,'m')
         n_ctg@output_options$drivers$SpatRaster$param$overwrite<-TRUE
         out<-catalog_apply(n_ctg, compute_aboveDBH,DBH,out_folder,cell_size)
+         # reset R mutilsession back to default
+    plan("default")
 }
 #########################################################################################
 normalized_lidar_knnidw <- function(in_las_folder,out_folder,rprocesses){
@@ -502,9 +572,119 @@ normalized_lidar_knnidw <- function(in_las_folder,out_folder,rprocesses){
     print("Normalize lidar data...")
     opt_progress(ctg) <- TRUE
     n_las<-normalize_height(ctg,algorithm=knnidw())
+     # reset R mutilsession back to default
+    plan("default")
 }
 #########################################################################################
-chm_by_dsmtin <- function(in_las_folder,out_folder,CHMcell_size,rprocesses){
+chm_by_dsmtin <- function(in_las_folder,out_folder,cell_size,is_normalized,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+    if (cell_size<1.0){rprocesses=rprocesses/2}
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+        ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+        if (is_normalized){
+        print("Generating CHM using TIN...")
+        opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_chm")}
+        else{
+        print("Generating DSM using TIN...")
+        opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_dsm")}
+
+        ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+        ctg@output_options$drivers$Raster$param$overwrite <- TRUE
+        opt_progress(ctg) <- TRUE
+        chm <- rasterize_canopy(ctg, cell_size, dsmtin(max_edge = (3*cell_size)), pkg = "terra")
+         # reset R mutilsession back to default
+    plan("default")
+    }
+#########################################################################################
+chm_by_pitfree <- function(in_las_folder,out_folder,cell_size,is_normalized,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+    if (cell_size<1.0){rprocesses=rprocesses/2}
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    if (is_normalized){
+    print("Generate CHM using Pit-free...")
+    opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_chm")}
+    else{
+    print("Generate DSM using Pit-free...")
+    opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_dsm")}
+
+    ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+    ctg@output_options$drivers$Raster$param$overwrite <- TRUE
+    opt_progress(ctg) <- TRUE
+    chm <- rasterize_canopy(ctg, cell_size, pitfree(subcircle = (cell_size*0.3)))
+     # reset R mutilsession back to default
+    plan("default")
+
+    }
+
+#########################################################################################
+dtm_by_knnidw <- function(in_las_folder,out_folder,cell_size,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+    if (cell_size<1.0){rprocesses=rprocesses/2}
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+        ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+        print("Generate DTM...")
+        opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_DTM")
+        ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+        ctg@output_options$drivers$Raster$param$overwrite <- TRUE
+        opt_progress(ctg) <- TRUE
+        dtm <- rasterize_terrain(ctg, res=cell_size, algorithm =knnidw())
+         # reset R mutilsession back to default
+    plan("default")
+    }
+#########################################################################################
+dtm_by_kriging <- function(in_las_folder,out_folder,cell_size,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+    if (cell_size<1.0){rprocesses=rprocesses/2}
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+        ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+        print("Generate DTM...")
+        opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_DTM")
+        ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+        ctg@output_options$drivers$Raster$param$overwrite <- TRUE
+        opt_progress(ctg) <- TRUE
+        dtm <- rasterize_terrain(ctg, res=cell_size, algorithm =kriging())
+         # reset R mutilsession back to default
+    plan("default")
+    }
+
+#########################################################################################
+dtm_by_tin <- function(in_las_folder,out_folder,cell_size,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+    if (cell_size<1.0){rprocesses=rprocesses/2}
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+        ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+        print("Generate DTM...")
+        opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_DTM")
+        ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+        ctg@output_options$drivers$Raster$param$overwrite <- TRUE
+        opt_progress(ctg) <- TRUE
+        dtm <- rasterize_terrain(ctg, res=cell_size, algorithm =tin())
+         # reset R mutilsession back to default
+    plan("default")
+    }
+  ###########################################################################################
+  saveas_las <- function(in_las_folder,out_folder,rprocesses){
     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
@@ -512,11 +692,19 @@ chm_by_dsmtin <- function(in_las_folder,out_folder,CHMcell_size,rprocesses){
     plan(multisession,workers=rprocesses)
     set_lidr_threads(rprocesses)
 
-        ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
-        print("Generating CHM...")
-        opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/{*}_chm")
-        ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
-        ctg@output_options$drivers$Raster$param$overwrite <- TRUE
-        opt_progress(ctg) <- TRUE
-        chm <- rasterize_canopy(ctg, CHMcell_size, dsmtin(max_edge = (3*CHMcell_size)), pkg = "terra")
-    }
+    mywriteLAS=function(chunk){
+    las <- readLAS(chunk)
+
+    if (is.empty(las)) return(NULL)
+    writeLAS(las)}
+
+    #read Las file and drop any noise from the point cloud
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/las/{*}")
+    ctg@output_options$driver$LAS$extension <- ".las"
+    print("Normalize lidar data...")
+    opt_progress(ctg) <- TRUE
+    ctg1<-catalog_apply(ctg,mywriteLAS)
+     # reset R mutilsession back to default
+    plan("default")
+}
