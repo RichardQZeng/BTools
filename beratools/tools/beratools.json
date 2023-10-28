@@ -11,7 +11,7 @@
                     "multiprocessing": true,
                     "batch_processing": true,
                     "tool_type": "python",
-                    "tool_api": "footprint_fixed",
+                    "tool_api": "line_footprint_fixed",
                     "paramFile": "\\Scripts\\FLM_FF_params.txt",
                     "image": "../Images/FLM_IO_VertexOptimization.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Pre-processing/VertexOptimization.html",
