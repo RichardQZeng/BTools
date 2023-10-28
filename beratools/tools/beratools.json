@@ -6,66 +6,148 @@
             "description":"Tools used to pre-tagging and optimizing line vertices to help centerline and other tools to produce better results.",
             "tools": [
                 {
-                    "name": "Footprint Fixed Width",
-                    "info": "Generating fixed width line footprint",
-                    "multiprocessing": true,
-                    "batch_processing": true,
+                    "name": "Normalize LiDAR Data",
+                    "info": "Normalize LiDAR data using K-nearest neighbourhood Invert distance weighting (Knnidw).",
+                    "batch_processing": false,
                     "tool_type": "python",
-                    "tool_api": "line_footprint_fixed",
-                    "paramFile": "\\Scripts\\FLM_FF_params.txt",
-                    "image": "../Images/FLM_IO_VertexOptimization.gif",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Pre-processing/VertexOptimization.html",
-                    "parameters":[
+                    "tool_api": "rpy_nor_lidar_knnidw",
+                    "paramFile": "\\Scripts\\rpy_nor_lidar_knnidw_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
                         {
-                            "variable": "in_line",
-                            "parameter": "Forest Lines Feature Class",
-                            "description": "Input polyline shapefile.",
-                            "type": "vector",
-                            "typelab": "SHP",
+                            "variable": "in_las_folder",
+                            "parameter": "Input folder",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
                             "default": "",
                             "output": false,
                             "optional": false
                         },
                         {
-                            "variable": "in_footprint",
-                            "parameter": "Footprint",
-                            "description": "Input footprint.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "n_samples",
-                            "parameter": "Sampling number",
-                            "description": "Sampling number for each line.",
-                            "type": "number",
-                            "typelab": "number",
-                            "default": 10,
-                            "output": false,
-                            "optional": true
-                        },
-                        {
-							"variable": "max_width",
-                            "parameter": "Use maximum width",
-                            "description": "Use maximum width",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": true,
-                            "output": false,
-                            "optional": true
-                        },
-                        {
-                            "variable": "out_footprint",
-                            "parameter": "Output Fixed Footprint",
-                            "description": "Output fixed width footprint shapefile.",
-                            "type": "vector",
-                            "typelab": "SHP",
+                            "variable": "out_folder",
+                            "parameter": "Output folder",
+                            "description": "Output folder for the normalised LiDAR data results.",
+                            "type": "Directory",
+                            "typelab": "",
                             "default": "",
                             "output": true,
                             "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Generate DTM from LiDAR Data",
+                    "info": "Generate DTM LiDAR data using TIN, IDW or Kriging algorithm.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_dtm_by",
+                    "paramFile": "\\Scripts\\rpy_dsm_chm_by_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input folder",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder",
+                            "description": "Output folder for the DSM raster results.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Output cell size of the raster.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "style",
+                                "parameter": "By what algorithms",
+                                "description": "Select the algorithm to generate the DSM raster.",
+                                "type": "list",
+                                "typelab": "text",
+                                "data": ["tin","idw", "kriging"],
+                                "default": "tin",
+                                "output": false,
+                                "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Generate DSM or CHM from LiDAR Data",
+                    "info": "Generate DSM from de-normalized LiDAR data or CHM from normalized LiDAR data using TIN or PitFree algorithm.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_dsm_chm_by",
+                    "paramFile": "\\Scripts\\rpy_dsm_chm_by_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input folder",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "is_normalized",
+                                "parameter": "Normalized LiDAR data",
+                                "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                                "type": "list",
+                                "typelab": "bool",
+                                "data": [true, false],
+                                "default": false,
+                                "output": false,
+                                "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder",
+                            "description": "Output folder for the DSM raster results.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Output cell size of the raster.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "style",
+                                "parameter": "By what algorithms",
+                                "description": "Select the algorithm to generate the DSM raster.",
+                                "type": "list",
+                                "typelab": "text",
+                                "data": ["tin", "pitfree"],
+                                "default": "tin",
+                                "output": false,
+                                "optional": false
                         }
                     ]
                 }
@@ -520,8 +602,71 @@
                             "optional": true
                         }
                     ]
+                },
+                {
+                    "name": "Line Footprint by Fixed Width",
+                    "info": "Generating fixed width line footprint",
+                    "multiprocessing": true,
+                    "batch_processing": true,
+                    "tool_type": "python",
+                    "tool_api": "line_footprint_fixed",
+                    "paramFile": "\\Scripts\\FLM_FF_params.txt",
+                    "image": "../Images/FLM_IO_VertexOptimization.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Pre-processing/VertexOptimization.html",
+                    "parameters":[
+                        {
+                            "variable": "in_line",
+                            "parameter": "Forest Lines Feature Class",
+                            "description": "Input polyline shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "in_footprint",
+                            "parameter": "Footprint",
+                            "description": "Input footprint.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "n_samples",
+                            "parameter": "Sampling number",
+                            "description": "Sampling number for each line.",
+                            "type": "number",
+                            "typelab": "number",
+                            "default": 10,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+							"variable": "max_width",
+                            "parameter": "Use maximum width",
+                            "description": "Use maximum width",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": true,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+                            "variable": "out_footprint",
+                            "parameter": "Output Fixed Footprint",
+                            "description": "Output fixed width footprint shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
                 }
-
             ]
         },
         {
@@ -808,82 +953,9 @@
                             "optional": false
                         }
                     ]
-                }
-            ]
-        },
-        {
-            "category": "Auxiliary",
-            "description":"Helpful tools to prepare inputs for the Mapping Tools.",
-            "tools": [
-                {
-                    "name": "Zonal Threshold",
-                    "info": "Assigns corridor thresholds to the input lines based on their surrounding canopy density.",
-                    "multiprocessing": true,
-                    "batch_processing": false,
-                    "tool_type": "python",
-                    "tool_api": "zonal_threshold",
-                    "paramFile": "\\Scripts\\FLM_ZT_params.txt",
-                    "image": "../Images/FLM_IO_ZT.gif",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/ZonalThreshold.html",
-                    "parameters":[
-                        {   "variable": "in_line",
-                            "parameter": "Input Lines",
-                            "description": "Input polyline shapefile for which each feature will be assigned an unique corridor threshold.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "in_canopy_raster",
-                            "parameter": "Canopy Raster",
-                            "description": "Input canopy raster used to estimate canopy density.",
-                            "type": "raster",
-                            "typelab": "TIF",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "canopy_search_r",
-                            "parameter": "Canopy Search Radius",
-                            "description": "Search radius around line features where zonal statistics are calculated, i.e estimate line width",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 20.0,
-                            "output": false,
-                            "optional": true
-                        },
-                        {   "variable": "min_canopy_th",
-                            "parameter": "Minimum Value",
-                            "description": "Minimum value for corridor threshold.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 4.0,
-                            "output": false,
-                            "optional": true
-                        },
-                        {   "variable": "max_canopy_th",
-                            "parameter": "Maximum Value",
-                            "description": "Maximum value for corridor threshold.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 20.0,
-                            "output": false,
-                            "optional": true
-                        },
-                        {   "variable": "out_line",
-                            "parameter": "Output Lines",
-                            "description": "Output features that will be created.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
                 },
                 {
-                    "name": "Relative Metrics to line",
+                    "name": "Relative Metrics to Line",
                     "info": "Compute Surface Area Ratio (SAR) and elevation from line to its adjacent forest.",
                     "multiprocessing": true,
                     "batch_processing": false,
@@ -970,6 +1042,450 @@
                             "optional": false
                         }
                    ]
+                },
+		        {
+                    "name": "Individual Tree Detection from LiDAR Data",
+                    "info": "Tree detection from Lidar data using dynamic moving windows from Popescu & Wynne (2004) (LidR package).",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_points2trees",
+                    "paramFile": "\\Scripts\\RPY_points2trees_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "is_normalized",
+                            "parameter": "Normalized LiDAR data",
+                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "hmin",
+                            "parameter": "Minimum height of a tree .",
+                            "description": "input a minimum height of a tree.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 3.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Raster cell size (base area) for generate tree density map.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 5.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "do_nCHM",
+                            "parameter": "Generate normalized CHM",
+                            "description": "Generate normalized CHM from normalized LiDAR data (Option output).",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for detected tree shapefile",
+                            "description": "Output folder for detected tree shapefile (.shp).",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+		        {
+                    "name": "Hummock and Hollow from LiDAR Data",
+                    "info": "Hummock and Hollow (Micro-topography) detection from Lidar data using dynamic moving windows and lawns threshold.",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "hummock_hollow",
+                    "paramFile": "\\Scripts\\Hummock_Hollow_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "Min_ws",
+                            "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
+                            "description": "Minimum circular diameter of the dynamic moving window used to detect the local maxima in the units of the input data (usually meters).",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 3.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "lawn_range",
+                            "parameter": "Height consider as lawns.",
+                            "description": "Set the height in meter consider as lawns.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 0.1,
+                            "output": false,
+                            "optional": false
+                        },
+                        {  "variable": "cell_size",
+                            "parameter": "Output raster cell size in meter.",
+                            "description": "Define the output Hummock/Hollow raster' cell size.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "out_folder",
+                            "parameter": "Output folder for results raster.",
+                            "description": "Output folder for hummock and hollow raster (.tif).",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Hummock and Hollow from DTM Raster Data",
+                    "info": "Hummock and Hollow (Micro-topography) detection from DEM raster using dynamic moving windows and lawns threshold.",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "hummock_hollow_raster",
+                    "paramFile": "\\Scripts\\Hummock_Hollow_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_raster",
+                            "parameter": "Input DEM raster.",
+                            "description": "Input DEM raster.",
+                            "type": "raster",
+                            "typelab": "TIF",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "Min_ws",
+                            "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
+                            "description": "Minimum circular diameter of the dynamic moving window used to detect the local maxima in the units of the input data (usually meters).",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 3.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "lawn_range",
+                            "parameter": "Height consider as lawns.",
+                            "description": "Set the height in meter consider as lawns.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 0.1,
+                            "output": false,
+                            "optional": false
+                        },
+                        {  "variable": "cell_size",
+                            "parameter": "Output raster cell size in meter.",
+                            "description": "Define the output Hummock/Hollow raster' cell size.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for result raster.",
+                            "description": "Output folder for hummock and hollow raster (.tif).",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+		        {
+                    "name": "Height Metrics from LiDAR Data",
+                    "info": "Height Metrics (Zmax, Zmean, Zsd, ZQ30-ZQ90, ZQ99 (percentile) from Lidar data using lidR package.",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "Ht_metrics",
+                    "paramFile": "\\Scripts\\Ht_metrics.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {  "variable": "cell_size",
+                            "parameter": "Base area in meter (cell size).",
+                            "description": "Define the base area (raster cell size) for Height metrics.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for height metrics raster.",
+                            "description": "Output folder for height metrics raster (.tif).",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Vegetation Coverage from Lidar Data",
+                    "info": "Finding Vegetation Coverage from Lidar data using range of vegetation layer height.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_vegcoverage",
+                    "paramFile": "\\Scripts\\RPY_vegcoverage_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "is_normalized",
+                            "parameter": "Normalized LiDAR data",
+                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for the raster results.",
+                            "description": "Output folder for the raster results.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "hmin",
+                            "parameter": "Minimum height",
+                            "description": "Minimum height of vegetation layer.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 3.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "hmax",
+                            "parameter": "Maximum height",
+                            "description": "Maximum height of vegetation layer.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 10.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Output area based (cell size) raster of vegetation coverage.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 5.0,
+                            "output": false,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Percentage Returns above DBH",
+                    "info": "Compute percentage of returns above DBH from Lidar data.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_PercentaboveDBH",
+                    "paramFile": "\\Scripts\\RPY_PercentaboveDBH_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "is_normalized",
+                                "parameter": "Normalized LiDAR data",
+                                "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
+                                "type": "list",
+                                "typelab": "bool",
+                                "data": [true, false],
+                                "default": false,
+                                "output": false,
+                                "optional": false
+                            },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for the raster results.",
+                            "description": "Output folder for the raster results.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "DBH",
+                            "parameter": "DBH height(m)",
+                            "description": "Define the DBH height in meter.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.30,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Output area based (cell size) raster of vegetation coverage.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 5.0,
+                            "output": false,
+                            "optional": false
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "category": "Auxiliary",
+            "description":"Helpful tools to prepare inputs for the Mapping Tools.",
+            "tools": [
+                {
+                    "name": "Zonal Threshold",
+                    "info": "Assigns corridor thresholds to the input lines based on their surrounding canopy density.",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "zonal_threshold",
+                    "paramFile": "\\Scripts\\FLM_ZT_params.txt",
+                    "image": "../Images/FLM_IO_ZT.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/ZonalThreshold.html",
+                    "parameters":[
+                        {   "variable": "in_line",
+                            "parameter": "Input Lines",
+                            "description": "Input polyline shapefile for which each feature will be assigned an unique corridor threshold.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "in_canopy_raster",
+                            "parameter": "Canopy Raster",
+                            "description": "Input canopy raster used to estimate canopy density.",
+                            "type": "raster",
+                            "typelab": "TIF",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "canopy_search_r",
+                            "parameter": "Canopy Search Radius",
+                            "description": "Search radius around line features where zonal statistics are calculated, i.e estimate line width",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 20.0,
+                            "output": false,
+                            "optional": true
+                        },
+                        {   "variable": "min_canopy_th",
+                            "parameter": "Minimum Value",
+                            "description": "Minimum value for corridor threshold.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 4.0,
+                            "output": false,
+                            "optional": true
+                        },
+                        {   "variable": "max_canopy_th",
+                            "parameter": "Maximum Value",
+                            "description": "Maximum value for corridor threshold.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 20.0,
+                            "output": false,
+                            "optional": true
+                        },
+                        {   "variable": "out_line",
+                            "parameter": "Output Lines",
+                            "description": "Output features that will be created.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
                 },
                 {
                     "name": "Dynamic Canopy Threshold",
@@ -1081,7 +1597,7 @@
                     ]
                 },
                 {
-                    "name": "Dynamic Line Footprint(Polygon)",
+                    "name": "Dynamic Line Footprint",
                     "info": "Creates dynamic footprint polygons for each input line based on a least cost corridor method and individual line canopy thresholds and cost raster.",
                     "multiprocessing": true,
                     "batch_processing": false,
@@ -1184,523 +1700,6 @@
                         }
 			
                     ]
-                },
-		 {
-                    "name": "Individual tree detection from LiDAR Data",
-                    "info": "Tree detection from Lidar data using dynamic moving windows from Popescu & Wynne (2004) (LidR package).",
-                    "multiprocessing": true,
-                    "batch_processing": false,
-                    "tool_type": "python",
-                    "tool_api": "rpy_points2trees",
-                    "paramFile": "\\Scripts\\RPY_points2trees_params.txt",
-                    "image": "",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                    "parameters": [
-                        {
-                            "variable": "in_las_folder",
-                            "parameter": "Input LiDAR point cloud folder.",
-                            "description": "Input LiDAR point cloud folder.",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "is_normalized",
-                            "parameter": "Normalized lidar data",
-                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "hmin",
-                            "parameter": "Minimum height of a tree .",
-                            "description": "input a minimum height of a tree.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 3.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "cell_size",
-                            "parameter": "Raster cell size",
-                            "description": "Raster cell size (base area) for generate tree density map.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 5.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "do_nCHM",
-                            "parameter": "Generate normalized CHM",
-                            "description": "Generate normalized CHM from normalized lidar data (Option output).",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": true
-                        },
-                        {
-                            "variable": "out_folder",
-                            "parameter": "Output folder for detected tree shapefile",
-                            "description": "Output folder for detected tree shapefile (.shp).",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
-                },
-		{
-                    "name": "Hummock and Hollow from LiDAR Data",
-                    "info": "Hummock and Hollow (Micro-topography) detection from Lidar data using dynamic moving windows and lawns threshold.",
-                    "multiprocessing": true,
-                    "batch_processing": false,
-                    "tool_type": "python",
-                    "tool_api": "hummock_hollow",
-                    "paramFile": "\\Scripts\\Hummock_Hollow_params.txt",
-                    "image": "",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                    "parameters": [
-                        {
-                            "variable": "in_las_folder",
-                            "parameter": "Input LiDAR point cloud folder.",
-                            "description": "Input LiDAR point cloud folder.",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "Min_ws",
-                            "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
-                            "description": "Minimum circular diameter of the dynamic moving window used to detect the local maxima in the units of the input data (usually meters).",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 3.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "lawn_range",
-                            "parameter": "Height consider as lawns.",
-                            "description": "Set the height in meter consider as lawns.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 0.1,
-                            "output": false,
-                            "optional": false
-                        },
-                        {  "variable": "cell_size",
-                            "parameter": "Output raster cell size in meter.",
-                            "description": "Define the output Hummock/Hollow raster' cell size.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 1.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "out_folder",
-                            "parameter": "Output folder for results raster.",
-                            "description": "Output folder for hummock and hollow raster (.tif).",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
-                },
-        {
-                    "name": "Hummock and Hollow from DTM raster Data",
-                    "info": "Hummock and Hollow (Micro-topography) detection from DEM raster using dynamic moving windows and lawns threshold.",
-                    "multiprocessing": true,
-                    "batch_processing": false,
-                    "tool_type": "python",
-                    "tool_api": "hummock_hollow_raster",
-                    "paramFile": "\\Scripts\\Hummock_Hollow_params.txt",
-                    "image": "",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                    "parameters": [
-                        {
-                            "variable": "in_raster",
-                            "parameter": "Input DEM raster.",
-                            "description": "Input DEM raster.",
-                            "type": "raster",
-                            "typelab": "TIF",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "Min_ws",
-                            "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
-                            "description": "Minimum circular diameter of the dynamic moving window used to detect the local maxima in the units of the input data (usually meters).",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 3.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "lawn_range",
-                            "parameter": "Height consider as lawns.",
-                            "description": "Set the height in meter consider as lawns.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 0.1,
-                            "output": false,
-                            "optional": false
-                        },
-                        {  "variable": "cell_size",
-                            "parameter": "Output raster cell size in meter.",
-                            "description": "Define the output Hummock/Hollow raster' cell size.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 1.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "out_folder",
-                            "parameter": "Output folder for result raster.",
-                            "description": "Output folder for hummock and hollow raster (.tif).",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
-                },
-		{
-                    "name": "Height Metrics from LiDAR Data",
-                    "info": "Height Metrics (Zmax, Zmean, Zsd, ZQ30-ZQ90, ZQ99 (percentile) from Lidar data using lidR package.",
-                    "multiprocessing": true,
-                    "batch_processing": false,
-                    "tool_type": "python",
-                    "tool_api": "Ht_metrics",
-                    "paramFile": "\\Scripts\\Ht_metrics.txt",
-                    "image": "",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                    "parameters": [
-                        {
-                            "variable": "in_las_folder",
-                            "parameter": "Input LiDAR point cloud folder.",
-                            "description": "Input LiDAR point cloud folder.",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {  "variable": "cell_size",
-                            "parameter": "Base area in meter (cell size).",
-                            "description": "Define the base area (raster cell size) for Height metrics.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 1.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "out_folder",
-                            "parameter": "Output folder for height metrics raster.",
-                            "description": "Output folder for height metrics raster (.tif).",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
-                },
-        {
-                    "name": "Finding Vegetation Coverage from Lidar data",
-                    "info": "Finding Vegetation Coverage from Lidar data using range of vegetation layer height.",
-                    "batch_processing": false,
-                    "tool_type": "python",
-                    "tool_api": "rpy_vegcoverage",
-                    "paramFile": "\\Scripts\\RPY_vegcoverage_params.txt",
-                    "image": "",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                    "parameters": [
-                        {
-                            "variable": "in_las_folder",
-                            "parameter": "Input LiDAR point cloud folder.",
-                            "description": "Input LiDAR point cloud folder.",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {   "variable": "is_normalized",
-                            "parameter": "Normalized lidar data",
-                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "out_folder",
-                            "parameter": "Output folder for the raster results.",
-                            "description": "Output folder for the raster results.",
-                            "type": "Directory",
-                            "typelab": "",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        },
-                        {
-                            "variable": "hmin",
-                            "parameter": "Minimum height",
-                            "description": "Minimum height of vegetation layer.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 3.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "hmax",
-                            "parameter": "Maximum height",
-                            "description": "Maximum height of vegetation layer.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 10.0,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "cell_size",
-                            "parameter": "Raster cell size",
-                            "description": "Output area based (cell size) raster of vegetation coverage.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 5.0,
-                            "output": false,
-                            "optional": false
-                        }
-                    ]
-                },
-        {
-                "name": "Percentage Returns above DBH",
-                "info": "Compute percentage of returns above DBH from Lidar data.",
-                "batch_processing": false,
-                "tool_type": "python",
-                "tool_api": "rpy_PercentaboveDBH",
-                "paramFile": "\\Scripts\\RPY_PercentaboveDBH_params.txt",
-                "image": "",
-                "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                "parameters": [
-                    {
-                        "variable": "in_las_folder",
-                        "parameter": "Input LiDAR point cloud folder.",
-                        "description": "Input LiDAR point cloud folder.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": false,
-                        "optional": false
-                    },
-                    {   "variable": "is_normalized",
-                            "parameter": "Normalized lidar data",
-                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": false
-                        },
-                    {
-                        "variable": "out_folder",
-                        "parameter": "Output folder for the raster results.",
-                        "description": "Output folder for the raster results.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": true,
-                        "optional": false
-                    },
-                    {
-                        "variable": "DBH",
-                        "parameter": "DBH height(m)",
-                        "description": "Define the DBH height in meter.",
-                        "type": "number",
-                        "typelab": "float",
-                        "default": 1.30,
-                        "output": false,
-                        "optional": false
-                    },
-                    {
-                        "variable": "cell_size",
-                        "parameter": "Raster cell size",
-                        "description": "Output area based (cell size) raster of vegetation coverage.",
-                        "type": "number",
-                        "typelab": "float",
-                        "default": 5.0,
-                        "output": false,
-                        "optional": false
-                    }
-                ]
-                },
-        {
-                "name": "Normalize Lidar data",
-                "info": "Normalize Lidar data using K-nearest neighbourhood Invert distance weighting (Knnidw).",
-                "batch_processing": false,
-                "tool_type": "python",
-                "tool_api": "rpy_nor_lidar_knnidw",
-                "paramFile": "\\Scripts\\rpy_nor_lidar_knnidw_params.txt",
-                "image": "",
-                "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                "parameters": [
-                    {
-                        "variable": "in_las_folder",
-                        "parameter": "Input folder",
-                        "description": "Input LiDAR point cloud folder.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": false,
-                        "optional": false
-                    },
-                    {
-                        "variable": "out_folder",
-                        "parameter": "Output folder",
-                        "description": "Output folder for the normalised lidar data results.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": true,
-                        "optional": false
-                    }
-                ]
-                },
-        {
-                "name": "Generate DSM or CHM from Lidar Data",
-                "info": "Generate DSM from de-normalized Lidar data or CHM from normalized Lidar data using TIN or PitFree algorithm.",
-                "batch_processing": false,
-                "tool_type": "python",
-                "tool_api": "rpy_dsm_chm_by",
-                "paramFile": "\\Scripts\\rpy_dsm_chm_by_params.txt",
-                "image": "",
-                "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                "parameters": [
-                    {
-                        "variable": "in_las_folder",
-                        "parameter": "Input folder",
-                        "description": "Input LiDAR point cloud folder.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": false,
-                        "optional": false
-                    },
-                    {   "variable": "is_normalized",
-                            "parameter": "Normalized lidar data",
-                            "description": "Indicate the input Lidar data is already height normalized.  Normalized step won't be carried.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": false,
-                            "output": false,
-                            "optional": false
-                    },
-                    {
-                        "variable": "out_folder",
-                        "parameter": "Output folder",
-                        "description": "Output folder for the DSM raster results.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": true,
-                        "optional": false
-                    },
-                    {
-                        "variable": "cell_size",
-                        "parameter": "Raster cell size",
-                        "description": "Output cell size of the raster.",
-                        "type": "number",
-                        "typelab": "float",
-                        "default": 1.0,
-                        "output": false,
-                        "optional": false
-                    },
-                    {   "variable": "style",
-                            "parameter": "By what algorithms",
-                            "description": "Select the algorithm to generate the DSM raster.",
-                            "type": "list",
-                            "typelab": "text",
-                            "data": ["tin", "pitfree"],
-                            "default": "tin",
-                            "output": false,
-                            "optional": false
-                    }
-                ]
-                },
-        {
-                "name": "Generate DTM from Lidar Data",
-                "info": "Generate DTM Lidar data using TIN, IDW or Kriging algorithm.",
-                "batch_processing": false,
-                "tool_type": "python",
-                "tool_api": "rpy_dtm_by",
-                "paramFile": "\\Scripts\\rpy_dsm_chm_by_params.txt",
-                "image": "",
-                "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
-                "parameters": [
-                    {
-                        "variable": "in_las_folder",
-                        "parameter": "Input folder",
-                        "description": "Input LiDAR point cloud folder.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": false,
-                        "optional": false
-                    },
-                    {
-                        "variable": "out_folder",
-                        "parameter": "Output folder",
-                        "description": "Output folder for the DSM raster results.",
-                        "type": "Directory",
-                        "typelab": "",
-                        "default": "",
-                        "output": true,
-                        "optional": false
-                    },
-                    {
-                        "variable": "cell_size",
-                        "parameter": "Raster cell size",
-                        "description": "Output cell size of the raster.",
-                        "type": "number",
-                        "typelab": "float",
-                        "default": 1.0,
-                        "output": false,
-                        "optional": false
-                    },
-                    {   "variable": "style",
-                            "parameter": "By what algorithms",
-                            "description": "Select the algorithm to generate the DSM raster.",
-                            "type": "list",
-                            "typelab": "text",
-                            "data": ["tin","idw", "kriging"],
-                            "default": "tin",
-                            "output": false,
-                            "optional": false
-                    }
-                ]
                 }
             ]
         },
