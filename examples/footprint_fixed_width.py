@@ -3,6 +3,7 @@
 
 import os
 import numpy as np
+import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point, LineString
 
@@ -59,7 +60,26 @@ def generate_perpendicular_line(point, line, offset=10):
     return perp_line
 
 
-def calculate_and_store_widths(shp_line, shp_poly, folder, n_samples=40, offset=30):
+def process_single_line(line_arg):
+    row = line_arg[0]
+    inter_poly = line_arg[1]
+    n_samples = line_arg[2]
+    offset = line_arg[3]
+
+    widths = calculate_average_width(row.geometry, inter_poly, n_samples, offset)
+
+    # Calculate the 75th percentile width
+    q3_width = np.percentile(widths, 75)
+    q4_width = np.percentile(widths, 90)
+
+    # Store the 75th percentile width as a new attribute
+    row['avg_width'] = q3_width
+    row['max_width'] = q4_width
+
+    return row
+
+
+def calculate_and_store_widths(shp_line, shp_poly, n_samples=40, offset=30):
     """
     Calculate the 75th percentile width for each line in a GeoDataFrame and
     store them as new attributes in the GeoDataFrame.
@@ -75,36 +95,44 @@ def calculate_and_store_widths(shp_line, shp_poly, folder, n_samples=40, offset=
     """
     line_gdf = gpd.read_file(shp_line)
     poly_gdf = gpd.read_file(shp_poly)
+    spatial_index = poly_gdf.sindex
+    line_args = []
 
     for i, row in line_gdf.iterrows():
         line = row.geometry
-        
+
         # Skip rows where geometry is None
         if line is None:
             print(row)
             continue
-            
-        widths = calculate_average_width(line, poly_gdf, n_samples, offset)
-        
-        # Calculate the 75th percentile width
-        q3_width = np.percentile(widths, 75)
-        q4_width = np.percentile(widths, 90)
-        
-        # Store the 75th percentile width as a new attribute
-        line_gdf.loc[i, 'avg_width'] = q3_width
-        line_gdf.loc[i, 'max_width'] = q4_width
+
+        inter_poly = poly_gdf.iloc[spatial_index.query(line)]
+        line_args.append([row, inter_poly, n_samples, offset])
+
+        # widths = calculate_average_width(row, inter_poly, n_samples, offset)
+        #
+        # # Calculate the 75th percentile width
+        # q3_width = np.percentile(widths, 75)
+        # q4_width = np.percentile(widths, 90)
+        #
+        # # Store the 75th percentile width as a new attribute
+        # line_gdf.loc[i, 'avg_width'] = q3_width
+        # line_gdf.loc[i, 'max_width'] = q4_width
+        # print('Line processed: {}'.format(i))
+        #
+    results = []
+    i = 0
+    for line in line_args:
+        result = process_single_line(line)
+        results.append(result)
         print('Line processed: {}'.format(i))
-    
-#     print(folder)
-    output_file_path = '{}/{}_{}'.format(folder, os.path.basename(shp_line)[:-4], 'attr.shp')
-    
-    print('Line with width attributes saved to... ', output_file_path)
-    line_gdf.to_file(output_file_path)
-    
-    return line_gdf, output_file_path 
+        i += 1
+
+    out_lines = gpd.GeoDataFrame(results)
+    return out_lines
 
 
-def create_and_save_buffer(line_gdf, shp_line_attr, max_width=True):
+def create_and_save_buffer(line_gdf, shp_footprint, max_width=True):
     """
     Creates a buffer around each line in the GeoDataFrame using its 'max_width' attribute and
     saves the resulting polygons in a new shapefile.
@@ -114,7 +142,6 @@ def create_and_save_buffer(line_gdf, shp_line_attr, max_width=True):
     - output_file_path: The path where the output shapefile will be stored.
     """
     # Create a new GeoDataFrame with the buffer polygons
-    # line_gdf = gpd.read_file(shp_line_attr)
     buffer_gdf = line_gdf.copy()
     
     mean_avg_width = line_gdf['avg_width'].mean()
@@ -130,11 +157,7 @@ def create_and_save_buffer(line_gdf, shp_line_attr, max_width=True):
         print('Using quantile 90% + 20% width')
         buffer_gdf['geometry'] = line_gdf.apply(lambda row: row.geometry.buffer(row.max_width * 1.2 / 2) if row.geometry is not None else None, axis=1)
 
-    output_file_path = shp_line_attr[:-4]+'_buf.shp'
-    # Save the buffer polygons to a new shapefile
-    buffer_gdf.to_file(output_file_path)
-    
-    return output_file_path
+    return buffer_gdf
 
 
 def smooth_linestring(line, tolerance=1.0):
@@ -196,20 +219,19 @@ def calculate_average_width(line, polygon, offset, n_samples):
 # the resulting width in the GeoDataFrame.
 
 if __name__ == '__main__':
-    shp_polyfolder = r'D:\Temp\test-ecosite\footprint'
-    shp_linefolder = r'D:\Temp\test-ecosite\line'
-    folder = r'D:\Temp\test-ecosite\output'
+    shp_poly = r'D:\Temp\test-ecosite\footprint_rel.shp'
+    shp_line = r'D:\Temp\test-ecosite\centerline_attr.shp'
+    shp_line_attr = r'D:\Temp\test-ecosite\fixed_width_line_attr.shp'
+    shp_footprint = r'D:\Temp\test-ecosite\fixed_width_footprint.shp'
 
-    shp_polylist = [r'D:\Temp\test-ecosite\footprint\footprint_rel.shp']
-    shp_linelist = [r'D:\Temp\test-ecosite\line\centerline_attr.shp']
+    # Read the shapefiles
+    line_attr = calculate_and_store_widths(shp_line, shp_poly, n_samples=10, offset=10)
 
-    for i in range(len(shp_linelist)):
-        print(f'Working with {shp_linelist[i]}')
-        # Read the shapefiles
-        shp_line = shp_linelist[i]
-        shp_poly = shp_polylist[i]
+    # create fixed width footprint
+    buffer_gdf = create_and_save_buffer(line_attr, shp_footprint, max_width=True)
 
-        line_attr, output_file_path = calculate_and_store_widths(shp_line, shp_poly, folder, n_samples=10, offset=10)
+    print('Line with width attributes saved to... ', shp_line_attr)
+    line_attr.to_file(shp_line_attr)
 
-        # Example usage:
-        output_buffered = create_and_save_buffer(line_attr, output_file_path, max_width=True)
+    # Save the buffer polygons to a new shapefile
+    buffer_gdf.to_file(shp_footprint)
