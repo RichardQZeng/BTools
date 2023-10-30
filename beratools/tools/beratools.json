@@ -1013,12 +1013,12 @@
                             "output": false,
                             "optional": true
                         },
-                        {   "variable": "cl_matrix_gap",
+                        {   "variable": "cl_metrics_gap",
                             "parameter": "Gap between CL's buffer and matrix",
                             "description": "The gap between CL. buffer edge to its adjacent forest matrix.",
                             "type": "list",
                             "typelab": "int",
-                            "data": [1,2,3,4,5],
+                            "data": [1,2,3,5,10,25],
                             "default": 3,
                             "output": false,
                             "optional": true
