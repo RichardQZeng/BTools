@@ -410,7 +410,7 @@ def multiprocessing_metrics(df, in_raster, raster_type, processes, side):
             line_arg.append(item_list)
         features = []
         chunksize = math.ceil(total_steps / processes)
-        # USE_MULTI_PROCESSING=False
+
         if USE_MULTI_PROCESSING:
             with Pool(processes=int(processes)) as pool:
 
@@ -451,7 +451,7 @@ def multiprocessing_metrics(df, in_raster, raster_type, processes, side):
                 elif "R_" in col:
                     new_col.append(col)
 
-                return df, new_col
+            return df, new_col
 
     except OperationCancelledException:
         print("Operation cancelled")
@@ -510,37 +510,37 @@ def cal_metrics(line_arg):
                 min=numpy.nanmin(filled_raster)
 
             del clipped_raster, out_transform
-        del image
+
     # return the generated value
     except:
         print(sys.exc_info())
     try:
         # Writing SAR statisic
-        df.loc[row_index, PerCol + '_SurArea'] = total_surface_area
-        df.loc[row_index, PerCol + '_SARmean'] = SAR_mean
-        # df.loc[row_index, PerCol + '_SARP90'] = SAR_percentile90
-        # df.loc[row_index, PerCol + '_SARmed'] = SAR_median
-        df.loc[row_index, PerCol + '_SARStd'] = SAR_std
-        df.loc[row_index, PerCol + '_SARmax'] = SAR_max
-        df.loc[row_index, PerCol + '_SARmin'] = SAR_min
+        df.at[row_index, PerCol + '_SurArea'] = total_surface_area
+        df.at[row_index, PerCol + '_SARmean'] = SAR_mean
+        # df.at[row_index, PerCol + '_SARP90'] = SAR_percentile90
+        # df.at[row_index, PerCol + '_SARmed'] = SAR_median
+        df.at[row_index, PerCol + '_SARStd'] = SAR_std
+        df.at[row_index, PerCol + '_SARmax'] = SAR_max
+        df.at[row_index, PerCol + '_SARmin'] = SAR_min
 
         # Writing TRI statisic
-        # df.loc[row_index, PerCol + '_TRImean'] = TRI_mean
-        # # df.loc[row_index, PerCol + '_TRIP90'] = TRI_percentile90
-        # # df.loc[row_index, PerCol + '_TRImed'] = TRI_median
-        # df.loc[row_index, PerCol + '_TRIStd'] = TRI_std
-        # df.loc[row_index, PerCol + '_TRImax'] = TRI_max
-        # df.loc[row_index, PerCol + '_TRImin'] = TRI_min
+        # df.at[row_index, PerCol + '_TRImean'] = TRI_mean
+        # # df.at[row_index, PerCol + '_TRIP90'] = TRI_percentile90
+        # # df.at[row_index, PerCol + '_TRImed'] = TRI_median
+        # df.at[row_index, PerCol + '_TRIStd'] = TRI_std
+        # df.at[row_index, PerCol + '_TRImax'] = TRI_max
+        # df.at[row_index, PerCol + '_TRImin'] = TRI_min
 
         # Writing General statisic
-        df.loc[row_index, PerCol + '_PlArea'] = total_planar_area
-        df.loc[row_index, PerCol + '_mean'] = mean
-        # df.loc[row_index, PerCol + '_P90'] = percentile90
-        # df.loc[row_index, PerCol + '_median'] = median
-        df.loc[row_index, PerCol + '_StdDev'] = std
-        df.loc[row_index, PerCol + '_max'] = max
-        df.loc[row_index, PerCol + '_min'] = min
-        # df.loc[row_index, PerCol + '_Vol'] = total_volume
+        df.at[row_index, PerCol + '_PlArea'] = total_planar_area
+        df.at[row_index, PerCol + '_mean'] = mean
+        # df.at[row_index, PerCol + '_P90'] = percentile90
+        # df.at[row_index, PerCol + '_median'] = median
+        df.at[row_index, PerCol + '_StdDev'] = std
+        df.at[row_index, PerCol + '_max'] = max
+        df.at[row_index, PerCol + '_min'] = min
+        # df.at[row_index, PerCol + '_Vol'] = total_volume
 
         return df
     except:
@@ -584,12 +584,6 @@ if __name__ == '__main__':
     start_time = time.time()
     print('Starting forest metrics calculation processing\n @ {}'.format(
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
-
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-i', '--input', type=json.loads)
-    # parser.add_argument('-p', '--processes')
-    # parser.add_argument('-v', '--verbose')
-    # args = parser.parse_args()
 
     print("Checking input parameters....")
     in_args, in_verbose = check_arguments()
