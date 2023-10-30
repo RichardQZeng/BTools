@@ -639,8 +639,18 @@
                             "parameter": "Sampling number",
                             "description": "Sampling number for each line.",
                             "type": "number",
-                            "typelab": "number",
+                            "typelab": "int",
                             "default": 10,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+                            "variable": "offset",
+                            "parameter": "Perpendicular line length",
+                            "description": "The length of the perpendicular line",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 10.0,
                             "output": false,
                             "optional": true
                         },

@@ -48,12 +48,8 @@ def execute_multiprocessing():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=json.loads)
-    parser.add_argument('-p', '--processes')
-    parser.add_argument('-v', '--verbose')
-    args = parser.parse_args()
-
-    verbose = True if args.verbose == 'True' else False
-    tool_name(print, **args.input, processes=int(args.processes), verbose=verbose)
+    in_args, in_verbose = check_arguments()
+    start_time = time.time()
+    tool_name(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    print('Elapsed time: {}'.format(time.time() - start_time))
 
