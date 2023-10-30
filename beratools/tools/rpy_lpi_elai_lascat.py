@@ -172,26 +172,24 @@ def r_lpi_lai_with_focalR(arg):
     # At this stage no process for CHM
 
     print("Calculating LPI adn eLAI: {} ... Done".format(filename))
-def f_pulse_density(ctg, out_folder, processes, verbose):
+def f_pulse_density(ctg, out_folder, rprocesses, verbose):
     r = robjects.r
     print('Calculate cell size from average point cloud density...')
     cache_folder = os.path.join(out_folder, "Cache")
     # assign R script file to local variable
-    r_pd_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r_point_density.r')
+    beratools_r_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Beratools_r_script.r')
     # Defining the R script and loading the instance in Python
-    r['source'](r_pd_script)
+    r['source'](beratools_r_script)
     # Loading the function defined in R script.
-    rpd_routine = robjects.globalenv['pd_routine']
+    pd2cellsize = robjects.globalenv['pd2cellsize']
     # Invoking the R function
-    list_pd=rpd_routine(ctg)
+    cell_size=pd2cellsize(ctg,rprocesses)
 
-    pulse_density=numpy.nanmean(numpy.array(list_pd))
-
-    # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
-    mean_pd = math.pow(3 / pulse_density, 1 / 2)
-    # mean_pd = math.pow(5 / pulse_density, 1 / 2)
-    result = round(0.05 * round(mean_pd / 0.05), 2)
-    return (result)
+    # # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
+    # mean_pd = math.pow(3 / pulse_density, 1 / 2)
+    # # mean_pd = math.pow(5 / pulse_density, 1 / 2)
+    # result = round(0.05 * round(mean_pd / 0.05), 2)
+    return (cell_size)
 
 def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, focal_radius, pulse_density,
               cell_size, mean_scanning_angle, out_folder, processes, verbose):
@@ -256,7 +254,7 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
 
     if cell_size<=0:
         if pulse_density<=0:
-            cell_size=f_pulse_density(lascat,out_folder,processes, verbose)
+            cell_size=f_pulse_density(lascat,out_folder,rprocesses, verbose)
 
     #assign R script file to local variable
     generate_pd_Rscript=os.path.join(os.path.dirname(os.path.abspath(__file__)),'r_generate_pd_focalraster.r')
