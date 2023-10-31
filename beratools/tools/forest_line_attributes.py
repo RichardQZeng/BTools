@@ -22,9 +22,10 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
     in_ln_shp = geopandas.GeoDataFrame.from_file(args['in_line'])
 
     # Check the OLnFID column in data. If it is not, column will be created
-    if not 'OLnFID' in in_ln_shp.columns.array:
+    if 'OLnFID' not in in_ln_shp.columns.array:
         if BT_DEBUGGING:
             print("Cannot find {} column in input line data")
+
         print("New column created: {}".format('OLnFID', 'OLnFID'))
         in_ln_shp['OLnFID'] = in_ln_shp.index
 
@@ -42,7 +43,7 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
     i = 0
     j = 0
 
-    # Prepare line for arbitrary splitted lines
+    # Prepare line for arbitrary split lines
     if args['sampling_type'] == 'ARBITRARY':
         # loop thought all the record in input centerlines
         for row in range(0, len(in_cl_line)):
@@ -73,7 +74,7 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
             # replace row record's line geometry of into multipoint geometry
             in_cl_splittpoint.loc[row, 'geometry'] = shapely.multipoints(points)
 
-            # Split the input line base on the splitted points
+            # Split the input line base on the split points
             # extract points coordinates into list of point GeoSeries
             listofpoint = shapely.geometry.mapping(in_cl_splittpoint.loc[row, 'geometry'])['coordinates']
 
@@ -116,7 +117,6 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
                 else:
                     in_cl_splitline.loc[j, 'geometry'] = seg.geoms[-1]
 
-                # if not HasOLnFID:
                 if not HasOLnFID:
                     in_cl_splitline.loc[j, 'OLnFID'] = row
 
@@ -169,6 +169,7 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
     else:  # Return Line as input and create two columns as Primary Key
         if not HasOLnFID:
             in_cl_line['OLnFID'] = in_cl_line.index
+
         in_cl_line['OLnSEG'] = 0
         in_cl_line.reset_index()
 
@@ -365,7 +366,7 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
 def identity_polygon(line_args):
     in_cl_buffer = line_args[0][['geometry', 'OLnFID', 'OLnSEG']]
     in_fp_polygon = line_args[1]
-    if not 'OLnSEG' in in_fp_polygon.columns.array:
+    if 'OLnSEG' not in in_fp_polygon.columns.array:
         in_fp_polygon = in_fp_polygon.assign(OLnSEG=0)
 
     identity = None
@@ -385,8 +386,7 @@ def identity_polygon(line_args):
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Starting attribute Forest Line Attributes \n@ {}'.format(
-        time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
+    print('Line Attributes started at {}'.format(time.strftime("%b %Y %H:%M:%S", time.localtime())))
 
     # Get tool arguments
     parser = argparse.ArgumentParser()
@@ -435,7 +435,7 @@ if __name__ == '__main__':
             in_fp_shp = in_fp_shp.rename(columns={'Fr_Orig_ln': 'OLnFID'})
             in_fp_shp[['OLnFID']] = in_fp_shp[['OLnFID']].astype(int)
             HasOLnFID = True
-        else:  # future code: get the original centerlines ID and write into subset of centerlines column "OLnFID"
+        else:  # TODO: get the original centerlines ID and write into subset of centerlines column "OLnFID"
             HasOLnFID = False
             print("Please prepare original line feature's ID (FID) ...")
             exit()
@@ -466,7 +466,8 @@ if __name__ == '__main__':
     # Segment lines
     print("Input_Lines: {}".format(in_cl))
 
-    # Return splitted lines with two extra columns:['OLnFID','OLnSEG'] or return Dissolved whole line
+    # Return split lines with two extra columns:['OLnFID','OLnSEG']
+    # or return Dissolved whole line
     Att_seg_lines, Straight_lines = AttLineSplit(print, HasOLnFID, processes=int(args.processes),
                                                  verbose=verbose, **args.input)
 
@@ -504,17 +505,17 @@ if __name__ == '__main__':
                 elif len(selected_fp) == 1:
                     dissolved_fp = selected_fp
                 else:
-                    print('No match!!!')
+                    print('No match!')
                     dissolved_fp = geopandas.GeoDataFrame()
-                dissolved_line=""
+                dissolved_line = ""
                 for line in fp_list:
-                    dissolved_line=dissolved_line+str(line)+" "
+                    dissolved_line = dissolved_line+str(line)+" "
 
                 dissolved_fp = dissolved_fp.assign(Dis_OLnFID=[dissolved_line])
                 dissolved_fp = dissolved_fp.assign(Disso_ID=[line_index])
                 all_matched_fp.append(dissolved_fp)
             in_fp_shp = geopandas.GeoDataFrame(pandas.concat(all_matched_fp))
-            in_fp_shp=in_fp_shp.reset_index(drop=True)
+            in_fp_shp = in_fp_shp.reset_index(drop=True)
             print('%{}'.format(20))
 
             # buffer whole ln for identify footprint polygon
@@ -530,9 +531,8 @@ if __name__ == '__main__':
     # Create a emtpy geodataframe for identity polygon
     result_identity = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_cl_buffer.crs)
     result_Att = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_cl_buffer.crs)
-    print(
-        "There are {} original footprint to be identified by {} segment lines ...".format(len(in_fp_shp.index),
-                                                                                          len(in_cl_buffer)))
+    print("{} original footprint to be identified by {} segment lines ...".format(len(in_fp_shp.index),
+                                                                                  len(in_cl_buffer)))
     print('%{}'.format(30))
 
     # Prepare line parameters for multiprocessing
@@ -567,18 +567,13 @@ if __name__ == '__main__':
         in_cl_buffer['OLnSEG'] = in_cl_buffer['OLnSEG'].astype(int)
 
     for row in in_cl_buffer.index:
-        list_item = []
+        list_item = [in_cl_buffer.iloc[[row]],
+                     in_fp_shp.query(query_col1 + "=={}".format(in_cl_buffer.loc[row, query_col1]))]
 
-        list_item.append(in_cl_buffer.iloc[[row]])
-        list_item.append(in_fp_shp.query(query_col1 + "=={}".format(in_cl_buffer.loc[row, query_col1])))
+        # list_item.append(in_cl_buffer.iloc[[row]])
+        # list_item.append(in_fp_shp.query(query_col1 + "=={}".format(in_cl_buffer.loc[row, query_col1])))
 
         line_args.append(list_item)
-
-    # Sequence processing identity polygon
-    # total_steps = len(line_args)
-    # features = []
-    # for row in range(0,total_steps):
-    #     features.append(identity_polygon(line_args[row]))
 
     # Multiprocessing identity polygon
     try:
@@ -604,15 +599,16 @@ if __name__ == '__main__':
     # prepare list of result_identity, Att_seg_lines, areaAnalysis, heightAnalysis, args.input
     line_args = []
     for index in range(0, len(features)):
-        list_item = []
-        list_item.append(features[index])
-        list_item.append(Att_seg_lines)
-        list_item.append(areaAnalysis)
-        list_item.append(heightAnalysis)
-        list_item.append(args.input)
+        list_item = [features[index], Att_seg_lines, areaAnalysis, heightAnalysis, args.input]
+        # list_item.append(features[index])
+        # list_item.append(Att_seg_lines)
+        # list_item.append(areaAnalysis)
+        # list_item.append(heightAnalysis)
+        # list_item.append(args.input)
+
         line_args.append(list_item)
 
-        # ##Linear attributes
+        # Linear attributes
     print("Adding attributes ...")
     print('%{}'.format(60))
 
