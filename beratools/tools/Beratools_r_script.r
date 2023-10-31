@@ -258,24 +258,26 @@ pd2cellsize <- function(in_las_folder,rprocesses){
 
 
   print("Calculate raster output's average cell size from point density...")
-  if (is(in_las_folder,"LAS") & is(in_las_folder, "LAScatalog"))
+  if (is(in_las_folder,"LAS") || is(in_las_folder, "LAScatalog"))
         {ctg<-in_las_folder}
     else{ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')}
 
-  find_cellsize<-function(chunk){
-    las <- readLAS(chunk)
-
-    if (is.empty(las)) return(NULL)
-    las <- retrieve_pulses(las)
-    output <- density(las)[1]
-    # output is a list
-
-  return(list(output))
-  }
-  opt_progress(ctg) <- TRUE
-  pd_list<-catalog_apply(ctg,find_cellsize)
-  pulse_density<-mean(unlist(pd_list))
-  mean_pd = (3 / pulse_density)^(1 / 2)
+#   find_cellsize<-function(chunk){
+#     las <- readLAS(chunk)
+#
+#     if (is.empty(las)) return(NULL)
+#     las <- retrieve_pulses(las)
+#     output <- density(las)[1]
+#     # output is a list
+#
+#   return(list(output))
+#   }
+#   opt_progress(ctg) <- TRUE
+#   pd_list<-catalog_apply(ctg,find_cellsize)
+#   pulse_density<-mean(unlist(pd_list))
+# mean_pd = (3 / pulse_density)^(1 / 2)
+  point_density<- sum(ctg@data$Number.of.point.records)/st_area(ctg)
+  mean_pd = (3 / point_density)^(1 / 2)
   cell_size = round(0.05 * round(mean_pd / 0.05), 2)
   return(cell_size)
 }
@@ -575,6 +577,44 @@ normalized_lidar_knnidw <- function(in_las_folder,out_folder,rprocesses){
      # reset R mutilsession back to default
     plan("default")
 }
+##########################################################################
+normalized_lidar_tin <- function(in_las_folder,out_folder,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+    #read Las file and drop any noise from the point cloud
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/normalized/n_{*}")
+    print("Normalize lidar data...")
+    opt_progress(ctg) <- TRUE
+
+    n_las<-normalize_height(ctg,algorithm=tin())
+     # reset R mutilsession back to default
+    plan("default")
+}
+##########################################################################
+normalized_lidar_kriging <- function(in_las_folder,out_folder,rprocesses){
+    update.packages(list('lidR','future'))
+    library(lidR)
+    library(future)
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+
+    #read Las file and drop any noise from the point cloud
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/normalized/n_{*}")
+    print("Normalize lidar data...")
+    opt_progress(ctg) <- TRUE
+    n_las<-normalize_height(ctg,algorithm=kriging())
+     # reset R mutilsession back to default
+    plan("default")
+}
+
 #########################################################################################
 chm_by_dsmtin <- function(in_las_folder,out_folder,cell_size,is_normalized,rprocesses){
     update.packages(list('lidR','future'))
@@ -684,7 +724,7 @@ dtm_by_tin <- function(in_las_folder,out_folder,cell_size,rprocesses){
     plan("default")
     }
   ###########################################################################################
-  saveas_las <- function(in_las_folder,out_folder,rprocesses){
+  laz2las <- function(in_las_folder,out_folder,rprocesses){
     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
@@ -696,15 +736,37 @@ dtm_by_tin <- function(in_las_folder,out_folder,cell_size,rprocesses){
     las <- readLAS(chunk)
 
     if (is.empty(las)) return(NULL)
-    writeLAS(las)}
+    return(las)}
 
     #read Las file and drop any noise from the point cloud
-    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    ctg<- readLAScatalog(in_las_folder)
     opt_output_files(ctg)<- opt_output_files(ctg)<-paste0(out_folder,"/las/{*}")
-    ctg@output_options$driver$LAS$extension <- ".las"
-    print("Normalize lidar data...")
+    opt_laz_compression(ctg)<- FALSE
+    print("Saving liDAR data ...")
     opt_progress(ctg) <- TRUE
-    ctg1<-catalog_apply(ctg,mywriteLAS)
-     # reset R mutilsession back to default
+    catalog_apply(ctg,mywriteLAS)
+    # reset R mutilsession back to default
     plan("default")
 }
+#############################################################
+las_info<-function(in_las_folder,rprocesses){
+    library(lidR)
+    library(future)
+    update.packages(list('lidR','future'))
+
+
+    plan(multisession,workers=rprocesses)
+    set_lidr_threads(rprocesses)
+    print("loading LiDAR Data")
+    ctg<- readLAScatalog(in_las_folder,filter='-drop_class 7')
+    print(paste0("Data format: v",(ctg@data$Version.Major[1]),".",(ctg@data$Version.Minor[1])))
+    print(paste0("Extent: ",min(ctg@data$Min.X)," ",max(ctg@data$Max.X)," ",min(ctg@data$Min.Y)," ",max(ctg@data$Max.Y)))
+    print(paste0("Area: ",round(st_area(ctg)/(1000*1000),2)," kunits²"))
+    print(paste0("Total Pts: ",sum(ctg@data$Number.of.point.records)))
+    print(paste0("Density: ",round(sum(ctg@data$Number.of.point.records)/st_area(ctg),0)," pts/units²"))
+    print(paste0("Total num. files: ",length(ctg@data$filename)))
+
+
+
+}
+
