@@ -20,7 +20,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
-def normalized_lidar_knnidw(callback,in_las_folder,out_folder, processes, verbose):
+def normalized_lidar(callback,in_las_folder,out_folder,style, processes, verbose):
 
     r = robjects.r
     import psutil
@@ -44,10 +44,15 @@ def normalized_lidar_knnidw(callback,in_las_folder,out_folder, processes, verbos
     # Defining the R script and loading the instance in Python
     r['source'](Beratools_R_script)
     # Loading the function defined in R script.
-    r_nor_lidar_knnidw = robjects.globalenv['normalized_lidar_knnidw']
+    if style=='tin':
+        r_normalized_lidar = robjects.globalenv['normalized_lidar_knnidw']
+    elif style == 'knnidw':
+        r_normalized_lidar = robjects.globalenv['normalized_lidar_tin']
+    else:
+        r_normalized_lidar = robjects.globalenv['normalized_lidar_kriging']
 
     # Invoking the R function
-    r_nor_lidar_knnidw(in_las_folder, out_folder, rprocesses)
+    r_normalized_lidar(in_las_folder, out_folder, rprocesses)
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -76,6 +81,12 @@ if __name__ == '__main__':
     print("Checking input parameters....")
     in_args, in_verbose = check_arguments()
 
+    if in_args.input["style"] in ["tin","knnidw", "kriging"]:
+        style=in_args.input["style"]
+    else:
+        print("Warning! invalid alogrithm, default algorthim will be used.")
+        in_args.input["style"]="tin"
+
     in_las_folder=in_args.input["in_las_folder"]
 
     out_folder=in_args.input["out_folder"]
@@ -99,7 +110,7 @@ if __name__ == '__main__':
 
     print("Checking input parameters....Done")
 
-    normalized_lidar_knnidw(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    normalized_lidar(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 
     print('Normalize Lidar data processing is done in {} seconds)'
           .format(round(time.time() - start_time, 5)))
