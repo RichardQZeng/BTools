@@ -41,7 +41,7 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
     # Generate points along merged input line (with start/ end point) base on user Segment Length
     i = 0
     j = 0
-    # Prepare line for arbitrary splited lines
+    # Prepare line for arbitrary splitted lines
     if args['sampling_type'] == 'ARBITRARY':
         # loop thought all the record in input centerlines
         for row in range(0, len(in_cl_line)):
@@ -50,10 +50,11 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
             # get geometry's length from record
             in_line_length = in_cl_line.loc[row, 'geometry'].length
             if 0.0 <= in_line_length <= float(args["seg_len"]):
-                # if input line is shoter than the set arbitrary distance, get the start and end points from input line
+                # if input line is shorter than the set arbitrary distance, get the start and end points from input line
                 points = [shapely.Point(in_ln_feat.coords[0]), shapely.Point(in_ln_feat.coords[-1])]
             else:
-                # if input line is longer than the set arbitrary distance, get the arbitrary distance list along input line
+                # if input line is longer than the set arbitrary distance,
+                # get the arbitrary distance list along input line
                 distances = numpy.arange(0, in_line_length, float(args["seg_len"]))
                 # append line's end point into numpy array
                 if distances[-1] < in_line_length:
@@ -67,8 +68,8 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
             # replace row record's line geometry of into multipoint geometry
             in_cl_splittpoint.loc[row, 'geometry'] = shapely.multipoints(points)
 
-            # Split the input line base on the splited points
-            # extract points coordinates into list of point Geoseries
+            # Split the input line base on the splitted points
+            # extract points coordinates into list of point GeoSeries
             listofpoint = shapely.geometry.mapping(in_cl_splittpoint.loc[row, 'geometry'])['coordinates']
 
             # Generate split lines (straight line) from points
@@ -132,8 +133,8 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
 
         identical_segs = in_cl_dissolved.sjoin(in_cl_line, predicate='covered_by')
         identical_segs['Disso_ID'] = identical_segs.index
-        columns = list(col for col in identical_segs.columns if
-                       not col in ['geometry', 'index_right', 'Shape_Leng', 'Shape_Le_1', 'len'])
+        columns = list(col for col in identical_segs.columns
+                       if col not in ['geometry', 'index_right', 'Shape_Leng', 'Shape_Le_1', 'len'])
         identical_segs = pandas.DataFrame(identical_segs[columns])
         identical_segs.reset_index()
 
@@ -456,22 +457,20 @@ if __name__ == '__main__':
     # Segment lines
     print("Input_Lines: {}".format(in_cl))
 
-    # Return splited lines with two extra columns:['OLnFID','OLnSEG'] or return Dissolved whole line
-
-    Att_seg_lines, Straight_lines = AttLineSplit(print, HasOLnFID, processes=int(args.processes), verbose=verbose,
-                                                 **args.input)
+    # Return splitted lines with two extra columns:['OLnFID','OLnSEG'] or return Dissolved whole line
+    Att_seg_lines, Straight_lines = AttLineSplit(print, HasOLnFID, processes=int(args.processes),
+                                                 verbose=verbose, **args.input)
 
     print('%{}'.format(10))
 
     if args.input["sampling_type"] != "LINE-CROSSINGS":
-
         if areaAnalysis:
             # #load in the footprint shapefile
             # in_fp_shp=geopandas.GeoDataFrame.from_file(in_fp)
 
             print('%{}'.format(20))
 
-            # Buffer seg straigth line or whole ln for identify footprint polygon
+            # Buffer seg straight line or whole ln for identify footprint polygon
             if isinstance(Straight_lines, geopandas.GeoDataFrame):
                 in_cl_buffer = geopandas.GeoDataFrame.copy(Straight_lines)
                 in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
@@ -667,10 +666,10 @@ if __name__ == '__main__':
 
     print('%{}'.format(90))
     print('Saving output ...')
+
     # Save attributed lines
     geopandas.GeoDataFrame.to_file(output_att_line, args.input['out_line'])
 
     print('%{}'.format(100))
-    print('Finishing Forest Line Attributes processing @ {}\n (or in {} second)'.format(time.strftime("%d %b %Y %H:%M:%S"
-                                                                                       , time.localtime()),
-                                                                         round(time.time() - start_time, 5)))
+    print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
+    print('Line Attributes processing done in {} seconds)'.format(round(time.time() - start_time, 5)))
