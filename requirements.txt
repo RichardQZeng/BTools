@@ -8,6 +8,7 @@ numba
 numpy
 Pillow
 pip
+psutil
 pyqt
 pyqtlet2
 rasterio
@@ -16,6 +17,7 @@ rpy2
 r-base
 r-essentials
 r-lidr
+r-terra
 scikit-image
 scipy
 setuptools
