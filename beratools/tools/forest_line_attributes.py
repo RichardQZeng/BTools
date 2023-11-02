@@ -232,8 +232,9 @@ def findBearing(seg):  # Geodataframe
 
 
 def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,heightAnalysis,**args):
-    result_identity = line_args[0]
-    Att_seg_lines = line_args[1]
+    Att_seg_lines = line_args[0]
+    result_identity = line_args[1]
+
     areaAnalysis = line_args[2]
     heightAnalysis = line_args[3]
     args = line_args[4]
@@ -249,6 +250,9 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
             cell_size_x = in_chm_file.transform[0]
             cell_size_y = -in_chm_file.transform[4]
 
+            # merge result_identity
+            result_identity = result_identity.dissolve()
+
             for index in result_identity.index:
                 fp = result_identity.iloc[index].geometry
                 if 'Disso_ID' in result_identity.columns.array and 'Disso_ID' in result_identity.columns.array:
@@ -259,7 +263,8 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
                 else:
                     query_str = "OLnFID=={}".format(result_identity.iloc[index].OLnFID)
 
-                selected_segLn = Att_seg_lines.query(query_str)
+                # selected_segLn = Att_seg_lines.query(query_str)
+                selected_segLn = Att_seg_lines[Att_seg_lines.geometry.intersects(fp)]
 
                 # Check if query result is not empty, if empty input identity footprint will be skipped
                 if len(selected_segLn.index) > 0:
@@ -322,7 +327,7 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
                     result_identity.loc[index, "Volume"] = chm_sum * OnecellArea
                     result_identity.loc[index, "Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sqStdPop)
 
-                del selected_segLn
+                # del selected_segLn
 
     else:
         # No CHM
@@ -330,7 +335,8 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
 
             query_str = "OLnFID=={} and OLnSEG=={}".format(result_identity.iloc[index].OLnFID,
                                                            result_identity.iloc[index].OLnSEG)
-            selected_segLn = Att_seg_lines.query(query_str)
+            # selected_segLn = Att_seg_lines.query(query_str)
+            selected_segLn = Att_seg_lines[Att_seg_lines.geometry.intersects(fp)]
 
             if len(selected_segLn.index) > 0:
                 line_feat = selected_segLn['geometry'].iloc[0]
@@ -355,17 +361,21 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
                     result_identity.loc[index, "Fragment"] = numpy.nan
 
                 result_identity.loc[index, "AvgHeight"] = numpy.nan
+
                 result_identity.loc[index, "Volume"] = numpy.nan
                 result_identity.loc[index, "Roughness"] = numpy.nan
 
-            del selected_segLn
+            # del selected_segLn
 
+    # result_identity = result_identity.drop(columns='geometry')
+    result_identity['geometry'] = selected_segLn.iloc[0].geometry
     return result_identity
 
 
 def identity_polygon(line_args):
-    in_cl_buffer = line_args[0][['geometry', 'OLnFID', 'OLnSEG']]
-    in_fp_polygon = line_args[1]
+    line = line_args[0]
+    in_cl_buffer = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
+    in_fp_polygon = line_args[2]
     if 'OLnSEG' not in in_fp_polygon.columns.array:
         in_fp_polygon = in_fp_polygon.assign(OLnSEG=0)
 
@@ -381,7 +391,7 @@ def identity_polygon(line_args):
     except Exception as e:
         print(e)
 
-    return identity
+    return line, identity
 
 
 if __name__ == '__main__':
@@ -560,15 +570,21 @@ if __name__ == '__main__':
         in_cl_buffer['OLnFID'] = in_cl_buffer['OLnFID'].astype(int)
         in_cl_buffer['OLnSEG'] = in_cl_buffer['OLnSEG'].astype(int)
     else:
-
         in_fp_shp['Disso_ID'] = in_fp_shp['Disso_ID'].astype(int)
         in_fp_shp['OLnFID'] = in_fp_shp['OLnFID'].astype(int)
         in_cl_buffer['Disso_ID'] = in_cl_buffer['Disso_ID'].astype(int)
         in_cl_buffer['OLnSEG'] = in_cl_buffer['OLnSEG'].astype(int)
 
-    for row in in_cl_buffer.index:
-        list_item = [in_cl_buffer.iloc[[row]],
-                     in_fp_shp.query(query_col1 + "=={}".format(in_cl_buffer.loc[row, query_col1]))]
+    # footprint spatial index
+    footprint_sindex = in_fp_shp.sindex
+    # for i in in_cl_buffer.index:
+    for i in Att_seg_lines.index:
+        # line_buffer = in_cl_buffer.iloc[[i]]  # Get GeoDataFrame for overlay operations later
+        line = Att_seg_lines.iloc[[i]]
+        line_buffer = line.copy()
+        line_buffer['geometry'] = line.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+        fp_intersected = in_fp_shp.iloc[footprint_sindex.query(line_buffer.iloc[0].geometry)]
+        list_item = [line, line_buffer, fp_intersected]
 
         # list_item.append(in_cl_buffer.iloc[[row]])
         # list_item.append(in_fp_shp.query(query_col1 + "=={}".format(in_cl_buffer.loc[row, query_col1])))
@@ -599,7 +615,7 @@ if __name__ == '__main__':
     # prepare list of result_identity, Att_seg_lines, areaAnalysis, heightAnalysis, args.input
     line_args = []
     for index in range(0, len(features)):
-        list_item = [features[index], Att_seg_lines, areaAnalysis, heightAnalysis, args.input]
+        list_item = [features[index][0], features[index][1], areaAnalysis, heightAnalysis, args.input]
         # list_item.append(features[index])
         # list_item.append(Att_seg_lines)
         # list_item.append(areaAnalysis)
@@ -635,35 +651,39 @@ if __name__ == '__main__':
         exit()
 
     # Combine identity polygons into once geodataframe
+    if len(features) == 0:
+        print('No lines found.')
+        exit()
+
     result_Att = geopandas.GeoDataFrame(pandas.concat(features, ignore_index=True))
     result_Att.reset_index()
     print('Attribute done.')
     print('%{}'.format(80))
 
-    footprint_att = pandas.DataFrame(result_Att.drop(columns='geometry'))
+    # footprint_att = pandas.DataFrame(result_Att.drop(columns='geometry'))
 
     # Clean the split line attribute columns
-    del_list = list(col for col in footprint_att.columns if
+    del_list = list(col for col in result_Att.columns if
                     col not in ['OLnFID', 'OLnSEG', 'geometry', 'LENGTH', 'FP_Area', 'Perimeter', 'Bearing',
                                 'Direction', 'Sinuosity', 'AvgWidth', 'AvgHeight', "Fragment", "Volume",
                                 "Roughness", 'Disso_ID', 'FP_ID'])
-    footprint_att = footprint_att.drop(columns=del_list)
-    footprint_att.reset_index()
+    result_Att = result_Att.drop(columns=del_list)
+    result_Att.reset_index()
 
-    # Merging the cleaned split line with identity dataframe
-    if args.input["sampling_type"] != "LINE-CROSSINGS":
-        output_att_line = Att_seg_lines.merge(footprint_att, how='left', on=['OLnFID', 'OLnSEG'])
-    else:
-        Att_seg_lines['FP_ID'] = Att_seg_lines['FP_ID'].apply(lambda x: str(x))
-        Att_seg_lines['OLnFID'] = Att_seg_lines['OLnFID'].apply(lambda x: str(x))
-        footprint_att['OLnFID'] = footprint_att['OLnFID'].apply(lambda x: str(x))
-        output_att_line = Att_seg_lines.merge(footprint_att, how='left', on=['Disso_ID'])
+    # # Merging the cleaned split line with identity dataframe
+    # if args.input["sampling_type"] != "LINE-CROSSINGS":
+    #     output_att_line = Att_seg_lines.merge(footprint_att, how='left', on=['OLnFID', 'OLnSEG'])
+    # else:
+    #     Att_seg_lines['FP_ID'] = Att_seg_lines['FP_ID'].apply(lambda x: str(x))
+    #     Att_seg_lines['OLnFID'] = Att_seg_lines['OLnFID'].apply(lambda x: str(x))
+    #     footprint_att['OLnFID'] = footprint_att['OLnFID'].apply(lambda x: str(x))
+    #     output_att_line = Att_seg_lines.merge(footprint_att, how='left', on=['Disso_ID'])
 
     print('%{}'.format(90))
     print('Saving output ...')
 
-    # Save attributed lines
-    geopandas.GeoDataFrame.to_file(output_att_line, args.input['out_line'])
+    # Save attributed lines, was output_att_line
+    geopandas.GeoDataFrame.to_file(result_Att, args.input['out_line'])
 
     print('%{}'.format(100))
     print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
