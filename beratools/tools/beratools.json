@@ -10,8 +10,8 @@
                     "info": "Normalize LiDAR data using K-nearest neighbourhood Invert distance weighting (Knnidw).",
                     "batch_processing": false,
                     "tool_type": "python",
-                    "tool_api": "rpy_nor_lidar_knnidw",
-                    "paramFile": "\\Scripts\\rpy_nor_lidar_knnidw_params.txt",
+                    "tool_api": "rpy_normalized_lidar_by",
+                    "paramFile": "\\Scripts\\rpy_normalized_lidar_by_params.txt",
                     "image": "",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
                     "parameters": [
@@ -34,6 +34,16 @@
                             "default": "",
                             "output": true,
                             "optional": false
+                        },
+                        {   "variable": "style",
+                                "parameter": "By what algorithms",
+                                "description": "Select the algorithm to generate the DSM raster.",
+                                "type": "list",
+                                "typelab": "text",
+                                "data": ["tin","knnidw", "kriging"],
+                                "default": "tin",
+                                "output": false,
+                                "optional": false
                         }
                     ]
                 },
@@ -148,6 +158,50 @@
                                 "default": "tin",
                                 "output": false,
                                 "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "LiDAR data info",
+                    "info": "Display the LiDAR data format version, data extent, area, number of points, point density, and number of files input of the input LiDAR data (las/laz).",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_las_info",
+                    "paramFile": "\\Scripts\\rpy_las_info_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input folder",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Raster Cell size from LiDAR data",
+                    "info": "Calculate the recommended output raster cell size (round up to the nearest 5cm) base on the sqaure root of (3 / point density) of LiDAR data (las/laz).",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_find_cellsize",
+                    "paramFile": "\\Scripts\\rpy_find_cellsize_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input folder",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
                         }
                     ]
                 }
@@ -1710,7 +1764,40 @@
                         }
 			
                     ]
+                },
+                {
+                    "name": "Unzip LiDAR data",
+                    "info": "Unzip LAZ LiDAR data to LAS.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_laz2las",
+                    "paramFile": "\\Scripts\\rpy_laz2las_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for the raster results.",
+                            "description": "Output folder for the raster results.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
                 }
+
             ]
         },
         {

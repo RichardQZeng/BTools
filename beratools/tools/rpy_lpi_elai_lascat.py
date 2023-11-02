@@ -15,32 +15,14 @@ from multiprocessing.pool import Pool
 from common import *
 class OperationCancelledException(Exception):
     pass
-# r_library=os.path.join(os.path.expanduser('~'), "AppData\\Local\\R\\win-library")
-current_env_path= os.environ['CONDA_PREFIX']
-
-# try: # separate R env
-#     aKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\R-core\\R")
-#     for i in range((winreg.QueryInfoKey(aKey))[0]):
-#         aValue_name = winreg.EnumKey(aKey, i)
-#         oKey = winreg.OpenKey(aKey, aValue_name)
-#         r_install_path = winreg.QueryValueEx(oKey, "installPath")[0]
-#     os.environ['R_HOME'] = r_install_path
-#     os.environ['R_USER'] = os.path.expanduser('~')
-#     if os.path.isdir(r_library):
-#         os.environ['R_LIBS_USER'] = r_library
-#     else:
-#         os.makedirs(r_library)
-#         os.environ['R_LIBS_USER'] = r_library
-#
-# except FileNotFoundError:
-#     print("Warning: Please install R for this process!!")
-#     exit()
 
 try: # integrated R env
-    if os.path.isdir(current_env_path):
-        os.environ['R_HOME'] =os.path.join(current_env_path,r"Lib\R")
-        os.environ['R_USER'] = os.path.expanduser('~')
-        os.environ['R_LIBS_USER'] = os.path.join(current_env_path,r"Lib\R\library")
+    #check R language within env
+    current_env_path= os.environ['CONDA_PREFIX']
+    # if os.path.isdir(current_env_path):
+    os.environ['R_HOME'] =os.path.join(current_env_path,r"Lib\R")
+    os.environ['R_USER'] = os.path.expanduser('~')
+    os.environ['R_LIBS_USER'] = os.path.join(current_env_path,r"Lib\R\library")
 
 except FileNotFoundError:
     print("Warning: Please install R for this process!!")
@@ -185,25 +167,24 @@ def f_pulse_density(ctg, out_folder, rprocesses, verbose):
     # Invoking the R function
     cell_size=pd2cellsize(ctg,rprocesses)
 
-    # # mean_pd = (((math.pow(3 / pulse_density, 1 / 2)) + (math.pow(5 / pulse_density, 1 / 2))) / 2)
-    # mean_pd = math.pow(3 / pulse_density, 1 / 2)
-    # # mean_pd = math.pow(5 / pulse_density, 1 / 2)
-    # result = round(0.05 * round(mean_pd / 0.05), 2)
     return (cell_size)
 
 def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, focal_radius, pulse_density,
               cell_size, mean_scanning_angle, out_folder, processes, verbose):
 
     r = robjects.r
-
     import psutil
-    stats = psutil.virtual_memory()  # returns a named tuple
-    available = getattr(stats, 'available')/1024000000
-    if 2<processes<=8:
-        rprocesses = 6
+    stats = psutil.virtual_memory()
+    available = getattr(stats, 'available') / 1024000000
+    if 2 < processes <= 8:
+        if available <= 50:
+            rprocesses = 2
+        elif 50 < available <= 150:
+            rprocesses = 4
+        elif 150 < available <= 250:
+            rprocesses = 8
     else:
-        rprocesses=2
-
+        rprocesses = 8
 
 
     cache_folder=os.path.join(out_folder,"Cache")
@@ -221,11 +202,6 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     if not os.path.exists(cache_folder):
         os.makedirs(cache_folder)
 
-    # if not os.path.exists(dtm_folder):
-    #     os.makedirs(dtm_folder)
-
-    # if not os.path.exists(chm_folder):
-    #     os.makedirs(chm_folder)
     if not os.path.exists(PD_folder):
         os.makedirs(PD_folder)
     if not os.path.exists(PD_Total_folder):
@@ -257,9 +233,9 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
             cell_size=f_pulse_density(lascat,out_folder,rprocesses, verbose)
 
     #assign R script file to local variable
-    generate_pd_Rscript=os.path.join(os.path.dirname(os.path.abspath(__file__)),'r_generate_pd_focalraster.r')
+    Beratools_R_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Beratools_r_script.r')
     # Defining the R script and loading the instance in Python
-    r['source'](generate_pd_Rscript)
+    r['source'](Beratools_R_script)
     # Loading the function defined in R script.
     generate_pd =robjects.globalenv['generate_pd']
     # Invoking the R function
@@ -348,9 +324,7 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
                     result_list.append(focal_radius)
                     args_list.append(result_list)
 
-        # for i in range(0,len(args_list)):
-        #     r_lpi_lai_with_focalR(args_list[i])
-        # Multi-processing eLAI and LPI raster using R package.
+        # Multiprocessing eLAI and LPI raster using R package.
         try:
             total_steps = len(args_list)
             if processes>= total_steps:
@@ -371,10 +345,6 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
             print("Operation cancelled")
             exit()
 
-    # import shutil
-    # shutil.rmtree(cache_folder,ignore_errors=True)
-    # if not radius_fr_CHM:
-    #   os.removedirs(os.path.split(chm_folder)[0])
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -386,7 +356,7 @@ if __name__ == '__main__':
     base = importr('base')
     utils.chooseCRANmirror(ind=12) # select the 12th mirror in the list: Canada
     print("Checking R packages ...")
-    CRANpacknames = ['lidR','rgrass','rlas','future','terra','comprehenr','na.tools','sf','sp','devtools']#,'fasterRaster']
+    CRANpacknames = ['lidR','rgrass','rlas','future','terra','na.tools','sf','sp']#,'fasterRaster']
     CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
     need_fasterRaster = False
     if len(CRANnames_to_install) > 0:
@@ -399,9 +369,9 @@ if __name__ == '__main__':
             if len(CRANnames_to_install) > 0:
                 utils.install_packages(StrVector(CRANnames_to_install))
 
-    if need_fasterRaster:
-        devtools=importr('devtools')
-        devtools.install_github("adamlilith/fasterRaster", dependencies=True)
+    # if need_fasterRaster:
+    #     devtools=importr('devtools')
+    #     devtools.install_github("adamlilith/fasterRaster", dependencies=True)
 
 
     del CRANpacknames,CRANnames_to_install
