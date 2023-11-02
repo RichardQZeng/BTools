@@ -5,7 +5,7 @@ import geopandas
 import numpy
 import scipy
 import shapely
-from shapely.ops import unary_union
+from shapely.ops import unary_union, split
 from rasterio import mask
 import argparse
 import json
@@ -70,9 +70,12 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
 
             # Make sure points are snapped to input line
             points = shapely.snap(points, in_ln_feat, 0.001)
+            points = shapely.multipoints(points)
+
+            lines = split(in_ln_feat, points)
 
             # replace row record's line geometry of into multipoint geometry
-            in_cl_splittpoint.loc[row, 'geometry'] = shapely.multipoints(points)
+            in_cl_splittpoint.loc[row, 'geometry'] = points
 
             # Split the input line base on the split points
             # extract points coordinates into list of point GeoSeries
@@ -106,16 +109,10 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
 
             seg_i = 1
             seg_list_index = 0
-            for seg in segment_list:  # .geoms:
+            for seg in lines.geoms:
                 for col in in_cl_splittpoint.columns.array:
                     in_cl_splitline.loc[j, col] = in_cl_splittpoint.loc[row, col]
-
-                if seg_list_index == 0:
-                    in_cl_splitline.loc[j, 'geometry'] = seg.geoms[seg_list_index]  # shapely.union_all(seg)
-                elif 0 < seg_list_index < len(segment_list) - 1:
-                    in_cl_splitline.loc[j, 'geometry'] = seg.geoms[1]
-                else:
-                    in_cl_splitline.loc[j, 'geometry'] = seg.geoms[-1]
+                    in_cl_splitline.loc[j, 'geometry'] = seg
 
                 if not HasOLnFID:
                     in_cl_splitline.loc[j, 'OLnFID'] = row
@@ -124,10 +121,10 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
                 seg_i = seg_i + 1
                 seg_list_index = seg_list_index + 1
                 j = j + 1
+
             in_cl_splitline = in_cl_splitline.dropna(subset='geometry')
 
         in_cl_splitline.reset_index()
-        in_cl_straightline.reset_index()
     elif args['sampling_type'] == "LINE-CROSSINGS":
         # create empty geodataframe for lines
         in_cl_dissolved = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
@@ -174,17 +171,11 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
         in_cl_line.reset_index()
 
     if args["sampling_type"] == 'IN-FEATURES':
-        return in_cl_line, numpy.nan
-
+        return in_cl_line
     elif args["sampling_type"] == "ARBITRARY":
-        return in_cl_splitline, in_cl_straightline
-
+        return in_cl_splitline
     elif args["sampling_type"] == "LINE-CROSSINGS":
-
-        return in_cl_dissolved, numpy.nan
-
-    # elif args["sampling_type"] == "WHOLE-LINE":
-    #     return in_cl_line,numpy.nan
+        return in_cl_dissolved
 
 
 def findDirection(bearing):
@@ -485,7 +476,7 @@ if __name__ == '__main__':
 
     # Return split lines with two extra columns:['OLnFID','OLnSEG']
     # or return Dissolved whole line
-    Att_seg_lines, Straight_lines = AttLineSplit(print, HasOLnFID, processes=int(args.processes),
+    Att_seg_lines = AttLineSplit(print, HasOLnFID, processes=int(args.processes),
                                                  verbose=verbose, **args.input)
 
     print('%{}'.format(10))
@@ -495,12 +486,12 @@ if __name__ == '__main__':
             print('%{}'.format(20))
 
             # Buffer seg straight line or whole ln for identify footprint polygon
-            if isinstance(Straight_lines, geopandas.GeoDataFrame):
-                in_cl_buffer = geopandas.GeoDataFrame.copy(Straight_lines)
-                in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
-            else:
-                in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
-                in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+            # if isinstance(Straight_lines, geopandas.GeoDataFrame):
+            #     in_cl_buffer = geopandas.GeoDataFrame.copy(Straight_lines)
+            #     in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
+            # else:
+            in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
+            in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
         else:
             in_cl_buffer = geopandas.GeoDataFrame.copy(Att_seg_lines)
             in_cl_buffer['geometry'] = in_cl_buffer.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat)
