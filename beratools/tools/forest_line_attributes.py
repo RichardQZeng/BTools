@@ -90,7 +90,7 @@ def AttLineSplit(callback, HasOLnFID, processes, verbose, **args):
                     in_cl_straightline.loc[i, col] = in_cl_splittpoint.loc[row, col]
                 in_cl_straightline.loc[i, 'geometry'] = seg
 
-                buffer_list.append(seg.buffer(float(args['Max_ln_width']), cap_style=shapely.BufferCapStyle.flat))
+                buffer_list.append(seg.buffer(float(args['max_ln_width']), cap_style=shapely.BufferCapStyle.flat))
 
                 if not HasOLnFID:
                     in_cl_straightline.loc[i, 'OLnFID'] = row
@@ -233,19 +233,27 @@ def findBearing(seg):  # Geodataframe
 
 def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,heightAnalysis,**args):
     Att_seg_lines = line_args[0]
+    selected_segLn = Att_seg_lines
     result_identity = line_args[1]
 
     areaAnalysis = line_args[2]
     heightAnalysis = line_args[3]
     args = line_args[4]
 
+    has_footprint = True
     if type(result_identity) is geopandas.geodataframe.GeoDataFrame:
         if result_identity.empty:
-            return result_identity
+            has_footprint = False
     elif not result_identity:
-        return result_identity
+        has_footprint = False
 
-    if heightAnalysis:  # with CHM
+    # Check if query result is not empty, if empty input identity footprint will be skipped
+    if selected_segLn.empty:
+        return None
+
+    index = 0
+
+    if heightAnalysis and has_footprint:  # with CHM
         with rasterio.open(args['in_chm']) as in_chm_file:
             cell_size_x = in_chm_file.transform[0]
             cell_size_y = -in_chm_file.transform[4]
@@ -253,122 +261,121 @@ def Fill_Attributes(line_args):  # (result_identity,Att_seg_lines,areaAnalysis,h
             # merge result_identity
             result_identity = result_identity.dissolve()
 
-            for index in result_identity.index:
-                fp = result_identity.iloc[index].geometry
-                if 'Disso_ID' in result_identity.columns.array and 'Disso_ID' in result_identity.columns.array:
-                    query_str = "Disso_ID=={} ".format(result_identity.iloc[index].Disso_ID)
-                elif 'OLnFID' in result_identity.columns.array and 'OLnSEG' in result_identity.columns.array:
-                    query_str = "OLnFID=={} and OLnSEG=={}".format(result_identity.iloc[index].OLnFID,
-                                                                   result_identity.iloc[index].OLnSEG)
-                else:
-                    query_str = "OLnFID=={}".format(result_identity.iloc[index].OLnFID)
+            fp = result_identity.iloc[0].geometry
+            # if 'Disso_ID' in result_identity.columns.array and 'Disso_ID' in result_identity.columns.array:
+            #     query_str = "Disso_ID=={} ".format(result_identity.iloc[index].Disso_ID)
+            # elif 'OLnFID' in result_identity.columns.array and 'OLnSEG' in result_identity.columns.array:
+            #     query_str = "OLnFID=={} and OLnSEG=={}".format(result_identity.iloc[index].OLnFID,
+            #                                                    result_identity.iloc[index].OLnSEG)
+            # else:
+            #     query_str = "OLnFID=={}".format(result_identity.iloc[index].OLnFID)
 
-                # selected_segLn = Att_seg_lines.query(query_str)
-                selected_segLn = Att_seg_lines[Att_seg_lines.geometry.intersects(fp)]
-
-                # Check if query result is not empty, if empty input identity footprint will be skipped
-                if len(selected_segLn.index) > 0:
-                    line_feat = selected_segLn['geometry'].iloc[0]
-
-                    # if the selected seg do not have identity footprint geometry
-                    if shapely.is_empty(fp):
-                        # use the buffer from the segment line
-                        line_buffer = shapely.buffer(line_feat, float(args['Max_ln_width']))
-                    else:
-                        # if identity footprint has geometry, use as a buffer area
-                        line_buffer = fp
-
-                    # clipped the chm base on polygon of line buffer or footprint
-                    clipped_chm, out_transform = rasterio.mask.mask(in_chm_file, [line_buffer], crop=True)
-
-                    # drop the ndarray to 2D ndarray
-                    clipped_chm = numpy.squeeze(clipped_chm, axis=0)
-
-                    # masked all NoData value cells
-                    clean_chm = numpy.ma.masked_where(clipped_chm == in_chm_file.nodata, clipped_chm)
-
-                    # calculate the Euclidean distance from start to end points of segment line
-                    eucDistance = findEucDistance(line_feat)
-
-                    # Calculate the summary statistics from the clipped CHM
-                    chm_mean = numpy.ma.mean(clean_chm)
-                    chm_std = numpy.ma.std(clean_chm)
-                    chm_sum = numpy.ma.sum(clean_chm)
-                    chm_count = numpy.ma.count(clean_chm)
-                    OnecellArea = cell_size_y * cell_size_x
-
-                    try:
-                        sqStdPop = math.pow(chm_std, 2) * (chm_count - 1) / chm_count
-                    except ZeroDivisionError as e:
-                        sqStdPop = 0.0
-
-                    # writing result to feature's attributes
-                    result_identity.loc[index, 'LENGTH'] = line_feat.length
-                    result_identity.loc[index, 'FP_Area'] = result_identity.loc[index, 'geometry'].area
-                    result_identity.loc[index, 'Perimeter'] = result_identity.loc[index, 'geometry'].length
-                    result_identity.loc[index, 'Bearing'] = findBearing(selected_segLn)
-                    result_identity.loc[index, 'Direction'] = findDirection(result_identity.loc[index, 'Bearing'])
-                    try:
-                        result_identity.loc[index, 'Sinuosity'] = line_feat.length / eucDistance
-                    except ZeroDivisionError as e:
-                        result_identity.loc[index, 'Sinuosity'] = numpy.nan
-                    try:
-                        result_identity.loc[index, "AvgWidth"] = result_identity.loc[
-                                                                     index, 'FP_Area'] / line_feat.length
-                    except ZeroDivisionError as e:
-                        result_identity.loc[index, "AvgWidth"] = numpy.nan
-                    try:
-                        result_identity.loc[index, "Fragment"] = result_identity.loc[index, 'Perimeter'] / \
-                                                                 result_identity.loc[index, 'FP_Area']
-                    except ZeroDivisionError as e:
-                        result_identity.loc[index, "Fragment"] = numpy.nan
-
-                    result_identity.loc[index, "AvgHeight"] = chm_mean
-                    result_identity.loc[index, "Volume"] = chm_sum * OnecellArea
-                    result_identity.loc[index, "Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sqStdPop)
-
-                # del selected_segLn
-
-    else:
-        # No CHM
-        for index in result_identity.index:
-
-            query_str = "OLnFID=={} and OLnSEG=={}".format(result_identity.iloc[index].OLnFID,
-                                                           result_identity.iloc[index].OLnSEG)
             # selected_segLn = Att_seg_lines.query(query_str)
-            selected_segLn = Att_seg_lines[Att_seg_lines.geometry.intersects(fp)]
+            # selected_segLn = Att_seg_lines[Att_seg_lines.geometry.intersects(fp)]
 
-            if len(selected_segLn.index) > 0:
-                line_feat = selected_segLn['geometry'].iloc[0]
-                eucDistance = findEucDistance(line_feat)
-                result_identity.loc[index, 'LENGTH'] = line_feat.length
-                result_identity.loc[index, 'FP_Area'] = result_identity.loc[index, 'geometry'].area
-                result_identity.loc[index, 'Perimeter'] = result_identity.loc[index, 'geometry'].length
-                result_identity.loc[index, 'Bearing'] = findBearing(selected_segLn)
-                result_identity.loc[index, 'Direction'] = findDirection(result_identity.loc[index, 'Bearing'])
-                try:
-                    result_identity.loc[index, 'Sinuosity'] = line_feat.length / eucDistance
-                except ZeroDivisionError as e:
-                    result_identity.loc[index, 'Sinuosity'] = numpy.nan
-                try:
-                    result_identity.loc[index, "AvgWidth"] = result_identity.loc[index, 'FP_Area'] / line_feat.length
-                except ZeroDivisionError as e:
-                    result_identity.loc[index, "AvgWidth"] = numpy.nan
-                try:
-                    result_identity.loc[index, "Fragment"] = result_identity.loc[index, 'Perimeter'] / \
-                                                             result_identity.loc[index, 'FP_Area']
-                except ZeroDivisionError as e:
-                    result_identity.loc[index, "Fragment"] = numpy.nan
+            line_feat = selected_segLn.geometry.iloc[0]
 
-                result_identity.loc[index, "AvgHeight"] = numpy.nan
+            # if the selected seg do not have identity footprint geometry
+            if shapely.is_empty(fp):
+                # use the buffer from the segment line
+                line_buffer = shapely.buffer(line_feat, float(args['max_ln_width']))
+            else:
+                # if identity footprint has geometry, use as a buffer area
+                line_buffer = fp
 
-                result_identity.loc[index, "Volume"] = numpy.nan
-                result_identity.loc[index, "Roughness"] = numpy.nan
+            # clipped the chm base on polygon of line buffer or footprint
+            clipped_chm, out_transform = rasterio.mask.mask(in_chm_file, [line_buffer], crop=True)
 
-            # del selected_segLn
+            # drop the ndarray to 2D ndarray
+            clipped_chm = numpy.squeeze(clipped_chm, axis=0)
 
-    # result_identity = result_identity.drop(columns='geometry')
+            # masked all NoData value cells
+            clean_chm = numpy.ma.masked_where(clipped_chm == in_chm_file.nodata, clipped_chm)
+
+            # calculate the Euclidean distance from start to end points of segment line
+            eucDistance = findEucDistance(line_feat)
+
+            # Calculate the summary statistics from the clipped CHM
+            chm_mean = numpy.ma.mean(clean_chm)
+            chm_std = numpy.ma.std(clean_chm)
+            chm_sum = numpy.ma.sum(clean_chm)
+            chm_count = numpy.ma.count(clean_chm)
+            OnecellArea = cell_size_y * cell_size_x
+
+            try:
+                sqStdPop = math.pow(chm_std, 2) * (chm_count - 1) / chm_count
+            except ZeroDivisionError as e:
+                sqStdPop = 0.0
+
+            # writing result to feature's attributes
+            result_identity.loc[index, 'LENGTH'] = line_feat.length
+            result_identity.loc[index, 'FP_Area'] = result_identity.loc[index, 'geometry'].area
+            result_identity.loc[index, 'Perimeter'] = result_identity.loc[index, 'geometry'].length
+            result_identity.loc[index, 'Bearing'] = findBearing(selected_segLn)
+            result_identity.loc[index, 'Direction'] = findDirection(result_identity.loc[index, 'Bearing'])
+            try:
+                result_identity.loc[index, 'Sinuosity'] = line_feat.length / eucDistance
+            except ZeroDivisionError as e:
+                result_identity.loc[index, 'Sinuosity'] = numpy.nan
+            try:
+                result_identity.loc[index, "AvgWidth"] = result_identity.loc[
+                                                             index, 'FP_Area'] / line_feat.length
+            except ZeroDivisionError as e:
+                result_identity.loc[index, "AvgWidth"] = numpy.nan
+            try:
+                result_identity.loc[index, "Fragment"] = result_identity.loc[index, 'Perimeter'] / \
+                                                         result_identity.loc[index, 'FP_Area']
+            except ZeroDivisionError as e:
+                result_identity.loc[index, "Fragment"] = numpy.nan
+
+            result_identity.loc[index, "AvgHeight"] = chm_mean
+            result_identity.loc[index, "Volume"] = chm_sum * OnecellArea
+            result_identity.loc[index, "Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sqStdPop)
+    elif has_footprint:
+        # No CHM
+        query_str = "OLnFID=={} and OLnSEG=={}".format(result_identity.iloc[index].OLnFID,
+                                                       result_identity.iloc[index].OLnSEG)
+        # selected_segLn = Att_seg_lines.query(query_str)
+        # selected_segLn = Att_seg_lines[Att_seg_lines.geometry.intersects(fp)]
+
+        if selected_segLn.empty:
+            return None
+
+        line_feat = selected_segLn.geometry.iloc[0]
+        eucDistance = findEucDistance(line_feat)
+        result_identity.loc[index, 'LENGTH'] = line_feat.length
+        result_identity.loc[index, 'FP_Area'] = result_identity.loc[index, 'geometry'].area
+        result_identity.loc[index, 'Perimeter'] = result_identity.loc[index, 'geometry'].length
+        result_identity.loc[index, 'Bearing'] = findBearing(selected_segLn)
+        result_identity.loc[index, 'Direction'] = findDirection(result_identity.loc[index, 'Bearing'])
+        try:
+            result_identity.loc[index, 'Sinuosity'] = line_feat.length / eucDistance
+        except ZeroDivisionError as e:
+            result_identity.loc[index, 'Sinuosity'] = numpy.nan
+        try:
+            result_identity.loc[index, "AvgWidth"] = result_identity.loc[index, 'FP_Area'] / line_feat.length
+        except ZeroDivisionError as e:
+            result_identity.loc[index, "AvgWidth"] = numpy.nan
+        try:
+            result_identity.loc[index, "Fragment"] = result_identity.loc[index, 'Perimeter'] / \
+                                                     result_identity.loc[index, 'FP_Area']
+        except ZeroDivisionError as e:
+            result_identity.loc[index, "Fragment"] = numpy.nan
+
+        result_identity.loc[index, "AvgHeight"] = numpy.nan
+
+        result_identity.loc[index, "Volume"] = numpy.nan
+        result_identity.loc[index, "Roughness"] = numpy.nan
+    else:
+        fields = ['LENGTH', 'FP_Area', 'Perimeter', 'Bearing', 'Direction', 'Sinuosity', 'AvgWidth', 'Fragment',
+                  'Volume', 'Roughness']
+        result_identity.loc[index, fields] = numpy.nan
+
     result_identity['geometry'] = selected_segLn.iloc[0].geometry
+
+    if result_identity.empty:
+        print('Geometry is empty')
+
     return result_identity
 
 
@@ -644,6 +651,7 @@ if __name__ == '__main__':
                         features.append(result)
 
                 step += 1
+                print('Line processed: {}'.format(step))
                 print('%{}'.format(step / total_steps * 100))
 
     except OperationCancelledException:
