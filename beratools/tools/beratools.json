@@ -843,7 +843,7 @@
                             "optional": true
                         },
                         {
-                            "variable": "ln_split_Tol",
+                            "variable": "ln_split_tol",
                             "parameter": "Line Split Tolerance",
                             "description": "Tolerance radius (m) used to split lines. If the Sampling Type field is set as WHOLE-LINE this field is ignored.",
                             "type": "number",
