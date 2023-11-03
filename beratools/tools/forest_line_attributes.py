@@ -1,14 +1,12 @@
 import math
 import time
-import pandas
-import geopandas
+import pandas as pd
+import geopandas as gpd
 import numpy
 import scipy
 import shapely
 from shapely.ops import unary_union, split
 from rasterio import mask
-import argparse
-import json
 from multiprocessing.pool import Pool
 
 from common import *
@@ -18,8 +16,8 @@ class OperationCancelledException(Exception):
     pass
 
 
-def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_type, processes, verbose):
-    in_ln_shp = geopandas.GeoDataFrame.from_file(in_cl)
+def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_type, verbose):
+    in_ln_shp = gpd.GeoDataFrame.from_file(in_cl)
 
     # Check the OLnFID column in data. If it is not, column will be created
     if 'OLnFID' not in in_ln_shp.columns.array:
@@ -30,14 +28,14 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
         in_ln_shp['OLnFID'] = in_ln_shp.index
 
     # Copy all the input line into geodataframe
-    in_cl_line = geopandas.GeoDataFrame.copy(in_ln_shp)
+    in_cl_line = gpd.GeoDataFrame.copy(in_ln_shp)
 
     # copy the input line into split points GoeDataframe
-    in_cl_splittpoint = geopandas.GeoDataFrame.copy(in_cl_line)
+    in_cl_splittpoint = gpd.GeoDataFrame.copy(in_cl_line)
 
     # create empty geodataframe for split line and straight line from split points
-    in_cl_splitline = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
-    in_cl_straightline = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
+    in_cl_splitline = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
+    in_cl_straightline = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
 
     # Generate points along merged input line (with start/ end point) base on user Segment Length
     i = 0
@@ -127,7 +125,7 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
         in_cl_splitline.reset_index()
     elif sampling_type == "LINE-CROSSINGS":
         # create empty geodataframe for lines
-        in_cl_dissolved = geopandas.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
+        in_cl_dissolved = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
 
         lines = list(line for line in in_cl_line['geometry'])
         in_cl_dissolved['geometry'] = list(shapely.ops.linemerge(lines).geoms)
@@ -136,17 +134,17 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
         identical_segs['Disso_ID'] = identical_segs.index
         columns = list(col for col in identical_segs.columns
                        if col not in ['geometry', 'index_right', 'Shape_Leng', 'Shape_Le_1', 'len'])
-        identical_segs = pandas.DataFrame(identical_segs[columns])
+        identical_segs = pd.DataFrame(identical_segs[columns])
         identical_segs.reset_index()
 
         share_seg = in_cl_line.sjoin(in_cl_dissolved, predicate='covered_by')
         share_seg = share_seg[share_seg.duplicated('index_right', keep=False)]
         share_seg['Disso_ID'] = share_seg['index_right']
 
-        share_seg = pandas.DataFrame(share_seg[columns])
+        share_seg = pd.DataFrame(share_seg[columns])
         share_seg.reset_index()
 
-        segs_identity = pandas.concat([identical_segs, share_seg])
+        segs_identity = pd.concat([identical_segs, share_seg])
         segs_identity.reset_index()
 
         for seg in range(0, len(in_cl_dissolved.index)):
@@ -158,8 +156,8 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
                 in_cl_dissolved.loc[seg, col] = common_segs.loc[common_segs.index[0], col]
 
             in_cl_dissolved.loc[seg, 'OLnSEG'] = seg
-            in_cl_dissolved.loc[[seg], 'FP_ID'] = pandas.Series([fp_list], index=in_cl_dissolved.index[[seg]])
-            in_cl_dissolved.loc[[seg], 'OLnFID'] = pandas.Series([fp_list], index=in_cl_dissolved.index[[seg]])
+            in_cl_dissolved.loc[[seg], 'FP_ID'] = pd.Series([fp_list], index=in_cl_dissolved.index[[seg]])
+            in_cl_dissolved.loc[[seg], 'OLnFID'] = pd.Series([fp_list], index=in_cl_dissolved.index[[seg]])
 
         in_cl_dissolved['Disso_ID'].astype(int)
 
@@ -234,14 +232,15 @@ def fill_attributes(line_args):
     in_chm = line_args[4]
     max_ln_width = line_args[5]
 
+    # determine if footprint is empty
     has_footprint = True
-    if type(result_identity) is geopandas.geodataframe.GeoDataFrame:
+    if type(result_identity) is gpd.GeoDataFrame:
         if result_identity.empty:
             has_footprint = False
     elif not result_identity:
         has_footprint = False
 
-    # Check if query result is not empty, if empty input identity footprint will be skipped
+    # if line is empty, then skip
     if attr_seg_line.empty:
         return None
 
@@ -259,8 +258,7 @@ def fill_attributes(line_args):
         line_buffer = fp
 
     # assign common attributes
-    # calculate the Euclidean distance from start to end points of segment line
-    euc_distance = find_euc_distance(line_feat)
+    euc_distance = find_euc_distance(line_feat)  # Euclidean distance from start to end points of segment line
     values['LENGTH'] = line_feat.length
     values['FP_Area'] = line_buffer.area
     values['Perimeter'] = line_buffer.length
@@ -299,17 +297,17 @@ def fill_attributes(line_args):
             chm_std = numpy.ma.std(clean_chm)
             chm_sum = numpy.ma.sum(clean_chm)
             chm_count = numpy.ma.count(clean_chm)
-            OnecellArea = cell_size_y * cell_size_x
+            one_cell_area = cell_size_y * cell_size_x
 
-            sqStdPop = 0.0
+            sq_std_pow = 0.0
             try:
-                sqStdPop = math.pow(chm_std, 2) * (chm_count - 1) / chm_count
+                sq_std_pow = math.pow(chm_std, 2) * (chm_count - 1) / chm_count
             except ZeroDivisionError as e:
-                sqStdPop = 0.0
+                sq_std_pow = 0.0
 
             values["AvgHeight"] = chm_mean
-            values["Volume"] = chm_sum * OnecellArea
-            values["Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sqStdPop)
+            values["Volume"] = chm_sum * one_cell_area
+            values["Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sq_std_pow)
     else:  # No CHM
         # remove fields not used
         fields.remove('AvgHeight')
@@ -381,7 +379,7 @@ def execute_multiprocessing_attributes(line_args, processes):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
 
-                if type(result) is geopandas.geodataframe.GeoDataFrame:
+                if type(result) is gpd.GeoDataFrame:
                     if not result.empty:
                         features.append(result)
 
@@ -406,9 +404,8 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     max_ln_width = float(max_ln_width)
 
     # Valid input footprint shapefile has geometry
-    in_fp_shp = geopandas.GeoDataFrame.from_file(in_fp)
-    # in_ln_shp = geopandas.GeoDataFrame.from_file(in_cl)  # TODO: check projection
-    in_ln_shp = geopandas.read_file(in_cl, rows=1)
+    in_fp_shp = gpd.GeoDataFrame.from_file(in_fp)
+    in_ln_shp = gpd.read_file(in_cl, rows=1)  # TODO: check projection
     in_fields = list(in_ln_shp.columns)
 
     # check coordinate systems between line and raster features
@@ -448,8 +445,7 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     # Return split lines with two extra columns:['OLnFID','OLnSEG']
     # or return Dissolved whole line
     print("Input_Lines: {}".format(in_cl))
-    attr_seg_lines = line_split(print, HasOLnFID, in_cl, seg_len, max_ln_width, sampling_type,
-                                processes=int(in_args.processes), verbose=in_args.verbose)
+    attr_seg_lines = line_split(print, HasOLnFID, in_cl, seg_len, max_ln_width, sampling_type, verbose=in_args.verbose)
 
     print('%{}'.format(10))
 
@@ -496,7 +492,7 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
         print('No lines found.')
         exit()
 
-    result_attr = geopandas.GeoDataFrame(pandas.concat(features, ignore_index=True))
+    result_attr = gpd.GeoDataFrame(pd.concat(features, ignore_index=True))
     result_attr.reset_index()
     print('Attribute processing done.')
     print('%{}'.format(80))
