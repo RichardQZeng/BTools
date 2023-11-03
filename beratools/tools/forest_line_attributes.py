@@ -258,6 +258,28 @@ def fill_attributes(line_args):
         fp = result_identity.iloc[0].geometry
         line_buffer = fp
 
+    # assign common attributes
+    # calculate the Euclidean distance from start to end points of segment line
+    euc_distance = find_euc_distance(line_feat)
+    values['LENGTH'] = line_feat.length
+    values['FP_Area'] = line_buffer.area
+    values['Perimeter'] = line_buffer.length
+    values['Bearing'] = find_bearing(attr_seg_line)
+    values['Direction'] = find_direction(values['Bearing'])
+
+    try:
+        values['Sinuosity'] = line_feat.length / euc_distance
+    except ZeroDivisionError as e:
+        values['Sinuosity'] = numpy.nan
+    try:
+        values["AvgWidth"] = values['FP_Area'] / line_feat.length
+    except ZeroDivisionError as e:
+        values["AvgWidth"] = numpy.nan
+    try:
+        values["Fragment"] = values['Perimeter'] / values['FP_Area']
+    except ZeroDivisionError as e:
+        values["Fragment"] = numpy.nan
+
     if height_analysis:  # with CHM
         with rasterio.open(in_chm) as in_chm_file:
             cell_size_x = in_chm_file.transform[0]
@@ -272,9 +294,6 @@ def fill_attributes(line_args):
             # masked all NoData value cells
             clean_chm = numpy.ma.masked_where(clipped_chm == in_chm_file.nodata, clipped_chm)
 
-            # calculate the Euclidean distance from start to end points of segment line
-            eucDistance = find_euc_distance(line_feat)
-
             # Calculate the summary statistics from the clipped CHM
             chm_mean = numpy.ma.mean(clean_chm)
             chm_std = numpy.ma.std(clean_chm)
@@ -288,49 +307,10 @@ def fill_attributes(line_args):
             except ZeroDivisionError as e:
                 sqStdPop = 0.0
 
-            # writing result to feature's attributes
-            values['LENGTH'] = line_feat.length
-            values['FP_Area'] = line_buffer.area
-            values['Perimeter'] = line_buffer.length
-            values['Bearing'] = find_bearing(attr_seg_line)
-            values['Direction'] = find_direction(values['Bearing'])
-            try:
-                values['Sinuosity'] = line_feat.length / eucDistance
-            except ZeroDivisionError as e:
-                values['Sinuosity'] = numpy.nan
-            try:
-                values["AvgWidth"] = values['FP_Area'] / line_feat.length
-            except ZeroDivisionError as e:
-                values["AvgWidth"] = numpy.nan
-            try:
-                values["Fragment"] = values['Perimeter'] / values['FP_Area']
-            except ZeroDivisionError as e:
-                values["Fragment"] = numpy.nan
-
             values["AvgHeight"] = chm_mean
             values["Volume"] = chm_sum * OnecellArea
             values["Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sqStdPop)
     else:  # No CHM
-        line_feat = attr_seg_line.geometry.iloc[0]
-        eucDistance = find_euc_distance(line_feat)
-        values['LENGTH'] = line_feat.length
-        values['FP_Area'] = line_buffer.area
-        values['Perimeter'] = line_buffer.length
-        values['Bearing'] = find_bearing(attr_seg_line)
-        values['Direction'] = find_direction(values['Bearing'])
-        try:
-            values['Sinuosity'] = line_feat.length / eucDistance
-        except ZeroDivisionError as e:
-            values['Sinuosity'] = numpy.nan
-        try:
-            values["AvgWidth"] = values['FP_Area'] / line_feat.length
-        except ZeroDivisionError as e:
-            values["AvgWidth"] = numpy.nan
-        try:
-            values["Fragment"] = values['Perimeter'] / values['FP_Area']
-        except ZeroDivisionError as e:
-            values["Fragment"] = numpy.nan
-
         # remove fields not used
         fields.remove('AvgHeight')
         values.pop('AvgHeight')
@@ -342,10 +322,6 @@ def fill_attributes(line_args):
         values.pop('Roughness')
 
     attr_seg_line.loc[index, fields] = values
-
-    if attr_seg_line.empty:
-        print('Geometry is empty')
-
     return attr_seg_line
 
 
