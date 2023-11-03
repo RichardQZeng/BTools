@@ -21,6 +21,7 @@ dependencies:
     - pyqtlet2
     # and for wheels
     # - http://URL_TO_THE_WHEEL.whl
+  - pyogrio
   - pyqt
   - rasterio
   - ray-all
