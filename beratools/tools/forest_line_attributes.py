@@ -30,19 +30,15 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
     # Copy all the input line into geodataframe
     in_cl_line = gpd.GeoDataFrame.copy(in_ln_shp)
 
-    # copy the input line into split points GoeDataframe
-    in_cl_splittpoint = gpd.GeoDataFrame.copy(in_cl_line)
-
-    # create empty geodataframe for split line and straight line from split points
-    in_cl_splitline = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
-    in_cl_straightline = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
-
-    # Generate points along merged input line (with start/ end point) base on user Segment Length
-    i = 0
-    j = 0
-
     # Prepare line for arbitrary split lines
     if sampling_type == 'ARBITRARY':
+        # copy the input line into split points GoeDataframe
+        in_cl_split_point = gpd.GeoDataFrame.copy(in_cl_line)
+
+        # create empty geodataframe for split line and straight line from split points
+        in_cl_split_line = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
+        line_id = 0
+
         # loop thought all the record in input centerlines
         for row in range(0, len(in_cl_line)):
             # get geometry from record
@@ -72,57 +68,26 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
 
             lines = split(in_ln_feat, points)
 
-            # replace row record's line geometry of into multipoint geometry
-            in_cl_splittpoint.loc[row, 'geometry'] = points
-
-            # Split the input line base on the split points
-            # extract points coordinates into list of point GeoSeries
-            listofpoint = shapely.geometry.mapping(in_cl_splittpoint.loc[row, 'geometry'])['coordinates']
-
-            # Generate split lines (straight line) from points
-            straight_ln = (list(map(shapely.geometry.LineString, zip(shapely.LineString(listofpoint).coords[:-1],
-                                                                     shapely.LineString(listofpoint).coords[1:]))))
-            seg_i = 1
-
-            buffer_list = []
-
-            for seg in straight_ln:
-                for col in in_cl_splittpoint.columns.array:
-                    in_cl_straightline.loc[i, col] = in_cl_splittpoint.loc[row, col]
-                in_cl_straightline.loc[i, 'geometry'] = seg
-
-                buffer_list.append(seg.buffer(max_ln_width, cap_style=shapely.BufferCapStyle.flat))
-
-                if not HasOLnFID:
-                    in_cl_straightline.loc[i, 'OLnFID'] = row
-
-                in_cl_straightline.loc[i, 'OLnSEG'] = seg_i
-                seg_i = seg_i + 1
-                i = i + 1
-
-            # Split the input lines base on buffer
-            segment_list = []
-            for polygon in buffer_list:
-                segment_list.append(shapely.ops.split(in_cl_line.loc[row, 'geometry'], polygon))
-
             seg_i = 1
             seg_list_index = 0
+
             for seg in lines.geoms:
-                for col in in_cl_splittpoint.columns.array:
-                    in_cl_splitline.loc[j, col] = in_cl_splittpoint.loc[row, col]
-                    in_cl_splitline.loc[j, 'geometry'] = seg
+                for col in in_cl_split_point.columns.array:
+                    in_cl_split_line.loc[line_id, col] = in_cl_split_point.loc[row, col]
+                    in_cl_split_line.loc[line_id, 'geometry'] = seg
 
                 if not HasOLnFID:
-                    in_cl_splitline.loc[j, 'OLnFID'] = row
+                    in_cl_split_line.loc[line_id, 'OLnFID'] = row
 
-                in_cl_splitline.loc[j, 'OLnSEG'] = seg_i
+                in_cl_split_line.loc[line_id, 'OLnSEG'] = seg_i
                 seg_i = seg_i + 1
                 seg_list_index = seg_list_index + 1
-                j = j + 1
+                line_id = line_id + 1
 
-            in_cl_splitline = in_cl_splitline.dropna(subset='geometry')
+            in_cl_split_line = in_cl_split_line.dropna(subset='geometry')
 
-        in_cl_splitline.reset_index()
+        in_cl_split_line.reset_index()
+        return in_cl_split_line
     elif sampling_type == "LINE-CROSSINGS":
         # create empty geodataframe for lines
         in_cl_dissolved = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
@@ -160,20 +125,14 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
             in_cl_dissolved.loc[[seg], 'OLnFID'] = pd.Series([fp_list], index=in_cl_dissolved.index[[seg]])
 
         in_cl_dissolved['Disso_ID'].astype(int)
-
+        return in_cl_dissolved
     else:  # Return Line as input and create two columns as Primary Key
         if not HasOLnFID:
             in_cl_line['OLnFID'] = in_cl_line.index
 
         in_cl_line['OLnSEG'] = 0
         in_cl_line.reset_index()
-
-    if sampling_type == 'IN-FEATURES':
         return in_cl_line
-    elif sampling_type == "ARBITRARY":
-        return in_cl_splitline
-    elif sampling_type == "LINE-CROSSINGS":
-        return in_cl_dissolved
 
 
 def find_direction(bearing):
