@@ -249,25 +249,19 @@ def fill_attributes(line_args):
     fields = ['LENGTH', 'FP_Area', 'Perimeter', 'Bearing', 'Direction', 'Sinuosity',
               'AvgWidth', 'Fragment', 'AvgHeight', 'Volume', 'Roughness']
     values = dict.fromkeys(fields, numpy.nan)
+    line_feat = attr_seg_line.geometry.iloc[0]
+    line_buffer = shapely.buffer(line_feat, float(max_ln_width))  # default footprint by buffering
 
-    if height_analysis and has_footprint:  # with CHM
+    # merge result_identity
+    if has_footprint:
+        result_identity = result_identity.dissolve()
+        fp = result_identity.iloc[0].geometry
+        line_buffer = fp
+
+    if height_analysis:  # with CHM
         with rasterio.open(in_chm) as in_chm_file:
             cell_size_x = in_chm_file.transform[0]
             cell_size_y = -in_chm_file.transform[4]
-
-            # merge result_identity
-            result_identity = result_identity.dissolve()
-
-            fp = result_identity.iloc[0].geometry
-            line_feat = attr_seg_line.geometry.iloc[0]
-
-            # if the selected seg do not have identity footprint geometry
-            if shapely.is_empty(fp):
-                # use the buffer from the segment line
-                line_buffer = shapely.buffer(line_feat, float(max_ln_width))
-            else:
-                # if identity footprint has geometry, use as a buffer area
-                line_buffer = fp
 
             # clipped the chm base on polygon of line buffer or footprint
             clipped_chm, out_transform = rasterio.mask.mask(in_chm_file, [line_buffer], crop=True)
@@ -296,8 +290,8 @@ def fill_attributes(line_args):
 
             # writing result to feature's attributes
             values['LENGTH'] = line_feat.length
-            values['FP_Area'] = result_identity.iloc[0].geometry.area
-            values['Perimeter'] = result_identity.iloc[0].geometry.length
+            values['FP_Area'] = line_buffer.area
+            values['Perimeter'] = line_buffer.length
             values['Bearing'] = find_bearing(attr_seg_line)
             values['Direction'] = find_direction(values['Bearing'])
             try:
@@ -316,34 +310,36 @@ def fill_attributes(line_args):
             values["AvgHeight"] = chm_mean
             values["Volume"] = chm_sum * OnecellArea
             values["Roughness"] = math.sqrt(math.pow(chm_mean, 2) + sqStdPop)
-    elif has_footprint:  # No CHM
+    else:  # No CHM
         line_feat = attr_seg_line.geometry.iloc[0]
         eucDistance = find_euc_distance(line_feat)
-        attr_seg_line.loc[index, 'LENGTH'] = line_feat.length
-        attr_seg_line.loc[index, 'FP_Area'] = result_identity.loc[0].geometry.area
-        attr_seg_line.loc[index, 'Perimeter'] = result_identity.loc[0].geometry.length
-        attr_seg_line.loc[index, 'Bearing'] = find_bearing(attr_seg_line)
-        attr_seg_line.loc[index, 'Direction'] = find_direction(values['Bearing'])
+        values['LENGTH'] = line_feat.length
+        values['FP_Area'] = line_buffer.area
+        values['Perimeter'] = line_buffer.length
+        values['Bearing'] = find_bearing(attr_seg_line)
+        values['Direction'] = find_direction(values['Bearing'])
         try:
-            attr_seg_line.loc[index, 'Sinuosity'] = line_feat.length / eucDistance
+            values['Sinuosity'] = line_feat.length / eucDistance
         except ZeroDivisionError as e:
-            attr_seg_line.loc[index, 'Sinuosity'] = numpy.nan
+            values['Sinuosity'] = numpy.nan
         try:
-            attr_seg_line.loc[index, "AvgWidth"] = values['FP_Area'] / line_feat.length
+            values["AvgWidth"] = values['FP_Area'] / line_feat.length
         except ZeroDivisionError as e:
-            attr_seg_line.loc[index, "AvgWidth"] = numpy.nan
+            values["AvgWidth"] = numpy.nan
         try:
-            attr_seg_line.loc[index, "Fragment"] = values['Perimeter'] / values['FP_Area']
+            values["Fragment"] = values['Perimeter'] / values['FP_Area']
         except ZeroDivisionError as e:
-            attr_seg_line.loc[index, "Fragment"] = numpy.nan
+            values["Fragment"] = numpy.nan
 
-        attr_seg_line.loc[index, "AvgHeight"] = numpy.nan
-
-        attr_seg_line.loc[index, "Volume"] = numpy.nan
-        attr_seg_line.loc[index, "Roughness"] = numpy.nan
-    else:  # no footprint
+        # remove fields not used
         fields.remove('AvgHeight')
         values.pop('AvgHeight')
+
+        fields.remove('Volume')
+        values.pop('Volume')
+
+        fields.remove('Roughness')
+        values.pop('Roughness')
 
     attr_seg_line.loc[index, fields] = values
 
@@ -440,10 +436,13 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     in_fields = list(in_ln_shp.columns)
 
     # check coordinate systems between line and raster features
-    with rasterio.open(in_chm) as in_raster:
-        if in_fp_shp.crs.to_epsg() != in_raster.crs.to_epsg():
-            print("Line and raster spatial references are not the same, please check.")
-            exit()
+    try:
+        with rasterio.open(in_chm) as in_raster:
+            if in_fp_shp.crs.to_epsg() != in_raster.crs.to_epsg():
+                print("Line and raster spatial references are not the same, please check.")
+                exit()
+    except Exception as e:
+        print(e)
 
     HasOLnFID = False
 
@@ -460,7 +459,6 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     except Exception as error_in_CHM:
         print(error_in_CHM)
         height_analysis = False
-        exit()
 
     # Process the following SamplingType
     sampling_list = ["IN-FEATURES", "LINE-CROSSINGS", "ARBITRARY"]
