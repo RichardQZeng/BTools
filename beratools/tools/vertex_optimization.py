@@ -72,7 +72,7 @@ class VertexOptimization:
             print(e)
 
         try:
-            vertex_grp = self.groupIntersections(self.segment_all)
+            vertex_grp = self.group_intersections(self.segment_all)
         except IndexError:
             print(e)
 
@@ -214,7 +214,7 @@ class VertexOptimization:
         return LineString(coords)
 
     # only LINESTRING is dealt with for now
-    def intersectionOfLines(self, line_1, line_2):
+    def intersection_of_lines(self, line_1, line_2):
         # intersection collection, may contain points and lines
         inter = None
         if line_1 and line_2:
@@ -227,14 +227,14 @@ class VertexOptimization:
 
         return inter
 
-    def closestPointToLine(self, point, line):
+    def closest_point_to_line(self, point, line):
         if not line:
             return None
 
         pt = line.interpolate(line.project(shgeo.Point(point)))
         return pt
 
-    def appendToGroup(self, vertex, vertex_grp, UID):
+    def append_to_group(self, vertex, vertex_grp, UID):
         """
         Append new vertex to vertex group, by calculating distance to existing vertices
         An anchor point will be added together with line
@@ -247,7 +247,7 @@ class VertexOptimization:
         point = shgeo.Point(vertex["point"][0], vertex["point"][1])
         line = vertex["lines"][0][0]
         index = vertex["lines"][0][1]
-        pts = self.ptsInLine(line)
+        pts = self.points_in_line(line)
 
         pt_1 = None
         pt_2 = None
@@ -281,7 +281,7 @@ class VertexOptimization:
         if not pt_added:
             vertex_grp.append(vertex)
 
-    def ptsInLine(self, line):
+    def points_in_line(self, line):
         point_list = []
         try:
             for point in list(line.coords):  # loops through every point in a line
@@ -293,7 +293,7 @@ class VertexOptimization:
 
         return point_list
 
-    def groupIntersections(self, lines):
+    def group_intersections(self, lines):
         """
         Identify intersections of 2,3 or 4 lines and group them.
         Each group has all the end vertices, start(0) or end (-1) vertex and the line geometry
@@ -304,7 +304,7 @@ class VertexOptimization:
         i = 0
         try:
             for line in lines:
-                point_list = self.ptsInLine(line[0])
+                point_list = self.points_in_line(line[0])
 
                 if len(point_list) == 0:
                     print("Line {} is empty".format(line[1]))
@@ -313,8 +313,8 @@ class VertexOptimization:
                 # Add line to groups based on proximity of two end points to group
                 pt_start = {"point": [point_list[0].x, point_list[0].y], "lines": [[line[0], 0, {"lineNo": line[1]}]]}
                 pt_end = {"point": [point_list[-1].x, point_list[-1].y], "lines": [[line[0], -1, {"lineNo": line[1]}]]}
-                self.appendToGroup(pt_start, vertex_grp, line[2][BT_UID])
-                self.appendToGroup(pt_end, vertex_grp, line[2][BT_UID])
+                self.append_to_group(pt_start, vertex_grp, line[2][BT_UID])
+                self.append_to_group(pt_end, vertex_grp, line[2][BT_UID])
                 # print(i)
                 i += 1
         except Exception as e:
@@ -323,14 +323,14 @@ class VertexOptimization:
 
         return vertex_grp
 
-    def getAngle(self, line, end_index):
+    def get_angle(self, line, end_index):
         """
         Calculate the angle of the first or last segment
         line: ArcPy Polyline
         end_index: 0 or -1 of the the line vertices. Consider the multipart.
         """
 
-        pt = self.ptsInLine(line)
+        pt = self.points_in_line(line)
 
         if end_index == 0:
             pt_1 = pt[0]
@@ -356,7 +356,7 @@ class VertexOptimization:
 
         return angle
 
-    def generateAnchorPairs(self, vertex):
+    def generate_anchor_pairs(self, vertex):
         """
         Extend line following outward direction to length of SEGMENT_LENGTH
         Use the end point as anchor point.
@@ -370,7 +370,7 @@ class VertexOptimization:
         for line in lines:
             line_seg = line[0]
             pt_index = line[1]
-            slopes.append(self.getAngle(line_seg, pt_index))
+            slopes.append(self.get_angle(line_seg, pt_index))
 
         index = 0  # the index of line which paired with first line.
         pt_start_1 = None
@@ -453,7 +453,7 @@ class VertexOptimization:
         """
         anchors = []
         try:
-            anchors = self.generateAnchorPairs(vertex)
+            anchors = self.generate_anchor_pairs(vertex)
         except Exception as e:
             print(e)
 
@@ -472,12 +472,12 @@ class VertexOptimization:
                 centerline_2, _ = self.least_cost_path(self.in_cost, anchors[2:4], self.line_radius)
 
                 if centerline_1 and centerline_2:
-                    intersection = self.intersectionOfLines(centerline_1, centerline_2)
+                    intersection = self.intersection_of_lines(centerline_1, centerline_2)
             elif len(anchors) == 2:
                 centerline_1, _ = self.least_cost_path(self.in_cost, anchors, self.line_radius)
 
                 if centerline_1:
-                    intersection = self.closestPointToLine(vertex["point"], centerline_1)
+                    intersection = self.closest_point_to_line(vertex["point"], centerline_1)
         except Exception as e:
             print(e)
 
