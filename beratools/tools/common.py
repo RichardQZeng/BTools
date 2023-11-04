@@ -223,7 +223,7 @@ def check_arguments():
     return args, verbose
 
 
-def save_features_to_shapefile(out_file, crs, geoms, schema, properties=None):
+def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=None):
     # remove all None items
     # TODO: check geom type consistency
     geoms = [item for item in geoms if item is not None]
@@ -236,33 +236,42 @@ def save_features_to_shapefile(out_file, crs, geoms, schema, properties=None):
     except Exception as e:
         print(e)
 
-    # props_tuple = zip(fields, properties)  # if lengths are not the same, ValueError raises
-    # props_schema = [(item, type(value).__name__) for item, value in props_tuple]
+    if not schema:
+        props_tuple = zip([], [])  # if lengths are not the same, ValueError raises
+        props_schema = [(item, type(value).__name__) for item, value in props_tuple]
 
-    # schema = {
-    #     'geometry': geom_type,
-    #     'properties': OrderedDict(props_schema)
-    # }
+        schema = {
+            'geometry': geom_type,
+            'properties': OrderedDict([])
+        }
 
     driver = 'ESRI Shapefile'
     print('Writing to shapefile {}'.format(out_file))
 
-    with fiona.open(out_file, 'w', driver, schema, crs) as out_line_file:
-        feat_tuple = zip_longest(geoms, properties)
+    try:
+        out_line_file = fiona.open(out_file, 'w', driver, schema, crs)
+    except Exception as e:
+        print(e)
+        out_line_file.close()
+        return
 
-        try:
-            for geom, prop in feat_tuple:
-                # prop_zip = {} if prop is None else OrderedDict(list(zip(fields, prop)))
+    feat_tuple = zip_longest(geoms, properties)
 
-                if geom:
-                    feature = {
-                        'geometry': mapping(geom),
-                        'properties': prop
-                    }
+    try:
+        for geom, prop in feat_tuple:
+            # prop_zip = {} if prop is None else OrderedDict(list(zip(fields, prop)))
 
-                    out_line_file.write(feature)
-        except Exception as e:
-            print(e)
+            if geom:
+                feature = {
+                    'geometry': mapping(geom),
+                    'properties': prop
+                }
+
+                out_line_file.write(feature)
+    except Exception as e:
+        print(e)
+
+    out_line_file.close()
 
 
 def vector_crs(vector_file):
