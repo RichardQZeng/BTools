@@ -58,6 +58,7 @@ class VertexOptimization:
         self.processes = processes
         self.verbose = verbose
         self.segment_all = None
+        self.in_schema = None  # input shapefile schema
 
         # calculate cost raster footprint
         footprint_coords = generate_raster_footprint(in_cost, latlon=False)
@@ -170,6 +171,10 @@ class VertexOptimization:
     def split_lines(self, in_line):
         input_lines = []
         with fiona.open(in_line) as open_line_file:
+            # get input shapefile fields
+            self.in_schema = open_line_file.meta['schema']
+            self.in_schema['properties']['BT_UID'] = 'int:10'  # add field
+
             i = 0
             self.crs = open_line_file.crs
             for line in open_line_file:
@@ -510,10 +515,10 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     cl_list = []
 
     # Dump all polylines into point array for vertex updates
-    ptarray_all = {}
+    feature_all = {}
     for i in tool_vo.segment_all:
-        pt = [i[0], i[2]]
-        ptarray_all[i[1]] = pt
+        feature = [i[0], i[2]]
+        feature_all[i[1]] = feature
 
     for sublist in centerlines:
         if not sublist:
@@ -529,7 +534,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
             for line in sublist[3]["lines"]:
                 index = line[1]
                 lineNo = line[3]["lineNo"]
-                pt_array = ptarray_all[lineNo][0]
+                pt_array = feature_all[lineNo][0]
 
                 if not pt_array or not sublist[2]:
                     continue
@@ -543,7 +548,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
                     except Exception as e:
                         print(e)
 
-                ptarray_all[lineNo][0] = updated_line
+                feature_all[lineNo][0] = updated_line
 
     line_path = Path(out_line)
     file_name = line_path.stem
@@ -553,8 +558,9 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
     fields = []
     properites = []
-    all_lines = [value[0] for key, value in ptarray_all.items()]
-    save_features_to_shapefile(out_line, tool_vo.crs, all_lines, fields, properites)
+    all_lines = [value[0] for key, value in feature_all.items()]
+    all_props = [value[1] for key, value in feature_all.items()]
+    save_features_to_shapefile(out_line, tool_vo.crs, all_lines, tool_vo.in_schema, all_props)
     save_features_to_shapefile(file_leastcost, tool_vo.crs, leastcost_list, fields, properites)
     save_features_to_shapefile(file_anchors, tool_vo.crs, anchor_list, fields, properites)
     save_features_to_shapefile(file_inter, tool_vo.crs, inter_list, fields, properites)

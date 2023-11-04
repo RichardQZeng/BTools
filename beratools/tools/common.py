@@ -223,7 +223,7 @@ def check_arguments():
     return args, verbose
 
 
-def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=None):
+def save_features_to_shapefile(out_file, crs, geoms, schema, properties=None):
     # remove all None items
     # TODO: check geom type consistency
     geoms = [item for item in geoms if item is not None]
@@ -231,24 +231,18 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
     if len(geoms) < 1:
         return
 
-    if fields is None:
-        fields = []
-        properties = []
-    if properties is None:
-        properties = []
-
     try:
         geom_type = mapping(geoms[0])['type']
     except Exception as e:
         print(e)
 
-    props_tuple = zip(fields, properties)  # if lengths are not the same, ValueError raises
-    props_schema = [(item, type(value).__name__) for item, value in props_tuple]
+    # props_tuple = zip(fields, properties)  # if lengths are not the same, ValueError raises
+    # props_schema = [(item, type(value).__name__) for item, value in props_tuple]
 
-    schema = {
-        'geometry': geom_type,
-        'properties': OrderedDict(props_schema)
-    }
+    # schema = {
+    #     'geometry': geom_type,
+    #     'properties': OrderedDict(props_schema)
+    # }
 
     driver = 'ESRI Shapefile'
     print('Writing to shapefile {}'.format(out_file))
@@ -258,12 +252,12 @@ def save_features_to_shapefile(out_file, crs, geoms, fields=None, properties=Non
 
         try:
             for geom, prop in feat_tuple:
-                prop_zip = {} if prop is None else OrderedDict(list(zip(fields, prop)))
+                # prop_zip = {} if prop is None else OrderedDict(list(zip(fields, prop)))
 
                 if geom:
                     feature = {
                         'geometry': mapping(geom),
-                        'properties': prop_zip
+                        'properties': prop
                     }
 
                     out_line_file.write(feature)
