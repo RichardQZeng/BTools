@@ -34,19 +34,21 @@ def centerline(callback, in_line, in_cost, line_radius,
     # Read input line features
     layer_crs = None
     input_lines = []
+    schema = None
     with fiona.open(in_line) as open_line_file:
         layer_crs = open_line_file.crs
+        schema = open_line_file.meta['schema']
         for line in open_line_file:
             if line.geometry:
                 if line.geometry['type'] != 'MultiLineString':
-                    input_lines.append(line['geometry'])
+                    input_lines.append([line.geometry, line.properties])
                 else:
                     print('MultiLineString found.')
                     geoms = shape(line['geometry']).geoms
                     for item in geoms:
                         line_part = Geometry.from_dict(item)
                         if line_part:
-                            input_lines.append(line_part)
+                            input_lines.append([line_part, line.properties])
             else:
                 print(f'Line {line.id} has empty geometry.')
 
@@ -54,9 +56,12 @@ def centerline(callback, in_line, in_cost, line_radius,
         # split line segments at vertices
         input_lines_temp = []
         for line in input_lines:
-            line_segs = segments(line.coordinates)
+            line_seg = line[0]
+            line_prop = line[1]
+            line_segs = segments(line_seg.coordinates)
+            line_segs = zip(line_segs, line_prop)
             if line_segs:
-                input_lines_temp += line_segs
+                input_lines_temp.extend(line_segs)
 
         input_lines = input_lines_temp
 
@@ -77,7 +82,7 @@ def centerline(callback, in_line, in_cost, line_radius,
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         features = execute_multiprocessing(all_lines, processes, verbose)
-    elif PARALLEL_MODE == MODE_RAY:
+    elif PARALLEL_MODE == MODE_RAY:  # TODO: feature properties are added to return
         ray.init(log_to_driver=False)
         process_single_line_ray = ray.remote(process_single_line)
         result_ids = [process_single_line_ray.remote(line) for line in all_lines]
@@ -115,18 +120,18 @@ def centerline(callback, in_line, in_cost, line_radius,
         # Save lines to shapefile
         single_feature = {
             'geometry': mapping(LineString(feature[0])),
-            'properties': OrderedDict(list(zip(out_fields_list, feature[1])))
+            'properties': feature[2]
         }
         fiona_features.append(single_feature)
 
-    schema = {
-        'geometry': 'LineString',
-        'properties': OrderedDict([
-            ('start_pt_id', 'int'),
-            ('end_pt_id', 'int'),
-            ('total_cost', 'float')
-        ])
-    }
+    # schema = {
+    #     'geometry': 'LineString',
+    #     'properties': OrderedDict([
+    #         ('start_pt_id', 'int'),
+    #         ('end_pt_id', 'int'),
+    #         ('total_cost', 'float')
+    #     ])
+    # }
 
     driver = 'ESRI Shapefile'
     print('Writing lines to shapefile')
@@ -141,7 +146,8 @@ def centerline(callback, in_line, in_cost, line_radius,
 
 # @profile
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
-    line = line_args[0]
+    line = line_args[0][0]
+    prop = line_args[0][1]
     line_radius = line_args[1]
     in_cost_raster = line_args[2]
 
@@ -157,7 +163,8 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     if not ras_nodata:
         ras_nodata = BT_NODATA
 
-    return find_least_cost_path(ras_nodata, out_image, out_transform, line_id, shape(line))
+    least_cost_path = find_least_cost_path(ras_nodata, out_image, out_transform, line_id, shape(line))
+    return least_cost_path[0], least_cost_path[1], prop
 
 
 def execute_multiprocessing(line_args, processes, verbose):
