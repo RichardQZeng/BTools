@@ -208,7 +208,8 @@ def fill_attributes(line_args):
               'AvgWidth', 'Fragment', 'AvgHeight', 'Volume', 'Roughness']
     values = dict.fromkeys(fields, numpy.nan)
     line_feat = attr_seg_line.geometry.iloc[0]
-    line_buffer = shapely.buffer(line_feat, float(max_ln_width))  # default footprint by buffering
+    # default footprint by buffering
+    line_buffer = line_feat.buffer(float(max_ln_width), cap_style=shapely.BufferCapStyle.flat)
 
     # merge result_identity
     if has_footprint:
@@ -279,29 +280,9 @@ def fill_attributes(line_args):
         values.pop('Roughness')
 
     attr_seg_line.loc[index, fields] = values
-    return attr_seg_line
+    footprint = gpd.GeoDataFrame({'geometry': [line_buffer]}, crs=attr_seg_line.crs)
 
-
-def identity_polygon(line_args):
-    line = line_args[0]
-    in_cl_buffer = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
-    in_fp_polygon = line_args[2]
-    if 'OLnSEG' not in in_fp_polygon.columns.array:
-        in_fp_polygon = in_fp_polygon.assign(OLnSEG=0)
-
-    identity = None
-    try:
-        # TODO: determine when there is empty polygon
-        # TODO: this will produce empty identity
-        if not in_fp_polygon.empty:
-            identity = in_fp_polygon.overlay(in_cl_buffer, how='identity')
-            identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
-            identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
-            identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
-    except Exception as e:
-        print(e)
-
-    return line, identity
+    return attr_seg_line, footprint
 
 
 def execute_multiprocessing_identity(line_args, processes):
@@ -330,7 +311,8 @@ def execute_multiprocessing_identity(line_args, processes):
 def execute_multiprocessing_attributes(line_args, processes):
     try:
         total_steps = len(line_args)
-        features = []
+        line_segments = []
+        line_footprints = []
         with Pool(processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
@@ -338,9 +320,13 @@ def execute_multiprocessing_attributes(line_args, processes):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
 
-                if type(result) is gpd.GeoDataFrame:
-                    if not result.empty:
-                        features.append(result)
+                if type(result[0]) is gpd.GeoDataFrame:
+                    if not result[0].empty:
+                        line_segments.append(result[0])
+
+                if type(result[1]) is gpd.GeoDataFrame:
+                    if not result[1].empty:
+                        line_footprints.append(result[1])
 
                 step += 1
                 print('Line processed: {}'.format(step))
@@ -350,7 +336,7 @@ def execute_multiprocessing_attributes(line_args, processes):
         print("Operation cancelled")
         exit()
 
-    return features
+    return line_segments, line_footprints
 
 
 def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_type, seg_len,
@@ -443,16 +429,22 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     print('%{}'.format(60))
 
     # Multiprocessing identity polygon
-    features = []
     features = execute_multiprocessing_attributes(line_args, processes)
 
-    # Combine identity polygons into once geodataframe
+    # Combine into one geodataframe
     if len(features) == 0:
         print('No lines found.')
         exit()
 
-    result_attr = gpd.GeoDataFrame(pd.concat(features, ignore_index=True))
-    result_attr.reset_index()
+    line_segments = features[0]
+    line_footprints = features[1]
+
+    result_segments = gpd.GeoDataFrame(pd.concat(line_segments, ignore_index=True))
+    result_segments.reset_index()
+
+    result_footprints = gpd.GeoDataFrame(pd.concat(line_footprints, ignore_index=True))
+    result_footprints.reset_index()
+
     print('Attribute processing done.')
     print('%{}'.format(80))
 
@@ -460,15 +452,16 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     field_list = ['geometry', 'LENGTH', 'FP_Area', 'Perimeter', 'Bearing', 'Direction',
                   'Sinuosity', 'AvgWidth', 'AvgHeight', 'Fragment', 'Volume', 'Roughness']
     field_list.extend(in_fields)
-    del_list = list(col for col in result_attr.columns if col not in field_list)
-    result_attr = result_attr.drop(columns=del_list)
-    result_attr.reset_index()
+    del_list = list(col for col in result_segments.columns if col not in field_list)
+    result_segments = result_segments.drop(columns=del_list)
+    result_segments.reset_index()
 
     print('%{}'.format(90))
     print('Saving output ...')
 
     # Save attributed lines, was output_att_line
-    result_attr.to_file(out_line)
+    result_segments.to_file(out_line)
+    result_footprints.to_file(r'D:\Temp\test-ecosite\footprint_inter.shp')
 
     print('%{}'.format(100))
 

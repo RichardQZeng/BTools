@@ -307,3 +307,51 @@ def compare_crs(crs_org, crs_dst):
         print('Different GCS, please check.')
 
     return False
+
+
+def identity_polygon(line_args):
+    """
+    Return polygon of line segment
+
+    Parameters
+    ----------
+    line_args : list of geodataframe
+        0 : geodataframe line segment, one item
+        1 : geodataframe line buffer, one item
+        2 : geodataframe polygons returned by spatial search
+
+    Returns
+    -------
+        line, identity :  tuple of line and associated footprint
+
+    """
+    line = line_args[0]
+    in_cl_buffer = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
+    in_fp_polygon = line_args[2]
+    if 'OLnSEG' not in in_fp_polygon.columns.array:
+        in_fp_polygon = in_fp_polygon.assign(OLnSEG=0)
+
+    identity = None
+    try:
+        # drop polygons not intersecting with line segment
+        line_geom = line.iloc[0].geometry
+        drop_list = []
+        for i in in_fp_polygon.index:
+            if not in_fp_polygon.loc[i].geometry.intersects(line_geom):
+                drop_list.append(i)
+            elif line_geom.intersection(in_fp_polygon.loc[i].geometry).length/line_geom.length < 0.30:
+                drop_list.append(i)  # if less the 1/5 of line is inside of polygon, ignore
+
+        # drop all polygons not used
+        in_fp_polygon = in_fp_polygon.drop(index=drop_list)
+
+        if not in_fp_polygon.empty:
+            identity = in_fp_polygon.overlay(in_cl_buffer, how='intersection')
+            identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
+            identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
+            identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
+    except Exception as e:
+        print(e)
+
+    return line, identity
+
