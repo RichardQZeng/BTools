@@ -143,7 +143,7 @@ def restoration_csf(line_args):
 
     index = 0
 
-    if change_analysis and has_footprint:  # with change raster
+    if change_analysis and has_footprint:  # with change raster and footprint
 
         with rasterio.open(in_change) as in_change_file:
             cell_size_x = in_change_file.transform[0]
@@ -165,43 +165,99 @@ def restoration_csf(line_args):
                 # check trees
 
             #count trees within FP area
-            trees = in_tree[in_tree.within(line_buffer)]
-
-            # clipped the change base on polygon of line buffer or footprint
-            clipped_change, out_transform = rasterio.mask.mask(in_change_file, [line_buffer], crop=True)
-
-            # drop the ndarray to 2D ndarray
-            clipped_change = numpy.squeeze(clipped_change, axis=0)
-
-            # masked all NoData value cells
-            clean_change = numpy.ma.masked_where(clipped_change == in_change_file.nodata, clipped_change)
-
-            # calculate the Euclidean distance from start to end points of segment line
-            # eucDistance = find_euc_distance(line_feat)
-
-            # Calculate the summary statistics from the clipped change
-            change_mean = numpy.ma.mean(clean_change)
-            if -0.5<=change_mean<=0.5:
-                change=False
+            trees_counts = len(in_tree[in_tree.within(line_buffer)])
+            if trees_counts>=7:
+                reg_class="Advanced"
+            elif 3<trees_counts<7:
+                reg_class = "Regenerating"
             else:
-                change=True
 
-            change_std = numpy.ma.std(clean_change)
+                # clipped the change base on polygon of line buffer or footprint
+                clipped_change, out_transform = rasterio.mask.mask(in_change_file, [line_buffer], crop=True)
+
+                # drop the ndarray to 2D ndarray
+                clipped_change = numpy.squeeze(clipped_change, axis=0)
+
+                # masked all NoData value cells
+                clean_change = numpy.ma.masked_where(clipped_change == in_change_file.nodata, clipped_change)
+
+                # Calculate the summary statistics from the clipped change
+                change_mean = numpy.ma.mean(clean_change)
+                if change_mean>0:
+                    reg_class="Regenerating"
+                else:
+                    reg_class="Arrested"
+    elif change_analysis and not has_footprint:  # with change raster but no footprint
+        with rasterio.open(in_change) as in_change_file:
+            cell_size_x = in_change_file.transform[0]
+            cell_size_y = -in_change_file.transform[4]
+
+            # merge result_identity
+            result_identity = result_identity.dissolve()
+
+            fp = result_identity.iloc[0].geometry
+            line_feat = attr_seg_line.geometry.iloc[0]
+
+            # if the selected seg do not have identity footprint geometry
+            if shapely.is_empty(fp):
+                # use the buffer from the segment line
+                line_buffer = shapely.buffer(line_feat, float(max_ln_width) / 4)
+            else:
+                # if identity footprint has geometry, use as a buffer area
+                line_buffer = fp
+                # check trees
+
+            # count trees within FP area
+            trees_counts = len(in_tree[in_tree.within(line_buffer)])
+            if trees_counts >= 7:
+                reg_class = "Advanced"
+            elif 3 < trees_counts < 7:
+                reg_class = "Regenerating"
+            else:
+
+                # clipped the change base on polygon of line buffer or footprint
+                clipped_change, out_transform = rasterio.mask.mask(in_change_file, [line_buffer], crop=True)
+
+                # drop the ndarray to 2D ndarray
+                clipped_change = numpy.squeeze(clipped_change, axis=0)
+
+                # masked all NoData value cells
+                clean_change = numpy.ma.masked_where(clipped_change == in_change_file.nodata, clipped_change)
+
+                # Calculate the summary statistics from the clipped change
+                change_mean = numpy.ma.mean(clean_change)
+                if change_mean > 0:
+                    reg_class = "Regenerating"
+                else:
+                    reg_class = "Arrested"
 
 
-    elif has_footprint:  # No change_analysis
-       change = False
+    elif not change_analysis or not has_footprint:  # Either no change_analysis or no footprint
+        # merge result_identity
+        result_identity = result_identity.dissolve()
 
+        fp = result_identity.iloc[0].geometry
+        line_feat = attr_seg_line.geometry.iloc[0]
 
+        # if the selected seg do not have identity footprint geometry
+        if shapely.is_empty(fp):
+            # use the buffer from the segment line
+            line_buffer = shapely.buffer(line_feat, float(max_ln_width) / 4)
+        else:
+            # if identity footprint has geometry, use as a buffer area
+            line_buffer = fp
 
+        # count trees within FP area
+        trees_counts = len(in_tree[in_tree.within(line_buffer)])
+        if trees_counts >= 7:
+            reg_class = "Advanced"
+        elif 3 < trees_counts < 7:
+            reg_class = "Regenerating"
+        else:
+            reg_class = "Not Available"
 
-
-
-
-    result_identity['geometry'] = attr_seg_line.iloc[0].geometry
-
-    if result_identity.empty:
-        print('Geometry is empty')
+    elif not change_analysis and not has_footprint:  # no change raster and no footprint
+        reg_class = "Not Available"
 
 
 
@@ -439,7 +495,7 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
 
 if __name__ == '__main__':
     start_time = time.time()
-    print('Line Attributes started at {}'.format(time.strftime("%b %Y %H:%M:%S", time.localtime())))
+    print('Line regeneration classify started at {}'.format(time.strftime("%b %Y %H:%M:%S", time.localtime())))
 
     # Get tool arguments
 
@@ -447,4 +503,4 @@ if __name__ == '__main__':
     fl_restration_csf(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 
     print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
-    print('Line Attributes processing done in {} seconds'.format(round(time.time() - start_time, 5)))
+    print('Line regeneration classify done in {} seconds'.format(round(time.time() - start_time, 5)))
