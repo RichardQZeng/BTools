@@ -968,6 +968,80 @@
                             "optional": false
                         }
                     ]
+                },
+                {
+                    "name": "Forest Line Restoration Classify",
+                    "info": "Classify line into restoration classes: Arrested, Regenerating or Advanced.",
+                    "multiprocessing": true,
+                    "batch_processing": true,
+                    "tool_type": "python",
+                    "tool_api": "fl_restoration_csf",
+                    "paramFile": "\\Scripts\\fl_restoration_csf_params.txt",
+                    "image": "../Images/FLM_IO_ForestLineAttributes.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Attribution/ForestLineAttributes.html",
+                    "parameters":[
+                        {
+                            "variable": "in_line",
+                            "parameter": "Input Lines",
+                            "description": "Input forest line center shapefile which will be segmented and attributed.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "in_footprint",
+                            "parameter": "Input Footprint Polygons",
+                            "description": "Input forest line footprint feature layer (shapefile) used to derive spatial attributes.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "in_trees",
+                            "parameter": "Input tree features layer",
+                            "description": "Input forest point tree features layer (shapefile) used to derive spatial attributes.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "in_change",
+                            "parameter": "Input change raster",
+                            "description": "Input raster shows the changes of surface over time period.",
+                            "type": "raster",
+                            "typelab": "TIF",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {   "variable": "proc_segments",
+                            "parameter": "Process Segments @ Every 10m",
+                            "description": "If set to False, will process each line from start to end ignoring midpoints. If set to True, will process every 10m segment(s) between first and end of the input lines separately. The default is False, since it is assumed that the input lines for this tool are manually corrected center-lines. If using regional-scale (1:20,000) lines as input this may be set to True.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": false
+                        },
+
+                        {
+                            "variable": "out_line",
+                            "parameter": "Output Attributed Segments",
+                            "description": "Output features that will be created.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
                 }
             ]
         },
@@ -1244,7 +1318,7 @@
                     "name": "Hummock and Hollow from DTM Raster Data",
                     "info": "Hummock and Hollow (Micro-topography) detection from DEM raster using dynamic moving windows and lawns threshold.",
                     "multiprocessing": true,
-                    "batch_processing": false,
+                    "batch_processing": true,
                     "tool_type": "python",
                     "tool_api": "hummock_hollow_raster",
                     "paramFile": "\\Scripts\\Hummock_Hollow_params.txt",
@@ -1302,7 +1376,7 @@
                         }
                     ]
                 },
-		        {
+                {
                     "name": "Height Metrics from LiDAR Data",
                     "info": "Height Metrics (Zmax, Zmean, Zsd, ZQ30-ZQ90, ZQ99 (percentile) from Lidar data using lidR package.",
                     "multiprocessing": true,
@@ -1794,6 +1868,78 @@
                             "default": "",
                             "output": true,
                             "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Point Cloud Ground Classify",
+                    "info": "It implements an algorithm for segmentation of ground points base on a Cloth Simulation Filter. This method is a strict implementation of the CSF algorithm made by Zhang et al. (2016) that relies on the authors’ original source code written and exposed to R via the the RCSF package from R lidR package.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_gnd_csf",
+                    "paramFile": "\\Scripts\\rpy_rpy_gnd_csf_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for the raster results.",
+                            "description": "Output folder for the raster results.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "slope",
+                            "parameter": "Steep slopes exists.",
+                            "description": "If steep slopes exist, set this parameter to TRUE to reduce errors during post-processing.",
+                            "type": "list",
+                            "typelab": "Bool",
+                            "data": [true, false],
+                            "default": false,
+                            "output": false,
+                            "optional": true
+                        },
+                        {   "variable": "class_threshold",
+                            "parameter": "Ground threshold",
+                            "description": "The distance to the simulated cloth to classify a point cloud into ground and non-ground.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 0.5,
+                            "output": false,
+                            "optional": true
+                        },
+                        {   "variable": "cloth_resolution",
+                            "parameter": "The distance between particles in the cloth",
+                            "description": "This is usually set to the average distance of the points in the point cloud.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 0.5,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+                            "variable": "rigidness",
+                            "parameter": "The rigidness of the cloth",
+                            "description": "Set '1' stands for very soft (to fit rugged terrain),'2' stands for medium, and '3' stands for hard cloth (for flat terrain).",
+                            "type": "list",
+                            "typelab": "int",
+                            "data": [1,2,3],
+                            "default": 1,
+                            "output": false,
+                            "optional": true
                         }
                     ]
                 }
