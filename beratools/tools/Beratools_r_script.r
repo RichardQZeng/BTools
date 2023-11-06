@@ -315,10 +315,6 @@ points2trees<-function(in_folder,is_normalized,hmin,out_folder,rprocesses,CHMcel
         opt_progress(n_las) <- TRUE
     #     chm <- rasterize_canopy(n_las, cell_size, pitfree(thresholds = c(0,3,10,15,22,30,38), max_edge = c(0, 1.5)), pkg = "terra")
         chm <- rasterize_canopy(n_las, CHMcell_size, dsmtin(max_edge = (3*CHMcell_size)), pkg = "terra")}
-    # find the xth mean highest of the project area
-#     qxth0<-pixel_metrics(n_las,func=quantile(Z, probs = percentile),res=cell_size)
-#     vqxth<-values(qxth0,mat=TRUE)
-#     mqxth<-mean(vqxth,na.rm=TRUE)
 
 
     print("Compute approximate tree positions ...")
@@ -329,7 +325,7 @@ points2trees<-function(in_folder,is_normalized,hmin,out_folder,rprocesses,CHMcel
 
         f<-function(x){
 #         y = 0.4443*(x^0.7874)
-        y = 0.478676*(x^0.695289)
+        y = 0.478676*(x^0.695289)  #base on Plot4209, 4207 and 4203
     y[x <hmin ] <- 0.478676*(hmin^0.695289)# Min_ws # smallest window
 #   y[x > (quarter_ht)] <- 0.478676*(quarter_ht^0.695289)    # largest window
 #     y= 0.39328*x
@@ -345,6 +341,7 @@ points2trees<-function(in_folder,is_normalized,hmin,out_folder,rprocesses,CHMcel
 #         ttop <- locate_trees(las, lmf(ws = 1,hmin=hmin,shape="circular"),uniqueness = "gpstime")
 
    ttop <- crop(vect(ttop), ext(chunk))   # remove the buffer
+   # generating number of trees per ha raster
 #    sum_map<-terra::rasterize(ttop,rast(ext(chunk),resolution=cell_size,crs=crs(ttop)),fun=sum)
 #    sum_map<- classify(sum_map, cbind(NA, 0))
 
@@ -769,4 +766,20 @@ las_info<-function(in_las_folder,rprocesses){
 
 
 }
+#######################################################################################################################################
+classify_gnd<-function(in_las_folder,out_folder,slope,class_threshold,cloth_resolution,rigidness){
+library(lidR)
+library(future)
+library(RCSF)
+
+print("loading LiDAR Data")
+
+ctg<-readLAScatalog(in_las_folder,filter='-drop_class_7 -drop_z_below 0')
+opt_output_files(ctg) <- paste0(out_folder,"/{*}_gnd_classified")
+opt_laz_compression(ctg)<- FALSE
+gnd_csf<-csf(slope,class_threshold=class_threshold,cloth_resolution=cloth_resolution,rigidness=rigidness,iterations=500,time_step=0.65)
+print("Classify ground start....")
+c_ctg <- classify_ground(ctg, gnd_csf)
+}
+
 
