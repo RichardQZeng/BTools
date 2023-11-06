@@ -970,12 +970,12 @@
                     ]
                 },
                 {
-                    "name": "Forest Line Restoration Classify",
-                    "info": "Classify line into restoration classes: Arrested, Regenerating or Advanced.",
+                    "name": "Forest Line Regeneration Classify",
+                    "info": "Classify line into regeneration classes: Arrested, Regenerating or Advanced.",
                     "multiprocessing": true,
                     "batch_processing": true,
                     "tool_type": "python",
-                    "tool_api": "fl_restoration_csf",
+                    "tool_api": "fl_regen_csf",
                     "paramFile": "\\Scripts\\fl_restoration_csf_params.txt",
                     "image": "../Images/FLM_IO_ForestLineAttributes.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Attribution/ForestLineAttributes.html",
