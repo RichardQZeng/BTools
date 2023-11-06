@@ -42,6 +42,8 @@ PARALLEL_MODE = MODE_MULTIPROCESSING
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
 
+NADDatum=['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
+
 BT_NODATA = -9999
 BT_DEBUGGING = False
 BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
