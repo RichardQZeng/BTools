@@ -592,5 +592,5 @@ if __name__ == '__main__':
     forest_metrics(print, **in_args.input, processes=int(in_args.processes), verbose=verbose)
 
     print('%{}'.format(100))
-    print('Finishing Dynamic Canopy Threshold calculation @ {}\n(or in {} second)'.format(
+    print('Starting forest metrics calculation processing is done @ {}\n(or in {} second)'.format(
         time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()), round(time.time() - start_time, 5)))
