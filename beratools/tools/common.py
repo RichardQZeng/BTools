@@ -228,7 +228,7 @@ def check_arguments():
 def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=None):
     # remove all None items
     # TODO: check geom type consistency
-    geoms = [item for item in geoms if item is not None]
+    # geoms = [item for item in geoms if item is not None]
 
     if len(geoms) < 1:
         return

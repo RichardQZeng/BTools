@@ -405,7 +405,7 @@
                             "type": "list",
                             "typelab": "bool",
                             "data": [true, false],
-                            "default": false,
+                            "default": true,
                             "output": false,
                             "optional": false
                         },

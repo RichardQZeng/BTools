@@ -391,7 +391,7 @@ def find_least_cost_path(ras_nodata, out_image, out_transform, line_id, line,
     except Exception as e:
         print(e)
 
-    print(" Searching least cost path for line with id: {} ".format(line_id), flush=True)
+    print(" Searching least cost path: line {} ".format(line_id), flush=True)
 
     if USE_NUMPY_FOR_DIJKSTRA:
         result = dijkstra_np(start_tuple, end_tuple, matrix)
