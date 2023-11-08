@@ -167,7 +167,7 @@ def calculate_and_store_widths(shp_line, shp_poly, n_samples=40, offset=30):
     return out_lines
 
 
-def generate_fixed_width_footprint(line_gdf, shp_footprint, max_width=True):
+def generate_fixed_width_footprint(line_gdf, shp_footprint, max_width=False):
     """
     Creates a buffer around each line in the GeoDataFrame using its 'max_width' attribute and
     saves the resulting polygons in a new shapefile.
@@ -184,6 +184,9 @@ def generate_fixed_width_footprint(line_gdf, shp_footprint, max_width=True):
 
     line_gdf['avg_width'].fillna(mean_avg_width, inplace=True)
     line_gdf['max_width'].fillna(mean_max_width, inplace=True)
+
+    line_gdf['avg_width'].replace(0.0, mean_avg_width, inplace=True)
+    line_gdf['max_width'].replace(0.0, mean_max_width, inplace=True)
 
     if not max_width:
         print('Using quantile 75% width')
