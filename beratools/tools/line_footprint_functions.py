@@ -120,6 +120,7 @@ def dyn_canopy_cost_raster(args):
     out_transform = args[9]
     use_corridor_th_col = args[10]
     out_centerline = args[11]
+    line_id = args[12]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
@@ -147,7 +148,7 @@ def dyn_canopy_cost_raster(args):
                                           cc_smooth, avoidance, cost_raster_exponent)
     dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = nodata
     return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform,
-            max_line_dist, use_corridor_th_col, out_centerline, nodata)
+            max_line_dist, use_corridor_th_col, out_centerline, nodata, line_id)
 
 
 def split_line_fc(line):
@@ -202,6 +203,7 @@ def split_into_equal_nth_segments(df):
 def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_dist,
                        canopy_avoidance, exponent, use_corridor_th_col, out_centerline):
     line_args = []
+    line_id = 0
     for record in range(0, len(work_in_buffer)):
         line_buffer = work_in_buffer.loc[record, 'geometry']
         clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
@@ -210,7 +212,8 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
         nodata = -9999
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-               line_seg.iloc[[record]], out_transform, use_corridor_th_col, out_centerline])
+               line_seg.iloc[[record]], out_transform, use_corridor_th_col, out_centerline, line_id])
+        line_id += 1
 
     return line_args
 
@@ -258,7 +261,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                 line_seg = split_into_equal_nth_segments(line_seg)
 
             print('%{}'.format(20))
-            work_in_buffer = gpd.GeoDataFrame.copy((line_seg))
+            work_in_buffer = gpd.GeoDataFrame.copy(line_seg)
             work_in_buffer['geometry'] = shapely.buffer(work_in_buffer['geometry'],
                                                         distance=float(max_ln_width),
                                                         cap_style=1)
@@ -319,6 +322,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
 
 def dyn_process_single_line(segment):
+    # this will change segment content, and parameters will be changed
     segment = dyn_canopy_cost_raster(segment)
 
     # this function takes single line to work the line footprint
@@ -336,6 +340,7 @@ def dyn_process_single_line(segment):
 
     out_centerline = segment[6]
     no_data = segment[7]
+    line_id = segment[8]
 
     if use_corridor_col:
         corridor_th_value = df.CorridorTh.iloc[0]
@@ -417,7 +422,7 @@ def dyn_process_single_line(segment):
         lc_path = None
         if out_centerline:
             mat = corridor.copy()
-            lc_path = find_least_cost_path(no_data, mat, in_transform, 9999, feat)
+            lc_path = find_least_cost_path(no_data, mat, in_transform, line_id, feat)
 
         # Calculate minimum value of corridor raster
         if not np.ma.min(corridor) is None:

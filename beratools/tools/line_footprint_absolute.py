@@ -185,6 +185,10 @@ def process_single_line_segment(dict_segment):
     in_cost_r = dict_segment['in_cost_r']
     corridor_th_value = dict_segment['corridor_th_value']
 
+    line_id = ''
+    if 'BT_UID' in dict_segment.keys():
+        line_id = dict_segment['BT_UID']
+
     try:
         corridor_th_value = float(corridor_th_value)
         if corridor_th_value < 0.0:
@@ -293,7 +297,7 @@ def process_single_line_segment(dict_segment):
                 ras_nodata = BT_NODATA
 
             mat = corridor.copy()
-            lc_path = find_least_cost_path(ras_nodata, mat, out_transform2, 9999, feat)
+            lc_path = find_least_cost_path(ras_nodata, mat, out_transform2, line_id, feat)
 
         # Calculate minimum value of corridor raster
         if numpy.ma.min(corridor) is not None:

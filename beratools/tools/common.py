@@ -55,7 +55,7 @@ BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
 BT_UID = 'BT_UID'
 
 GROUPING_SEGMENT = True
-LP_SEGMENT_LENGTH = 30
+LP_SEGMENT_LENGTH = 100
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
@@ -247,6 +247,8 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
             'properties': OrderedDict([])
         }
 
+        properties = None
+
     driver = 'ESRI Shapefile'
     print('Writing to shapefile {}'.format(out_file))
 
@@ -257,7 +259,10 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
         out_line_file.close()
         return
 
-    feat_tuple = zip_longest(geoms, properties)
+    if properties:
+        feat_tuple = zip_longest(geoms, properties)
+    else:  # properties are None
+        feat_tuple = [(item, None) for item in geoms]
 
     try:
         for geom, prop in feat_tuple:
