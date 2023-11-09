@@ -400,14 +400,16 @@ def split_line_nPart(line,seg_length):
 
     seg_line = shapely.segmentize(line, seg_length)
 
-    distances=np.arange(0,line.length,seg_length)
-    # if distances[-1]>=line.length:
-    #     pass
-    # else:
-    #     distances=np.append(distances,line.length)
-    points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
-    split_points = shapely.multipoints(points)
-    snap_points=snap(split_points,seg_line,1e-8)
+    distances=np.arange(seg_length,line.length,seg_length)
 
-    mline = split(seg_line, snap_points)
+    if len(distances)>0:
+        points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
+
+        # snap_points = snap(points, seg_line, 0.001)
+        split_points = shapely.multipoints(points)
+
+
+        mline = split(seg_line, split_points)
+    else:
+        mline=seg_line
     return mline
