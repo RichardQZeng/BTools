@@ -5,6 +5,7 @@ import geopandas
 import numpy
 import scipy
 import os
+import pyogrio
 import shapely
 from shapely.ops import unary_union, split
 from rasterio import mask
@@ -91,11 +92,12 @@ def regen_csf(line_args):
             change_mean = numpy.nanmean(clean_change)
         #count trees within FP area
         trees_counts = len(in_tree[in_tree.within(line_buffer)])
-        if trees_counts>=7:
-            reg_class="Advanced"
-        elif 3<trees_counts<7:
+        trees_density=trees_counts/line_buffer.area
+        if trees_density >= 0.6:
+            reg_class = "Advanced"
+        elif 0.2 < trees_density < 0.6:
             reg_class = "Regenerating"
-        else: # 0-2 trees counts
+        else: # 0-60 trees counts
             if change_mean>0.06:
                 reg_class="Regenerating"
             else:
@@ -124,11 +126,12 @@ def regen_csf(line_args):
             change_mean = numpy.nanmean(clean_change)
         # count trees within FP area
         trees_counts = len(in_tree[in_tree.within(line_buffer)])
-        if trees_counts >= 7:
+        trees_density = trees_counts / line_buffer.area
+        if trees_density >= 0.6:
             reg_class = "Advanced"
-        elif 3 < trees_counts < 7:
+        elif 0.2 < trees_density < 0.6:
             reg_class = "Regenerating"
-        else:  # 0-2 trees counts
+        else:  # 0-60 trees counts
             if change_mean > 0.06:
                 reg_class = "Regenerating"
             else:
@@ -144,9 +147,10 @@ def regen_csf(line_args):
 
         # count trees within FP area
         trees_counts = len(in_tree[in_tree.within(line_buffer)])
-        if trees_counts >= 7:
+        trees_density = trees_counts / line_buffer.area
+        if trees_density >= 0.6:
             reg_class = "Advanced"
-        elif 3 < trees_counts < 7:
+        elif 0.2 < trees_density < 0.6:
             reg_class = "Regenerating"
         else:
             reg_class = "Not Available"
@@ -157,9 +161,11 @@ def regen_csf(line_args):
         reg_class = "Not Available"
         change_mean = numpy.nan
         trees_counts=numpy.nan
+        trees_density=numpy.nan
 
     attr_seg_line["AveChanges"]=change_mean
     attr_seg_line["Num_trees"] = trees_counts
+    attr_seg_line["trees_density"] = trees_density
     attr_seg_line["Reg_Class"] = reg_class
     return attr_seg_line
 
@@ -243,18 +249,19 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
     print("Checking input parameters ...")
 
     try:
-        print("loading in shapefile(s) ...")
-        # in_line_shp = pyogrio.read_dataframe(in_line)
-        # in_tree_shp = pyogrio.read_dataframe(in_trees)
-        # in_fp_shp = pyogrio.read_dataframe(in_footprint)
-        in_line_shp = geopandas.read_file(in_line,engine="pyogrio")
-        in_tree_shp = geopandas.read_file(in_trees,engine="pyogrio")
-        in_fp_shp = geopandas.read_file(in_footprint,engine="pyogrio")
+        print("loading shapefile(s) ...")
+        in_line_shp = pyogrio.read_dataframe(in_line)
+        in_tree_shp = pyogrio.read_dataframe(in_trees)
+        in_fp_shp = pyogrio.read_dataframe(in_footprint)
+        # in_line_shp = geopandas.read_file(in_line,engine="pyogrio")
+        # in_tree_shp = geopandas.read_file(in_trees,engine="pyogrio")
+        # in_fp_shp = geopandas.read_file(in_footprint,engine="pyogrio")
     except SystemError:
        print("Invalid input feature, please check!")
        exit()
 
     #Check datum, at this stage only check input data against NAD 83 datum
+    print("Checking datum....")
     sameDatum = False
     for shp in [in_line_shp,in_tree_shp,in_fp_shp]:
         if shp.crs.datum.name in NADDatum:
@@ -316,12 +323,20 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
     # Return split lines with two extra columns:['OLnFID','OLnSEG']
     # or return whole input line
     print("Input_Lines: {}".format(in_cl))
+    if not 'OLnFID' in in_line_shp.columns.array:
+        print(
+            "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
+        in_line_shp['OLnFID'] = in_line_shp.index
     if proc_segments == True:
         attr_seg_lines = line_split2(in_line_shp, 10)
     else:
         # copy original line input to another Geodataframe
         attr_seg_lines = geopandas.GeoDataFrame.copy(in_line_shp)
-
+        if not "OLnSEG" in attr_seg_lines.columns.array:
+            if proc_segments:
+                attr_seg_lines["OLnSEG"] = int(attr_seg_lines["OLnSEG"])
+            else:
+                attr_seg_lines["OLnSEG"] = 0
     print('%{}'.format(10))
 
     print("Line segments preparation done.")
