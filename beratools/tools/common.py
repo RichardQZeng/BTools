@@ -25,11 +25,14 @@ from rasterio import features
 
 import fiona
 from fiona import Geometry
+import shapely
 from shapely.geometry import shape, mapping, Point, LineString
 import geopandas as gpd
 
 from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
+
+import math
 
 
 # constants
@@ -360,3 +363,51 @@ def identity_polygon(line_args):
 
     return line, identity
 
+def line_split2(in_ln_shp,seg_length):
+
+    # Check the OLnFID column in data. If it is not, column will be created
+    if 'OLnFID' not in in_ln_shp.columns.array:
+        if BT_DEBUGGING:
+            print("Cannot find {} column in input line data")
+
+        print("New column created: {}".format('OLnFID', 'OLnFID'))
+        in_ln_shp['OLnFID'] = in_ln_shp.index
+    line_seg=split_into_Equal_Nth_segments(in_ln_shp,seg_length)
+
+    return line_seg
+def split_into_Equal_Nth_segments(df,seg_length):
+    odf=df
+    crs=odf.crs
+    if not 'OLnSEG' in odf.columns.array:
+        df['OLnSEG'] = np.nan
+    df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry,seg_length), axis=1))
+    df=df.explode()
+
+    df['OLnSEG'] = df.groupby('OLnFID').cumcount()
+    gdf=gpd.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
+    gdf=gdf.reset_index(drop=True)
+    if "shape_leng" in gdf.columns.array:
+        gdf["shape_leng"]=gdf.geometry.length
+    elif "LENGTH" in gdf.columns.array:
+        gdf["LENGTH"]=gdf.geometry.length
+
+    return  gdf
+
+def split_line_nPart(line,seg_length):
+    from shapely.geometry import mapping
+    from shapely.ops import split,snap
+
+    seg_line = shapely.segmentize(line, seg_length)
+
+    distances=np.arange(0,line.length,seg_length)
+    # if distances[-1]>=line.length:
+    #     pass
+    # else:
+    #     distances=np.append(distances,line.length)
+    points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
+    split_points = shapely.multipoints(points)
+    snap_points=snap(split_points,seg_line,1e-8)
+
+    mline = split(seg_line, snap_points)
+    return mline
