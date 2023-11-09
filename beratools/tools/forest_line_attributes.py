@@ -461,7 +461,8 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
 
     # Save attributed lines, was output_att_line
     result_segments.to_file(out_line)
-    result_footprints.to_file(r'D:\Temp\test-ecosite\footprint_inter.shp')
+    # only for debugging, save footprint used for each line segment
+    # result_footprints.to_file(r'D:\Temp\test-ecosite\footprint_inter.shp')
 
     print('%{}'.format(100))
 
