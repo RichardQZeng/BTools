@@ -334,10 +334,8 @@ def identity_polygon(line_args):
 
     """
     line = line_args[0]
-    in_cl_buffer = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
+    in_cl_buffer = line_args[1][['geometry', 'OLnFID']]
     in_fp_polygon = line_args[2]
-    if 'OLnSEG' not in in_fp_polygon.columns.array:
-        in_fp_polygon = in_fp_polygon.assign(OLnSEG=0)
 
     identity = None
     try:
@@ -355,9 +353,9 @@ def identity_polygon(line_args):
 
         if not in_fp_polygon.empty:
             identity = in_fp_polygon.overlay(in_cl_buffer, how='intersection')
-            identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
-            identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
-            identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
+            # identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
+            # identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
+            # identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
     except Exception as e:
         print(e)
 
@@ -415,3 +413,50 @@ def split_line_nPart(line,seg_length):
     else:
         mline=seg_line
     return mline
+
+
+def cut_line(line, distance):
+    """
+
+    Parameters
+    ----------
+    line : LineString line to be split by distance along line
+    distance : float length of segment to cut
+
+    Returns
+    -------
+    List of LineString
+    """
+    lines = list()
+    cut(line, distance, lines)
+    return lines
+
+
+def cut(line, distance, lines):
+    # Cuts a line in several segments at a distance from its starting point
+    if distance <= 0.0 or distance >= line.length:
+        return [line]
+
+    end_pt = None
+    while line.length > distance:
+        coords = list(line.coords)
+        for i, p in enumerate(coords):
+            pd = line.project(Point(p))
+            # if abs(pd - line.length) < BT_EPSLON:
+            #     lines.append(line)
+            #     return lines
+
+            if abs(pd - distance) < BT_EPSLON:
+                lines.append(LineString(coords[:i+1]))
+                line = LineString(coords[i:])
+                end_pt = None
+                break
+            elif pd > distance:
+                end_pt = line.interpolate(distance)
+                lines.append(LineString(coords[:i] + list(end_pt.coords)))
+                line = LineString(list(end_pt.coords) + coords[i:])
+                break
+
+    if end_pt:
+        lines.append(line)
+

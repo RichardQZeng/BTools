@@ -5,6 +5,7 @@ import geopandas as gpd
 import numpy
 import scipy
 import shapely
+from shapely import MultiPoint
 from shapely.ops import unary_union, split
 from rasterio import mask
 from multiprocessing.pool import Pool
@@ -17,6 +18,24 @@ class OperationCancelledException(Exception):
 
 
 def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_type, verbose):
+    """
+
+    Parameters
+    ----------
+    callback
+    HasOLnFID
+    in_cl
+    seg_length
+    max_ln_width
+    sampling_type
+    verbose
+
+    Returns
+    -------
+    Refer to: https://gis.stackexchange.com/questions/416284/
+    splitting-multiline-or-linestring-into-equal-segments-of-particular-length-using
+
+    """
     in_ln_shp = gpd.GeoDataFrame.from_file(in_cl)
 
     # Check the OLnFID column in data. If it is not, column will be created
@@ -33,62 +52,30 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
     # Prepare line for arbitrary split lines
     if sampling_type == 'ARBITRARY':
         # copy the input line into split points GoeDataframe
-        in_cl_split_point = gpd.GeoDataFrame.copy(in_cl_line)
+        # in_cl_split_point = gpd.GeoDataFrame.copy(in_cl_line)
 
         # create empty geodataframe for split line and straight line from split points
-        in_cl_split_line = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
+        split_line = gpd.GeoDataFrame(columns=list(in_cl_line.columns), geometry='geometry', crs=in_ln_shp.crs)
         line_id = 0
+        line_list = []
 
-        # loop thought all the record in input centerlines
-        for row in range(0, len(in_cl_line)):
+        # loop though all the centerlines records
+        for row in in_cl_line.index:
             # get geometry from record
-            in_ln_feat = in_cl_line.loc[row, 'geometry']
+            in_line = in_cl_line.loc[[row]]
+            in_ln_feat = in_line.iloc[0].geometry
+            lines = cut_line(in_ln_feat, seg_length)
 
-            # get geometry's length from record
-            in_line_length = in_cl_line.loc[row, 'geometry'].length
-
-            if 0.0 <= in_line_length <= seg_length:
-                # if input line is shorter than the set arbitrary distance, get the start and end points from input line
-                points = [shapely.Point(in_ln_feat.coords[0]), shapely.Point(in_ln_feat.coords[-1])]
-            else:
-                # if input line is longer than the set arbitrary distance,
-                # get the arbitrary distance list along input line
-                distances = numpy.arange(0, in_line_length, seg_length)
-
-                # append line's end point into numpy array
-                if distances[-1] < in_line_length:
-                    distances = numpy.append(distances, in_line_length)
-
-                # interpolate distance list and get all the points' coordinates
-                in_ln_feat = shapely.segmentize(in_ln_feat, seg_length)
-                points = [in_ln_feat.interpolate(distance) for distance in distances]
-
-            # Make sure points are snapped to input line
-            points = shapely.snap(points, in_ln_feat, BT_EPSLON)
-            points = shapely.multipoints(points)
-
-            lines = split(in_ln_feat, points)
-
-            seg_i = 1
-            seg_list_index = 0
-
-            for seg in lines.geoms:
-                for col in in_cl_split_point.columns.array:
-                    in_cl_split_line.loc[line_id, col] = in_cl_split_point.loc[row, col]
-                    in_cl_split_line.loc[line_id, 'geometry'] = seg
-
-                if not HasOLnFID:
-                    in_cl_split_line.loc[line_id, 'OLnFID'] = row
-
-                in_cl_split_line.loc[line_id, 'OLnSEG'] = seg_i
-                seg_i = seg_i + 1
-                seg_list_index = seg_list_index + 1
+            for seg in lines:
+                line_data = in_line.copy()
+                line_data['geometry'] = seg
                 line_id = line_id + 1
+                line_list.append(line_data)
 
-            in_cl_split_line = in_cl_split_line.dropna(subset='geometry')
+        split_line = pd.concat(line_list)
+        split_line.reset_index(drop=True, inplace=True)
 
-        in_cl_split_line.reset_index()
-        return in_cl_split_line
+        return split_line
     elif sampling_type == "LINE-CROSSINGS":
         # create empty geodataframe for lines
         in_cl_dissolved = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=in_ln_shp.crs)
@@ -148,16 +135,18 @@ def find_direction(bearing):
 
 
 def find_euc_distance(in_feat):
-    x1, y1 = in_feat.coords[0]
-    x2, y2 = in_feat.coords[-1]
+    line_coords = list(in_feat.coords)
+    x1, y1 = line_coords[0][0:2]  # in case has_z
+    x2, y2 = line_coords[-1][0:2]
+
     return scipy.spatial.distance.euclidean([x1, y1], [x2, y2])
 
 
 def find_bearing(seg):  # Geodataframe
-    line_coords = shapely.geometry.mapping(seg[['geometry']])['features'][0]['geometry']['coordinates']
+    line_coords = list(seg.iloc[0].geometry.coords)
 
-    x1, y1 = line_coords[0]
-    x2, y2 = line_coords[-1]
+    x1, y1 = line_coords[0][0:2]  # in case has_z
+    x2, y2 = line_coords[-1][0:2]
     dx = x2 - x1
     dy = y2 - y1
 
