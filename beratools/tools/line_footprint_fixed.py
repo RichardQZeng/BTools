@@ -3,6 +3,7 @@ from multiprocessing.pool import Pool
 
 import numpy as np
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry import Point, LineString
 
 from common import *
@@ -46,7 +47,7 @@ def prepare_line_args(shp_line, shp_poly, n_samples, offset):
             continue
 
         inter_poly = poly_gdf.iloc[spatial_index.query(line)]
-        line_args.append([row, inter_poly, n_samples, offset, i])
+        line_args.append([line_gdf.iloc[[i]], inter_poly, n_samples, offset, i])
 
     return line_args
 
@@ -110,7 +111,7 @@ def process_single_line(line_arg):
     offset = line_arg[3]
     line_id = line_arg[4]
 
-    widths = calculate_average_width(row.geometry, inter_poly, offset, n_samples)
+    widths = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
 
     # Calculate the 75th percentile width
     q3_width = np.percentile(widths, 75)
@@ -249,7 +250,7 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     elif PARALLEL_MODE == MODE_SEQUENTIAL:
         out_lines = execute_multiprocessing(line_args, processes, verbose)
 
-    line_attr = gpd.GeoDataFrame(out_lines)
+    line_attr = pd.concat(out_lines)
 
     # create fixed width footprint
     buffer_gdf = generate_fixed_width_footprint(line_attr, in_footprint, max_width=True)
