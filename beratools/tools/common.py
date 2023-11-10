@@ -375,6 +375,8 @@ def line_split2(in_ln_shp,seg_length):
     line_seg=split_into_Equal_Nth_segments(in_ln_shp,seg_length)
 
     return line_seg
+
+
 def split_into_Equal_Nth_segments(df,seg_length):
     odf=df
     crs=odf.crs

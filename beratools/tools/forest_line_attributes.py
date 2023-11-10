@@ -60,10 +60,11 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
                     distances = numpy.append(distances, in_line_length)
 
                 # interpolate distance list and get all the points' coordinates
+                in_ln_feat = shapely.segmentize(in_ln_feat, seg_length)
                 points = [in_ln_feat.interpolate(distance) for distance in distances]
 
             # Make sure points are snapped to input line
-            points = shapely.snap(points, in_ln_feat, 0.001)
+            points = shapely.snap(points, in_ln_feat, BT_EPSLON)
             points = shapely.multipoints(points)
 
             lines = split(in_ln_feat, points)
