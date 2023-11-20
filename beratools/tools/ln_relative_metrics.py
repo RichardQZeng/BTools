@@ -92,8 +92,9 @@ def cal_sar(a_s,cell_x,cell_y,diag):
     #
     center = a_s[1, 1]
     # Pythagorean Theorem
-    # 8 Directions
+
     if not numpy.isnan(center):
+        # Center to 8 Directions
         dir1 = math.sqrt(abs(center - a_s[0, 1]) ** 2 + (cell_y ** 2))
         dir2 = math.sqrt(abs(center - a_s[0, 2]) ** 2 + diag ** 2)
         dir3 = math.sqrt(abs(center - a_s[1, 2]) ** 2 + cell_x ** 2)
@@ -142,14 +143,14 @@ def cal_sar(a_s,cell_x,cell_y,diag):
 def cal_tri(a_s):
     # For TRI
     # refer https://livingatlas-dcdev.opendata.arcgis.com/content/28360713391948af9303c0aeabb45afd/about
-    # for example: TRI with your elevation data.The results are interpreted as follows:
-    # 0-80m is considered to represent a level terrain surface
-    # 81-116m represents a nearly level surface
-    # 117-161m represents a slightly rugged surface
-    # 162-239m represents an intermediately rugged surface
-    # 240-497m represents a moderately rugged surface
-    # 498-958m represents a highly rugged surface
-    # 959-4367m represents an extremely rugged surface
+    # for example: TRI with your elevation data.The results may be interpreted as follows:
+    # a level terrain surface
+    # a nearly level surface
+    # a slightly rugged surface
+    # an intermediately rugged surface
+    # a moderately rugged surface
+    # a highly rugged surface
+    # an extremely rugged surface
     if not numpy.isnan(a_s[1,1]):
         result=math.sqrt(abs((numpy.nanmax(a_s))**2-(numpy.nanmin(a_s))**2))
     else:
@@ -176,11 +177,8 @@ def cal_index(in_ndarray, cell_x,cell_y,type):
                 result[y,x]=cal_sar(a_s[y,x],cell_x,cell_y,diag)
         total_surface_area = numpy.nansum(result)
         with numpy.errstate(divide='ignore', invalid='ignore'):
-            result_ratio= numpy.true_divide(plannar_area, result)
-            # result_ratio[result_ratio == np.inf] = 0
-            # result_ratio = np.nan_to_num(result_ratio)
+            result_ratio= numpy.true_divide(result,plannar_area )
 
-        # result_ratio = np.divide(plannar_area,result, out=np.zeros_like(result), where=result!=0)
         return result_ratio, total_surface_area
     elif type=='TRI':
         for y in range(rows):
@@ -210,7 +208,7 @@ def forest_metrics(callback, in_line, out_line, raster_type, in_raster, proc_seg
 
     # check coordinate systems between line and raster features
     with rasterio.open(in_raster) as in_image:
-        if line_seg.crs.to_epsg() != in_image.crs.to_epsg():
+        if not in_image.crs.to_epsg() in [2956]:
             print("Line and raster spatial references are not same, please check.")
             exit()
 
@@ -481,6 +479,7 @@ def cal_metrics(line_arg):
             # Calculate the metrics
             if raster_type=="DEM":
                 # Surface area ratio (SAR)
+
                 SAR,total_surface_area=cal_index(filled_raster,cell_x,cell_y,'SAR')
                 SAR_mean = numpy.nanmean(SAR)
                 SAR_percentile90 = numpy.nanpercentile(SAR, 90, method='hazen')
@@ -488,15 +487,6 @@ def cal_metrics(line_arg):
                 SAR_std = numpy.nanstd(SAR)
                 SAR_max = numpy.nanmax(SAR)
                 SAR_min = numpy.nanmin(SAR)
-
-                # Terrain Ruggedness Index (TRI)
-                # TRI = cal_index(filled_raster, cell_x, cell_y, 'TRI')
-                # TRI_mean = numpy.nanmean(TRI)
-                # TRI_percentile90 = numpy.nanpercentile(TRI, 90, method='hazen')
-                # TRI_median = numpy.nanmedian(TRI)
-                # TRI_std = numpy.nanstd(TRI)
-                # TRI_max = numpy.nanmax(TRI)
-                # TRI_min = numpy.nanmin(TRI)
 
                 # General Statistics
                 total_planar_area= numpy.ma.count(masked_raster) * cell_area
@@ -509,28 +499,22 @@ def cal_metrics(line_arg):
                 max=numpy.nanmax(filled_raster)
                 min=numpy.nanmin(filled_raster)
 
+                # Terrain Ruggedness Index (TRI)
+                # TRI = cal_index(filled_raster, cell_x, cell_y, 'TRI')
+                # TRI_mean = numpy.nanmean(TRI)
+                # TRI_percentile90 = numpy.nanpercentile(TRI, 90, method='hazen')
+                # TRI_median = numpy.nanmedian(TRI)
+                # TRI_std = numpy.nanstd(TRI)
+                # TRI_max = numpy.nanmax(TRI)
+                # TRI_min = numpy.nanmin(TRI)
+
             del clipped_raster, out_transform
 
     # return the generated value
     except:
         print(sys.exc_info())
     try:
-        # Writing SAR statisic
-        df.at[row_index, PerCol + '_SurArea'] = total_surface_area
-        df.at[row_index, PerCol + '_SARmean'] = SAR_mean
-        # df.at[row_index, PerCol + '_SARP90'] = SAR_percentile90
-        # df.at[row_index, PerCol + '_SARmed'] = SAR_median
-        df.at[row_index, PerCol + '_SARStd'] = SAR_std
-        df.at[row_index, PerCol + '_SARmax'] = SAR_max
-        df.at[row_index, PerCol + '_SARmin'] = SAR_min
 
-        # Writing TRI statisic
-        # df.at[row_index, PerCol + '_TRImean'] = TRI_mean
-        # # df.at[row_index, PerCol + '_TRIP90'] = TRI_percentile90
-        # # df.at[row_index, PerCol + '_TRImed'] = TRI_median
-        # df.at[row_index, PerCol + '_TRIStd'] = TRI_std
-        # df.at[row_index, PerCol + '_TRImax'] = TRI_max
-        # df.at[row_index, PerCol + '_TRImin'] = TRI_min
 
         # Writing General statisic
         df.at[row_index, PerCol + '_PlArea'] = total_planar_area
@@ -541,6 +525,27 @@ def cal_metrics(line_arg):
         df.at[row_index, PerCol + '_max'] = max
         df.at[row_index, PerCol + '_min'] = min
         # df.at[row_index, PerCol + '_Vol'] = total_volume
+
+        # Writing SAR statisic
+        df.at[row_index, PerCol + '_SurArea'] = total_surface_area
+        df.at[row_index, PerCol + '_SARmean'] = SAR_mean
+        # df.at[row_index, PerCol + '_SARP90'] = SAR_percentile90
+        # df.at[row_index, PerCol + '_SARmed'] = SAR_median
+        df.at[row_index, PerCol + '_SARStd'] = SAR_std
+        df.at[row_index, PerCol + '_SARmax'] = SAR_max
+        df.at[row_index, PerCol + '_SARmin'] = SAR_min
+
+        # highest=df[PerCol + '_max'].max()
+        # lowest = df[PerCol + '_min'].min()
+
+        # Writing TRI statisic
+        # df.at[row_index, PerCol + '_TRImean'] = TRI_mean
+        # # df.at[row_index, PerCol + '_TRIP90'] = TRI_percentile90
+        # # df.at[row_index, PerCol + '_TRImed'] = TRI_median
+        # df.at[row_index, PerCol + '_TRIStd'] = TRI_std
+        # df.at[row_index, PerCol + '_TRImax'] = TRI_max
+        # df.at[row_index, PerCol + '_TRImin'] = TRI_min
+
 
         return df
     except:
