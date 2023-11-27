@@ -1,6 +1,8 @@
-python=3.10
+python=3.9
+deepforest
 fiona > 1.9.2
 geopandas
+huggingface_hub
 leafmap
 mamba
 matplotlib
@@ -9,6 +11,8 @@ numpy
 Pillow
 pip
 psutil
+pytorch
+torchvision
 pyqt
 pyqtlet2
 rasterio
