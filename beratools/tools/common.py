@@ -361,26 +361,13 @@ def identity_polygon(line_args):
 
     return line, identity
 
-def line_split2(in_ln_shp,seg_length):
-
-    # Check the OLnFID column in data. If it is not, column will be created
-    if 'OLnFID' not in in_ln_shp.columns.array:
-        if BT_DEBUGGING:
-            print("Cannot find {} column in input line data")
-
-        print("New column created: {}".format('OLnFID', 'OLnFID'))
-        in_ln_shp['OLnFID'] = in_ln_shp.index
-    line_seg=split_into_Equal_Nth_segments(in_ln_shp,seg_length)
-
-    return line_seg
-
-
 def split_into_Equal_Nth_segments(df,seg_length):
     odf=df
     crs=odf.crs
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = np.nan
-    df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry,seg_length), axis=1))
+    # df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry,seg_length), axis=1))
+    df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, seg_length), axis=1))
     df=df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
@@ -391,28 +378,10 @@ def split_into_Equal_Nth_segments(df,seg_length):
         gdf["shape_leng"]=gdf.geometry.length
     elif "LENGTH" in gdf.columns.array:
         gdf["LENGTH"]=gdf.geometry.length
+    else:
+        gdf["shape_leng"] = gdf.geometry.length
 
     return  gdf
-
-def split_line_nPart(line,seg_length):
-    from shapely.geometry import mapping
-    from shapely.ops import split,snap
-
-    seg_line = shapely.segmentize(line, seg_length)
-
-    distances=np.arange(seg_length,line.length,seg_length)
-
-    if len(distances)>0:
-        points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
-
-        # snap_points = snap(points, seg_line, 0.001)
-        split_points = shapely.multipoints(points)
-
-
-        mline = split(seg_line, split_points)
-    else:
-        mline=seg_line
-    return mline
 
 
 def cut_line(line, distance):
@@ -428,35 +397,42 @@ def cut_line(line, distance):
     List of LineString
     """
     lines = list()
-    cut(line, distance, lines)
+    # seg_line = shapely.segmentize(line, distance)
+    lines=cut(line, distance, lines)
     return lines
 
 
 def cut(line, distance, lines):
     # Cuts a line in several segments at a distance from its starting point
     if distance <= 0.0 or distance >= line.length:
-        return [line]
+       return [line]
+    else:
+        end_pt = None
+        if shapely.is_empty(line) or shapely.is_missing(line):
+            return None
+        else:
+            line=shapely.segmentize(line,distance)
+            while line.length > distance:
+                coords = list(line.coords)
+                for i, p in enumerate(coords):
+                    pd = line.project(Point(p))
+                    # if abs(pd - line.length) < BT_EPSLON:
+                    #     lines.append(line)
+                    #     return lines
 
-    end_pt = None
-    while line.length > distance:
-        coords = list(line.coords)
-        for i, p in enumerate(coords):
-            pd = line.project(Point(p))
-            # if abs(pd - line.length) < BT_EPSLON:
-            #     lines.append(line)
-            #     return lines
+                    if abs(pd - distance) < BT_EPSLON:
+                        lines.append(LineString(coords[:i+1]))
+                        line = LineString(coords[i:])
+                        end_pt = None
+                        break
+                    elif pd > distance:
+                        end_pt = line.interpolate(distance)
+                        lines.append(LineString(coords[:i] + list(end_pt.coords)))
+                        line = LineString(list(end_pt.coords) + coords[i:])
+                        break
 
-            if abs(pd - distance) < BT_EPSLON:
-                lines.append(LineString(coords[:i+1]))
-                line = LineString(coords[i:])
-                end_pt = None
-                break
-            elif pd > distance:
-                end_pt = line.interpolate(distance)
-                lines.append(LineString(coords[:i] + list(end_pt.coords)))
-                line = LineString(list(end_pt.coords) + coords[i:])
-                break
+        if end_pt:
+            lines.append(line)
+        return lines
 
-    if end_pt:
-        lines.append(line)
 
