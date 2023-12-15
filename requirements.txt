@@ -1,35 +1,24 @@
 python=3.9
-deepforest
-fiona > 1.9.2
 geopandas
 huggingface_hub
-leafmap
-mamba
 matplotlib
-numba
-numpy
-Pillow
 pip
+pyogrio
 psutil
-pytorch
-torchvision
 pyqt
-pyqtlet2
-rasterio
 rioxarray
 rpy2
-r-base
 r-essentials
 r-lidr
 r-terra
 scikit-image
-scipy
-setuptools
-shapely
-sphinx
 sphinx-tabs
 sphinx-rtd-theme
-spyder
-xarray
+torchvision
 xarray-spatial
 
+# conda install mamba -n base -c conda-forge -y
+# conda update conda -y
+# conda update --all
+# mamba create -n bera-39 -c conda-forge python=3.9 mamba geopandas huggingface_hub matplotlib pip pyogrio psutil pyqt
+# rioxarray rpy2 r-lidr r-terra scikit-image sphinx-tabs sphinx-rtd-theme torchvision xarray-spatial -y

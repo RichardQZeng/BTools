@@ -5,44 +5,29 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - deepforest
-  - fiona
   - geopandas
-  - gdal
   - huggingface_hub
-  - leafmap
   - line_profiler
-  - mamba
   - matplotlib
-  - numba
-  - numpy
-  - Pillow
   - pip
-  - pip:
+  # - pip:
     # works for regular pip packages
-    - pyqtlet2
+    # - pyqtlet2
     # and for wheels
     # - http://URL_TO_THE_WHEEL.whl
   - pyogrio
-  - pytorch::pytorch
   - pytorch::torchvision
   - pyqt
-  - rasterio
+  - psutil
   - ray-all
   - rioxarray
   - rpy2
-  - r-base
   - r-essentials
   - r-lidr
   - r-terra
   - scikit-image
-  - scipy
-  - setuptools
-  - shapely
   - sphinx
   - sphinx-tabs
   - sphinx-rtd-theme
-  - spyder
-  - xarray
   - xarray-spatial
 variables:
