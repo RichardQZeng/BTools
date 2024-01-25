@@ -176,8 +176,14 @@ def execute_multiprocessing(line_args, processes, verbose):
                 geom = result[0]
                 prop = result[2]
                 if geom and prop:
-                    feat_geoms.append(LineString(geom))
-                    feat_props.append(prop)
+                    if len(geom) <= 1:
+                        print("No least cost path detected")
+                        continue
+                    try:
+                        feat_geoms.append(LineString(geom))
+                        feat_props.append(prop)
+                    except Exception as e:
+                        print(e)
 
                 step += 1
                 if verbose:

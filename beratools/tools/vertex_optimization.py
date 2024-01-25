@@ -215,7 +215,11 @@ class VertexOptimization:
             return line
 
         coords = list(line.coords)
-        coords[index] = (point.x, point.y, 0.0)
+        if len(coords[index]) == 2:
+            coords[index] = (point.x, point.y)
+        elif len(coords[index]) == 3:
+            coords[index] = (point.x, point.y, 0.0)
+
         return LineString(coords)
 
     # only LINESTRING is dealt with for now
