@@ -5,6 +5,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
+  - alphashape
   - geopandas
   - huggingface_hub
   - line_profiler
