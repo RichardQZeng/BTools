@@ -5,13 +5,13 @@ import alphashape
 from label_centerlines import get_centerline
 
 src_shp = r"D:\BT_Test\ConcaveHull\footprint_fixed.shp"
-# src_shp = r"D:\BT_Test\ConcaveHull\test.shp"
-dst_shp = r"D:\BT_Test\ConcaveHull\footprint_fixed_concave.shp"
-line_shp = r"D:\BT_Test\ConcaveHull\centerline_concave.shp"
+dst_shp = r"D:\BT_Test\ConcaveHull\footprint_no_holes_simp.shp"
+line_shp = r"D:\BT_Test\ConcaveHull\centerline_no_holes_simp.shp"
 
 pts_list = []
 poly_list = []
 dst_crs = None
+single_poly = []
 
 with fiona.open(src_shp) as src:
     src_schema = src.schema
@@ -19,22 +19,33 @@ with fiona.open(src_shp) as src:
     for feat in src:
         geom = shape(feat.geometry)
         poly = shapely.segmentize(geom, max_segment_length=10)
-        poly_list.append(poly)
+
         exterior_pts = []
         if type(poly) == MultiPolygon:
+            single_poly.append(False)
             for i in poly.geoms:
                 exterior_pts += list(i.exterior.coords)
         elif type(poly) == Polygon:
+            single_poly.append(True)
             exterior_pts = list(poly.exterior.coords)
+            poly = Polygon(exterior_pts)
+            poly = poly.simplify(1)
 
+        poly_list.append(poly)
         pts_list.append(exterior_pts)
 
 dst_geoms = []
 
-for i in pts_list:
+for index, pt_list, poly in zip(enumerate(single_poly), pts_list, poly_list):
     # alpha = alphashape.optimizealpha(i)
     alpha = 0.05
-    alpha_shp = alphashape.alphashape(i, alpha)
+    i = index[0]
+    single = index[1]
+    if single:
+        alpha_shp = poly
+    else:
+        alpha_shp = alphashape.alphashape(pt_list, alpha)
+
     dst_geoms.append(alpha_shp)
 
 # use shapely concave_hull
@@ -46,9 +57,10 @@ for i in pts_list:
 
 # generate centerlines
 centerlines = []
-for poly in dst_geoms:
-    line = get_centerline(poly, segmentize_maxlen=1, max_points=3000, simplification=0.05, smooth_sigma=5, max_paths=1)
+for i, poly in enumerate(dst_geoms):
+    line = get_centerline(poly, segmentize_maxlen=1, max_points=3000, simplification=0.05, smooth_sigma=0.5, max_paths=1)
     centerlines.append(line)
+    print('Polygon {} done'.format(i))
 
 # Write out concave polygons
 dst_schema = {
