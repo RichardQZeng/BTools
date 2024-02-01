@@ -6,6 +6,7 @@ pip
 pyogrio
 psutil
 pyqt
+ray-default
 rioxarray
 rpy2
 r-essentials
@@ -17,6 +18,9 @@ sphinx-rtd-theme
 xarray-spatial
 
 # recommended way to install BERA Tools
-# conda create -n bera -c conda-forge python=3.10 mamba 
-# conda activate bera
-# mamba install --file requirements.txt
+# > conda create -n bera -c conda-forge python=3.10 mamba 
+# > conda activate bera
+# > conda config --add channels conda-forge
+# > mamba install --file requirements.txt
+# set GDAL_DATA env
+#   CONDA_ENV_PATH\Library\share\gdal
