@@ -4,9 +4,20 @@ import fiona
 import alphashape
 from label_centerlines import get_centerline
 
-src_shp = r"D:\BT_Test\ConcaveHull\footprint_fixed.shp"
-dst_shp = r"D:\BT_Test\ConcaveHull\footprint_no_holes_simp.shp"
-line_shp = r"D:\BT_Test\ConcaveHull\centerline_no_holes_simp.shp"
+# src_shp = r"D:\BT_Test\ConcaveHull\footprint_fixed.shp"
+# dst_shp = r"D:\BT_Test\ConcaveHull\footprint_no_holes_simp.shp"
+# line_shp = r"D:\BT_Test\ConcaveHull\centerline_no_holes_simp.shp"
+
+# src_shp = r"D:\BT_Test\ConcaveHull\test_polygons.shp"
+# dst_shp = r"D:\BT_Test\ConcaveHull\test_polygons_dst.shp"
+# line_shp = r"D:\BT_Test\ConcaveHull\test_centerline.shp"
+
+src_shp = r"D:\BT_Test\ConcaveHull\footprint_corridor.shp"
+dst_shp = r"D:\BT_Test\ConcaveHull\corridor_polygons.shp"
+line_shp = r"D:\BT_Test\ConcaveHull\corridor_centerline_smooth-2.shp"
+
+DELETE_HOLES = True
+SIMPLIFY_POLYGON = True
 
 pts_list = []
 poly_list = []
@@ -28,8 +39,10 @@ with fiona.open(src_shp) as src:
         elif type(poly) == Polygon:
             single_poly.append(True)
             exterior_pts = list(poly.exterior.coords)
-            poly = Polygon(exterior_pts)
-            poly = poly.simplify(1)
+            if DELETE_HOLES:
+                poly = Polygon(exterior_pts)
+            if SIMPLIFY_POLYGON:
+                poly = poly.simplify(1)
 
         poly_list.append(poly)
         pts_list.append(exterior_pts)
@@ -58,7 +71,7 @@ for index, pt_list, poly in zip(enumerate(single_poly), pts_list, poly_list):
 # generate centerlines
 centerlines = []
 for i, poly in enumerate(dst_geoms):
-    line = get_centerline(poly, segmentize_maxlen=1, max_points=3000, simplification=0.05, smooth_sigma=0.5, max_paths=1)
+    line = get_centerline(poly, segmentize_maxlen=1, max_points=3000, simplification=0.05, smooth_sigma=2.5, max_paths=1)
     centerlines.append(line)
     print('Polygon {} done'.format(i))
 
