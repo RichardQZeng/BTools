@@ -286,6 +286,8 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
 
 def vector_crs(vector_file):
     in_line_file = ogr.Open(vector_file)
+
+    # TODO: in_line_file is None
     vec_crs = in_line_file.GetLayer().GetSpatialRef()
 
     del in_line_file
