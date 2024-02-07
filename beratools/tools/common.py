@@ -25,8 +25,10 @@ from rasterio import features
 
 import fiona
 from fiona import Geometry
+
 import shapely
-from shapely.geometry import shape, mapping, Point, LineString
+from shapely.ops import unary_union, snap
+from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, MultiPoint
 import geopandas as gpd
 
 from osgeo import ogr, gdal, osr
@@ -34,13 +36,15 @@ from pyproj import CRS, Transformer
 
 import math
 
+from label_centerlines import get_centerline
+
 
 # constants
 MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_RAY = 3
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_SEQUENTIAL
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -59,6 +63,12 @@ BT_UID = 'BT_UID'
 
 GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 100
+
+# centerline
+CL_BUFFER_CLIP = 2.5
+CL_BUFFER_CENTROID = 3
+CL_SNAP_TOLERANCE = 10
+
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
@@ -461,4 +471,56 @@ def cut(line, distance, lines):
 
     if end_pt:
         lines.append(line)
+
+
+def find_centerline(poly, lc_path):
+    """
+    Parameters
+    ----------
+    poly
+    lc_path
+
+    Returns
+    -------
+
+    """
+    centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
+                                simplification=0.05, smooth_sigma=2.5, max_paths=1)
+
+    if type(centerline) is MultiLineString:
+        if len(centerline.geoms) > 1:
+            print(" Multiple centerline segments detected, no further processing.")
+            return centerline
+        elif len(centerline.geoms) == 1:
+            centerline = centerline.geoms[0]
+        else:
+            return None
+
+    cl_coords = list(centerline.coords)
+
+    # trim centerline at two ends
+    head_buffer = Point(cl_coords[0]).buffer(CL_BUFFER_CLIP)
+    centerline = centerline.difference(head_buffer)
+
+    end_buffer = Point(cl_coords[-1]).buffer(CL_BUFFER_CLIP)
+    centerline = centerline.difference(end_buffer)
+
+    # snap two end vertices to the least cost path ends
+    lc_coords = list(lc_path.coords)
+
+    # check if point is 2D or 3D
+    lc_start_pt = None
+    lc_end_pt = None
+
+    if len(cl_coords[0]) == 2:
+        lc_start_pt = lc_coords[0][0:2]
+        lc_end_pt = lc_coords[-1][0:2]
+    elif len(cl_coords[0]) == 3:
+        lc_start_pt = lc_coords[0][0:3]
+        lc_end_pt = lc_coords[-1][0:3]
+
+    lc_end_pts = MultiPoint([lc_start_pt, lc_end_pt])
+    centerline = snap(centerline, lc_end_pts, CL_SNAP_TOLERANCE)
+
+    return centerline
 

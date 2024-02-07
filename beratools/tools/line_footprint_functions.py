@@ -38,6 +38,8 @@ import xrspatial.focal
 from xrspatial import convolution
 
 import geopandas as gpd
+from geopandas import GeoDataFrame
+
 import pandas as pd
 import numpy as np
 from scipy import ndimage
@@ -293,9 +295,10 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
     print('%{}'.format(80))
     print("Task done.")
 
-    for i in feat_list:
-        footprint_list.append(i[0])
-        line_list.append(i[1])
+    for feat in feat_list:
+        if feat:
+            footprint_list.append(feat[0])
+            line_list.append(feat[1])
 
     print('Writing shapefile ...')
     results = gpd.GeoDataFrame(pd.concat(footprint_list))
@@ -310,13 +313,10 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
     # save lines to file
     if out_centerline:
-        geoms = []
-        props = []
-        for i in line_list:
-            geoms.append(LineString(i[0]))
-            props.append(i[1])
+        centerlines = pd.concat(line_list)
+        centerlines.to_file(out_centerline)
 
-        save_features_to_shapefile(out_centerline, line_seg.crs, geoms, properties=props)
+        # save_features_to_shapefile(out_centerline, line_seg.crs, geoms, properties=props)
 
     print('%{}'.format(100))
 
@@ -418,12 +418,6 @@ def dyn_process_single_line(segment):
         corridor = source_cost_acc + dest_cost_acc
         corridor = np.ma.masked_invalid(corridor)
 
-        # find least cost path in corridor raster
-        lc_path = None
-        if out_centerline:
-            mat = corridor.copy()
-            lc_path = find_least_cost_path(no_data, mat, in_transform, line_id, feat)
-
         # Calculate minimum value of corridor raster
         if not np.ma.min(corridor) is None:
             corr_min = float(np.ma.min(corridor))
@@ -431,7 +425,22 @@ def dyn_process_single_line(segment):
             corr_min = 0.05
 
         # Set minimum as zero and save minimum file
-        corridor_min = np.ma.where((corridor - corr_min)> corridor_th_value, 1.,0.)
+        corridor_min = np.ma.where((corridor - corr_min) > corridor_th_value, 1., 0.)
+
+        # Threshold corridor raster used for generating centerline
+        corridor_thresh = np.ma.where(corridor_min == 0, 1, 0).data
+        corridor_mask = np.where(corridor_thresh == 1, True, False)
+        poly_generator = features.shapes(corridor_thresh, mask=corridor_mask, transform=in_transform)
+        corridor_polygon = []
+
+        for poly, value in poly_generator:
+            corridor_polygon.append(shapely.geometry.shape(poly))
+        corridor_polygon = unary_union(corridor_polygon)
+
+        # Generate centerline: find centerline in corridor raster
+        center_line = None
+        if out_centerline:
+            center_line = find_centerline(corridor_polygon, feat)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
@@ -481,10 +490,13 @@ def dyn_process_single_line(segment):
         out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'geometry': poly})
         out_gdata = gpd.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
-        return out_gdata, lc_path
+        # create GeoDataFrame for centerline
+        cl_gpd = GeoDataFrame.copy(df)
+        cl_gpd.geometry = [center_line]
+
+        return out_gdata, cl_gpd
 
     except Exception as e:
-
         print('Exception: {}'.format(e))
     except:
         print(sys.exc_info())
