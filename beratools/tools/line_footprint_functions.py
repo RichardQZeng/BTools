@@ -578,8 +578,8 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
     # save lines to file
     if out_centerline:
         # centerlines = pd.concat(poly_list)
-        poly_centerline_gpd = poly_centerline_gpd.set_geometry('centerline')
-        poly_centerline_gpd = poly_centerline_gpd.drop(columns=['geometry'])
+        # poly_centerline_gpd = poly_centerline_gpd.set_geometry('centerline')
+        # poly_centerline_gpd = poly_centerline_gpd.drop(columns=['geometry'])
         poly_centerline_gpd.to_file(out_centerline)
         print("Centerline file saved")
 
