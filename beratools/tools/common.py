@@ -28,11 +28,14 @@ from fiona import Geometry
 
 import shapely
 from shapely.ops import unary_union, snap
-from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, MultiPoint
+from shapely.geometry import (shape, mapping, Point, LineString,
+                              MultiLineString, MultiPoint, Polygon, MultiPolygon)
 import geopandas as gpd
 
 from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
+
+from itertools import chain
 
 import math
 
@@ -49,7 +52,7 @@ PARALLEL_MODE = MODE_SEQUENTIAL
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
 
-NADDatum=['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
+NADDatum = ['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
 
 BT_NODATA = -9999
 BT_DEBUGGING = False
@@ -68,7 +71,12 @@ LP_SEGMENT_LENGTH = 100
 CL_BUFFER_CLIP = 2.5
 CL_BUFFER_CENTROID = 3
 CL_SNAP_TOLERANCE = 10
-
+CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
+CL_SEGMENTIZE_LENGTH = 1
+CL_SIMPLIFY_LENGTH = 0.5
+CL_SMOOTH_SIGMA = 0.5
+CL_DELETE_HOLES = True
+CL_SIMPLIFY_POLYGON = True
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
@@ -484,8 +492,24 @@ def find_centerline(poly, lc_path):
     -------
 
     """
+    poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
+
+    exterior_pts = []
+    if type(poly) is MultiPolygon:
+        poly = poly.buffer(CL_BUFFER_MULTIPOLYGON)
+        if type(poly) is MultiPolygon:
+            print('MultiPolygon encountered, skip.')
+            return None
+
+    exterior_pts = list(poly.exterior.coords)
+
+    if CL_DELETE_HOLES:
+        poly = Polygon(exterior_pts)
+    if CL_SIMPLIFY_POLYGON:
+        poly = poly.simplify(CL_SIMPLIFY_LENGTH)
+
     centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
-                                simplification=0.05, smooth_sigma=2.5, max_paths=1)
+                                simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
 
     if type(centerline) is MultiLineString:
         if len(centerline.geoms) > 1:
@@ -512,6 +536,7 @@ def find_centerline(poly, lc_path):
     lc_start_pt = None
     lc_end_pt = None
 
+    # convert LC end points to 2D or 3D
     if len(cl_coords[0]) == 2:
         lc_start_pt = lc_coords[0][0:2]
         lc_end_pt = lc_coords[-1][0:2]
@@ -519,6 +544,7 @@ def find_centerline(poly, lc_path):
         lc_start_pt = lc_coords[0][0:3]
         lc_end_pt = lc_coords[-1][0:3]
 
+    # snap centerline to LC end points
     lc_end_pts = MultiPoint([lc_start_pt, lc_end_pt])
     centerline = snap(centerline, lc_end_pts, CL_SNAP_TOLERANCE)
 

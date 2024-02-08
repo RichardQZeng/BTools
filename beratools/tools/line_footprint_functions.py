@@ -28,27 +28,27 @@
 #
 # ---------------------------------------------------------------------------
 
-from multiprocessing.pool import Pool
-
 import math
 import time
-import rasterio.features
-import xarray as xr
-import xrspatial.focal
-from xrspatial import convolution
+import numpy as np
+from pathlib import Path
 
-import geopandas as gpd
-from geopandas import GeoDataFrame
+from multiprocessing.pool import Pool
+
+import xarray as xr
+from xrspatial import convolution, focal
 
 import pandas as pd
-import numpy as np
+from geopandas import GeoDataFrame
+
 from scipy import ndimage
 from rasterio import features, mask
-from skimage.graph import MCP_Geometric
-import shapely
-from shapely import LineString
+
+from shapely import buffer
+from shapely.geometry import LineString, Point, MultiPolygon, shape
+
 from common import *
-import sys
+from skimage.graph import MCP_Geometric
 from dijkstra_algorithm import *
 
 
@@ -67,7 +67,7 @@ def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
     # This function uses xrspatial which can handle large data but slow
     # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
     ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
-    result_ndarray = xrspatial.focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
+    result_ndarray = focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
 
     # Flattening the array
     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
@@ -164,7 +164,7 @@ def split_line_npart(line):
         # divided line into n-1 equal parts;
         distances = np.linspace(0, line.length, n)
         points = [line.interpolate(distance) for distance in distances]
-        line = shapely.LineString(points)
+        line = LineString(points)
         mline = split_line_fc(line)
     else:
         mline = line
@@ -181,7 +181,7 @@ def split_into_segments(df):
     df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf = gpd.GeoDataFrame(df, geometry=df.geometry, crs=crs)
+    gdf = GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
     gdf = gdf.reset_index(drop=True)
     return gdf
@@ -196,7 +196,7 @@ def split_into_equal_nth_segments(df):
     df = df.explode(index_parts=True)
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf = gpd.GeoDataFrame(df, geometry=df.geometry, crs=crs)
+    gdf = GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
     gdf = gdf.reset_index(drop=True)
     return gdf
@@ -234,7 +234,7 @@ def find_centerlines(poly_gpd, line_seg):
 
             row['centerline'] = centerline
             centerline_gpd.append(row)
-            print("Centerline found for polygon: {}", i)
+            print("Centerline found for polygon: {}".format(i))
     except Exception as e:
         print(e)
 
@@ -291,13 +291,13 @@ def dyn_process_single_line(segment):
     x2, y2 = segment_list[-1][0], segment_list[-1][1]
 
     # Create Point "origin"
-    origin_point = shapely.Point([x1, y1])
-    origin = [shapes for shapes in gpd.GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
+    origin_point = Point([x1, y1])
+    origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
 
     # Create Point "destination"
-    destination_point = shapely.Point([x2, y2])
+    destination_point = Point([x2, y2])
     destination = [shapes for shapes in
-                   gpd.GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
+                   GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
 
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
@@ -354,7 +354,7 @@ def dyn_process_single_line(segment):
         corridor_polygon = []
 
         for poly, value in poly_generator:
-            corridor_polygon.append(shapely.geometry.shape(poly))
+            corridor_polygon.append(shape(poly))
         corridor_polygon = unary_union(corridor_polygon)
 
         # Generate centerline: find centerline in corridor raster
@@ -403,12 +403,12 @@ def dyn_process_single_line(segment):
         # create a shapely multipolygon
         multi_polygon = []
         for poly, value in out_polygon:
-            multi_polygon.append(shapely.geometry.shape(poly))
-        poly = shapely.geometry.MultiPolygon(multi_polygon)
+            multi_polygon.append(shape(poly))
+        poly = MultiPolygon(multi_polygon)
 
         # create a pandas dataframe for the FP
         out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'geometry': poly})
-        out_gdata = gpd.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
+        out_gdata = GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         # create GeoDataFrame for centerline
         corridor_poly_gpd = GeoDataFrame.copy(df)
@@ -418,8 +418,6 @@ def dyn_process_single_line(segment):
 
     except Exception as e:
         print('Exception: {}'.format(e))
-    except:
-        print(sys.exc_info())
 
 
 def multiprocessing_footprint_relative(line_args, processes):
@@ -479,7 +477,7 @@ def multiprocessing_canopy_cost_relative(line_args, processes):
 def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,
                            tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
     use_corridor_th_col = True
-    line_seg = gpd.GeoDataFrame.from_file(in_line)
+    line_seg = GeoDataFrame.from_file(in_line)
 
     # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
     if 'DynCanTh' not in line_seg.columns.array:
@@ -519,8 +517,8 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
                 line_seg_split = split_into_equal_nth_segments(line_seg)
 
             print('%{}'.format(20))
-            work_in_buffer = gpd.GeoDataFrame.copy(line_seg_split)
-            work_in_buffer['geometry'] = shapely.buffer(work_in_buffer['geometry'],
+            work_in_buffer = GeoDataFrame.copy(line_seg_split)
+            work_in_buffer['geometry'] = buffer(work_in_buffer['geometry'],
                                                         distance=float(max_ln_width),
                                                         cap_style=1)
             # line_args = []
@@ -537,7 +535,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
             feat_list = multiprocessing_footprint_relative(line_args, processes)
-        else:
+        elif PARALLEL_MODE == MODE_SEQUENTIAL:
             print("There are {} result to process.".format(len(line_args)))
             step = 0
             total_steps = len(line_args)
@@ -557,7 +555,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             poly_list.append(feat[1])
 
     print('Writing shapefile ...')
-    results = gpd.GeoDataFrame(pd.concat(footprint_list))
+    results = GeoDataFrame(pd.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
     results = results.reset_index(drop=True)
 
@@ -570,20 +568,26 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
     # dissolved polygon group by column 'OLnFID'
     print("Generating centerlines ...")
-    results = gpd.GeoDataFrame(pd.concat(poly_list))
+    results = GeoDataFrame(pd.concat(poly_list))
     dissolved_polys = results.dissolve(by='OLnFID', as_index=False)
     # dissolved_polys = dissolved_results.drop(columns=['OLnSEG'])
     poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg)
 
     # save lines to file
     if out_centerline:
-        # centerlines = pd.concat(poly_list)
-        # poly_centerline_gpd = poly_centerline_gpd.set_geometry('centerline')
-        # poly_centerline_gpd = poly_centerline_gpd.drop(columns=['geometry'])
-        poly_centerline_gpd.to_file(out_centerline)
+        poly_gpd = poly_centerline_gpd.copy()
+        centerline_gpd = poly_centerline_gpd.copy()
+
+        centerline_gpd = centerline_gpd.set_geometry('centerline')
+        centerline_gpd = centerline_gpd.drop(columns=['geometry'])
+        centerline_gpd.to_file(out_centerline)
         print("Centerline file saved")
 
-        # save_features_to_shapefile(out_centerline, line_seg.crs, geoms, properties=props)
+        # save polygons
+        path = Path(out_centerline)
+        path = path.with_stem(path.stem+'_poly')
+        poly_gpd = poly_gpd.drop(columns=['centerline'])
+        poly_gpd.to_file(path)
 
     print('%{}'.format(100))
 
