@@ -220,105 +220,25 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
     return line_args
 
 
-def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,
-                           tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
-    use_corridor_th_col = True
-    line_seg = gpd.GeoDataFrame.from_file(in_line)
+def find_centerlines(poly_gpd, line_seg):
+    centerline = None
+    centerline_gpd = []
 
-    # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
-    if 'DynCanTh' not in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n "
-              "Please run Dynamic Canopy Threshold first".format('DynCanTh'))
-        exit()
+    try:
+        for i in poly_gpd.index:
+            row = poly_gpd.loc[[i]]
+            poly = row.geometry.iloc[0]
+            line_id = row['OLnFID']
+            lc_path = line_seg.loc[line_id].geometry.iloc[0]
+            centerline = find_centerline(poly, lc_path)
 
-    # Check the OLnFID column in data. If it is not, column will be created
-    if 'OLnFID' not in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n '{}' column will be created".format('OLnFID', 'OLnFID'))
-        line_seg['OLnFID'] = line_seg.index
+            row['centerline'] = centerline
+            centerline_gpd.append(row)
+            print("Centerline found for polygon: {}", i)
+    except Exception as e:
+        print(e)
 
-    if 'CorridorTh' not in line_seg.columns.array:
-        if BT_DEBUGGING:
-            print("Cannot find {} column in input line data".format('CorridorTh'))
-        print(" New column created: {}".format('CorridorTh'))
-        line_seg['CorridorTh'] = 3.0
-    else:
-        use_corridor_th_col = True
-
-    if 'OLnSEG' not in line_seg.columns.array:
-        line_seg['OLnSEG'] = line_seg['OLnFID']
-
-    print('%{}'.format(10))
-    # check coordinate systems between line and raster features
-    with rasterio.open(in_chm) as raster:
-        if line_seg.crs.to_epsg() != raster.crs.to_epsg():
-            print("Line and raster spatial references are not same, please check.")
-            exit()
-        else:
-            proc_segments = False
-            if proc_segments:
-                print("Splitting lines into segments...")
-                line_seg = split_into_segments(line_seg)
-                print("Splitting lines into segments...Done")
-            else:
-                line_seg = split_into_equal_nth_segments(line_seg)
-
-            print('%{}'.format(20))
-            work_in_buffer = gpd.GeoDataFrame.copy(line_seg)
-            work_in_buffer['geometry'] = shapely.buffer(work_in_buffer['geometry'],
-                                                        distance=float(max_ln_width),
-                                                        cap_style=1)
-            # line_args = []
-            print("Prepare CHMs for Dynamic cost raster ...")
-            line_args = generate_line_args(line_seg, work_in_buffer, raster, tree_radius,
-                                           max_line_dist, canopy_avoidance, exponent,
-                                           use_corridor_th_col, out_centerline)
-
-        # pass center lines for footprint
-        print("Generating Dynamic footprint ...")
-        feat_list = []
-        line_list = []
-        footprint_list = []
-
-        if PARALLEL_MODE == MODE_MULTIPROCESSING:
-            feat_list = multiprocessing_footprint_relative(line_args, processes)
-        else:
-            print("There are {} result to process.".format(len(line_args)))
-            step = 0
-            total_steps = len(line_args)
-            for row in line_args:
-                feat_list.append(dyn_process_single_line(row))
-                print("Footprint for line {} is done".format(step))
-                print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step/total_steps*100))
-                step += 1
-
-    print('%{}'.format(80))
-    print("Task done.")
-
-    for feat in feat_list:
-        if feat:
-            footprint_list.append(feat[0])
-            line_list.append(feat[1])
-
-    print('Writing shapefile ...')
-    results = gpd.GeoDataFrame(pd.concat(footprint_list))
-    results = results.sort_values(by=['OLnFID', 'OLnSEG'])
-    results = results.reset_index(drop=True)
-
-    # dissolved polygon group by column 'OLnFID'
-    dissolved_results = results.dissolve(by='OLnFID', as_index=False)
-    dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
-    print("Saving output ...")
-    dissolved_results.to_file(out_footprint)
-
-    # save lines to file
-    if out_centerline:
-        centerlines = pd.concat(line_list)
-        centerlines.to_file(out_centerline)
-
-        # save_features_to_shapefile(out_centerline, line_seg.crs, geoms, properties=props)
-
-    print('%{}'.format(100))
+    return pd.concat(centerline_gpd)
 
 
 def dyn_process_single_line(segment):
@@ -438,9 +358,9 @@ def dyn_process_single_line(segment):
         corridor_polygon = unary_union(corridor_polygon)
 
         # Generate centerline: find centerline in corridor raster
-        center_line = None
-        if out_centerline:
-            center_line = find_centerline(corridor_polygon, feat)
+        # center_line = None
+        # if out_centerline:
+        #     center_line = find_centerline(corridor_polygon, feat)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
@@ -482,8 +402,8 @@ def dyn_process_single_line(segment):
 
         # create a shapely multipolygon
         multi_polygon = []
-        for shape, value in out_polygon:
-            multi_polygon.append(shapely.geometry.shape(shape))
+        for poly, value in out_polygon:
+            multi_polygon.append(shapely.geometry.shape(poly))
         poly = shapely.geometry.MultiPolygon(multi_polygon)
 
         # create a pandas dataframe for the FP
@@ -491,10 +411,10 @@ def dyn_process_single_line(segment):
         out_gdata = gpd.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         # create GeoDataFrame for centerline
-        cl_gpd = GeoDataFrame.copy(df)
-        cl_gpd.geometry = [center_line]
+        corridor_poly_gpd = GeoDataFrame.copy(df)
+        corridor_poly_gpd.geometry = [corridor_polygon]
 
-        return out_gdata, cl_gpd
+        return out_gdata, corridor_poly_gpd
 
     except Exception as e:
         print('Exception: {}'.format(e))
@@ -554,6 +474,118 @@ def multiprocessing_canopy_cost_relative(line_args, processes):
 
     except OperationCancelledException:
         print("Operation cancelled")
+
+
+def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,
+                           tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
+    use_corridor_th_col = True
+    line_seg = gpd.GeoDataFrame.from_file(in_line)
+
+    # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
+    if 'DynCanTh' not in line_seg.columns.array:
+        print("Cannot find {} column in input line data.\n "
+              "Please run Dynamic Canopy Threshold first".format('DynCanTh'))
+        exit()
+
+    # Check the OLnFID column in data. If it is not, column will be created
+    if 'OLnFID' not in line_seg.columns.array:
+        print("Cannot find {} column in input line data.\n '{}' column will be created".format('OLnFID', 'OLnFID'))
+        line_seg['OLnFID'] = line_seg.index
+
+    if 'CorridorTh' not in line_seg.columns.array:
+        if BT_DEBUGGING:
+            print("Cannot find {} column in input line data".format('CorridorTh'))
+        print(" New column created: {}".format('CorridorTh'))
+        line_seg['CorridorTh'] = 3.0
+    else:
+        use_corridor_th_col = True
+
+    if 'OLnSEG' not in line_seg.columns.array:
+        line_seg['OLnSEG'] = line_seg['OLnFID']
+
+    print('%{}'.format(10))
+    # check coordinate systems between line and raster features
+    with rasterio.open(in_chm) as raster:
+        if line_seg.crs.to_epsg() != raster.crs.to_epsg():
+            print("Line and raster spatial references are not same, please check.")
+            exit()
+        else:
+            proc_segments = False
+            if proc_segments:
+                print("Splitting lines into segments...")
+                line_seg_split = split_into_segments(line_seg)
+                print("Splitting lines into segments...Done")
+            else:
+                line_seg_split = split_into_equal_nth_segments(line_seg)
+
+            print('%{}'.format(20))
+            work_in_buffer = gpd.GeoDataFrame.copy(line_seg_split)
+            work_in_buffer['geometry'] = shapely.buffer(work_in_buffer['geometry'],
+                                                        distance=float(max_ln_width),
+                                                        cap_style=1)
+            # line_args = []
+            print("Prepare CHMs for Dynamic cost raster ...")
+            line_args = generate_line_args(line_seg_split, work_in_buffer, raster, tree_radius,
+                                           max_line_dist, canopy_avoidance, exponent,
+                                           use_corridor_th_col, out_centerline)
+
+        # pass center lines for footprint
+        print("Generating Dynamic footprint ...")
+        feat_list = []
+        poly_list = []
+        footprint_list = []
+
+        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+            feat_list = multiprocessing_footprint_relative(line_args, processes)
+        else:
+            print("There are {} result to process.".format(len(line_args)))
+            step = 0
+            total_steps = len(line_args)
+            for row in line_args:
+                feat_list.append(dyn_process_single_line(row))
+                print("Footprint for line {} is done".format(step))
+                print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step/total_steps*100))
+                step += 1
+
+    print('%{}'.format(80))
+    print("Task done.")
+
+    for feat in feat_list:
+        if feat:
+            footprint_list.append(feat[0])
+            poly_list.append(feat[1])
+
+    print('Writing shapefile ...')
+    results = gpd.GeoDataFrame(pd.concat(footprint_list))
+    results = results.sort_values(by=['OLnFID', 'OLnSEG'])
+    results = results.reset_index(drop=True)
+
+    # dissolved polygon group by column 'OLnFID'
+    dissolved_results = results.dissolve(by='OLnFID', as_index=False)
+    dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
+    print("Saving output ...")
+    dissolved_results.to_file(out_footprint)
+    print("Footprint file saved")
+
+    # dissolved polygon group by column 'OLnFID'
+    print("Generating centerlines ...")
+    results = gpd.GeoDataFrame(pd.concat(poly_list))
+    dissolved_polys = results.dissolve(by='OLnFID', as_index=False)
+    # dissolved_polys = dissolved_results.drop(columns=['OLnSEG'])
+    poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg)
+
+    # save lines to file
+    if out_centerline:
+        # centerlines = pd.concat(poly_list)
+        poly_centerline_gpd = poly_centerline_gpd.set_geometry('centerline')
+        poly_centerline_gpd = poly_centerline_gpd.drop(columns=['geometry'])
+        poly_centerline_gpd.to_file(out_centerline)
+        print("Centerline file saved")
+
+        # save_features_to_shapefile(out_centerline, line_seg.crs, geoms, properties=props)
+
+    print('%{}'.format(100))
 
 
 if __name__ == '__main__':
