@@ -213,16 +213,17 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
         clipped_raster = np.squeeze(clipped_raster, axis=0)
         nodata = -9999
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
-               float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-               line_seg.iloc[[record]], out_transform, use_corridor_th_col, out_centerline, line_id])
+                         float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
+                         line_seg.iloc[[record]], out_transform, use_corridor_th_col, out_centerline, line_id])
         line_id += 1
 
     return line_args
 
 
-def find_centerlines(poly_gpd, line_seg):
+def find_centerlines(poly_gpd, line_seg, processes):
     centerline = None
     centerline_gpd = []
+    rows_and_paths = []
 
     try:
         for i in poly_gpd.index:
@@ -230,15 +231,54 @@ def find_centerlines(poly_gpd, line_seg):
             poly = row.geometry.iloc[0]
             line_id = row['OLnFID']
             lc_path = line_seg.loc[line_id].geometry.iloc[0]
-            centerline = find_centerline(poly, lc_path)
-
-            row['centerline'] = centerline
-            centerline_gpd.append(row)
-            print("Centerline found for polygon: {}".format(i))
+            rows_and_paths.append((row, lc_path))
     except Exception as e:
         print(e)
 
+    total_steps = len(rows_and_paths)
+    step = 0
+
+    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        with Pool(processes=processes) as pool:
+            # execute tasks in order, process results out of order
+            for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
+                centerline_gpd.append(result)
+                step += 1
+                print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100))
+                print('Centerline No. {} done'.format(step))
+    elif PARALLEL_MODE == MODE_SEQUENTIAL:
+        for item in rows_and_paths:
+            row_with_centerline = find_single_centerline(item)
+            centerline_gpd.append(row_with_centerline)
+            step += 1
+            print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+            print(' %{} '.format(step / total_steps * 100))
+            print('Centerline No. {} done'.format(step))
+
     return pd.concat(centerline_gpd)
+
+
+def find_single_centerline(row_and_path):
+    """
+
+    Parameters
+    ----------
+    row_and_path: list of row (polygon and props) and least cost path
+
+    Returns
+    -------
+
+    """
+    row = row_and_path[0]
+    lc_path = row_and_path[1]
+
+    poly = row.geometry.iloc[0]
+    centerline = find_centerline(poly, lc_path)
+    row['centerline'] = centerline
+
+    return row
+
 
 
 def dyn_process_single_line(segment):
@@ -479,13 +519,13 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
     use_corridor_th_col = True
     line_seg = GeoDataFrame.from_file(in_line)
 
-    # Check the Dynamic Corridor threshold column in data. If it is not, new column will be created
+    # If Dynamic Corridor threshold column not found, create one
     if 'DynCanTh' not in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n "
-              "Please run Dynamic Canopy Threshold first".format('DynCanTh'))
+        print("No {} column found in input line data.\n "
+              "Run Dynamic Canopy Threshold first".format('DynCanTh'))
         exit()
 
-    # Check the OLnFID column in data. If it is not, column will be created
+    # If OLnFID column is not found, column will be created
     if 'OLnFID' not in line_seg.columns.array:
         print("Cannot find {} column in input line data.\n '{}' column will be created".format('OLnFID', 'OLnFID'))
         line_seg['OLnFID'] = line_seg.index
@@ -502,8 +542,11 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
         line_seg['OLnSEG'] = line_seg['OLnFID']
 
     print('%{}'.format(10))
+
     # check coordinate systems between line and raster features
     with rasterio.open(in_chm) as raster:
+        line_args = []
+
         if line_seg.crs.to_epsg() != raster.crs.to_epsg():
             print("Line and raster spatial references are not same, please check.")
             exit()
@@ -518,14 +561,11 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
 
             print('%{}'.format(20))
             work_in_buffer = GeoDataFrame.copy(line_seg_split)
-            work_in_buffer['geometry'] = buffer(work_in_buffer['geometry'],
-                                                        distance=float(max_ln_width),
-                                                        cap_style=1)
-            # line_args = []
+            work_in_buffer['geometry'] = buffer(work_in_buffer['geometry'], distance=float(max_ln_width), cap_style=1)
+
             print("Prepare CHMs for Dynamic cost raster ...")
-            line_args = generate_line_args(line_seg_split, work_in_buffer, raster, tree_radius,
-                                           max_line_dist, canopy_avoidance, exponent,
-                                           use_corridor_th_col, out_centerline)
+            line_args = generate_line_args(line_seg_split, work_in_buffer, raster, tree_radius, max_line_dist,
+                                           canopy_avoidance, exponent, use_corridor_th_col, out_centerline)
 
         # pass center lines for footprint
         print("Generating Dynamic footprint ...")
@@ -570,8 +610,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
     print("Generating centerlines ...")
     results = GeoDataFrame(pd.concat(poly_list))
     dissolved_polys = results.dissolve(by='OLnFID', as_index=False)
-    # dissolved_polys = dissolved_results.drop(columns=['OLnSEG'])
-    poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg)
+    poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg, processes)
 
     # save lines to file
     if out_centerline:
