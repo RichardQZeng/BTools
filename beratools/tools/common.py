@@ -27,7 +27,7 @@ import fiona
 from fiona import Geometry
 
 import shapely
-from shapely.ops import unary_union, snap
+from shapely.ops import unary_union, snap, split
 from shapely.geometry import (shape, mapping, Point, LineString,
                               MultiLineString, MultiPoint, Polygon, MultiPolygon)
 import geopandas as gpd
@@ -381,6 +381,7 @@ def identity_polygon(line_args):
 
     return line, identity
 
+
 def line_split2(in_ln_shp,seg_length):
 
     # Check the OLnFID column in data. If it is not, column will be created
@@ -390,48 +391,45 @@ def line_split2(in_ln_shp,seg_length):
 
         print("New column created: {}".format('OLnFID', 'OLnFID'))
         in_ln_shp['OLnFID'] = in_ln_shp.index
-    line_seg=split_into_Equal_Nth_segments(in_ln_shp,seg_length)
+    line_seg = split_into_Equal_Nth_segments(in_ln_shp, seg_length)
 
     return line_seg
 
 
-def split_into_Equal_Nth_segments(df,seg_length):
-    odf=df
-    crs=odf.crs
-    if not 'OLnSEG' in odf.columns.array:
+def split_into_Equal_Nth_segments(df, seg_length):
+    odf = df
+    crs = odf.crs
+    if 'OLnSEG' not in odf.columns.array:
         df['OLnSEG'] = np.nan
-    df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry,seg_length), axis=1))
-    df=df.explode()
+    df = odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry, seg_length), axis=1))
+    df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf=gpd.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = gpd.GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
-    gdf=gdf.reset_index(drop=True)
+    gdf = gdf.reset_index(drop=True)
+
     if "shape_leng" in gdf.columns.array:
-        gdf["shape_leng"]=gdf.geometry.length
+        gdf["shape_leng"] = gdf.geometry.length
     elif "LENGTH" in gdf.columns.array:
-        gdf["LENGTH"]=gdf.geometry.length
+        gdf["LENGTH"] = gdf.geometry.length
 
-    return  gdf
+    return gdf
 
-def split_line_nPart(line,seg_length):
-    from shapely.geometry import mapping
-    from shapely.ops import split,snap
 
+def split_line_nPart(line, seg_length):
     seg_line = shapely.segmentize(line, seg_length)
 
-    distances=np.arange(seg_length,line.length,seg_length)
+    distances = np.arange(seg_length, line.length, seg_length)
 
-    if len(distances)>0:
-        points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
+    if len(distances) > 0:
+        points = [shapely.line_interpolate_point(seg_line, distance) for distance in distances]
 
         # snap_points = snap(points, seg_line, 0.001)
         split_points = shapely.multipoints(points)
-
-
         mline = split(seg_line, split_points)
     else:
-        mline=seg_line
+        mline = seg_line
     return mline
 
 
