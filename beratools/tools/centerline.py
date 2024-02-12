@@ -112,22 +112,6 @@ def centerline(callback, in_line, in_cost, line_radius,
                 print(' %{} '.format(step / total_steps * 100), flush=True)
 
     i = 0
-    # for feature in features:
-    #     if not feature[0] or not feature[1]:
-    #         continue
-    #
-    #     if len(feature[0]) <= 1:
-    #         print('Less than two points in the list {}, ignore'.format(i))
-    #         continue
-    #
-    #     i += 1
-    #
-    #     # Save lines to shapefile
-    #     single_feature = {
-    #         'geometry': mapping(LineString(feature[0])),
-    #         'properties': feature[2]
-    #     }
-    #     fiona_features.append(single_feature)
 
     driver = 'ESRI Shapefile'
     print('Writing lines to shapefile')
