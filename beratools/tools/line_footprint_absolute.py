@@ -227,7 +227,7 @@ def process_single_line_segment(dict_segment):
     # TODO: deal with NODATA
     with rasterio.open(in_cost_r) as src1:
         clip_in_cost_r, out_transform1 = rasterio.mask.mask(src1, [shapely.buffer(feat, max_ln_width)],
-                                                            crop=True, nodata=-9999, filled=True)
+                                                            crop=True, nodata=BT_NODATA, filled=True)
         out_meta = src1.meta
         crs = src1.crs
         crs_code = src1.meta['crs']
@@ -243,7 +243,7 @@ def process_single_line_segment(dict_segment):
     del src1
     with rasterio.open(in_canopy_r) as src:
         clip_in_canopy_r, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, max_ln_width)],
-                                                              crop=True, nodata=-9999, filled=True)
+                                                              crop=True, nodata=BT_NODATA, filled=True)
         out_meta = src.meta
         crs = src.crs
 

@@ -252,11 +252,11 @@ def cal_percentile(line_arg):
     try:
         with rasterio.open(in_CHM) as raster:
             clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
-                                                               nodata=-9999, filled=True)
+                                                               nodata=BT_NODATA, filled=True)
             clipped_raster = np.squeeze(clipped_raster, axis=0)
 
             # mask all -9999 (nodata) value cells
-            masked_raster = np.ma.masked_where(clipped_raster == -9999, clipped_raster)
+            masked_raster = np.ma.masked_where(clipped_raster == BT_NODATA, clipped_raster)
             filled_raster = np.ma.filled(masked_raster, np.nan)
 
             # Calculate the percentile

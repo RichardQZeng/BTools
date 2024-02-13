@@ -60,7 +60,7 @@ class OperationCancelledException(Exception):
 def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     masked_array = np.ma.masked_where(in_array == nodata, in_array)
     canopy_ndarray = np.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
-    canopy_ndarray = np.ma.where(in_array == nodata, -9999, canopy_ndarray).data
+    canopy_ndarray = np.ma.where(in_array == nodata, BT_NODATA, canopy_ndarray).data
     return canopy_ndarray, masked_array
 
 
@@ -210,7 +210,7 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
     for record in range(0, len(work_in_buffer)):
         line_buffer = work_in_buffer.loc[record, 'geometry']
         clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
-                                                           nodata=-9999, filled=True)
+                                                           nodata=BT_NODATA, filled=True)
         clipped_raster = np.squeeze(clipped_raster, axis=0)
 
         # make rasterio meta for saving raster later
@@ -221,7 +221,7 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
                          "nodata": BT_NODATA,
                          "transform": out_transform})
 
-        nodata = -9999
+        nodata = BT_NODATA
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                          float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
                          line_seg.iloc[[record]], out_meta, use_corridor_th_col, out_centerline, line_id])

@@ -218,7 +218,7 @@ def remove_nan_from_array(matrix):
     with np.nditer(matrix, op_flags=['readwrite']) as it:
         for x in it:
             if np.isnan(x[...]):
-                x[...] = -9999
+                x[...] = BT_NODATA
 
 
 # Split LineString to segments at vertices

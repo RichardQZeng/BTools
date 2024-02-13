@@ -46,7 +46,6 @@ from dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
-BT_NODATA = -9999
 
 
 class VertexOptimization:

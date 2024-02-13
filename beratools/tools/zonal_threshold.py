@@ -87,11 +87,12 @@ def zonal_prepare(task_data):
 
     with rasterio.open(in_canopy_raster) as in_canopy:
         # clipped the chm base on polygon of line buffer or footprint
-        clipped_canopy, out_transform = rasterio.mask.mask(in_canopy, line_buffer, crop=True,nodata=-9999,filled=True)
+        clipped_canopy, out_transform = rasterio.mask.mask(in_canopy, line_buffer, crop=True,
+                                                           nodata=BT_NODATA, filled=True)
         clipped_canopy = numpy.squeeze(clipped_canopy, axis=0)
 
         # mask out all -9999 value cells
-        zonal_canopy = numpy.ma.masked_where(clipped_canopy ==-9999, clipped_canopy)
+        zonal_canopy = numpy.ma.masked_where(clipped_canopy == BT_NODATA, clipped_canopy)
 
         # Calculate the zonal mean and threshold
         zonal_mean = numpy.ma.mean(zonal_canopy)
