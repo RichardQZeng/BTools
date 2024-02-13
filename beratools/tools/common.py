@@ -47,7 +47,7 @@ MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_RAY = 3
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_SEQUENTIAL
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -65,7 +65,7 @@ BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
 BT_UID = 'BT_UID'
 
 GROUPING_SEGMENT = True
-LP_SEGMENT_LENGTH = 100
+LP_SEGMENT_LENGTH = 500
 
 # centerline
 CL_BUFFER_CLIP = 2.5
@@ -74,7 +74,7 @@ CL_SNAP_TOLERANCE = 10
 CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
 CL_SEGMENTIZE_LENGTH = 1
 CL_SIMPLIFY_LENGTH = 0.5
-CL_SMOOTH_SIGMA = 2.5
+CL_SMOOTH_SIGMA = 0.5
 CL_DELETE_HOLES = True
 CL_SIMPLIFY_POLYGON = True
 
@@ -94,7 +94,7 @@ if not BT_DEBUGGING:
 def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
     ras_nodata = BT_NODATA
 
-    with(rasterio.open(in_raster_file)) as raster_file:
+    with (rasterio.open(in_raster_file)) as raster_file:
         ras_nodata = raster_file.meta['nodata']
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer, crop=True, nodata=ras_nodata)
@@ -112,6 +112,23 @@ def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
             print('[Clip raster]: data saved to {}.'.format(out_raster_file))
 
     return out_image, out_meta
+
+
+def save_raster_to_file(in_raster_mem, in_meta, out_raster_file):
+    """
+
+    Parameters
+    ----------
+    in_raster_mem: npmpy raster
+    in_meta: input meta
+    out_raster_file: output raster file
+
+    Returns
+    -------
+
+    """
+    with rasterio.open(out_raster_file, "w", **in_meta) as dest:
+        dest.write(in_raster_mem, indexes=1)
 
 
 def clip_lines(clip_geom, buffer, in_line_file, out_line_file):

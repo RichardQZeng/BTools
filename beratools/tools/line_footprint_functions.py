@@ -32,6 +32,7 @@ import math
 import time
 import numpy as np
 from pathlib import Path
+import uuid
 
 from multiprocessing.pool import Pool
 
@@ -158,7 +159,7 @@ def split_line_fc(line):
 
 
 def split_line_npart(line):
-    # Work out n parts for each line (divided by 30m)
+    # Work out n parts for each line (divided by LP_SEGMENT_LENGTH)
     n = math.ceil(line.length / LP_SEGMENT_LENGTH)
     if n > 1:
         # divided line into n-1 equal parts;
@@ -211,10 +212,19 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
         clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
                                                            nodata=-9999, filled=True)
         clipped_raster = np.squeeze(clipped_raster, axis=0)
+
+        # make rasterio meta for saving raster later
+        out_meta = raster.meta.copy()
+        out_meta.update({"driver": "GTiff",
+                         "height": clipped_raster.shape[0],
+                         "width": clipped_raster.shape[1],
+                         "nodata": BT_NODATA,
+                         "transform": out_transform})
+
         nodata = -9999
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                          float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-                         line_seg.iloc[[record]], out_transform, use_corridor_th_col, out_centerline, line_id])
+                         line_seg.iloc[[record]], out_meta, use_corridor_th_col, out_centerline, line_id])
         line_id += 1
 
     return line_args
@@ -280,7 +290,6 @@ def find_single_centerline(row_and_path):
     return row
 
 
-
 def dyn_process_single_line(segment):
     # this will change segment content, and parameters will be changed
     segment = dyn_canopy_cost_raster(segment)
@@ -315,7 +324,8 @@ def dyn_process_single_line(segment):
 
     shapefile_proj = df.crs
 
-    in_transform = segment[3]
+    in_meta = segment[3]
+    in_transform = in_meta['transform']
 
     FID = df['OLnSEG']  # segment line feature ID
     OID = df['OLnFID']  # original line ID for segment line
@@ -384,6 +394,14 @@ def dyn_process_single_line(segment):
         else:
             corr_min = 0.05
 
+        # export intermediate rasters for debugging
+        suffix = str(uuid.uuid4())[:8]
+        path_temp = Path(r"D:\BT_Test\ConcaveHull\test.tif")
+        path_corridor = path_temp.with_stem(path_temp.stem + '_' + suffix)
+        path_corridor_min = path_temp.with_stem(path_temp.stem + '_' + suffix + '_min')
+        save_raster_to_file(corridor, in_meta, path_corridor)
+        save_raster_to_file(corridor - corr_min, in_meta, path_corridor_min)
+
         # Set minimum as zero and save minimum file
         corridor_min = np.ma.where((corridor - corr_min) > corridor_th_value, 1., 0.)
 
@@ -396,11 +414,6 @@ def dyn_process_single_line(segment):
         for poly, value in poly_generator:
             corridor_polygon.append(shape(poly))
         corridor_polygon = unary_union(corridor_polygon)
-
-        # Generate centerline: find centerline in corridor raster
-        # center_line = None
-        # if out_centerline:
-        #     center_line = find_centerline(corridor_polygon, feat)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
