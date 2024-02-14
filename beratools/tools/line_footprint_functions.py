@@ -121,7 +121,6 @@ def dyn_canopy_cost_raster(args):
     nodata = args[7]
     line_df = args[8]
     out_transform = args[9]
-    # use_corridor_th_col = args[10]
     out_centerline = args[10]
     line_id = args[11]
 
@@ -334,23 +333,10 @@ def process_single_line_relative(segment):
 
     in_meta = segment[3]
     exp_shk_cell = segment[4]
-    # TODO remove  segment[5]
-    # use_corridor_col = segment[5]
 
     out_centerline = segment[5]
     no_data = segment[6]
     line_id = segment[7]
-
-    # if use_corridor_col:
-    #     corridor_th_value = df.CorridorTh.iloc[0]
-    #     try:
-    #         corridor_th_value = float(corridor_th_value)
-    #         if corridor_th_value < 0:
-    #             corridor_th_value = 3.0
-    #     except ValueError:
-    #         corridor_th_value = 3.0
-    # else:
-    #     corridor_th_value = 3.0
 
     shapefile_proj = df.crs
     in_transform = in_meta['transform']
@@ -479,6 +465,7 @@ def process_single_line_relative(segment):
         else:
             if BT_DEBUGGING:
                 print('No Expand And Shrink cell performed.')
+
             file_shrink = raster_class
 
         # Process: Boundary Clean
@@ -578,14 +565,6 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     if 'OLnFID' not in line_seg.columns.array:
         print("Created {} column in input line data.".format('OLnFID'))
         line_seg['OLnFID'] = line_seg.index
-
-    # if 'CorridorTh' not in line_seg.columns.array:
-    #     if BT_DEBUGGING:
-    #         print("Cannot find {} column in input line data".format('CorridorTh'))
-    #     print(" New column created: {}".format('CorridorTh'))
-    #     line_seg['CorridorTh'] = 3.0
-    # else:
-    #     use_corridor_th_col = True
 
     if 'OLnSEG' not in line_seg.columns.array:
         line_seg['OLnSEG'] = line_seg['OLnFID']
