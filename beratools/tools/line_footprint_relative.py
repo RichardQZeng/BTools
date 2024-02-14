@@ -57,7 +57,7 @@ if __name__ == '__main__':
     del args.input['canopy_percentile']
     del args.input['canopy_thresh_percentage']
     verbose = True if args.verbose == 'True' else False
-    dynamic_line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
+    main_line_footprint_relative(print, **args.input, processes=int(args.processes), verbose=verbose)
 
     print('%{}'.format(100))
     print('Dynamic CC and Footprint processes finished')

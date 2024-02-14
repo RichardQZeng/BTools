@@ -318,7 +318,7 @@ def find_single_centerline(row_and_path):
     return row
 
 
-def dyn_process_single_line(segment):
+def process_single_line_relative(segment):
     # this will change segment content, and parameters will be changed
     segment = dyn_canopy_cost_raster(segment)
 
@@ -520,7 +520,7 @@ def multiprocessing_footprint_relative(line_args, processes):
         with Pool(processes=processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(dyn_process_single_line, line_args):
+            for result in pool.imap_unordered(process_single_line_relative, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
                 feats.append(result)
@@ -565,8 +565,8 @@ def multiprocessing_footprint_relative(line_args, processes):
 #         print("Operation cancelled")
 
 
-def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,
-                           tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
+def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,
+                                 tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
     use_corridor_th_col = True
     line_seg = GeoDataFrame.from_file(in_line)
 
@@ -631,7 +631,7 @@ def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell
             step = 0
             total_steps = len(line_args)
             for row in line_args:
-                feat_list.append(dyn_process_single_line(row))
+                feat_list.append(process_single_line_relative(row))
                 print("Footprint for line {} is done".format(step))
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format(step/total_steps*100))
@@ -688,7 +688,7 @@ if __name__ == '__main__':
     print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
     in_args, in_verbose = check_arguments()
-    dynamic_line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    main_line_footprint_relative(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
 
     print('%{}'.format(100))
     print('Dynamic Footprint processing finished')
