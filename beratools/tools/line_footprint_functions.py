@@ -121,9 +121,9 @@ def dyn_canopy_cost_raster(args):
     nodata = args[7]
     line_df = args[8]
     out_transform = args[9]
-    use_corridor_th_col = args[10]
-    out_centerline = args[11]
-    line_id = args[12]
+    # use_corridor_th_col = args[10]
+    out_centerline = args[10]
+    line_id = args[11]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
@@ -151,7 +151,7 @@ def dyn_canopy_cost_raster(args):
                                           cc_smooth, avoidance, cost_raster_exponent)
     dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = nodata
     return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform,
-            max_line_dist, use_corridor_th_col, out_centerline, nodata, line_id)
+            max_line_dist, out_centerline, nodata, line_id)
 
 
 def split_line_fc(line):
@@ -204,7 +204,7 @@ def split_into_equal_nth_segments(df):
 
 
 def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_dist,
-                       canopy_avoidance, exponent, use_corridor_th_col, out_centerline):
+                       canopy_avoidance, exponent, out_centerline):
     line_args = []
     line_id = 0
     for record in range(0, len(work_in_buffer)):
@@ -224,7 +224,7 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
         nodata = BT_NODATA
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                          float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-                         line_seg.iloc[[record]], out_meta, use_corridor_th_col, out_centerline, line_id])
+                         line_seg.iloc[[record]], out_meta, out_centerline, line_id])
         line_id += 1
 
     return line_args
@@ -332,13 +332,14 @@ def process_single_line_relative(segment):
     elif np.isnan(in_cost_r).all():
         print("Cost raster empty")
 
+    in_meta = segment[3]
     exp_shk_cell = segment[4]
     # TODO remove  segment[5]
     # use_corridor_col = segment[5]
 
-    out_centerline = segment[6]
-    no_data = segment[7]
-    line_id = segment[8]
+    out_centerline = segment[5]
+    no_data = segment[6]
+    line_id = segment[7]
 
     # if use_corridor_col:
     #     corridor_th_value = df.CorridorTh.iloc[0]
@@ -352,8 +353,6 @@ def process_single_line_relative(segment):
     #     corridor_th_value = 3.0
 
     shapefile_proj = df.crs
-
-    in_meta = segment[3]
     in_transform = in_meta['transform']
 
     FID = df['OLnSEG']  # segment line feature ID
@@ -567,27 +566,26 @@ def multiprocessing_footprint_relative(line_args, processes):
 
 def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,
                                  tree_radius, max_line_dist, canopy_avoidance, exponent, full_step, processes, verbose):
-    use_corridor_th_col = True
+    # use_corridor_th_col = True
     line_seg = GeoDataFrame.from_file(in_line)
 
     # If Dynamic Corridor threshold column not found, create one
     if 'DynCanTh' not in line_seg.columns.array:
-        print("No {} column found in input line data.\n "
-              "Run Dynamic Canopy Threshold first".format('DynCanTh'))
+        print("Please create field {} first".format('DynCanTh'))
         exit()
 
     # If OLnFID column is not found, column will be created
     if 'OLnFID' not in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n '{}' column will be created".format('OLnFID', 'OLnFID'))
+        print("Created {} column in input line data.".format('OLnFID'))
         line_seg['OLnFID'] = line_seg.index
 
-    if 'CorridorTh' not in line_seg.columns.array:
-        if BT_DEBUGGING:
-            print("Cannot find {} column in input line data".format('CorridorTh'))
-        print(" New column created: {}".format('CorridorTh'))
-        line_seg['CorridorTh'] = 3.0
-    else:
-        use_corridor_th_col = True
+    # if 'CorridorTh' not in line_seg.columns.array:
+    #     if BT_DEBUGGING:
+    #         print("Cannot find {} column in input line data".format('CorridorTh'))
+    #     print(" New column created: {}".format('CorridorTh'))
+    #     line_seg['CorridorTh'] = 3.0
+    # else:
+    #     use_corridor_th_col = True
 
     if 'OLnSEG' not in line_seg.columns.array:
         line_seg['OLnSEG'] = line_seg['OLnFID']
@@ -616,7 +614,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
 
             print("Prepare CHMs for Dynamic cost raster ...")
             line_args = generate_line_args(line_seg_split, work_in_buffer, raster, tree_radius, max_line_dist,
-                                           canopy_avoidance, exponent, use_corridor_th_col, out_centerline)
+                                           canopy_avoidance, exponent, out_centerline)
 
         # pass center lines for footprint
         print("Generating Dynamic footprint ...")
