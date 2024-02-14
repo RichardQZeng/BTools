@@ -230,6 +230,34 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
     return line_args
 
 
+def find_corridor_threshold(raster):
+    """
+    Find the optimal corridor threshold by raster histogram
+    Parameters
+    ----------
+    raster : corridor raster
+
+    Returns
+    -------
+    corridor_threshold : float
+
+    """
+    corridor_threshold = -1.0
+    hist, bins = np.histogram(raster.flatten(), bins=100, range=(0, 100))
+
+    half_count = np.sum(hist)/2
+    sub_count = 0
+
+    for count, bin_no in zip(hist, bins):
+        sub_count += count
+        if sub_count > half_count:
+            break
+
+        corridor_threshold = bin_no
+
+    return corridor_threshold
+
+
 def find_centerlines(poly_gpd, line_seg, processes):
     centerline = None
     centerline_gpd = []
@@ -305,22 +333,23 @@ def dyn_process_single_line(segment):
         print("Cost raster empty")
 
     exp_shk_cell = segment[4]
-    use_corridor_col = segment[5]
+    # TODO remove  segment[5]
+    # use_corridor_col = segment[5]
 
     out_centerline = segment[6]
     no_data = segment[7]
     line_id = segment[8]
 
-    if use_corridor_col:
-        corridor_th_value = df.CorridorTh.iloc[0]
-        try:
-            corridor_th_value = float(corridor_th_value)
-            if corridor_th_value < 0:
-                corridor_th_value = 3.0
-        except ValueError:
-            corridor_th_value = 3.0
-    else:
-        corridor_th_value = 3.0
+    # if use_corridor_col:
+    #     corridor_th_value = df.CorridorTh.iloc[0]
+    #     try:
+    #         corridor_th_value = float(corridor_th_value)
+    #         if corridor_th_value < 0:
+    #             corridor_th_value = 3.0
+    #     except ValueError:
+    #         corridor_th_value = 3.0
+    # else:
+    #     corridor_th_value = 3.0
 
     shapefile_proj = df.crs
 
@@ -394,21 +423,30 @@ def dyn_process_single_line(segment):
         else:
             corr_min = 0.05
 
-        # export intermediate rasters for debugging
-        suffix = str(uuid.uuid4())[:8]
-        path_temp = Path(r"D:\BT_Test\ConcaveHull\test.tif")
-        path_corridor = path_temp.with_stem(path_temp.stem + '_' + suffix)
-        path_corridor_min = path_temp.with_stem(path_temp.stem + '_' + suffix + '_min')
-        save_raster_to_file(corridor, in_meta, path_corridor)
-        save_raster_to_file(corridor - corr_min, in_meta, path_corridor_min)
+        # normalize corridor raster by deducting corr_min
+        corridor_norm = corridor - corr_min
+
+        # export intermediate raster for debugging
+        # suffix = str(uuid.uuid4())[:8]
+        # path_temp = Path(r"D:\BT_Test\ConcaveHull\test.tif")
+        # path_corridor = path_temp.with_stem(path_temp.stem + '_' + suffix)
+        # path_corridor_min = path_temp.with_stem(path_temp.stem + '_' + suffix + '_min')
+        # path_corridor_norm = path_temp.with_stem(path_temp.stem + '_' + suffix + '_norm')
+        # save_raster_to_file(corridor, in_meta, path_corridor)
+        # save_raster_to_file(corridor_norm, in_meta, path_corridor_min)
+        # save_raster_to_file(corridor_norm*100/df.length.iloc[0], in_meta, path_corridor_norm)
 
         # Set minimum as zero and save minimum file
-        corridor_min = np.ma.where((corridor - corr_min) > corridor_th_value, 1., 0.)
+        corridor_th_value = find_corridor_threshold(corridor_norm)
+        if corridor_th_value < 0:  # if no threshold found, use default value
+            corridor_th_value = FP_CORRIDOR_THRESHOLD
+
+        corridor_thresh = np.ma.where(corridor_norm > corridor_th_value, 1., 0.)
 
         # Threshold corridor raster used for generating centerline
-        corridor_thresh = np.ma.where(corridor_min == 0, 1, 0).data
-        corridor_mask = np.where(corridor_thresh == 1, True, False)
-        poly_generator = features.shapes(corridor_thresh, mask=corridor_mask, transform=in_transform)
+        corridor_thresh_cl = np.ma.where(corridor_thresh == 0, 1, 0).data
+        corridor_mask = np.where(corridor_thresh_cl == 1, True, False)
+        poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
         corridor_polygon = []
 
         for poly, value in poly_generator:
@@ -418,7 +456,7 @@ def dyn_process_single_line(segment):
         # Process: Stamp CC and Max Line Width
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
-        temp1 = (corridor_min + in_canopy_r)
+        temp1 = (corridor_thresh + in_canopy_r)
         raster_class = np.ma.where(temp1 == 0, 1, 0).data
 
         # BERA proposed Binary morphology
@@ -495,36 +533,36 @@ def multiprocessing_footprint_relative(line_args, processes):
         return None
 
 
-def multiprocessing_canopy_cost_relative(line_args, processes):
-    try:
-        total_steps = len(line_args)
-
-        features = []
-        # chunksize = math.ceil(total_steps / processes)
-        with Pool(processes=int(processes)) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            if PARALLEL_MODE == MODE_MULTIPROCESSING:
-                for result in pool.imap_unordered(dyn_canopy_cost_raster, line_args):
-                    # total_steps = len(line_args)
-                    if BT_DEBUGGING:
-                        print('Got result: {}'.format(result), flush=True)
-                    features.append(result)
-                    step += 1
-                    print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
-                    print(' %{} '.format(step/total_steps*100))
-            else:
-                for row in line_args:
-                    features.append(dyn_canopy_cost_raster(row))
-                    print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
-                    print(' %{} '.format(step/total_steps*100))
-                    print("Dynamic CC for line {} is done".format(step))
-                    step += 1
-
-        return features
-
-    except OperationCancelledException:
-        print("Operation cancelled")
+# def multiprocessing_canopy_cost_relative(line_args, processes):
+#     try:
+#         total_steps = len(line_args)
+#
+#         features = []
+#         # chunksize = math.ceil(total_steps / processes)
+#         with Pool(processes=int(processes)) as pool:
+#             step = 0
+#             # execute tasks in order, process results out of order
+#             if PARALLEL_MODE == MODE_MULTIPROCESSING:
+#                 for result in pool.imap_unordered(dyn_canopy_cost_raster, line_args):
+#                     # total_steps = len(line_args)
+#                     if BT_DEBUGGING:
+#                         print('Got result: {}'.format(result), flush=True)
+#                     features.append(result)
+#                     step += 1
+#                     print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
+#                     print(' %{} '.format(step/total_steps*100))
+#             else:
+#                 for row in line_args:
+#                     features.append(dyn_canopy_cost_raster(row))
+#                     print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
+#                     print(' %{} '.format(step/total_steps*100))
+#                     print("Dynamic CC for line {} is done".format(step))
+#                     step += 1
+#
+#         return features
+#
+#     except OperationCancelledException:
+#         print("Operation cancelled")
 
 
 def dynamic_line_footprint(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,

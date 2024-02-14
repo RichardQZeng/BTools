@@ -9,6 +9,7 @@
 
 # imports
 import sys
+import math
 import tempfile
 from pathlib import Path
 from collections import OrderedDict
@@ -31,23 +32,17 @@ from shapely.ops import unary_union, snap, split
 from shapely.geometry import (shape, mapping, Point, LineString,
                               MultiLineString, MultiPoint, Polygon, MultiPolygon)
 import geopandas as gpd
-
 from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
 
-from itertools import chain
-
-import math
-
 from label_centerlines import get_centerline
-
 
 # constants
 MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_RAY = 3
 
-PARALLEL_MODE = MODE_SEQUENTIAL
+PARALLEL_MODE = MODE_MULTIPROCESSING
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -61,7 +56,6 @@ BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
 BT_SHOW_ADVANCED_OPTIONS = False
 BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
-
 BT_UID = 'BT_UID'
 
 GROUPING_SEGMENT = True
@@ -77,6 +71,8 @@ CL_SIMPLIFY_LENGTH = 0.5
 CL_SMOOTH_SIGMA = 0.5
 CL_DELETE_HOLES = True
 CL_SIMPLIFY_POLYGON = True
+
+FP_CORRIDOR_THRESHOLD = 3.0
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
