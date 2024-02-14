@@ -121,8 +121,7 @@ def dyn_canopy_cost_raster(args):
     nodata = args[7]
     line_df = args[8]
     out_transform = args[9]
-    out_centerline = args[10]
-    line_id = args[11]
+    line_id = args[10]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
@@ -149,8 +148,7 @@ def dyn_canopy_cost_raster(args):
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                           cc_smooth, avoidance, cost_raster_exponent)
     dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = nodata
-    return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform,
-            max_line_dist, out_centerline, nodata, line_id)
+    return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform, max_line_dist, nodata, line_id)
 
 
 def split_line_fc(line):
@@ -203,7 +201,7 @@ def split_into_equal_nth_segments(df):
 
 
 def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_dist,
-                       canopy_avoidance, exponent, out_centerline):
+                       canopy_avoidance, exponent):
     line_args = []
     line_id = 0
     for record in range(0, len(work_in_buffer)):
@@ -223,7 +221,7 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
         nodata = BT_NODATA
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                          float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-                         line_seg.iloc[[record]], out_meta, out_centerline, line_id])
+                         line_seg.iloc[[record]], out_meta, line_id])
         line_id += 1
 
     return line_args
@@ -333,10 +331,8 @@ def process_single_line_relative(segment):
 
     in_meta = segment[3]
     exp_shk_cell = segment[4]
-
-    out_centerline = segment[5]
-    no_data = segment[6]
-    line_id = segment[7]
+    no_data = segment[5]
+    line_id = segment[6]
 
     shapefile_proj = df.crs
     in_transform = in_meta['transform']
@@ -593,7 +589,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
 
             print("Prepare CHMs for Dynamic cost raster ...")
             line_args = generate_line_args(line_seg_split, work_in_buffer, raster, tree_radius, max_line_dist,
-                                           canopy_avoidance, exponent, out_centerline)
+                                           canopy_avoidance, exponent)
 
         # pass center lines for footprint
         print("Generating Dynamic footprint ...")
