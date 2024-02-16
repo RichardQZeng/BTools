@@ -560,7 +560,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     # use_corridor_th_col = True
     line_seg = GeoDataFrame.from_file(in_line)
 
-    # If Dynamic Corridor threshold column not found, create one
+    # If Dynamic canopy threshold column not found, create one
     if 'DynCanTh' not in line_seg.columns.array:
         print("Please create field {} first".format('DynCanTh'))
         exit()
