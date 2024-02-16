@@ -30,12 +30,13 @@
 
 import math
 import time
-import numpy as np
 from pathlib import Path
 import uuid
 
 from multiprocessing.pool import Pool
 
+import numpy as np
+from scipy import stats
 import xarray as xr
 from xrspatial import convolution, focal
 
@@ -49,6 +50,8 @@ from shapely import buffer
 from shapely.geometry import LineString, Point, MultiPolygon, shape
 
 from common import *
+import skimage
+from skimage.morphology import *
 from skimage.graph import MCP_Geometric
 from dijkstra_algorithm import *
 
@@ -227,6 +230,42 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
     return line_args
 
 
+def find_corridor_threshold_boundary(canopy_clip, least_cost_path, corridor_raster):
+    threshold = -1
+    thresholds = [-1] * 10
+
+    # morphological filters to get polygons from canopy raster
+    canopy_bin = np.where(np.isclose(canopy_clip, 1.0), True, False)
+    clean_holes = remove_small_holes(canopy_bin)
+    clean_obj = remove_small_objects(clean_holes)
+
+    polys = features.shapes(skimage.img_as_ubyte(clean_obj), mask=clean_obj)
+    polys = [shape(poly).segmentize(FP_SEGMENTIZE_LENGTH) for poly, _ in polys]
+
+    # perpendicular segments intersections with polygons
+    size = corridor_raster.shape
+    pts = []
+    for poly in polys:
+        pts.extend(list(poly.exterior.coords))
+
+    index_0 = []
+    index_1 = []
+    for pt in pts:
+        if int(pt[0]) < size[1] and int(pt[1]) < size[0]:
+            index_0.append(int(pt[0]))
+            index_1.append(int(pt[1]))
+
+    try:
+        thresholds = corridor_raster[index_1, index_0]
+    except Exception as e:
+        print(e)
+
+    # trimmed mean of values at intersections
+    threshold = stats.trim_mean(thresholds, 0.3)
+
+    return threshold
+
+
 def find_corridor_threshold(raster):
     """
     Find the optimal corridor threshold by raster histogram
@@ -342,7 +381,7 @@ def process_single_line_relative(segment):
 
     segment_list = []
 
-    feat = df.loc[df.index[0], 'geometry']
+    feat = df.geometry.iloc[0]
     for coord in feat.coords:
         segment_list.append(coord)
 
@@ -418,15 +457,16 @@ def process_single_line_relative(segment):
         # save_raster_to_file(corridor_norm*100/df.length.iloc[0], in_meta, path_corridor_norm)
 
         # Set minimum as zero and save minimum file
-        corridor_th_value = find_corridor_threshold(corridor_norm)
+        # corridor_th_value = find_corridor_threshold(corridor_norm)
+        corridor_th_value = find_corridor_threshold_boundary(in_canopy_r, feat, corridor_norm)
         if corridor_th_value < 0:  # if no threshold found, use default value
             corridor_th_value = FP_CORRIDOR_THRESHOLD
 
-        corridor_thresh = np.ma.where(corridor_norm > corridor_th_value, 1., 0.)
+        corridor_thresh = np.ma.where(corridor_norm > corridor_th_value, 1.0, 0.0)
 
         # Threshold corridor raster used for generating centerline
-        corridor_thresh_cl = np.ma.where(corridor_thresh == 0, 1, 0).data
-        corridor_mask = np.where(corridor_thresh_cl == 1, True, False)
+        corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
+        corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
         poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
         corridor_polygon = []
 
@@ -513,38 +553,6 @@ def multiprocessing_footprint_relative(line_args, processes):
     except OperationCancelledException:
         print("Operation cancelled")
         return None
-
-
-# def multiprocessing_canopy_cost_relative(line_args, processes):
-#     try:
-#         total_steps = len(line_args)
-#
-#         features = []
-#         # chunksize = math.ceil(total_steps / processes)
-#         with Pool(processes=int(processes)) as pool:
-#             step = 0
-#             # execute tasks in order, process results out of order
-#             if PARALLEL_MODE == MODE_MULTIPROCESSING:
-#                 for result in pool.imap_unordered(dyn_canopy_cost_raster, line_args):
-#                     # total_steps = len(line_args)
-#                     if BT_DEBUGGING:
-#                         print('Got result: {}'.format(result), flush=True)
-#                     features.append(result)
-#                     step += 1
-#                     print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
-#                     print(' %{} '.format(step/total_steps*100))
-#             else:
-#                 for row in line_args:
-#                     features.append(dyn_canopy_cost_raster(row))
-#                     print(' "PROGRESS_LABEL Canopy Cost Relative {} of {}" '.format(step, total_steps), flush=True)
-#                     print(' %{} '.format(step/total_steps*100))
-#                     print("Dynamic CC for line {} is done".format(step))
-#                     step += 1
-#
-#         return features
-#
-#     except OperationCancelledException:
-#         print("Operation cancelled")
 
 
 def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_shk_cell, out_footprint, out_centerline,

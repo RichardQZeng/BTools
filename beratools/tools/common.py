@@ -73,6 +73,7 @@ CL_DELETE_HOLES = True
 CL_SIMPLIFY_POLYGON = True
 
 FP_CORRIDOR_THRESHOLD = 3.0
+FP_SEGMENTIZE_LENGTH = 2
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
