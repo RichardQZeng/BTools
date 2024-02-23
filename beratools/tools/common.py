@@ -42,7 +42,7 @@ MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_RAY = 3
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_SEQUENTIAL
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -50,7 +50,8 @@ USE_NUMPY_FOR_DIJKSTRA = True
 NADDatum = ['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
 
 BT_NODATA = -9999
-BT_DEBUGGING = False
+BT_NODATA_COST = np.inf
+BT_DEBUGGING = True
 BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
@@ -215,7 +216,7 @@ def remove_nan_from_array(matrix):
     with np.nditer(matrix, op_flags=['readwrite']) as it:
         for x in it:
             if np.isnan(x[...]):
-                x[...] = BT_NODATA
+                x[...] = BT_NODATA_COST
 
 
 # Split LineString to segments at vertices

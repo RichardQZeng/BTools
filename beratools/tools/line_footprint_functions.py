@@ -63,11 +63,11 @@ class OperationCancelledException(Exception):
 def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     masked_array = np.ma.masked_where(in_array == nodata, in_array)
     canopy_ndarray = np.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
-    canopy_ndarray = np.ma.where(in_array == nodata, BT_NODATA, canopy_ndarray).data
+    canopy_ndarray = np.ma.where(in_array == nodata, np.inf, canopy_ndarray).data  # TODO check the code, extra step?
     return canopy_ndarray, masked_array
 
 
-def dyn_fs_raster_stdmean(in_ndarray, kernel, masked_array, nodata):
+def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
     # This function uses xrspatial which can handle large data but slow
     # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
     ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
@@ -143,15 +143,15 @@ def dyn_canopy_cost_raster(args):
     dyn_canopy_ndarray, masked_array = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
 
     # Calculating focal statistic from canopy raster
-    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, masked_array, nodata)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, nodata)
 
     # Smoothing raster
     cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, cell_x, cell_y)
     avoidance = max(min(float(canopy_avoid), 1), 0)
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                           cc_smooth, avoidance, cost_raster_exponent)
-    dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = nodata
-    return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform, max_line_dist, nodata, line_id)
+    dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = BT_NODATA_COST  # TODO was nodata, changed to BT_NODATA_COST
+    return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform, max_line_dist, nodata, line_id
 
 
 def split_line_fc(line):
@@ -210,7 +210,7 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
     for record in range(0, len(work_in_buffer)):
         line_buffer = work_in_buffer.loc[record, 'geometry']
         clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
-                                                           nodata=BT_NODATA, filled=True)
+                                                           nodata=np.inf, filled=True)
         clipped_raster = np.squeeze(clipped_raster, axis=0)
 
         # make rasterio meta for saving raster later
@@ -221,7 +221,9 @@ def generate_line_args(line_seg, work_in_buffer, raster, tree_radius, max_line_d
                          "nodata": BT_NODATA,
                          "transform": out_transform})
 
-        nodata = BT_NODATA
+        nodata = np.inf
+        # TODO deal with inherited nodata and BT_NODATA_COST
+        # TODO convert nodata to BT_NODATA_COST
         line_args.append([clipped_raster, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                          float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
                          line_seg.iloc[[record]], out_meta, line_id])
@@ -355,12 +357,26 @@ def find_single_centerline(row_and_path):
 
 
 def process_single_line_relative(segment):
+    """
+
+    Parameters
+    ----------
+        in_canopy_r has np.inf, not masked
+        in_cost_r has BT_NODATA_COST, not masked
+        All other rasters are masked
+    segment
+
+    Returns
+    -------
+
+    """
     # this will change segment content, and parameters will be changed
     segment = dyn_canopy_cost_raster(segment)
 
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
     df = segment[0]
+
     in_canopy_r = segment[1]
     in_cost_r = segment[2]
     if np.isnan(in_canopy_r).all():
@@ -386,17 +402,17 @@ def process_single_line_relative(segment):
         segment_list.append(coord)
 
     # Find origin and destination coordinates
-    x1, y1 = segment_list[0][0], segment_list[0][1]
-    x2, y2 = segment_list[-1][0], segment_list[-1][1]
+    x1, y1 = segment_list[0][0:2]
+    x2, y2 = segment_list[-1][0:2]
 
     # Create Point "origin"
-    origin_point = Point([x1, y1])
-    origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
+    # origin_point = Point([x1, y1])
+    # origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
 
     # Create Point "destination"
-    destination_point = Point([x2, y2])
-    destination = [shapes for shapes in
-                   GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
+    # destination_point = Point([x2, y2])
+    # destination = [shapes for shapes in
+    #                GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
 
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
@@ -404,37 +420,40 @@ def process_single_line_relative(segment):
     # Work out the corridor from both end of the centerline
     try:
         # Rasterize source point
-        rasterized_source = features.rasterize(origin, out_shape=in_cost_r.shape, transform=in_transform,
-                                               fill=0, all_touched=True, default_value=1)
-        source = np.transpose(np.nonzero(rasterized_source))
+        # rasterized_source = features.rasterize(origin, out_shape=in_cost_r.shape, transform=in_transform,
+        #                                        fill=0, all_touched=True, default_value=1)
+        # source = np.transpose(np.nonzero(rasterized_source))
 
         # TODO: further investigate and submit issue to skimage
         # There is a severe bug in skimage find_costs
         # when nan is present in clip_cost_r, find_costs cause access violation
         # no message/exception will be caught
-        # change all nan to -9999 for workaround
+        # change all nan to BT_NODATA_COST for workaround
         remove_nan_from_array(in_cost_r)
 
         # generate the cost raster to source point
+        transformer = rasterio.transform.AffineTransformer(in_transform)
+        source = [transformer.rowcol(x1, y1)]
+
         mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        source_cost_acc = mcp_source.find_costs(source)[0]
-        del mcp_source
+        source_cost_acc, _ = mcp_source.find_costs(source)
 
         # Rasterize destination point
-        rasterized_destination = features.rasterize(destination, out_shape=in_cost_r.shape,
-                                                    transform=in_transform,
-                                                    out=None, fill=0, all_touched=True, default_value=1,
-                                                    dtype=np.dtype('int64'))
-        destination = np.transpose(np.nonzero(rasterized_destination))
-
+        # rasterized_destination = features.rasterize(destination, out_shape=in_cost_r.shape,
+        #                                             transform=in_transform,
+        #                                             out=None, fill=0, all_touched=True, default_value=1,
+        #                                             dtype=np.dtype('int64'))
+        # destination = np.transpose(np.nonzero(rasterized_destination))
         # generate the cost raster to destination point
-        mcp_dest = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        dest_cost_acc = mcp_dest.find_costs(destination)[0]
+        destination = [transformer.rowcol(x2, y2)]
 
-        del mcp_dest
+        mcp_dest = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
+        dest_cost_acc, _ = mcp_dest.find_costs(destination)
+        # del mcp_dest
 
         # Generate corridor
         corridor = source_cost_acc + dest_cost_acc
+        corridor = np.where(in_canopy_r == np.inf, np.inf, corridor)
         corridor = np.ma.masked_invalid(corridor)
 
         # Calculate minimum value of corridor raster
@@ -446,15 +465,28 @@ def process_single_line_relative(segment):
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
 
+        # mask corridor_norm
+        # corridor_norm = np.where(in_canopy_r == np.inf, BT_NODATA, corridor_norm)
+
         # export intermediate raster for debugging
-        # suffix = str(uuid.uuid4())[:8]
-        # path_temp = Path(r"D:\BT_Test\ConcaveHull\test.tif")
-        # path_corridor = path_temp.with_stem(path_temp.stem + '_' + suffix)
-        # path_corridor_min = path_temp.with_stem(path_temp.stem + '_' + suffix + '_min')
-        # path_corridor_norm = path_temp.with_stem(path_temp.stem + '_' + suffix + '_norm')
-        # save_raster_to_file(corridor, in_meta, path_corridor)
-        # save_raster_to_file(corridor_norm, in_meta, path_corridor_min)
-        # save_raster_to_file(corridor_norm*100/df.length.iloc[0], in_meta, path_corridor_norm)
+        if BT_DEBUGGING:
+            suffix = str(uuid.uuid4())[:8]
+            path_temp = Path(r"D:\BT_Test\ConcaveHull\test-temp")
+            if path_temp.exists():
+                path_canopy = path_temp.joinpath(suffix + '_canopy.tif')
+                path_cost = path_temp.joinpath(suffix + '_cost.tif')
+                path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
+                path_corridor_min = path_temp.joinpath(suffix + '_corridor_min.tif')
+                path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
+                out_canopy = np.ma.masked_equal(in_canopy_r, np.inf)
+                out_cost = np.ma.masked_equal(in_cost_r, np.inf)
+                save_raster_to_file(out_canopy, in_meta, path_canopy)
+                save_raster_to_file(out_cost, in_meta, path_cost)
+                save_raster_to_file(corridor, in_meta, path_corridor)
+                save_raster_to_file(corridor_norm, in_meta, path_corridor_min)
+                save_raster_to_file(corridor_norm*100/df.length.iloc[0], in_meta, path_corridor_norm)
+            else:
+                print('Debugging: raster folder not exists.')
 
         # Set minimum as zero and save minimum file
         # corridor_th_value = find_corridor_threshold(corridor_norm)
@@ -462,6 +494,7 @@ def process_single_line_relative(segment):
         if corridor_th_value < 0:  # if no threshold found, use default value
             corridor_th_value = FP_CORRIDOR_THRESHOLD
 
+        corridor_th_value = FP_CORRIDOR_THRESHOLD
         corridor_thresh = np.ma.where(corridor_norm > corridor_th_value, 1.0, 0.0)
 
         # Threshold corridor raster used for generating centerline
@@ -520,7 +553,7 @@ def process_single_line_relative(segment):
         poly = MultiPolygon(multi_polygon)
 
         # create a pandas dataframe for the FP
-        out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'geometry': poly})
+        out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'CorriThresh': corridor_th_value, 'geometry': poly})
         out_gdata = GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         # create GeoDataFrame for centerline
