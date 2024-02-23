@@ -405,25 +405,11 @@ def process_single_line_relative(segment):
     x1, y1 = segment_list[0][0:2]
     x2, y2 = segment_list[-1][0:2]
 
-    # Create Point "origin"
-    # origin_point = Point([x1, y1])
-    # origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
-
-    # Create Point "destination"
-    # destination_point = Point([x2, y2])
-    # destination = [shapes for shapes in
-    #                GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
-
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
 
     # Work out the corridor from both end of the centerline
     try:
-        # Rasterize source point
-        # rasterized_source = features.rasterize(origin, out_shape=in_cost_r.shape, transform=in_transform,
-        #                                        fill=0, all_touched=True, default_value=1)
-        # source = np.transpose(np.nonzero(rasterized_source))
-
         # TODO: further investigate and submit issue to skimage
         # There is a severe bug in skimage find_costs
         # when nan is present in clip_cost_r, find_costs cause access violation
@@ -438,12 +424,6 @@ def process_single_line_relative(segment):
         mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
         source_cost_acc, _ = mcp_source.find_costs(source)
 
-        # Rasterize destination point
-        # rasterized_destination = features.rasterize(destination, out_shape=in_cost_r.shape,
-        #                                             transform=in_transform,
-        #                                             out=None, fill=0, all_touched=True, default_value=1,
-        #                                             dtype=np.dtype('int64'))
-        # destination = np.transpose(np.nonzero(rasterized_destination))
         # generate the cost raster to destination point
         destination = [transformer.rowcol(x2, y2)]
 
@@ -464,9 +444,6 @@ def process_single_line_relative(segment):
 
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
-
-        # mask corridor_norm
-        # corridor_norm = np.where(in_canopy_r == np.inf, BT_NODATA, corridor_norm)
 
         # export intermediate raster for debugging
         if BT_DEBUGGING:
