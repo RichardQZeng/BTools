@@ -421,15 +421,14 @@ def process_single_line_relative(segment):
         transformer = rasterio.transform.AffineTransformer(in_transform)
         source = [transformer.rowcol(x1, y1)]
 
-        mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
+        mcp_source = MCP_Geometric(in_cost_r)
         source_cost_acc, _ = mcp_source.find_costs(source)
 
         # generate the cost raster to destination point
         destination = [transformer.rowcol(x2, y2)]
 
-        mcp_dest = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
+        mcp_dest = MCP_Geometric(in_cost_r)
         dest_cost_acc, _ = mcp_dest.find_costs(destination)
-        # del mcp_dest
 
         # Generate corridor
         corridor = source_cost_acc + dest_cost_acc
@@ -448,7 +447,7 @@ def process_single_line_relative(segment):
         # export intermediate raster for debugging
         if BT_DEBUGGING:
             suffix = str(uuid.uuid4())[:8]
-            path_temp = Path(r"D:\BT_Test\ConcaveHull\test-temp")
+            path_temp = Path(r"D:\BT_Test\ConcaveHull\test-cost")
             if path_temp.exists():
                 path_canopy = path_temp.joinpath(suffix + '_canopy.tif')
                 path_cost = path_temp.joinpath(suffix + '_cost.tif')
