@@ -1,4 +1,5 @@
 alphashape
+appliedgrg::label_centerlines
 geopandas
 huggingface_hub
 matplotlib
@@ -18,7 +19,7 @@ sphinx-rtd-theme
 xarray-spatial
 
 # recommended way to install BERA Tools
-# > conda create -n bera -c conda-forge python=3.10 mamba 
+# > conda create -n bera -c conda-forge -c appliedgrg python=3.10 mamba
 # > conda activate bera
 # > conda config --add channels conda-forge
 # > mamba install --file requirements.txt
