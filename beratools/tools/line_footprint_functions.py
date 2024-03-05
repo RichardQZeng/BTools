@@ -589,6 +589,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
 
         centerline_gpd = centerline_gpd.set_geometry('centerline')
         centerline_gpd = centerline_gpd.drop(columns=['geometry'])
+        centerline_gpd.crs = poly_centerline_gpd.crs
         centerline_gpd.to_file(out_centerline)
         print("Centerline file saved")
 

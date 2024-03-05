@@ -125,6 +125,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
 
         centerline_gpd = centerline_gpd.set_geometry('centerline')
         centerline_gpd = centerline_gpd.drop(columns=['geometry'])
+        centerline_gpd.crs = poly_centerline_gpd.crs
         centerline_gpd.to_file(out_centerline)
         print("Centerline file saved")
 
