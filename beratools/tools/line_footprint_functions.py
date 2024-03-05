@@ -123,7 +123,7 @@ def dyn_canopy_cost_raster(args):
     res = args[6]
     nodata = args[7]
     line_df = args[8]
-    out_transform = args[9]
+    out_meta = args[9]
     line_id = args[10]
 
     canopy_ht_threshold = float(canopy_ht_threshold)
@@ -151,7 +151,7 @@ def dyn_canopy_cost_raster(args):
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                           cc_smooth, avoidance, cost_raster_exponent)
     dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = BT_NODATA_COST  # TODO was nodata, changed to BT_NODATA_COST
-    return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_transform, max_line_dist, nodata, line_id
+    return line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id
 
 
 def split_line_fc(line):
@@ -296,66 +296,6 @@ def find_corridor_threshold(raster):
     return corridor_threshold
 
 
-def find_centerlines(poly_gpd, line_seg, processes):
-    centerline = None
-    centerline_gpd = []
-    rows_and_paths = []
-
-    try:
-        for i in poly_gpd.index:
-            row = poly_gpd.loc[[i]]
-            poly = row.geometry.iloc[0]
-            line_id = row['OLnFID']
-            lc_path = line_seg.loc[line_id].geometry.iloc[0]
-            rows_and_paths.append((row, lc_path))
-    except Exception as e:
-        print(e)
-
-    total_steps = len(rows_and_paths)
-    step = 0
-
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        with Pool(processes=processes) as pool:
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
-                centerline_gpd.append(result)
-                step += 1
-                print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100))
-                print('Centerline No. {} done'.format(step))
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        for item in rows_and_paths:
-            row_with_centerline = find_single_centerline(item)
-            centerline_gpd.append(row_with_centerline)
-            step += 1
-            print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-            print(' %{} '.format(step / total_steps * 100))
-            print('Centerline No. {} done'.format(step))
-
-    return pd.concat(centerline_gpd)
-
-
-def find_single_centerline(row_and_path):
-    """
-
-    Parameters
-    ----------
-    row_and_path: list of row (polygon and props) and least cost path
-
-    Returns
-    -------
-
-    """
-    row = row_and_path[0]
-    lc_path = row_and_path[1]
-
-    poly = row.geometry.iloc[0]
-    centerline = find_centerline(poly, lc_path)
-    row['centerline'] = centerline
-
-    return row
-
-
 def process_single_line_relative(segment):
     """
 
@@ -473,15 +413,8 @@ def process_single_line_relative(segment):
         corridor_th_value = FP_CORRIDOR_THRESHOLD
         corridor_thresh = np.ma.where(corridor_norm > corridor_th_value, 1.0, 0.0)
 
-        # Threshold corridor raster used for generating centerline
-        corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
-        corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
-        poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
-        corridor_polygon = []
-
-        for poly, value in poly_generator:
-            corridor_polygon.append(shape(poly))
-        corridor_polygon = unary_union(corridor_polygon)
+        # find contiguous corridor polygon for centerline
+        corridor_poly_gpd = find_corridor_polygon(corridor_thresh, in_transform, df)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
@@ -531,10 +464,6 @@ def process_single_line_relative(segment):
         # create a pandas dataframe for the FP
         out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'CorriThresh': corridor_th_value, 'geometry': poly})
         out_gdata = GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
-
-        # create GeoDataFrame for centerline
-        corridor_poly_gpd = GeoDataFrame.copy(df)
-        corridor_poly_gpd.geometry = [corridor_polygon]
 
         return out_gdata, corridor_poly_gpd
 

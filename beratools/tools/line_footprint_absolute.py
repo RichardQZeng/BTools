@@ -1,17 +1,22 @@
 import time
 import warnings
+import numpy
+import math
+import itertools
 
 import pandas
 import geopandas
-import numpy
-import math
-from skimage.graph import MCP_Geometric
+import pandas as pd
+from geopandas import GeoDataFrame
+
 import shapely
 from shapely import *
-from rasterio import features, mask
+
 from scipy import ndimage
-from multiprocessing.pool import Pool
-import itertools
+from rasterio import features, mask
+from skimage.graph import MCP_Geometric
+
+# from multiprocessing.pool import Pool
 
 from common import *
 from dijkstra_algorithm import *
@@ -72,7 +77,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     # pass single line one at a time for footprint
     feat_list = []
     footprint_list = []
-    line_list = []
+    poly_list = []
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         feat_list = execute_multiprocessing(line_args, processes, verbose)
@@ -95,7 +100,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     if feat_list:
         for i in feat_list:
             footprint_list.append(i[0])
-            line_list.append(i[1])
+            poly_list.append(i[1])
     
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
@@ -106,11 +111,30 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
     print("Saving output ...")
     dissolved_results.to_file(out_footprint)
-    print('%{}'.format(100))
+
+    # dissolved polygon group by column 'OLnFID'
+    print("Generating centerlines ...")
+    results = GeoDataFrame(pd.concat(poly_list))
+    dissolved_polys = results.dissolve(by='OLnFID', as_index=False)
+    poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg, processes)
 
     # save lines to file
     if out_centerline:
-        save_features_to_shapefile(out_centerline, line_seg.crs, line_list)
+        poly_gpd = poly_centerline_gpd.copy()
+        centerline_gpd = poly_centerline_gpd.copy()
+
+        centerline_gpd = centerline_gpd.set_geometry('centerline')
+        centerline_gpd = centerline_gpd.drop(columns=['geometry'])
+        centerline_gpd.to_file(out_centerline)
+        print("Centerline file saved")
+
+        # save polygons
+        path = Path(out_centerline)
+        path = path.with_stem(path.stem + '_poly')
+        poly_gpd = poly_gpd.drop(columns=['centerline'])
+        poly_gpd.to_file(path)
+
+    print('%{}'.format(100))
 
     print('Finishing footprint processing in {} seconds)'.format(time.time()-start_time))
 
@@ -146,19 +170,14 @@ def has_field(fc, fi):
 
 def process_single_line_whole(line):
     footprints = []
-    lines = []
+    line_polys = []
     for line_seg in line:
         footprint = process_single_line_segment(line_seg)
         footprints.append(footprint[0])
-        lines.append(footprint[1])
+        line_polys.append(footprint[1])
 
-    coord_list = []
-    if lines:
-        for item in lines:
-            if item:
-                coord_list.append(item[0])
-
-    multi_line = MultiLineString(coord_list)
+    polys = pd.concat(line_polys)
+    polys = polys.dissolve()
 
     if footprints:
         if not all(item is None for item in footprints):
@@ -175,7 +194,7 @@ def process_single_line_whole(line):
     if len(line) > 0:
         print('process_single_line_whole: Processing line with ID: {}, done.'
               .format(line[0]['OLnFID']), flush=True)
-    return footprint_merge, multi_line
+    return footprint_merge, polys
 
 
 def process_single_line_segment(dict_segment):
@@ -184,6 +203,7 @@ def process_single_line_segment(dict_segment):
     in_canopy_r = dict_segment['in_canopy_r']
     in_cost_r = dict_segment['in_cost_r']
     corridor_th_value = dict_segment['corridor_th_value']
+    line_gpd = dict_segment['line_gpd']
 
     line_id = ''
     if 'BT_UID' in dict_segment.keys():
@@ -289,29 +309,22 @@ def process_single_line_segment(dict_segment):
         corridor = source_cost_acc + dest_cost_acc
         corridor = numpy.ma.masked_invalid(corridor)
 
-        # find least cost path in corridor raster
-        lc_path = None
-        if dict_segment['out_centerline']:
-            ras_nodata = out_meta['nodata']
-            if not ras_nodata:
-                ras_nodata = BT_NODATA
-
-            mat = corridor.copy()
-            lc_path = find_least_cost_path(ras_nodata, mat, out_transform2, line_id, feat)
-
         # Calculate minimum value of corridor raster
         if numpy.ma.min(corridor) is not None:
             corr_min = float(numpy.ma.min(corridor))
         else:
             corr_min = 0.05
 
+        # normalize corridor raster by deducting corr_min
+        corridor_norm = corridor - corr_min
+
         # Set minimum as zero and save minimum file
-        corridor_min = numpy.ma.where((corridor - corr_min) > corridor_th_value, 1.0, 0.0)
+        corridor_thresh = numpy.ma.where(corridor_norm > corridor_th_value, 1.0, 0.0)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
         # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
-        temp1 = (corridor_min + clip_canopy_r)
+        temp1 = (corridor_thresh + clip_canopy_r)
         raster_class = numpy.ma.where(temp1 == 0, 1, 0).data
 
         # BERA proposed Binary morphology
@@ -359,7 +372,10 @@ def process_single_line_segment(dict_segment):
         if not GROUPING_SEGMENT:
             print('LP:PSLS: Processing line ID: {}, done.'.format(dict_segment['OLnSEG']), flush=True)
 
-        return out_gdata, lc_path
+        # find contiguous corridor polygon for centerline
+        corridor_poly_gpd = find_corridor_polygon(corridor_thresh, out_transform1, line_gpd)
+
+        return out_gdata, corridor_poly_gpd
 
     except Exception as e:
         print('Exception: {}'.format(e))
@@ -436,9 +452,11 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
     if len(line_seg) > 0:
         for row in range(0, len(line_seg)):
             # creates a geometry object
-            feat = line_seg.loc[row].geometry
+            line_gpd = line_seg.loc[[row]]
+            feat = line_gpd.geometry.iloc[0]
             if feat:
-                feature_attributes = {'seg_length': feat.length, 'geometry': feat, 'Proj_crs': line_seg.crs}
+                feature_attributes = {'seg_length': feat.length, 'geometry': feat,
+                                      'Proj_crs': line_seg.crs, 'line_gpd': line_gpd}
 
                 for col_name in keep_field_name:
                     feature_attributes[col_name] = line_seg.loc[row, col_name]
@@ -463,7 +481,8 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         record['out_centerline'] = out_centerline
         record['org_col'] = field_list_col
 
-    # return list of GeoDataFrame represents each line or segment
+    # TODO: data type changed - return list of GeoDataFrame represents each line or segment
+    # returns list of list of line attributes, arguments and line gpd
     if GROUPING_SEGMENT:
         # group line segments by line id
         def key_func(x): return x['OLnFID']

@@ -1,5 +1,6 @@
 alphashape
 appliedgrg::label_centerlines
+appliedgrg::laserchicken
 geopandas
 huggingface_hub
 matplotlib
@@ -21,7 +22,8 @@ xarray-spatial
 # recommended way to install BERA Tools
 # > conda create -n bera -c conda-forge -c appliedgrg python=3.10 mamba
 # > conda activate bera
-# > conda config --add channels conda-forge
+# > conda config --add channels conda-forge --add channels appliedgrg
+# > conda config --set channel_priority strict
 # > mamba install --file requirements.txt
 # set GDAL_DATA env
 #   CONDA_ENV_PATH\Library\share\gdal
