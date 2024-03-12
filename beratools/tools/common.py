@@ -55,7 +55,7 @@ NADDatum = ['NAD83 Canadian Spatial Reference System', 'North American Datum 198
 
 BT_NODATA = -9999
 BT_NODATA_COST = np.inf
-BT_DEBUGGING = True
+BT_DEBUGGING = False
 BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
@@ -342,13 +342,23 @@ def raster_crs(raster_file):
 def compare_crs(crs_org, crs_dst):
     if crs_org and crs_dst:
         if crs_org.IsSameGeogCS(crs_dst):
-            print('Check: Input file Spatial Reference are the same, continue.')
+            print('Checked: Input files Spatial Reference are the same, continue.')
             return True
         else:
             crs_org_norm = CRS(crs_org.ExportToWkt())
             crs_dst_norm = CRS(crs_dst.ExportToWkt())
-            if crs_org_norm.name == crs_dst_norm.name:
-                print('Same crs, continue.')
+            if crs_org_norm.is_compound:
+                crs_org_proj=crs_org_norm.sub_crs_list[0].coordinate_operation.name
+            else:
+                crs_org_proj=crs_org_norm.coordinate_operation.name
+
+            if crs_dst_norm.is_compound:
+                crs_dst_proj = crs_dst_norm.sub_crs_list[0].coordinate_operation.name
+            else:
+                crs_dst_proj = crs_dst_norm.coordinate_operation.name
+
+            if crs_org_proj== crs_dst_proj :
+                print('Checked: Input files Spatial Reference are the same, continue.')
                 return True
 
         print('Different GCS, please check.')
@@ -420,8 +430,9 @@ def split_into_Equal_Nth_segments(df, seg_length):
     crs = odf.crs
     if 'OLnSEG' not in odf.columns.array:
         df['OLnSEG'] = np.nan
-    df = odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry, seg_length), axis=1))
-    df = df.explode()
+    df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry,seg_length), axis=1))
+    # df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, x.geometry.length), axis=1))
+    df=df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
     gdf = gpd.GeoDataFrame(df, geometry=df.geometry, crs=crs)
@@ -431,23 +442,24 @@ def split_into_Equal_Nth_segments(df, seg_length):
     if "shape_leng" in gdf.columns.array:
         gdf["shape_leng"] = gdf.geometry.length
     elif "LENGTH" in gdf.columns.array:
-        gdf["LENGTH"] = gdf.geometry.length
-
+        gdf["LENGTH"]=gdf.geometry.length
+    else:
+        gdf["shape_leng"] = gdf.geometry.length
     return gdf
 
-
-def split_line_nPart(line, seg_length):
+def split_line_nPart(line,seg_length):
+    from shapely.ops import split,snap
     seg_line = shapely.segmentize(line, seg_length)
+    distances=np.arange(seg_length,line.length,seg_length)
 
-    distances = np.arange(seg_length, line.length, seg_length)
-
-    if len(distances) > 0:
-        points = [shapely.line_interpolate_point(seg_line, distance) for distance in distances]
+    if len(distances)>0:
+        points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
 
         # snap_points = snap(points, seg_line, 0.001)
         split_points = shapely.multipoints(points)
         mline = split(seg_line, split_points)
     else:
+        
         mline = seg_line
     return mline
 
@@ -465,37 +477,50 @@ def cut_line(line, distance):
     List of LineString
     """
     lines = list()
-    cut(line, distance, lines)
+    # seg_line = shapely.segmentize(line, distance)
+    lines=cut(line, distance, lines)
     return lines
 
 
 def cut(line, distance, lines):
     # Cuts a line in several segments at a distance from its starting point
-    if distance <= 0.0 or distance >= line.length:
-        return [line]
+    from shapely import ops
+    if line.has_z:
+        line=ops.transform(lambda x,y,z=None:(x,y),line)
+    if shapely.is_empty(line) or shapely.is_missing(line):
+        return None
+    else:
+        if math.fmod(line.length , distance)<(1):
+            return [line]
+        elif distance >= line.length:
+            return [line]
+        else:
+            end_pt = None
+            line=shapely.segmentize(line,distance)
+            while line.length > distance:
 
-    end_pt = None
-    while line.length > distance:
-        coords = list(line.coords)
-        for i, p in enumerate(coords):
-            pd = line.project(Point(p))
-            # if abs(pd - line.length) < BT_EPSLON:
-            #     lines.append(line)
-            #     return lines
+                coords = list(line.coords)
+                for i, p in enumerate(coords):
+                    pd = line.project(Point(p))
+                    # if abs(pd - line.length) < BT_EPSLON:
+                    #     lines.append(line)
+                    #     return lines
 
-            if abs(pd - distance) < BT_EPSLON:
-                lines.append(LineString(coords[:i+1]))
-                line = LineString(coords[i:])
-                end_pt = None
-                break
-            elif pd > distance:
-                end_pt = line.interpolate(distance)
-                lines.append(LineString(coords[:i] + list(end_pt.coords)))
-                line = LineString(list(end_pt.coords) + coords[i:])
-                break
+                    if abs(pd - distance) < BT_EPSLON:
+                        lines.append(LineString(coords[:i+1]))
+                        line = LineString(coords[i:])
+                        end_pt = None
+                        break
+                    elif pd > distance:
+                        end_pt = line.interpolate(distance)
+                        lines.append(LineString(coords[:i] + list(end_pt.coords)))
+                        line = LineString(list(end_pt.coords) + coords[i:])
+                        break
 
-    if end_pt:
-        lines.append(line)
+        if end_pt:
+            lines.append(line)
+        return lines
+
 
 
 def find_centerline(poly, lc_path):
@@ -567,6 +592,10 @@ def find_centerline(poly, lc_path):
 
     return centerline
 
+def find_route(array, start, end, fully_connected,geometric):
+    from skimage.graph import route_through_array
+    route_list,cost_list = route_through_array(array, start, end,fully_connected,geometric)
+    return route_list,cost_list
 
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
     # Threshold corridor raster used for generating centerline
