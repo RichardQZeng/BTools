@@ -481,6 +481,15 @@ def process_single_line_relative(segment):
     x1, y1 = segment_list[0][0:2]
     x2, y2 = segment_list[-1][0:2]
 
+    # Create Point "origin"
+    origin_point = Point([x1, y1])
+    origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
+
+    # Create Point "destination"
+    destination_point = Point([x2, y2])
+    destination = [shapes for shapes in
+                   GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
+
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
 
@@ -492,6 +501,10 @@ def process_single_line_relative(segment):
         # no message/exception will be caught
         # change all nan to BT_NODATA_COST for workaround
         remove_nan_from_array(in_cost_r)
+
+        # generate the cost raster to source point
+        transformer = rasterio.transform.AffineTransformer(in_transform)
+        source = [transformer.rowcol(x1, y1)]
 
         # generate the cost raster to source point
         # mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
