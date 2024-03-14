@@ -369,67 +369,67 @@ def find_corridor_threshold(raster):
     return corridor_threshold
 
 
-def find_centerlines(poly_gpd, line_seg, processes):
-    centerline = None
-    centerline_gpd = []
-    rows_and_paths = []
+# def find_centerlines(poly_gpd, line_seg, processes):
+#     centerline = None
+#     centerline_gpd = []
+#     rows_and_paths = []
+#
+#     try:
+#         for i in poly_gpd.index:
+#             row = poly_gpd.loc[[i]]
+#             poly = row.geometry.iloc[0]
+#             line_id = row.OLnFID[i]
+#             lc_path = line_seg.loc[line_seg['OLnFID']==line_id].geometry[i]
+#             rows_and_paths.append((row, lc_path))
+#     except Exception as e:
+#         print(e)
+#
+#     total_steps = len(rows_and_paths)
+#     step = 0
+#
+#     if PARALLEL_MODE == MODE_MULTIPROCESSING:
+#         with Pool(processes=processes) as pool:
+#             # execute tasks in order, process results out of order
+#             for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
+#                 centerline_gpd.append(result)
+#                 step += 1
+#                 print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+#                 print(' %{} '.format(step / total_steps * 100))
+#                 # print('Centerline No. {} done'.format(step))
+#     elif PARALLEL_MODE == MODE_SEQUENTIAL:
+#         for item in rows_and_paths:
+#             row_with_centerline = find_single_centerline(item)
+#             centerline_gpd.append(row_with_centerline)
+#             step += 1
+#             print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+#             print(' %{} '.format(step / total_steps * 100))
+#             # print('Centerline No. {} done'.format(step))
+#
+#     return pd.concat(centerline_gpd)
 
-    try:
-        for i in poly_gpd.index:
-            row = poly_gpd.loc[[i]]
-            poly = row.geometry.iloc[0]
-            line_id = row.OLnFID[i]
-            lc_path = line_seg.loc[line_seg['OLnFID']==line_id].geometry[i]
-            rows_and_paths.append((row, lc_path))
-    except Exception as e:
-        print(e)
 
-    total_steps = len(rows_and_paths)
-    step = 0
-
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        with Pool(processes=processes) as pool:
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
-                centerline_gpd.append(result)
-                step += 1
-                print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100))
-                # print('Centerline No. {} done'.format(step))
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        for item in rows_and_paths:
-            row_with_centerline = find_single_centerline(item)
-            centerline_gpd.append(row_with_centerline)
-            step += 1
-            print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-            print(' %{} '.format(step / total_steps * 100))
-            # print('Centerline No. {} done'.format(step))
-
-    return pd.concat(centerline_gpd)
-
-
-def find_single_centerline(row_and_path):
-    """
-
-    Parameters
-    ----------
-        in_canopy_r has np.inf, not masked
-        in_cost_r has BT_NODATA_COST, not masked
-        All other rasters are masked
-    segment
-
-    Returns
-    -------
-
-    """
-    row = row_and_path[0]
-    lc_path = row_and_path[1]
-
-    poly = row.geometry.iloc[0]
-    centerline = find_centerline(poly, lc_path)
-    row['centerline'] = centerline
-
-    return row
+# def find_single_centerline(row_and_path):
+#     """
+#
+#     Parameters
+#     ----------
+#         in_canopy_r has np.inf, not masked
+#         in_cost_r has BT_NODATA_COST, not masked
+#         All other rasters are masked
+#     segment
+#
+#     Returns
+#     -------
+#
+#     """
+#     row = row_and_path[0]
+#     lc_path = row_and_path[1]
+#
+#     poly = row.geometry.iloc[0]
+#     centerline = find_centerline(poly, lc_path)
+#     row['centerline'] = centerline
+#
+#     return row
 
 
 def process_single_line_relative(segment):
