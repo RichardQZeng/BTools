@@ -36,6 +36,7 @@ import pandas as pd
 import geopandas as gpd
 from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
+from pyogrio import set_gdal_config_options
 
 from label_centerlines import get_centerline
 
@@ -79,6 +80,10 @@ CL_SIMPLIFY_POLYGON = True
 
 FP_CORRIDOR_THRESHOLD = 3.0
 FP_SEGMENTIZE_LENGTH = 2
+
+# restore .shx for shapefile for using GDAL or pyogrio
+gdal.SetConfigOption('SHAPE_RESTORE_SHX', 'YES')
+set_gdal_config_options({'SHAPE_RESTORE_SHX': 'YES'})
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
@@ -342,7 +347,7 @@ def raster_crs(raster_file):
 def compare_crs(crs_org, crs_dst):
     if crs_org and crs_dst:
         if crs_org.IsSameGeogCS(crs_dst):
-            print('Checked: Input files Spatial Reference are the same, continue.')
+            print('Check: Input file Spatial Reference are the same, continue.')
             return True
         else:
             crs_org_norm = CRS(crs_org.ExportToWkt())
