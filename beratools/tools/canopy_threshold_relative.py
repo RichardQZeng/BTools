@@ -79,7 +79,7 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
     worklnbuffer_dfLRing = gpd.GeoDataFrame.copy((workln_dfC))
     worklnbuffer_dfRRing = gpd.GeoDataFrame.copy((workln_dfC))
 
-    print('Create ring buffer from centerline to find the edge....')
+    print('Create ring buffer for input line to find the forest edge....')
     def multiringbuffer(df, nrings, ringdist):
         """Buffers an input dataframes geometry nring (number of rings) times, with a distance between rings of ringdist and
     returns a list of non overlapping buffers"""
@@ -134,7 +134,7 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
     print('%{}'.format(80))
 
    # calculate the Height percentile for each parallel area using CHM
-    print("Calculating surrounding forest percentile from centerline buffer area ...")
+    print("Calculating surrounding forest population for buffer area ...")
     worklnbuffer_dfLRing = multiprocessing_Percentile(worklnbuffer_dfLRing, int(canopy_percentile),
                                                    float(canopy_thresh_percentage), in_chm,
                                                    processes, side='LRing')
@@ -164,9 +164,10 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
 
         # test the rate of change is > than the 50% (1.5), if it is
         # no result found then lower to 30% (1.3) until 10% (1.1)
-        while not found and changes >1.0:
-            for ii in range(0, len(Change)-1):
-                try:
+
+        for ii in range(0, len(Change)-1):
+            try:
+                while not found and changes > 1.0:
                     if x[ii]>=0.5:
                         if (Change[ii]) >= changes:
                             cut_dist = ii+1
@@ -174,18 +175,19 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
                             found = True
                             break
                     changes = changes - 0.1
-                except IndexError:
-                    pass
+
+            except IndexError:
+                pass
 
         # if still is no result found, lower to 10% (1.1), if no result found then default is used
         if not found:
-            if cut_percentile<=0.5:
+            if 0.5 >= cut_percentile:
                 cut_dist = len(x) / 3
                 cut_percentile=0.5
-            elif cut_percentile>=3.0 and cut_percentile<=10.0:
+            elif 0.5 < cut_percentile <= 10.0:
                 cut_dist = 6
                 cut_percentile = np.nanmedian(x)
-            elif cut_percentile >10:
+            elif 10 < cut_percentile:
                 cut_dist = 3
                 cut_percentile = np.nanmedian(x)
 
@@ -200,11 +202,8 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
         sql_dfL=worklnbuffer_dfLRing.loc[(worklnbuffer_dfLRing['OLnFID']==Olnfid) & (worklnbuffer_dfLRing['OLnSEG']==Olnseg)].sort_values(by=['iRing'])
         PLRing= list(sql_dfL['Percentile_LRing'])
 
-
         #Testing where the rate of chenage is more than 30% or  more
         LStd,RL_Percentile = rate_of_change(PLRing)
-
-
 
         sql_dfR = worklnbuffer_dfRRing.loc[(worklnbuffer_dfRRing['OLnFID']==Olnfid) & (worklnbuffer_dfRRing['OLnSEG']==Olnseg)].sort_values(by=['iRing'])
         PRRing=list(sql_dfR['Percentile_RRing'])
@@ -360,6 +359,7 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM, proc
     try:
         line_arg = []
         total_steps = len(df)
+        cal_percentile = cal_percentileLR
         if side == 'left':
             PerCol = 'Percentile_L'
             cal_percentile=cal_percentileLR
@@ -372,9 +372,11 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM, proc
 
         elif side=='CL':
             PerCol = 'Percentile_CL'
+            cal_percentile = cal_percentileLR
 
         elif side == 'CR':
             PerCol = 'Percentile_CR'
+            cal_percentile = cal_percentileLR
 
         elif side == 'LRing':
             PerCol = 'Percentile_LRing'
