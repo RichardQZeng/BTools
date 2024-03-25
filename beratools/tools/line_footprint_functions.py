@@ -140,7 +140,7 @@ def dyn_canopy_cost_raster(args):
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     if canopy_ht_threshold<=0:
-        canopy_ht_threshold=1.0
+        canopy_ht_threshold=0.5
     tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
     max_line_dist = float(max_line_dist)
     canopy_avoid = float(canopy_avoid)
@@ -856,10 +856,10 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     resultsCLR = resultsCLR.reset_index(drop=True)
     resultsCLR['geometry']=resultsCLR['geometry'].buffer(-0.005)
 
-    poly_centerline_gpd = find_centerlines(resultsCLR, line_seg, processes)
-    #
+    # out_centerline=False
     # save lines to file
     if out_centerline:
+        poly_centerline_gpd = find_centerlines(resultsCLR, line_seg, processes)
         poly_gpd = poly_centerline_gpd.copy()
         centerline_gpd = poly_centerline_gpd.copy()
 
