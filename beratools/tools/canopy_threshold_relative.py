@@ -153,10 +153,11 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
     gpd.GeoDataFrame.to_file(worklnbuffer_dfLRing, os.path.join(file_path,"worklnbuffer_dfLRing_Percentile.shp"))
     gpd.GeoDataFrame.to_file(worklnbuffer_dfRRing, os.path.join(file_path,"worklnbuffer_dfRRing_percentile.shp"))
 
-    def rate_of_change(x):
+    def rate_of_change(x,max_chmht):
         #Since the x interval is 1 unit, the array 'diff' is the rate of change (slope)
         diff = np.ediff1d(x)
         cut_dist = len(x)/5
+
         cut_percentile = np.nanmedian(x)
         found = False
         changes =1.50
@@ -186,10 +187,18 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
                 cut_percentile=0.5
             elif 0.5 < cut_percentile <= 10.0:
                 cut_dist = 6
-                cut_percentile = np.nanmedian(x)
-            elif 10 < cut_percentile:
+                cut_percentile = cut_percentile
+            # elif 5.0 < cut_percentile <= 10.0:
+            #     cut_dist = 5
+            #     cut_percentile = cut_percentile
+            elif 10.0 < cut_percentile<=15:
+                cut_dist = 5
+                cut_percentile = cut_percentile
+            elif 15 < cut_percentile:
                 cut_dist = 3
-                cut_percentile = np.nanmedian(x)
+                cut_percentile = 16
+
+                
 
         return cut_dist,cut_percentile
 
@@ -203,13 +212,13 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
         PLRing= list(sql_dfL['Percentile_LRing'])
 
         #Testing where the rate of chenage is more than 30% or  more
-        LStd,RL_Percentile = rate_of_change(PLRing)
+        LStd,RL_Percentile = rate_of_change(PLRing,max_chmht)
 
         sql_dfR = worklnbuffer_dfRRing.loc[(worklnbuffer_dfRRing['OLnFID']==Olnfid) & (worklnbuffer_dfRRing['OLnSEG']==Olnseg)].sort_values(by=['iRing'])
         PRRing=list(sql_dfR['Percentile_RRing'])
 
         #Testing where the rate of chenage is more than 30% or  more
-        RStd,RR_Percentile = rate_of_change(PRRing)
+        RStd,RR_Percentile = rate_of_change(PRRing,max_chmht)
 
         line_seg.loc[index,'RDist_Cut'] = RStd
         line_seg.loc[index,'LDist_Cut'] = LStd
