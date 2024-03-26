@@ -1,4 +1,6 @@
-python=3.9
+alphashape
+appliedgrg::label_centerlines
+appliedgrg::laserchicken
 geopandas
 huggingface_hub
 matplotlib
@@ -6,6 +8,7 @@ pip
 pyogrio
 psutil
 pyqt
+ray-default
 rioxarray
 rpy2
 r-essentials
@@ -14,11 +17,13 @@ r-terra
 scikit-image
 sphinx-tabs
 sphinx-rtd-theme
-torchvision
 xarray-spatial
 
-# conda install mamba -n base -c conda-forge -y
-# conda update conda -y
-# conda update --all
-# mamba create -n bera-39 -c conda-forge python=3.9 mamba geopandas huggingface_hub matplotlib pip pyogrio psutil pyqt
-# rioxarray rpy2 r-lidr r-terra scikit-image sphinx-tabs sphinx-rtd-theme torchvision xarray-spatial -y
+# recommended way to install BERA Tools
+# > conda create -n bera -c conda-forge -c appliedgrg python=3.10 mamba
+# > conda activate bera
+# > conda config --add channels conda-forge --add channels appliedgrg
+# > conda config --set channel_priority strict
+# > mamba install --file requirements.txt
+# set GDAL_DATA env
+#   CONDA_ENV_PATH\Library\share\gdal

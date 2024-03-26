@@ -2,9 +2,12 @@
 # see also https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file
 name: bera39
 channels:
+  - appliedgrg
   - conda-forge
 dependencies:
   - python=3.9
+  - alphashape
+  - appliedgrg::label_centerlines
   - geopandas
   - huggingface_hub
   - line_profiler
@@ -16,7 +19,7 @@ dependencies:
     # and for wheels
     # - http://URL_TO_THE_WHEEL.whl
   - pyogrio
-  - pytorch::torchvision
+  # - pytorch::torchvision
   - pyqt
   - psutil
   - ray-all

@@ -46,7 +46,6 @@ from dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
-BT_NODATA = -9999
 
 
 class VertexOptimization:
@@ -215,7 +214,11 @@ class VertexOptimization:
             return line
 
         coords = list(line.coords)
-        coords[index] = (point.x, point.y, 0.0)
+        if len(coords[index]) == 2:
+            coords[index] = (point.x, point.y)
+        elif len(coords[index]) == 3:
+            coords[index] = (point.x, point.y, 0.0)
+
         return LineString(coords)
 
     # only LINESTRING is dealt with for now

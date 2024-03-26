@@ -112,22 +112,6 @@ def centerline(callback, in_line, in_cost, line_radius,
                 print(' %{} '.format(step / total_steps * 100), flush=True)
 
     i = 0
-    # for feature in features:
-    #     if not feature[0] or not feature[1]:
-    #         continue
-    #
-    #     if len(feature[0]) <= 1:
-    #         print('Less than two points in the list {}, ignore'.format(i))
-    #         continue
-    #
-    #     i += 1
-    #
-    #     # Save lines to shapefile
-    #     single_feature = {
-    #         'geometry': mapping(LineString(feature[0])),
-    #         'properties': feature[2]
-    #     }
-    #     fiona_features.append(single_feature)
 
     driver = 'ESRI Shapefile'
     print('Writing lines to shapefile')
@@ -176,8 +160,14 @@ def execute_multiprocessing(line_args, processes, verbose):
                 geom = result[0]
                 prop = result[2]
                 if geom and prop:
-                    feat_geoms.append(LineString(geom))
-                    feat_props.append(prop)
+                    if len(geom) <= 1:
+                        print("No least cost path detected")
+                        continue
+                    try:
+                        feat_geoms.append(LineString(geom))
+                        feat_props.append(prop)
+                    except Exception as e:
+                        print(e)
 
                 step += 1
                 if verbose:

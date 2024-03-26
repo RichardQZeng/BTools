@@ -468,12 +468,13 @@ def cal_metrics(line_arg):
     try:
         with rasterio.open(raster) as image:
 
-            clipped_raster, out_transform = rasterio.mask.mask(image, [line_buffer], crop=True, nodata=-9999, filled=True)
+            clipped_raster, out_transform = rasterio.mask.mask(image, [line_buffer], crop=True,
+                                                               nodata=BT_NODATA, filled=True)
             clipped_raster = numpy.squeeze(clipped_raster, axis=0)
             cell_x, cell_y = image.res
             cell_area=cell_x*cell_y
             # mask all -9999 (nodata) value cells
-            masked_raster = numpy.ma.masked_where(clipped_raster == -9999, clipped_raster)
+            masked_raster = numpy.ma.masked_where(clipped_raster == BT_NODATA, clipped_raster)
             filled_raster=numpy.ma.filled(masked_raster, numpy.nan)
 
             # Calculate the metrics

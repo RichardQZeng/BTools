@@ -69,7 +69,8 @@ def generate_sample_points(line, n_samples=10):
     list
         List of shapely Point objects.
     """
-    return [line.interpolate(i / n_samples, normalized=True) for i in range(n_samples)]
+    # return [line.interpolate(i / n_samples, normalized=True) for i in range(n_samples)]
+    return [Point(item) for item in list(line.coords)]
 
 
 def generate_perpendicular_line(point, line, offset=10):
@@ -120,6 +121,8 @@ def process_single_line(line_arg):
     # Store the 75th percentile width as a new attribute
     row['avg_width'] = q3_width
     row['max_width'] = q4_width
+    row['sampling_widths'] = [widths]
+    row['sampling_widths'] = row['sampling_widths'].apply(lambda x: str(x))
 
     print('line processed: {}'.format(line_id))
 
@@ -220,13 +223,13 @@ def calculate_average_width(line, polygon, offset, n_samples):
     """
     Calculates the average width of a polygon perpendicular to the given line.
     """
-    widths = np.zeros(n_samples)
-
     # Smooth the line
-    line = smooth_linestring(line, tolerance=5)
+    # line = smooth_linestring(line, tolerance=5)
 
     valid_widths = 0
-    for i, point in enumerate(generate_sample_points(line, n_samples=n_samples)):
+    sample_points = generate_sample_points(line, n_samples=n_samples)
+    widths = np.zeros(len(sample_points))
+    for i, point in enumerate(sample_points):
         perp_line = generate_perpendicular_line(point, line, offset=offset)
         intersections = polygon.intersection(perp_line)
 
@@ -260,6 +263,9 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     # print('Line with width attributes saved to... ', shp_line_attr)
     # line_attr.to_file(shp_line_attr)
     buffer_gdf.to_file(out_footprint)
+
+    geojson_path = Path(out_footprint).with_suffix('.geojson')
+    buffer_gdf.to_file(geojson_path.as_posix(), driver='GeoJSON')
 
     callback('tool_template tool done.')
 

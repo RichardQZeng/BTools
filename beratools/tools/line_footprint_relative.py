@@ -49,15 +49,14 @@ if __name__ == '__main__':
     del args.input['max_ln_width']
 
     verbose = True if args.verbose == 'True' else False
-    dy_cl_line = canopy_threshold_relative(print, **args.input, processes=int(args.processes), verbose=verbose)
+    dy_cl_line = main_canopy_threshold_relative(print, **args.input, processes=int(args.processes), verbose=verbose)
     args = parser.parse_args()
     args.input['full_step'] = True
     args.input["in_line"] = dy_cl_line
     del args.input['off_ln_dist']
     del args.input['canopy_percentile']
-    del args.input['canopy_thresh_percentage']
     verbose = True if args.verbose == 'True' else False
-    dynamic_line_footprint(print, **args.input, processes=int(args.processes), verbose=verbose)
+    main_line_footprint_relative(print, **args.input, processes=int(args.processes), verbose=verbose)
 
     print('%{}'.format(100))
     print('Dynamic CC and Footprint processes finished')
