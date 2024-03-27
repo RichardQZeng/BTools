@@ -112,7 +112,7 @@ def process_single_line(line_arg):
     offset = line_arg[3]
     line_id = line_arg[4]
 
-    widths = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
+    widths, line = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
 
     # Calculate the 75th percentile width
     q3_width = np.percentile(widths, 75)
@@ -123,6 +123,8 @@ def process_single_line(line_arg):
     row['max_width'] = q4_width
     row['sampling_widths'] = [widths]
     row['sampling_widths'] = row['sampling_widths'].apply(lambda x: str(x))
+
+    row['geometry'] = line
 
     print('line processed: {}'.format(line_id))
 
@@ -224,7 +226,7 @@ def calculate_average_width(line, polygon, offset, n_samples):
     Calculates the average width of a polygon perpendicular to the given line.
     """
     # Smooth the line
-    # line = smooth_linestring(line, tolerance=5)
+    line = smooth_linestring(line, tolerance=5.0)
 
     valid_widths = 0
     sample_points = generate_sample_points(line, n_samples=n_samples)
@@ -239,7 +241,7 @@ def calculate_average_width(line, polygon, offset, n_samples):
                 valid_widths += 1
 
     #     print(f"Calculated {valid_widths} valid widths")  # Logging the number of valid widths
-    return widths
+    return widths, line
 
 
 def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max_width,
@@ -267,6 +269,9 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     geojson_path = Path(out_footprint).with_suffix('.geojson')
     buffer_gdf.to_file(geojson_path.as_posix(), driver='GeoJSON')
 
+    gdf_simplified_path = Path(in_line).with_stem(Path(in_line).stem + "simplified")
+    line_attr.to_file(gdf_simplified_path)
+
     callback('tool_template tool done.')
 
 
@@ -286,7 +291,7 @@ def execute_multiprocessing(line_args, processes, verbose):
                 step += 1
                 if verbose:
                     print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-                    print(' %{} '.format(step/total_steps*100), flush=True)
+                    print(' %{} '.format(step / total_steps * 100), flush=True)
 
         return features
     except OperationCancelledException:
@@ -315,5 +320,4 @@ if __name__ == '__main__':
     start_time = time.time()
     line_footprint_fixed(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))
-
 
