@@ -45,7 +45,7 @@ from multiprocessing.pool import Pool
 # constants
 MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
-MODE_RAY = 3
+MODE_DASK = 3
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
 
@@ -68,7 +68,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_BUFFER_CLIP = 2.5
+CL_BUFFER_CLIP = 10
 CL_BUFFER_CENTROID = 3
 CL_SNAP_TOLERANCE = 10
 CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon

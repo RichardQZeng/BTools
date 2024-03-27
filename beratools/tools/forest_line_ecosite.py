@@ -79,20 +79,6 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         feat_all = execute_multiprocessing(all_lines, processes, verbose)
-    elif PARALLEL_MODE == MODE_RAY:
-        ray.init(log_to_driver=False)
-        process_single_line_ray = ray.remote(process_single_line)
-        result_ids = [process_single_line_ray.remote(line) for line in all_lines]
-
-        while len(result_ids):
-            done_id, result_ids = ray.wait(result_ids)
-            feat_geometry, feat_attributes = ray.get(done_id[0])
-            feat_all.append((feat_geometry, feat_attributes))
-            print('Done {}'.format(step))
-            step += 1
-
-        # ray.shutdown()
-
     elif PARALLEL_MODE == MODE_SEQUENTIAL:
         for line in all_lines:
             line_collection = process_single_line(line)
@@ -140,9 +126,6 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
     with fiona.open(out_line, 'w', driver, schema, layer_crs.to_proj4()) as out_line_file:
         for feature in fiona_features:
             out_line_file.write(feature)
-
-    if ray.is_initialized():
-        ray.shutdown()
 
 
 def split_line_with_polygon(lines, polygon):
