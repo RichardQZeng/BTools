@@ -477,17 +477,17 @@ def process_single_line_relative(segment):
         segment_list.append(coord)
 
     # Find origin and destination coordinates
-    x1, y1 = segment_list[0][0:2]
-    x2, y2 = segment_list[-1][0:2]
+    # x1, y1 = segment_list[0][0:2]
+    # x2, y2 = segment_list[-1][0:2]
 
     # Create Point "origin"
-    origin_point = Point([x1, y1])
-    origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
-
-    # Create Point "destination"
-    destination_point = Point([x2, y2])
-    destination = [shapes for shapes in
-                   GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
+    # origin_point = Point([x1, y1])
+    # origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
+    #
+    # # Create Point "destination"
+    # destination_point = Point([x2, y2])
+    # destination = [shapes for shapes in
+    #                GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
 
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
@@ -512,34 +512,34 @@ def process_single_line_relative(segment):
         remove_nan_from_array(in_cost_r)
 
         # generate the cost raster to source point
-        transformer = rasterio.transform.AffineTransformer(in_transform)
-        source = [transformer.rowcol(x1, y1)]
+        # transformer = rasterio.transform.AffineTransformer(in_transform)
+        # source = [transformer.rowcol(x1, y1)]
 
         # generate the cost raster to source point
-        mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        source_cost_acc = mcp_source.find_costs(source)[0]
+        # mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
+        # source_cost_acc = mcp_source.find_costs(source)[0]
         # del mcp_source
 
         # generate the cost raster to destination point
-        destination = [transformer.rowcol(x2, y2)]
+        # destination = [transformer.rowcol(x2, y2)]
 
 
         # # # generate the cost raster to destination point
-        mcp_dest = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        dest_cost_acc = mcp_dest.find_costs(destination)[0]
+        # mcp_dest = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
+        # dest_cost_acc = mcp_dest.find_costs(destination)[0]
 
         # generate 1m interval points along line
         distance_delta = 1
         distances = np.arange(0, feat.length, distance_delta)
 
         multipoint_along_line = [feat.interpolate(distance) for distance in distances]
-        points_along_line=[]
+        # points_along_line=[]
 
-        for coord in multipoint_along_line:
-            points_along_line.append([coord.x, coord.y])
-        points=[]
-        for pt in range(0,len(points_along_line)):
-            points.append([transformer.rowcol(points_along_line[pt][0], points_along_line[pt][1])])
+        # for coord in multipoint_along_line:
+        #     points_along_line.append([coord.x, coord.y])
+        # points_Alongln=[]
+        # for pt in range(0,len(points_along_line)):
+        #     points_Alongln.append([transformer.rowcol(points_along_line[pt][0], points_along_line[pt][1])[0],transformer.rowcol(points_along_line[pt][0], points_along_line[pt][1])[1]])
 
         # Rasterize points along line
         rasterized_points_Alongln = features.rasterize(multipoint_along_line, out_shape=in_cost_r.shape, transform=in_transform,
@@ -561,9 +561,6 @@ def process_single_line_relative(segment):
             corr_min = float(np.ma.min(corridor))
         else:
             corr_min = 0.5
-
-
-
 
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
@@ -597,8 +594,8 @@ def process_single_line_relative(segment):
            corridor_th_value = (FP_CORRIDOR_THRESHOLD/ cell_size_x)
 
         # corridor_th_value = FP_CORRIDOR_THRESHOLD
-        corridor_thresh = np.ma.where(corridor_norm > corridor_th_value, 1.0, 0.0)
-        corridor_thresh_cl = np.ma.where(corridor_norm > (corridor_th_value+(1/cell_size_x)), 1.0, 0.0)
+        corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
+        corridor_thresh_cl = np.ma.where(corridor_norm >= (corridor_th_value+(1/cell_size_x)), 1.0, 0.0)
 
         # find contiguous corridor polygon for centerline
         corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, in_transform, df)
@@ -725,7 +722,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                 if full_step:
                     line_seg_split = line_seg
                 else:
-                    line_seg_split = split_into_Equal_Nth_segments(line_seg,100)
+                    line_seg_split = split_into_Equal_Nth_segments(line_seg,250)
 
             print('%{}'.format(20))
 
@@ -741,7 +738,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                                                   cap_style=3, single_sided=True)
 
             work_in_bufferL = GeoDataFrame(pd.concat([work_in_bufferL1,work_in_bufferL2]))
-            work_in_bufferL=work_in_bufferL.dissolve(by='OLnFID', as_index=False)
+            work_in_bufferL=work_in_bufferL.dissolve(by=['OLnFID','OLnSEG'], as_index=False)
 
             work_in_bufferR1['geometry'] = buffer(work_in_bufferR1['geometry'], distance=-float(max_ln_width)-1,
                                                  cap_style=3, single_sided=True)
@@ -749,7 +746,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                                                   cap_style=3, single_sided=True)
 
             work_in_bufferR = GeoDataFrame(pd.concat([work_in_bufferR1, work_in_bufferR2]))
-            work_in_bufferR = work_in_bufferR.dissolve(by='OLnFID', as_index=False)
+            work_in_bufferR = work_in_bufferR.dissolve(by=['OLnFID','OLnSEG'], as_index=False)
 
             work_in_bufferC['geometry'] = buffer(work_in_bufferC['geometry'], distance=float(max_ln_width),
                                                  cap_style=3, single_sided=False)
