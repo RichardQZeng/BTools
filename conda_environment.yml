@@ -6,8 +6,9 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - alphashape
   - appliedgrg::label_centerlines
+  - dask
+  - distributed
   - geopandas
   - huggingface_hub
   - line_profiler
@@ -22,7 +23,6 @@ dependencies:
   # - pytorch::torchvision
   - pyqt
   - psutil
-  - ray-all
   - rioxarray
   - rpy2
   - r-essentials
