@@ -1,6 +1,7 @@
-alphashape
 appliedgrg::label_centerlines
 appliedgrg::laserchicken
+dask
+distributed
 geopandas
 huggingface_hub
 matplotlib
@@ -8,7 +9,6 @@ pip
 pyogrio
 psutil
 pyqt
-ray-default
 rioxarray
 rpy2
 r-essentials

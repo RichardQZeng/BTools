@@ -9,6 +9,7 @@
 
 # imports
 import sys
+import math
 import tempfile
 from pathlib import Path
 from collections import OrderedDict
@@ -25,20 +26,26 @@ from rasterio import features
 
 import fiona
 from fiona import Geometry
-import shapely
-from shapely.geometry import shape, mapping, Point, LineString
-import geopandas as gpd
 
+import shapely
+from shapely.ops import unary_union, snap, split
+from shapely.geometry import (shape, mapping, Point, LineString,
+                              MultiLineString, MultiPoint, Polygon, MultiPolygon)
+
+import pandas as pd
+import geopandas as gpd
 from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
+from pyogrio import set_gdal_config_options
 
-import math
+from label_centerlines import get_centerline
 
+from multiprocessing.pool import Pool
 
 # constants
 MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
-MODE_RAY = 3
+MODE_DASK = 3
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
 
@@ -48,17 +55,35 @@ USE_NUMPY_FOR_DIJKSTRA = True
 NADDatum=['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
 
 BT_NODATA = -9999
+BT_NODATA_COST = np.inf
 BT_DEBUGGING = False
 BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
 BT_SHOW_ADVANCED_OPTIONS = False
 BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
-
 BT_UID = 'BT_UID'
 
 GROUPING_SEGMENT = True
-LP_SEGMENT_LENGTH = 100
+LP_SEGMENT_LENGTH = 500
+
+# centerline
+CL_BUFFER_CLIP = 10
+CL_BUFFER_CENTROID = 3
+CL_SNAP_TOLERANCE = 10
+CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
+CL_SEGMENTIZE_LENGTH = 1
+CL_SIMPLIFY_LENGTH = 0.5
+CL_SMOOTH_SIGMA = 0.5
+CL_DELETE_HOLES = True
+CL_SIMPLIFY_POLYGON = True
+
+FP_CORRIDOR_THRESHOLD = 3.0
+FP_SEGMENTIZE_LENGTH = 2
+
+# restore .shx for shapefile for using GDAL or pyogrio
+gdal.SetConfigOption('SHAPE_RESTORE_SHX', 'YES')
+set_gdal_config_options({'SHAPE_RESTORE_SHX': 'YES'})
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
@@ -76,7 +101,7 @@ if not BT_DEBUGGING:
 def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
     ras_nodata = BT_NODATA
 
-    with(rasterio.open(in_raster_file)) as raster_file:
+    with (rasterio.open(in_raster_file)) as raster_file:
         ras_nodata = raster_file.meta['nodata']
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer, crop=True, nodata=ras_nodata)
@@ -94,6 +119,23 @@ def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
             print('[Clip raster]: data saved to {}.'.format(out_raster_file))
 
     return out_image, out_meta
+
+
+def save_raster_to_file(in_raster_mem, in_meta, out_raster_file):
+    """
+
+    Parameters
+    ----------
+    in_raster_mem: npmpy raster
+    in_meta: input meta
+    out_raster_file: output raster file
+
+    Returns
+    -------
+
+    """
+    with rasterio.open(out_raster_file, "w", **in_meta) as dest:
+        dest.write(in_raster_mem, indexes=1)
 
 
 def clip_lines(clip_geom, buffer, in_line_file, out_line_file):
@@ -183,7 +225,7 @@ def remove_nan_from_array(matrix):
     with np.nditer(matrix, op_flags=['readwrite']) as it:
         for x in it:
             if np.isnan(x[...]):
-                x[...] = -9999
+                x[...] = BT_NODATA_COST
 
 
 # Split LineString to segments at vertices
@@ -286,6 +328,8 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
 
 def vector_crs(vector_file):
     in_line_file = ogr.Open(vector_file)
+
+    # TODO: in_line_file is None
     vec_crs = in_line_file.GetLayer().GetSpatialRef()
 
     del in_line_file
@@ -308,8 +352,18 @@ def compare_crs(crs_org, crs_dst):
         else:
             crs_org_norm = CRS(crs_org.ExportToWkt())
             crs_dst_norm = CRS(crs_dst.ExportToWkt())
-            if crs_org_norm.name == crs_dst_norm.name:
-                print('Same crs, continue.')
+            if crs_org_norm.is_compound:
+                crs_org_proj=crs_org_norm.sub_crs_list[0].coordinate_operation.name
+            else:
+                crs_org_proj=crs_org_norm.coordinate_operation.name
+
+            if crs_dst_norm.is_compound:
+                crs_dst_proj = crs_dst_norm.sub_crs_list[0].coordinate_operation.name
+            else:
+                crs_dst_proj = crs_dst_norm.coordinate_operation.name
+
+            if crs_org_proj== crs_dst_proj :
+                print('Checked: Input files Spatial Reference are the same, continue.')
                 return True
 
         print('Different GCS, please check.')
@@ -361,27 +415,58 @@ def identity_polygon(line_args):
 
     return line, identity
 
-def split_into_Equal_Nth_segments(df,seg_length):
-    odf=df
-    crs=odf.crs
-    if not 'OLnSEG' in odf.columns.array:
+
+def line_split2(in_ln_shp,seg_length):
+
+    # Check the OLnFID column in data. If it is not, column will be created
+    if 'OLnFID' not in in_ln_shp.columns.array:
+        if BT_DEBUGGING:
+            print("Cannot find {} column in input line data")
+
+        print("New column created: {}".format('OLnFID', 'OLnFID'))
+        in_ln_shp['OLnFID'] = in_ln_shp.index
+    line_seg = split_into_Equal_Nth_segments(in_ln_shp, seg_length)
+
+    return line_seg
+
+
+def split_into_Equal_Nth_segments(df, seg_length):
+    odf = df
+    crs = odf.crs
+    if 'OLnSEG' not in odf.columns.array:
         df['OLnSEG'] = np.nan
-    # df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry,seg_length), axis=1))
-    df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, seg_length), axis=1))
+    df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry,seg_length), axis=1))
+    # df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, x.geometry.length), axis=1))
     df=df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf=gpd.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = gpd.GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
-    gdf=gdf.reset_index(drop=True)
+    gdf = gdf.reset_index(drop=True)
+
     if "shape_leng" in gdf.columns.array:
-        gdf["shape_leng"]=gdf.geometry.length
+        gdf["shape_leng"] = gdf.geometry.length
     elif "LENGTH" in gdf.columns.array:
         gdf["LENGTH"]=gdf.geometry.length
     else:
         gdf["shape_leng"] = gdf.geometry.length
+    return gdf
 
-    return  gdf
+def split_line_nPart(line,seg_length):
+    from shapely.ops import split,snap
+    seg_line = shapely.segmentize(line, seg_length)
+    distances=np.arange(seg_length,line.length,seg_length)
+
+    if len(distances)>0:
+        points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
+
+        # snap_points = snap(points, seg_line, 0.001)
+        split_points = shapely.multipoints(points)
+        mline = split(seg_line, split_points)
+    else:
+        
+        mline = seg_line
+    return mline
 
 
 def cut_line(line, distance):
@@ -404,15 +489,21 @@ def cut_line(line, distance):
 
 def cut(line, distance, lines):
     # Cuts a line in several segments at a distance from its starting point
-    if distance <= 0.0 or distance >= line.length:
-       return [line]
+    from shapely import ops
+    if line.has_z:
+        line=ops.transform(lambda x,y,z=None:(x,y),line)
+    if shapely.is_empty(line) or shapely.is_missing(line):
+        return None
     else:
-        end_pt = None
-        if shapely.is_empty(line) or shapely.is_missing(line):
-            return None
+        if math.fmod(line.length , distance)<(1):
+            return [line]
+        elif distance >= line.length:
+            return [line]
         else:
+            end_pt = None
             line=shapely.segmentize(line,distance)
             while line.length > distance:
+
                 coords = list(line.coords)
                 for i, p in enumerate(coords):
                     pd = line.project(Point(p))
@@ -435,4 +526,156 @@ def cut(line, distance, lines):
             lines.append(line)
         return lines
 
+
+
+def find_centerline(poly, lc_path):
+    """
+    Parameters
+    ----------
+    poly
+    lc_path
+
+    Returns
+    -------
+
+    """
+    poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
+
+    exterior_pts = []
+    if type(poly) is MultiPolygon:
+        poly = poly.buffer(CL_BUFFER_MULTIPOLYGON)
+        if type(poly) is MultiPolygon:
+            print('MultiPolygon encountered, skip.')
+            return None
+
+    exterior_pts = list(poly.exterior.coords)
+
+    if CL_DELETE_HOLES:
+        poly = Polygon(exterior_pts)
+    if CL_SIMPLIFY_POLYGON:
+        poly = poly.simplify(CL_SIMPLIFY_LENGTH)
+
+    centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
+                                simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
+
+    if type(centerline) is MultiLineString:
+        if len(centerline.geoms) > 1:
+            print(" Multiple centerline segments detected, no further processing.")
+            return centerline
+        elif len(centerline.geoms) == 1:
+            centerline = centerline.geoms[0]
+        else:
+            return None
+
+    cl_coords = list(centerline.coords)
+
+    # trim centerline at two ends
+    head_buffer = Point(cl_coords[0]).buffer(CL_BUFFER_CLIP)
+    centerline = centerline.difference(head_buffer)
+
+    end_buffer = Point(cl_coords[-1]).buffer(CL_BUFFER_CLIP)
+    centerline = centerline.difference(end_buffer)
+
+    # snap two end vertices to the least cost path ends
+    lc_coords = list(lc_path.coords)
+
+    # check if point is 2D or 3D
+    lc_start_pt = None
+    lc_end_pt = None
+
+    # convert LC end points to 2D or 3D
+    if len(cl_coords[0]) == 2:
+        lc_start_pt = lc_coords[0][0:2]
+        lc_end_pt = lc_coords[-1][0:2]
+    elif len(cl_coords[0]) == 3:
+        lc_start_pt = lc_coords[0][0:3]
+        lc_end_pt = lc_coords[-1][0:3]
+
+    # snap centerline to LC end points
+    lc_end_pts = MultiPoint([lc_start_pt, lc_end_pt])
+    centerline = snap(centerline, lc_end_pts, CL_SNAP_TOLERANCE)
+
+    return centerline
+
+def find_route(array, start, end, fully_connected,geometric):
+    from skimage.graph import route_through_array
+    route_list,cost_list = route_through_array(array, start, end,fully_connected,geometric)
+    return route_list,cost_list
+
+def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
+    # Threshold corridor raster used for generating centerline
+    corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
+    corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
+    poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
+    corridor_polygon = []
+
+    for poly, value in poly_generator:
+        corridor_polygon.append(shape(poly))
+    corridor_polygon = unary_union(corridor_polygon)
+
+    # create GeoDataFrame for centerline
+    corridor_poly_gpd = gpd.GeoDataFrame.copy(line_gpd)
+    corridor_poly_gpd.geometry = [corridor_polygon]
+
+    return corridor_poly_gpd
+
+
+def find_centerlines(poly_gpd, line_seg, processes):
+    centerline = None
+    centerline_gpd = []
+    rows_and_paths = []
+
+    try:
+        for i in poly_gpd.index:
+            row = poly_gpd.loc[[i]]
+            poly = row.geometry.iloc[0]
+            line_id = row['OLnFID']
+            lc_path = line_seg.loc[line_id].geometry.iloc[0]
+            rows_and_paths.append((row, lc_path))
+    except Exception as e:
+        print(e)
+
+    total_steps = len(rows_and_paths)
+    step = 0
+
+    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        with Pool(processes=processes) as pool:
+            # execute tasks in order, process results out of order
+            for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
+                centerline_gpd.append(result)
+                step += 1
+                print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100))
+                print('Centerline No. {} done'.format(step))
+    elif PARALLEL_MODE == MODE_SEQUENTIAL:
+        for item in rows_and_paths:
+            row_with_centerline = find_single_centerline(item)
+            centerline_gpd.append(row_with_centerline)
+            step += 1
+            print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+            print(' %{} '.format(step / total_steps * 100))
+            print('Centerline No. {} done'.format(step))
+
+    return pd.concat(centerline_gpd)
+
+
+def find_single_centerline(row_and_path):
+    """
+
+    Parameters
+    ----------
+    row_and_path: list of row (polygon and props) and least cost path
+
+    Returns
+    -------
+
+    """
+    row = row_and_path[0]
+    lc_path = row_and_path[1]
+
+    poly = row.geometry.iloc[0]
+    centerline = find_centerline(poly, lc_path)
+    row['centerline'] = centerline
+
+    return row
 

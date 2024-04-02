@@ -10,7 +10,7 @@ import fiona
 from fiona import Geometry
 from osgeo import gdal, ogr
 from shapely.geometry import shape, mapping, LineString, Point
-import ray
+# import ray
 
 from dijkstra_algorithm import *
 # from common import *
@@ -85,21 +85,6 @@ def centerline(callback, in_line, in_cost, line_radius,
     feat_props = []
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         feat_geoms, feat_props = execute_multiprocessing(all_lines, processes, verbose)
-
-    elif PARALLEL_MODE == MODE_RAY:  # TODO: feature properties are added to return
-        ray.init(log_to_driver=False)
-        process_single_line_ray = ray.remote(process_single_line)
-        result_ids = [process_single_line_ray.remote(line) for line in all_lines]
-
-        while len(result_ids):
-            done_id, result_ids = ray.wait(result_ids) 
-            feat_geoms, feat_props = ray.get(done_id[0])
-            features.append((feat_geoms, feat_props))
-            print('Done {}'.format(step))
-            step += 1
-
-        # ray.shutdown()
-
     elif PARALLEL_MODE == MODE_SEQUENTIAL:
         for line in all_lines:
             geom, _, prop = process_single_line(line)
@@ -118,8 +103,6 @@ def centerline(callback, in_line, in_cost, line_radius,
 
     save_features_to_shapefile(out_line, layer_crs, feat_geoms, schema, feat_props)
 
-    if ray.is_initialized():
-        ray.shutdown()
 
 
 # @profile
