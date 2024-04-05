@@ -679,3 +679,18 @@ def find_single_centerline(row_and_path):
 
     return row
 
+
+def line_angle(point_1, point_2):
+    """
+    Calculates the angle of the line
+
+    Parameters
+    ----------
+    point_1, point_2: start and end points of shapely line
+    """
+    delta_y = point_2.y - point_1.y
+    delta_x = point_2.x - point_1.x
+
+    angle = math.atan2(delta_y, delta_x)
+    return angle
+

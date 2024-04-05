@@ -5,7 +5,7 @@ from multiprocessing.pool import Pool
 import numpy as np
 import geopandas as gpd
 import pandas as pd
-from shapely import affinity
+from shapely.affinity import scale, rotate
 from shapely.geometry import Point, LineString
 
 from common import *
@@ -96,27 +96,39 @@ def generate_perpendicular_line_precise(points, offset=10):
     # Compute the angle of the line
 
     center = points[1]
+    perp_line = None
 
     if len(points) == 2:
         head = points[0]
         tail = points[1]
+
+        delta_x = head.x - tail.x
+        delta_y = head.y - tail.y
+        angle = 0.0
+
+        if math.isclose(delta_x, 0.0):
+            angle = math.pi / 2
+        else:
+            angle = math.atan(delta_y / delta_x)
+
+        start = [center.x + offset / 2.0, center.y]
+        end = [center.x - offset / 2.0, center.y]
+        line = LineString([start, end])
+        perp_line = rotate(line, angle + math.pi / 2.0, origin=center, use_radians=True)
     elif len(points) == 3:
         head = points[0]
         tail = points[2]
 
-    delta_x = head.x - tail.x
-    delta_y = head.y - tail.y
-    angle = 0.0
+        angle_1 = line_angle(center, head)
+        angle_2 = line_angle(center, tail)
+        angle_diff = (angle_2 - angle_1) / 2.0
+        head_line = LineString([center, head])
+        head_new = Point(center.x + offset / 2.0 * math.cos(angle_1), center.y + offset / 2.0 * math.sin(angle_1))
+        perp_seg_1 = LineString([center, head_new])
+        perp_seg_1 = rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
+        perp_seg_2 = rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
 
-    if math.isclose(delta_x, 0.0):
-        angle = math.pi/2
-    else:
-        angle = math.atan(delta_y/delta_x)
-
-    start = [center.x+offset/2.0, center.y]
-    end = [center.x-offset/2.0, center.y]
-    line = LineString([start, end])
-    perp_line = affinity.rotate(line, angle+math.pi/2.0, origin=center, use_radians=True)
+        perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
 
     return perp_line
 
@@ -163,7 +175,10 @@ def process_single_line(line_arg):
     widths, line, perp_lines = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
 
     # Calculate the 75th percentile width
-    q3_width = np.percentile(widths, 75)
+    # filter zeros in width array
+    arr_filter = [False if math.isclose(i, 0.0) else True for i in widths]
+    widths = widths[arr_filter]
+    q3_width = np.percentile(widths, 40)
     q4_width = np.percentile(widths, 90)
 
     # Store the 75th percentile width as a new attribute
@@ -181,48 +196,6 @@ def process_single_line(line_arg):
     print('line processed: {}'.format(line_id))
 
     return row
-
-
-# def calculate_and_store_widths(shp_line, shp_poly, n_samples=40, offset=30):
-#     """
-#     Calculate the 75th percentile width for each line in a GeoDataFrame and
-#     store them as new attributes in the GeoDataFrame.
-#
-#     Parameters:
-#     - line_gdf: A GeoDataFrame containing LineString geometries.
-#     - poly_gdf: A GeoDataFrame containing Polygon geometries that define the areas.
-#     - n_samples: The number of sample points to use when estimating the width of each line.
-#     - offset: The length of the perpendicular lines used to estimate the width.
-#
-#     Returns:
-#     This function does not return a value. It modifies the input line_gdf in-place.
-#     """
-#     line_gdf = gpd.read_file(shp_line)
-#     poly_gdf = gpd.read_file(shp_poly)
-#     spatial_index = poly_gdf.sindex
-#     line_args = []
-#
-#     for i, row in line_gdf.iterrows():
-#         line = row.geometry
-#
-#         # Skip rows where geometry is None
-#         if line is None:
-#             print(row)
-#             continue
-#
-#         inter_poly = poly_gdf.iloc[spatial_index.query(line)]
-#         line_args.append([row, inter_poly, n_samples, offset])
-#
-#     results = []
-#     i = 0
-#     for line in line_args:
-#         result = process_single_line(line)
-#         results.append(result)
-#         print('Line processed: {}'.format(i))
-#         i += 1
-#
-#     out_lines = gpd.GeoDataFrame(results)
-#     return out_lines
 
 
 def generate_fixed_width_footprint(line_gdf, shp_footprint, max_width=False):
@@ -269,7 +242,8 @@ def smooth_linestring(line, tolerance=1.0):
     Returns:
     The smoothed LineString geometry.
     """
-    simplified_line = line.simplify(tolerance)
+    # simplified_line = line.simplify(tolerance)
+    simplified_line = line
     return simplified_line
 
 
@@ -282,37 +256,47 @@ def calculate_average_width(line, polygon, offset, n_samples):
 
     valid_widths = 0
     sample_points = generate_sample_points(line, n_samples=n_samples)
-    sample_points_pairs = list(zip(sample_points[:-1], sample_points[1:]))
+    sample_points_pairs = list(zip(sample_points[:-2], sample_points[1:-1], sample_points[2:]))
     widths = np.zeros(len(sample_points_pairs))
     perp_lines = []
 
+    # remove polygon holes
+    poly_list = []
+    for geom in polygon.geometry:
+        if type(geom) is MultiPolygon:
+            for item in geom.geoms:
+                poly_list.append(Polygon(list(item.exterior.coords)))
+        else:
+            poly_list.append(Polygon(list(geom.exterior.coords)))
+
+    polygon_no_holes = gpd.GeoDataFrame(geometry=poly_list, crs=polygon.crs)
+
     for i, points in enumerate(sample_points_pairs):
         perp_line = generate_perpendicular_line_precise(points, offset=offset)
-        intersections = polygon.intersection(perp_line)
 
+        polygon_intersect = polygon_no_holes.iloc[polygon_no_holes.sindex.query(perp_line)]
+        intersections = polygon_intersect.intersection(perp_line)
+
+        line_list = []
         try:
-            line_list = []
-            for inter in range(len(intersections)):
-                item = intersections.iloc[inter]
-                if not item.is_empty:
-                    if type(item) is MultiLineString:
-                        line_list += list(item.geoms)
+            for inter in intersections:
+                if not inter.is_empty:
+                    if type(inter) is MultiLineString:
+                        line_list += list(inter.geoms)
                     else:
-                        line_list.append(item)
+                        line_list.append(inter)
 
             perp_lines += line_list
         except Exception as e:
             print(e)
 
         try:
-            for intersection in intersections:
-                if intersection.geom_type == 'LineString':
-                    widths[i] = max(widths[i], intersection.length)
-                    valid_widths += 1
+            for item in line_list:
+                widths[i] = max(widths[i], item.length)
+                valid_widths += 1
         except Exception as e:
             print(e)
 
-    #     print(f"Calculated {valid_widths} valid widths")  # Logging the number of valid widths
     return widths, line, MultiLineString(perp_lines)
 
 
@@ -349,7 +333,8 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     perp_lines_gdf.to_file(perp_lines_path)
 
     geojson_path = Path(out_footprint).with_suffix('.geojson')
-    buffer_gdf.to_file(geojson_path.as_posix(), driver='GeoJSON')
+    buffer_gpd_4326 = buffer_gdf.to_crs('EPSG:4326')
+    buffer_gpd_4326.to_file(geojson_path.as_posix(), driver='GeoJSON')
 
     gdf_simplified_path = Path(in_line).with_stem(Path(in_line).stem + "_simplified")
     line_attr = line_attr.drop(columns='perp_lines')
