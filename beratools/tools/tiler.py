@@ -56,7 +56,7 @@ class Tiler:
         print('Generating {} tiles ...'.format(len(self.clip_data)))
         for item in self.clip_data:
             return_lines = clip_lines(item['geometry'], self.tile_buffer, self.in_line, item['line'])
-            return_raster = clip_raster(item['geometry'], self.tile_buffer, self.in_chm, item['raster'])
+            return_raster = clip_raster(self.in_chm, item['geometry'], self.tile_buffer, item['raster'])
 
             if not return_lines.empty and return_raster:
                 cell_data = {

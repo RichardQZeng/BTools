@@ -68,7 +68,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_BUFFER_CLIP = 10
+CL_BUFFER_CLIP = 5
 CL_BUFFER_CENTROID = 3
 CL_SNAP_TOLERANCE = 10
 CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
@@ -98,19 +98,22 @@ if not BT_DEBUGGING:
     warnings.simplefilter(action='ignore', category=UserWarning)
 
 
-def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
-    ras_nodata = BT_NODATA
-
+def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
     with (rasterio.open(in_raster_file)) as raster_file:
-        ras_nodata = raster_file.meta['nodata']
+        if raster_file.meta['nodata']:
+            ras_nodata = raster_file.meta['nodata']
+
         clip_geo_buffer = [clip_geom.buffer(buffer)]
-        out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer, crop=True, nodata=ras_nodata)
+        out_image: np.ndarray
+        out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer,
+                                                      crop=True, nodata=ras_nodata, filled=True)
 
     out_meta = raster_file.meta.copy()
+    height, width = out_image.shape[1:]
 
     out_meta.update({"driver": "GTiff",
-                     "height": out_image.shape[1],
-                     "width": out_image.shape[2],
+                     "height": height,
+                     "width": width,
                      "transform": out_transform})
 
     if out_raster_file:
@@ -527,7 +530,6 @@ def cut(line, distance, lines):
         return lines
 
 
-
 def find_centerline(poly, lc_path):
     """
     Parameters
@@ -597,10 +599,12 @@ def find_centerline(poly, lc_path):
 
     return centerline
 
+
 def find_route(array, start, end, fully_connected,geometric):
     from skimage.graph import route_through_array
     route_list,cost_list = route_through_array(array, start, end,fully_connected,geometric)
     return route_list,cost_list
+
 
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
     # Threshold corridor raster used for generating centerline
