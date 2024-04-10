@@ -192,13 +192,16 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
-        corridor_th_value = FP_CORRIDOR_THRESHOLD
+
+        cell_size_x = out_transform[0]
+        # cell_size_y = -out_transform[4]
+        corridor_th_value = FP_CORRIDOR_THRESHOLD/cell_size_x
         corridor_thresh_cl = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
 
         # export intermediate raster for debugging
         if BT_DEBUGGING:
             suffix = str(uuid.uuid4())[:8]
-            path_temp = Path(r"C:\BERATools\Test-data\test")
+            path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
             if path_temp.exists():
                 path_cost = path_temp.joinpath(suffix + '_cost.tif')
                 path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
