@@ -711,13 +711,13 @@ def centerline_is_valid(centerline, least_cost_path):
     if not centerline:
         return False
 
-    end_pts = MultiPoint([least_cost_path.coords[0], least_cost_path.coords[-1]])
-
     # centerline length less the half of least cost path
     if (centerline.length < least_cost_path.length / 2 or
             centerline.distance(Point(least_cost_path.coords[0])) > BT_EPSLON or
             centerline.distance(Point(least_cost_path.coords[-1])) > BT_EPSLON):
         return False
+
+    return True
 
 
 def regenerate_centerline(poly, least_cost_path):
@@ -747,6 +747,10 @@ def regenerate_centerline(poly, least_cost_path):
 
     center_line_1 = find_centerline(poly_2, line_1)
     center_line_2 = find_centerline(poly_1, line_2)
+
+    if center_line_1.is_empty or center_line_2.is_empty:
+        print('Regenerate line: Centerline is empty')
+        return None
 
     print('Centerline is regenerated.')
     return MultiLineString([center_line_1, center_line_2])
