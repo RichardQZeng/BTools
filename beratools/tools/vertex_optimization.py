@@ -88,9 +88,6 @@ class VertexOptimization:
             for line in vertex_grp:
                 centerline = self.process_single_line(line)
                 centerlines.append(centerline)
-                # i += 1
-                # if i > 2:
-                #     break
 
         return centerlines
 

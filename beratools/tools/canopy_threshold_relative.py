@@ -197,11 +197,11 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
                             #limited the high density forest FP
                             if cut_percentile>15 and cut_dist > 5:
                                 cut_percentile=15.5
-                                cut_dist = 3*tolerance
+                                cut_dist = cut_dist*tolerance
                             # limited the low density forest FP
                             elif cut_percentile<=2 and cut_dist > 10:
                                 cut_percentile=2
-                                cut_dist = 10*tolerance
+                                cut_dist = cut_dist*tolerance
 
                             found = True
                             break
@@ -215,20 +215,20 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
         if not found:
 
             if 0.5 >= median_percentile:
-                cut_dist =3*tolerance
+                cut_dist =4*tolerance #3
                 cut_percentile = 0.5
             elif 0.5 < median_percentile <= 5.0:
-                cut_dist = 4.0*tolerance
+                cut_dist = 4.5*tolerance #4.0
                 cut_percentile = math.floor(median_percentile)
             elif 5.0 < median_percentile <= 10.0:
-                cut_dist = 5.0*tolerance
+                cut_dist = 5.5*tolerance #5
                 cut_percentile = math.floor(median_percentile)
             elif 10.0 < median_percentile <= 15:
-                cut_dist = 5.5*tolerance
+                cut_dist = 6 *tolerance #5.5
                 cut_percentile = math.floor(median_percentile)
             elif 15 < median_percentile:
-                cut_dist = 3*tolerance
-                cut_percentile = 15.5*tolerance
+                cut_dist = 5*tolerance #5
+                cut_percentile = 15.5
 
         return cut_dist, cut_percentile
 
@@ -255,66 +255,67 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
         line_seg.loc[index,'LDist_Cut'] = LStd
         line_seg.loc[index, 'CL_CutHt'] = RL_Percentile
         line_seg.loc[index, 'CR_CutHt'] = RR_Percentile
-
+        line_seg.loc[index, 'DynCanTh'] = (line_seg.loc[index, 'CL_CutHt'] + line_seg.loc[index, 'CR_CutHt']) / 2
+        print(' %{} '.format((index / float(line_seg.count())) * 100))
     print('%{}'.format(40))
     print("Task done.")
 
     # copy parallel lines for both side of the input lines
-    print("Creating offset area for surrounding forest ...")
-    workln_dfL, workln_dfR  = multiprocessing_copyparallel_lineLRC(line_seg, line_seg, line_seg,
-                                                                              processes,
-                                                                              left_dis=float(off_ln_dist),
-                                                                              right_dist=-float(off_ln_dist),
-                                                                              center_dist=float(off_ln_dist))
-
-    workln_dfL = workln_dfL.sort_values(by=['OLnFID','OLnSEG'])
-    workln_dfL = workln_dfL.reset_index(drop=True)
-    workln_dfR = workln_dfR.sort_values(by=['OLnFID','OLnSEG'])
-    workln_dfR = workln_dfR.reset_index(drop=True)
-
-    worklnbuffer_dfL = gpd.GeoDataFrame.copy((workln_dfL))
-    worklnbuffer_dfR = gpd.GeoDataFrame.copy((workln_dfR))
-
-
-    # create a New column for surrounding forest statistics:
-    # 1) Height Percentile (add more in the future)
-    worklnbuffer_dfL['Percentile_L'] = np.nan
-    worklnbuffer_dfR['Percentile_R'] = np.nan
-
-
-    worklnbuffer_dfL['geometry'] = shapely.buffer(workln_dfL['geometry'], distance=float(tree_radius),
-                                                  cap_style=2, join_style=2, single_sided=True)
-    worklnbuffer_dfR['geometry'] = shapely.buffer(workln_dfR['geometry'], distance=-float(tree_radius),
-                                                  cap_style=2, join_style=2, single_sided=True)
-
-    print("Calculating surrounding forest percentile from LEFT of centerline...")
-    worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, int(canopy_percentile),
-                                                  float(canopy_thresh_percentage), in_chm,
-                                                  processes, side='left')
-    worklnbuffer_dfL = worklnbuffer_dfL.sort_values(by=['OLnFID'])
-    worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
-    print("Task done.")
+    # print("Creating offset area for surrounding forest ...")
+    # workln_dfL, workln_dfR  = multiprocessing_copyparallel_lineLRC(line_seg, line_seg, line_seg,
+    #                                                                           processes,
+    #                                                                           left_dis=float(off_ln_dist),
+    #                                                                           right_dist=-float(off_ln_dist),
+    #                                                                           center_dist=float(off_ln_dist))
     #
-    print("Calculating surrounding forest percentile from RIGHT of centerline ...")
-    worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, int(canopy_percentile),
-                                                  float(canopy_thresh_percentage), in_chm,
-                                                  processes, side='right')
-    worklnbuffer_dfR = worklnbuffer_dfR.sort_values(by=['OLnFID'])
-    worklnbuffer_dfR = worklnbuffer_dfR.reset_index(drop=True)
-    print("Task done.")
+    # workln_dfL = workln_dfL.sort_values(by=['OLnFID','OLnSEG'])
+    # workln_dfL = workln_dfL.reset_index(drop=True)
+    # workln_dfR = workln_dfR.sort_values(by=['OLnFID','OLnSEG'])
+    # workln_dfR = workln_dfR.reset_index(drop=True)
+    #
+    # worklnbuffer_dfL = gpd.GeoDataFrame.copy((workln_dfL))
+    # worklnbuffer_dfR = gpd.GeoDataFrame.copy((workln_dfR))
+    #
+    #
+    # # create a New column for surrounding forest statistics:
+    # # 1) Height Percentile (add more in the future)
+    # worklnbuffer_dfL['Percentile_L'] = np.nan
+    # worklnbuffer_dfR['Percentile_R'] = np.nan
+    #
+    #
+    # worklnbuffer_dfL['geometry'] = shapely.buffer(workln_dfL['geometry'], distance=float(tree_radius),
+    #                                               cap_style=2, join_style=2, single_sided=True)
+    # worklnbuffer_dfR['geometry'] = shapely.buffer(workln_dfR['geometry'], distance=-float(tree_radius),
+    #                                               cap_style=2, join_style=2, single_sided=True)
+    #
+    # print("Calculating surrounding forest percentile from LEFT of centerline...")
+    # worklnbuffer_dfL = multiprocessing_Percentile(worklnbuffer_dfL, int(canopy_percentile),
+    #                                               float(canopy_thresh_percentage), in_chm,
+    #                                               processes, side='left')
+    # worklnbuffer_dfL = worklnbuffer_dfL.sort_values(by=['OLnFID'])
+    # worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
+    # print("Task done.")
+    # #
+    # print("Calculating surrounding forest percentile from RIGHT of centerline ...")
+    # worklnbuffer_dfR = multiprocessing_Percentile(worklnbuffer_dfR, int(canopy_percentile),
+    #                                               float(canopy_thresh_percentage), in_chm,
+    #                                               processes, side='right')
+    # worklnbuffer_dfR = worklnbuffer_dfR.sort_values(by=['OLnFID'])
+    # worklnbuffer_dfR = worklnbuffer_dfR.reset_index(drop=True)
+    # print("Task done.")
 
 
-    for index in (line_seg.index):
-        line_seg.loc[index, 'L_Pertile'] = worklnbuffer_dfL.Percentile_L.iloc[index]
-        line_seg.loc[index, 'R_Pertile'] = worklnbuffer_dfR.Percentile_R.iloc[index]
-
-        line_seg.loc[index, 'DynCanTh'] = ( line_seg.loc[index, 'CL_CutHt'] + line_seg.loc[index, 'CR_CutHt'])/2
+    # for index in (line_seg.index):
+    #     line_seg.loc[index, 'L_Pertile'] = worklnbuffer_dfL.Percentile_L.iloc[index]
+    #     line_seg.loc[index, 'R_Pertile'] = worklnbuffer_dfR.Percentile_R.iloc[index]
+    #
+    #     line_seg.loc[index, 'DynCanTh'] = ( line_seg.loc[index, 'CL_CutHt'] + line_seg.loc[index, 'CR_CutHt'])/2
 
     print("Saving dynamic canopy threshold output ...")
     gpd.GeoDataFrame.to_file(line_seg, out_file)
     print("Task done.")
 
-    del line_seg, worklnbuffer_dfL, worklnbuffer_dfR, workln_dfL, workln_dfR,  worklnbuffer_dfRRing, worklnbuffer_dfLRing, workln_dfC
+    del line_seg, worklnbuffer_dfRRing, worklnbuffer_dfLRing, workln_dfC #,worklnbuffer_dfL, worklnbuffer_dfR, workln_dfL, workln_dfR,
     if full_step:
         return out_file
 

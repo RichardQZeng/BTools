@@ -28,7 +28,8 @@ import fiona
 from fiona import Geometry
 
 import shapely
-from shapely.ops import unary_union, snap, split
+from shapely import ops
+from shapely.ops import unary_union, snap, split, transform
 from shapely.geometry import (shape, mapping, Point, LineString,
                               MultiLineString, MultiPoint, Polygon, MultiPolygon)
 
@@ -68,7 +69,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_BUFFER_CLIP = 10
+CL_BUFFER_CLIP = 5
 CL_BUFFER_CENTROID = 3
 CL_SNAP_TOLERANCE = 10
 CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
@@ -98,19 +99,22 @@ if not BT_DEBUGGING:
     warnings.simplefilter(action='ignore', category=UserWarning)
 
 
-def clip_raster(clip_geom, buffer, in_raster_file, out_raster_file):
-    ras_nodata = BT_NODATA
-
+def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
     with (rasterio.open(in_raster_file)) as raster_file:
-        ras_nodata = raster_file.meta['nodata']
+        if raster_file.meta['nodata']:
+            ras_nodata = raster_file.meta['nodata']
+
         clip_geo_buffer = [clip_geom.buffer(buffer)]
-        out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer, crop=True, nodata=ras_nodata)
+        out_image: np.ndarray
+        out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer,
+                                                      crop=True, nodata=ras_nodata, filled=True)
 
     out_meta = raster_file.meta.copy()
+    height, width = out_image.shape[1:]
 
     out_meta.update({"driver": "GTiff",
-                     "height": out_image.shape[1],
-                     "width": out_image.shape[2],
+                     "height": height,
+                     "width": width,
                      "transform": out_transform})
 
     if out_raster_file:
@@ -452,20 +456,20 @@ def split_into_Equal_Nth_segments(df, seg_length):
         gdf["shape_leng"] = gdf.geometry.length
     return gdf
 
-def split_line_nPart(line,seg_length):
-    from shapely.ops import split,snap
-    seg_line = shapely.segmentize(line, seg_length)
-    distances=np.arange(seg_length,line.length,seg_length)
 
-    if len(distances)>0:
-        points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
+def split_line_nPart(line,seg_length):
+    seg_line = shapely.segmentize(line, seg_length)
+    distances = np.arange(seg_length, line.length, seg_length)
+
+    if len(distances) > 0:
+        points = [shapely.line_interpolate_point(seg_line, distance) for distance in distances]
 
         # snap_points = snap(points, seg_line, 0.001)
         split_points = shapely.multipoints(points)
         mline = split(seg_line, split_points)
     else:
-        
         mline = seg_line
+
     return mline
 
 
@@ -482,50 +486,45 @@ def cut_line(line, distance):
     List of LineString
     """
     lines = list()
-    # seg_line = shapely.segmentize(line, distance)
-    lines=cut(line, distance, lines)
+    lines = cut(line, distance, lines)
     return lines
 
 
 def cut(line, distance, lines):
     # Cuts a line in several segments at a distance from its starting point
-    from shapely import ops
     if line.has_z:
-        line=ops.transform(lambda x,y,z=None:(x,y),line)
+        line = transform(lambda x, y, z=None: (x, y), line)
+
     if shapely.is_empty(line) or shapely.is_missing(line):
         return None
-    else:
-        if math.fmod(line.length , distance)<(1):
-            return [line]
-        elif distance >= line.length:
-            return [line]
-        else:
-            end_pt = None
-            line=shapely.segmentize(line,distance)
-            while line.length > distance:
+    # else:
+    if math.fmod(line.length, distance) < 1:
+        return [line]
+    elif distance >= line.length:
+        return [line]
+    # else:
+    end_pt = None
+    line = shapely.segmentize(line, distance)
 
-                coords = list(line.coords)
-                for i, p in enumerate(coords):
-                    pd = line.project(Point(p))
-                    # if abs(pd - line.length) < BT_EPSLON:
-                    #     lines.append(line)
-                    #     return lines
+    while line.length > distance:
+        coords = list(line.coords)
+        for i, p in enumerate(coords):
+            pd = line.project(Point(p))
 
-                    if abs(pd - distance) < BT_EPSLON:
-                        lines.append(LineString(coords[:i+1]))
-                        line = LineString(coords[i:])
-                        end_pt = None
-                        break
-                    elif pd > distance:
-                        end_pt = line.interpolate(distance)
-                        lines.append(LineString(coords[:i] + list(end_pt.coords)))
-                        line = LineString(list(end_pt.coords) + coords[i:])
-                        break
+            if abs(pd - distance) < BT_EPSLON:
+                lines.append(LineString(coords[:i+1]))
+                line = LineString(coords[i:])
+                end_pt = None
+                break
+            elif pd > distance:
+                end_pt = line.interpolate(distance)
+                lines.append(LineString(coords[:i] + list(end_pt.coords)))
+                line = LineString(list(end_pt.coords) + coords[i:])
+                break
 
-        if end_pt:
-            lines.append(line)
-        return lines
-
+    if end_pt:
+        lines.append(line)
+    return lines
 
 
 def find_centerline(poly, lc_path):
@@ -597,10 +596,12 @@ def find_centerline(poly, lc_path):
 
     return centerline
 
+
 def find_route(array, start, end, fully_connected,geometric):
     from skimage.graph import route_through_array
     route_list,cost_list = route_through_array(array, start, end,fully_connected,geometric)
     return route_list,cost_list
+
 
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
     # Threshold corridor raster used for generating centerline
@@ -678,4 +679,19 @@ def find_single_centerline(row_and_path):
     row['centerline'] = centerline
 
     return row
+
+
+def line_angle(point_1, point_2):
+    """
+    Calculates the angle of the line
+
+    Parameters
+    ----------
+    point_1, point_2: start and end points of shapely line
+    """
+    delta_y = point_2.y - point_1.y
+    delta_x = point_2.x - point_1.x
+
+    angle = math.atan2(delta_y, delta_x)
+    return angle
 

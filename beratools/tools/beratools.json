@@ -694,7 +694,7 @@
                             "description": "Sampling number for each line.",
                             "type": "number",
                             "typelab": "int",
-                            "default": 10,
+                            "default": 15,
                             "output": false,
                             "optional": true
                         },

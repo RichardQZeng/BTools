@@ -316,6 +316,8 @@ def forest_metrics(callback, in_line, out_line, raster_type, in_raster, proc_seg
 
     print('%{}'.format(100))
 
+
+# TODO: inspect duplicates, split_line_npart in line_footprint_functions.py
 def split_line_nPart(line):
     from shapely.ops import split,snap
     # Work out n parts for each line (divided by 10m)
@@ -332,6 +334,8 @@ def split_line_nPart(line):
     else:
         mline=line
     return mline
+
+
 def split_into_Equal_Nth_segments(df):
     odf=df
     crs=odf.crs
