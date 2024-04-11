@@ -147,6 +147,10 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     center_line = None
 
     # search for centerline
+    if len(least_cost_path[0]) < 2:
+        print('Lest cost path {} is too short.'.format(least_cost_path[0]))
+        return None
+
     least_cost_line = LineString(least_cost_path[0])
     cost_clip, out_meta = clip_raster(in_cost_raster, least_cost_line, float(line_radius))
     out_transform = out_meta['transform']
@@ -219,6 +223,10 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         df = gpd.GeoDataFrame(geometry=[shape(line)], crs=out_meta['crs'])
         corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
         center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
+
+        # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
+        if not centerline_is_valid(center_line, LineString(least_cost_path[0])):
+            center_line = regenerate_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
     except Exception as e:
         print(e)
 
@@ -238,6 +246,10 @@ def execute_multiprocessing(line_args, processes, verbose):
             for result in pool.imap_unordered(process_single_line, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
+
+                if not result:
+                    print('No line detected.')
+                    continue
 
                 geom = result[0]
                 prop = result[1]

@@ -28,8 +28,8 @@ import fiona
 from fiona import Geometry
 
 import shapely
-from shapely import ops
-from shapely.ops import unary_union, snap, split, transform
+from shapely.affinity import rotate
+from shapely.ops import unary_union, snap, split, transform, substring
 from shapely.geometry import (shape, mapping, Point, LineString,
                               MultiLineString, MultiPoint, Polygon, MultiPolygon)
 
@@ -69,18 +69,18 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_BUFFER_CLIP = 5
-CL_BUFFER_CENTROID = 3
-CL_SNAP_TOLERANCE = 10
+CL_BUFFER_CLIP = 5.0
+CL_BUFFER_CENTROID = 3.0
+CL_SNAP_TOLERANCE = 10.0
 CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
-CL_SEGMENTIZE_LENGTH = 1
+CL_SEGMENTIZE_LENGTH = 1.0
 CL_SIMPLIFY_LENGTH = 0.5
 CL_SMOOTH_SIGMA = 0.5
 CL_DELETE_HOLES = True
 CL_SIMPLIFY_POLYGON = True
 
 FP_CORRIDOR_THRESHOLD = 3.0
-FP_SEGMENTIZE_LENGTH = 2
+FP_SEGMENTIZE_LENGTH = 2.0
 
 # restore .shx for shapefile for using GDAL or pyogrio
 gdal.SetConfigOption('SHAPE_RESTORE_SHX', 'YES')
@@ -695,3 +695,114 @@ def line_angle(point_1, point_2):
     angle = math.atan2(delta_y, delta_x)
     return angle
 
+
+def centerline_is_valid(centerline, least_cost_path):
+    """
+    Check if centerline is valid
+    Parameters
+    ----------
+    centerline :
+    least_cost_path :
+
+    Returns
+    -------
+
+    """
+    if not centerline:
+        return False
+
+    end_pts = MultiPoint([least_cost_path.coords[0], least_cost_path.coords[-1]])
+
+    # centerline length less the half of least cost path
+    if (centerline.length < least_cost_path.length / 2 or
+            centerline.distance(Point(least_cost_path.coords[0])) > BT_EPSLON or
+            centerline.distance(Point(least_cost_path.coords[-1])) > BT_EPSLON):
+        return False
+
+
+def regenerate_centerline(poly, least_cost_path):
+    """
+    Regenerates centerline when initial line is not valid
+    Parameters
+    ----------
+    poly :
+    least_cost_path :
+
+    Returns
+    -------
+
+    """
+    line_1 = substring(least_cost_path, start_dist=0.0, end_dist=least_cost_path.length/2)
+    line_2 = substring(least_cost_path, start_dist=least_cost_path.length/2, end_dist=least_cost_path.length)
+
+    pts = shapely.force_2d([Point(list(least_cost_path.coords)[0]),
+                            Point(list(line_1.coords)[-1]),
+                            Point(list(least_cost_path.coords)[-1])])
+    perp = generate_perpendicular_line_precise(pts)
+
+    poly_exterior = Polygon(poly.buffer(1e-3).exterior)
+    poly_split = split(poly_exterior, perp)
+    poly_1 = poly_split.geoms[0]
+    poly_2 = poly_split.geoms[1]
+
+    center_line_1 = find_centerline(poly_2, line_1)
+    center_line_2 = find_centerline(poly_1, line_2)
+
+    print('Centerline is regenerated.')
+    return MultiLineString([center_line_1, center_line_2])
+
+
+def generate_perpendicular_line_precise(points, offset=10):
+    """
+    Generate a perpendicular line to the input line at the given point.
+
+    Parameters
+    ----------
+    points : shapely.geometry.Point
+        The point on the line where the perpendicular should be generated.
+    offset : float, optional
+        The length of the perpendicular line.
+
+    Returns
+    -------
+    shapely.geometry.LineString
+        The generated perpendicular line.
+    """
+    # Compute the angle of the line
+
+    center = points[1]
+    perp_line = None
+
+    if len(points) == 2:
+        head = points[0]
+        tail = points[1]
+
+        delta_x = head.x - tail.x
+        delta_y = head.y - tail.y
+        angle = 0.0
+
+        if math.isclose(delta_x, 0.0):
+            angle = math.pi / 2
+        else:
+            angle = math.atan(delta_y / delta_x)
+
+        start = [center.x + offset / 2.0, center.y]
+        end = [center.x - offset / 2.0, center.y]
+        line = LineString([start, end])
+        perp_line = rotate(line, angle + math.pi / 2.0, origin=center, use_radians=True)
+    elif len(points) == 3:
+        head = points[0]
+        tail = points[2]
+
+        angle_1 = line_angle(center, head)
+        angle_2 = line_angle(center, tail)
+        angle_diff = (angle_2 - angle_1) / 2.0
+        head_line = LineString([center, head])
+        head_new = Point(center.x + offset / 2.0 * math.cos(angle_1), center.y + offset / 2.0 * math.sin(angle_1))
+        perp_seg_1 = LineString([center, head_new])
+        perp_seg_1 = rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
+        perp_seg_2 = rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
+
+        perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
+
+    return perp_line
