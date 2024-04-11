@@ -81,10 +81,8 @@ def generate_perpendicular_line_precise(points, offset=10):
 
     Parameters
     ----------
-    point : shapely.geometry.Point
+    points : shapely.geometry.Point
         The point on the line where the perpendicular should be generated.
-    line : shapely.geometry.LineString
-        The line to which the perpendicular line will be generated.
     offset : float, optional
         The length of the perpendicular line.
 
