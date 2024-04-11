@@ -147,6 +147,10 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     center_line = None
 
     # search for centerline
+    if len(least_cost_path[0]) < 2:
+        print('Lest cost path {} is too short.'.format(least_cost_path[0]))
+        return None
+
     least_cost_line = LineString(least_cost_path[0])
     cost_clip, out_meta = clip_raster(in_cost_raster, least_cost_line, float(line_radius))
     out_transform = out_meta['transform']
@@ -197,30 +201,38 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         # cell_size_y = -out_transform[4]
         corridor_th_value = FP_CORRIDOR_THRESHOLD/cell_size_x
         corridor_thresh_cl = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-
-        # export intermediate raster for debugging
-        if BT_DEBUGGING:
-            suffix = str(uuid.uuid4())[:8]
-            path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
-            if path_temp.exists():
-                path_cost = path_temp.joinpath(suffix + '_cost.tif')
-                path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
-                path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
-                path_corridor_cl = path_temp.joinpath(suffix + '_corridor_cl_poly.tif')
-                out_cost = np.ma.masked_equal(cost_clip, np.inf)
-                save_raster_to_file(out_cost, out_meta, path_cost)
-                save_raster_to_file(corridor, out_meta, path_corridor)
-                save_raster_to_file(corridor_norm, out_meta, path_corridor_norm)
-                save_raster_to_file(corridor_thresh_cl, out_meta, path_corridor_cl)
-            else:
-                print('Debugging: raster folder not exists.')
-
-        # find contiguous corridor polygon and extract centerline
-        df = gpd.GeoDataFrame(geometry=[shape(line)], crs=out_meta['crs'])
-        corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
-        center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
     except Exception as e:
         print(e)
+        print('process_single_line: Exception occured.')
+
+    # export intermediate raster for debugging
+    if BT_DEBUGGING:
+        suffix = str(uuid.uuid4())[:8]
+        path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
+        if path_temp.exists():
+            path_cost = path_temp.joinpath(suffix + '_cost.tif')
+            path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
+            path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
+            path_corridor_cl = path_temp.joinpath(suffix + '_corridor_cl_poly.tif')
+            out_cost = np.ma.masked_equal(cost_clip, np.inf)
+            save_raster_to_file(out_cost, out_meta, path_cost)
+            save_raster_to_file(corridor, out_meta, path_corridor)
+            save_raster_to_file(corridor_norm, out_meta, path_corridor_norm)
+            save_raster_to_file(corridor_thresh_cl, out_meta, path_corridor_cl)
+        else:
+            print('Debugging: raster folder not exists.')
+
+    # find contiguous corridor polygon and extract centerline
+    df = gpd.GeoDataFrame(geometry=[shape(line)], crs=out_meta['crs'])
+    corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
+    center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
+
+    # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
+    if not centerline_is_valid(center_line, LineString(least_cost_path[0])):
+        try:
+            center_line = regenerate_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
+        except Exception as e:
+            print('process_single_line: Exception occured. \n {}'.format(e))
 
     return least_cost_path[0], prop, center_line, corridor_poly_gpd
 
@@ -238,6 +250,10 @@ def execute_multiprocessing(line_args, processes, verbose):
             for result in pool.imap_unordered(process_single_line, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
+
+                if not result:
+                    print('No line detected.')
+                    continue
 
                 geom = result[0]
                 prop = result[1]

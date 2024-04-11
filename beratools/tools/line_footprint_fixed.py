@@ -75,62 +75,6 @@ def generate_sample_points(line, n_samples=10):
     return [Point(item) for item in list(line.coords)]
 
 
-def generate_perpendicular_line_precise(points, offset=10):
-    """
-    Generate a perpendicular line to the input line at the given point.
-
-    Parameters
-    ----------
-    points : shapely.geometry.Point
-        The point on the line where the perpendicular should be generated.
-    offset : float, optional
-        The length of the perpendicular line.
-
-    Returns
-    -------
-    shapely.geometry.LineString
-        The generated perpendicular line.
-    """
-    # Compute the angle of the line
-
-    center = points[1]
-    perp_line = None
-
-    if len(points) == 2:
-        head = points[0]
-        tail = points[1]
-
-        delta_x = head.x - tail.x
-        delta_y = head.y - tail.y
-        angle = 0.0
-
-        if math.isclose(delta_x, 0.0):
-            angle = math.pi / 2
-        else:
-            angle = math.atan(delta_y / delta_x)
-
-        start = [center.x + offset / 2.0, center.y]
-        end = [center.x - offset / 2.0, center.y]
-        line = LineString([start, end])
-        perp_line = rotate(line, angle + math.pi / 2.0, origin=center, use_radians=True)
-    elif len(points) == 3:
-        head = points[0]
-        tail = points[2]
-
-        angle_1 = line_angle(center, head)
-        angle_2 = line_angle(center, tail)
-        angle_diff = (angle_2 - angle_1) / 2.0
-        head_line = LineString([center, head])
-        head_new = Point(center.x + offset / 2.0 * math.cos(angle_1), center.y + offset / 2.0 * math.sin(angle_1))
-        perp_seg_1 = LineString([center, head_new])
-        perp_seg_1 = rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
-        perp_seg_2 = rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
-
-        perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
-
-    return perp_line
-
-
 def generate_perpendicular_line(point, line, offset=10):
     """
     Generate a perpendicular line to the input line at the given point.
