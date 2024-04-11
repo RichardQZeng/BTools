@@ -28,7 +28,8 @@ import fiona
 from fiona import Geometry
 
 import shapely
-from shapely.ops import unary_union, snap, split
+from shapely import ops
+from shapely.ops import unary_union, snap, split, transform
 from shapely.geometry import (shape, mapping, Point, LineString,
                               MultiLineString, MultiPoint, Polygon, MultiPolygon)
 
@@ -455,20 +456,20 @@ def split_into_Equal_Nth_segments(df, seg_length):
         gdf["shape_leng"] = gdf.geometry.length
     return gdf
 
-def split_line_nPart(line,seg_length):
-    from shapely.ops import split,snap
-    seg_line = shapely.segmentize(line, seg_length)
-    distances=np.arange(seg_length,line.length,seg_length)
 
-    if len(distances)>0:
-        points = [shapely.line_interpolate_point(seg_line,distance) for distance in distances]
+def split_line_nPart(line,seg_length):
+    seg_line = shapely.segmentize(line, seg_length)
+    distances = np.arange(seg_length, line.length, seg_length)
+
+    if len(distances) > 0:
+        points = [shapely.line_interpolate_point(seg_line, distance) for distance in distances]
 
         # snap_points = snap(points, seg_line, 0.001)
         split_points = shapely.multipoints(points)
         mline = split(seg_line, split_points)
     else:
-        
         mline = seg_line
+
     return mline
 
 
@@ -485,49 +486,45 @@ def cut_line(line, distance):
     List of LineString
     """
     lines = list()
-    # seg_line = shapely.segmentize(line, distance)
-    lines=cut(line, distance, lines)
+    lines = cut(line, distance, lines)
     return lines
 
 
 def cut(line, distance, lines):
     # Cuts a line in several segments at a distance from its starting point
-    from shapely import ops
     if line.has_z:
-        line=ops.transform(lambda x,y,z=None:(x,y),line)
+        line = transform(lambda x, y, z=None: (x, y), line)
+
     if shapely.is_empty(line) or shapely.is_missing(line):
         return None
-    else:
-        if math.fmod(line.length , distance)<(1):
-            return [line]
-        elif distance >= line.length:
-            return [line]
-        else:
-            end_pt = None
-            line=shapely.segmentize(line,distance)
-            while line.length > distance:
+    # else:
+    if math.fmod(line.length, distance) < 1:
+        return [line]
+    elif distance >= line.length:
+        return [line]
+    # else:
+    end_pt = None
+    line = shapely.segmentize(line, distance)
 
-                coords = list(line.coords)
-                for i, p in enumerate(coords):
-                    pd = line.project(Point(p))
-                    # if abs(pd - line.length) < BT_EPSLON:
-                    #     lines.append(line)
-                    #     return lines
+    while line.length > distance:
+        coords = list(line.coords)
+        for i, p in enumerate(coords):
+            pd = line.project(Point(p))
 
-                    if abs(pd - distance) < BT_EPSLON:
-                        lines.append(LineString(coords[:i+1]))
-                        line = LineString(coords[i:])
-                        end_pt = None
-                        break
-                    elif pd > distance:
-                        end_pt = line.interpolate(distance)
-                        lines.append(LineString(coords[:i] + list(end_pt.coords)))
-                        line = LineString(list(end_pt.coords) + coords[i:])
-                        break
+            if abs(pd - distance) < BT_EPSLON:
+                lines.append(LineString(coords[:i+1]))
+                line = LineString(coords[i:])
+                end_pt = None
+                break
+            elif pd > distance:
+                end_pt = line.interpolate(distance)
+                lines.append(LineString(coords[:i] + list(end_pt.coords)))
+                line = LineString(list(end_pt.coords) + coords[i:])
+                break
 
-        if end_pt:
-            lines.append(line)
-        return lines
+    if end_pt:
+        lines.append(line)
+    return lines
 
 
 def find_centerline(poly, lc_path):
