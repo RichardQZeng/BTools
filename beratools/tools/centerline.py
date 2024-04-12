@@ -230,6 +230,7 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(center_line, LineString(least_cost_path[0])):
         try:
+            print('Regenerating line {} ... '.format(shape(line).centroid))
             center_line = regenerate_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
         except Exception as e:
             print('process_single_line: Exception occured. \n {}'.format(e))

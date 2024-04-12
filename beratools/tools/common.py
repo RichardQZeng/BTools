@@ -594,7 +594,11 @@ def find_centerline(poly, lc_path):
     lc_end_pts = MultiPoint([lc_start_pt, lc_end_pt])
     centerline = snap(centerline, lc_end_pts, CL_SNAP_TOLERANCE)
 
-    return centerline
+    if centerline.is_empty:
+        print('No centerline is detected, use least cost path instead.')
+        return lc_path
+    else:
+        return centerline
 
 
 def find_route(array, start, end, fully_connected,geometric):
@@ -745,8 +749,18 @@ def regenerate_centerline(poly, least_cost_path):
     poly_1 = poly_split.geoms[0]
     poly_2 = poly_split.geoms[1]
 
-    center_line_1 = find_centerline(poly_2, line_1)
-    center_line_2 = find_centerline(poly_1, line_2)
+    # find polygon and line pairs
+    pair_line_1 = line_1
+    pair_line_2 = line_2
+    if not poly_1.intersects(line_1):
+        pair_line_1 = line_2
+        pair_line_2 = line_1
+    elif poly_1.intersection(line_1).length < line_1.length / 3:
+        pair_line_1 = line_2
+        pair_line_2 = line_1
+
+    center_line_1 = find_centerline(poly_1, pair_line_1)
+    center_line_2 = find_centerline(poly_2, pair_line_2)
 
     if center_line_1.is_empty or center_line_2.is_empty:
         print('Regenerate line: Centerline is empty')
