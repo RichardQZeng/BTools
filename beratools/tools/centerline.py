@@ -129,6 +129,10 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     prop = line_args[0][1]
     line_radius = line_args[1]
     in_cost_raster = line_args[2]
+    line_id = line_args[3]
+
+    return_none = [None]*4
+    print(" Searching centerline: line {} ".format(line_id), flush=True)
 
     line_buffer = shape(line).buffer(float(line_radius))
 
@@ -136,8 +140,6 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     with rasterio.open(in_cost_raster) as raster_file:
         out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer],
                                                       crop=True, nodata=BT_NODATA, filled=True)
-
-    line_id = line_args[3]
 
     ras_nodata = raster_file.meta['nodata']
     if not ras_nodata:
@@ -148,19 +150,15 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
     # search for centerline
     if len(least_cost_path[0]) < 2:
-        print('Lest cost path {} is too short.'.format(least_cost_path[0]))
-        return None
+        print('No least cost path detected at: {}.'.format(shape(line).centroid))
+        return return_none
 
     least_cost_line = LineString(least_cost_path[0])
     cost_clip, out_meta = clip_raster(in_cost_raster, least_cost_line, float(line_radius))
     out_transform = out_meta['transform']
 
-    if type(least_cost_path) is MultiLineString:
-        print('MultiLineString found.')
-        return
-    else:
-        x1, y1 = least_cost_path[0][0]
-        x2, y2 = least_cost_path[0][-1]
+    x1, y1 = least_cost_path[0][0]
+    x2, y2 = least_cost_path[0][-1]
 
     # Work out the corridor from both end of the centerline
     try:
@@ -225,17 +223,17 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     # find contiguous corridor polygon and extract centerline
     df = gpd.GeoDataFrame(geometry=[shape(line)], crs=out_meta['crs'])
     corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
-    center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
+    center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], shape(line))
 
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(center_line, LineString(least_cost_path[0])):
         try:
             print('Regenerating line {} ... '.format(shape(line).centroid))
-            center_line = regenerate_centerline(corridor_poly_gpd.geometry.iloc[0], LineString(least_cost_path[0]))
+            center_line = regenerate_centerline(corridor_poly_gpd.geometry.iloc[0], shape(line))
         except Exception as e:
-            print('process_single_line: Exception occured. \n {}'.format(e))
+            print('process_single_line - centerline:  Exception occured. \n {}'.format(e))
 
-    return least_cost_path[0], prop, center_line, corridor_poly_gpd
+    return LineString(least_cost_path[0]), prop, center_line, corridor_poly_gpd
 
 
 def execute_multiprocessing(line_args, processes, verbose):
@@ -261,11 +259,8 @@ def execute_multiprocessing(line_args, processes, verbose):
                 center_line = result[2]
                 corridor_poly = result[3]
                 if geom and prop:
-                    if len(geom) <= 1:
-                        print("No least cost path detected")
-                        continue
                     try:
-                        feat_geoms.append(LineString(geom))
+                        feat_geoms.append(geom)
                         feat_props.append(prop)
                         center_line_geoms.append(center_line)
                         corridor_poly_list.append(corridor_poly)
