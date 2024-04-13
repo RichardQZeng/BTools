@@ -13,7 +13,7 @@ import fiona
 from fiona import Geometry
 from osgeo import gdal, ogr
 from shapely.geometry import shape, mapping, LineString, MultiLineString, Point
-from skimage.graph import MCP_Geometric
+from skimage.graph import MCP_Geometric, route_through_array
 
 from dijkstra_algorithm import *
 from common import *
@@ -130,11 +130,12 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     line_radius = line_args[1]
     in_cost_raster = line_args[2]
     line_id = line_args[3]
+    seed_line = shape(line)  # LineString
 
     return_none = [None]*4
     print(" Searching centerline: line {} ".format(line_id), flush=True)
 
-    line_buffer = shape(line).buffer(float(line_radius))
+    line_buffer = seed_line.buffer(float(line_radius))
 
     # buffer clip
     with rasterio.open(in_cost_raster) as raster_file:
@@ -147,18 +148,19 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
     least_cost_path = find_least_cost_path(ras_nodata, out_image, out_transform, line_id, shape(line))
     center_line = None
+    lc_path_coords = least_cost_path[0]
 
     # search for centerline
-    if len(least_cost_path[0]) < 2:
-        print('No least cost path detected at: {}.'.format(shape(line).centroid))
+    if len(lc_path_coords) < 2:
+        print('No least cost path detected at: {}.'.format(seed_line.centroid))
         return return_none
 
-    least_cost_line = LineString(least_cost_path[0])
-    cost_clip, out_meta = clip_raster(in_cost_raster, least_cost_line, float(line_radius))
+    lc_path = LineString(lc_path_coords)
+    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, float(line_radius))
     out_transform = out_meta['transform']
 
-    x1, y1 = least_cost_path[0][0]
-    x2, y2 = least_cost_path[0][-1]
+    x1, y1 = lc_path_coords[0]
+    x2, y2 = lc_path_coords[-1]
 
     # Work out the corridor from both end of the centerline
     try:
@@ -194,9 +196,9 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
-
         cell_size_x = out_transform[0]
         # cell_size_y = -out_transform[4]
+
         corridor_th_value = FP_CORRIDOR_THRESHOLD/cell_size_x
         corridor_thresh_cl = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
     except Exception as e:
@@ -221,19 +223,19 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
             print('Debugging: raster folder not exists.')
 
     # find contiguous corridor polygon and extract centerline
-    df = gpd.GeoDataFrame(geometry=[shape(line)], crs=out_meta['crs'])
+    df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta['crs'])
     corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
-    center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], shape(line))
+    center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
 
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
-    if not centerline_is_valid(center_line, LineString(least_cost_path[0])):
+    if not centerline_is_valid(center_line, lc_path):
         try:
-            print('Regenerating line {} ... '.format(shape(line).centroid))
-            center_line = regenerate_centerline(corridor_poly_gpd.geometry.iloc[0], shape(line))
+            print('Regenerating line {} ... '.format(seed_line.centroid))
+            center_line = regenerate_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
         except Exception as e:
             print('process_single_line - centerline:  Exception occured. \n {}'.format(e))
 
-    return LineString(least_cost_path[0]), prop, center_line, corridor_poly_gpd
+    return lc_path, prop, center_line, corridor_poly_gpd
 
 
 def execute_multiprocessing(line_args, processes, verbose):

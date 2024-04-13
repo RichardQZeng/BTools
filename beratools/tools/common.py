@@ -48,7 +48,7 @@ MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_SEQUENTIAL
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -743,7 +743,7 @@ def centerline_is_valid(centerline, input_line):
     return True
 
 
-def generate_perpendicular_line_precise(points, offset=10):
+def generate_perpendicular_line_precise(points, offset=20):
     """
     Generate a perpendicular line to the input line at the given point.
 
@@ -801,10 +801,10 @@ def generate_perpendicular_line_precise(points, offset=10):
 
 def regenerate_centerline(poly, input_line):
     """
-    Regenerates centerline when initial line is not valid
-    Parameters
+    Regenerates centerline when initial
     ----------
-    poly :
+    poly : line is not valid
+    Parameters
     input_line : shapely LineString
         This can be input seed line or least cost path. Only two end points will be used
 
@@ -822,8 +822,8 @@ def regenerate_centerline(poly, input_line):
 
     # MultiPolygon is rare, but need to be dealt with
     # remove polygon of area less than CL_CLEANUP_POLYGON_BY_AREA
+    poly = poly.buffer(BT_EPSLON)
     if type(poly) is MultiPolygon:
-        poly = poly.buffer(BT_EPSLON)
         poly_geoms = list(poly.geoms)
         poly_valid = [True] * len(poly_geoms)
         for i, item in enumerate(poly_geoms):

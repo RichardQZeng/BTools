@@ -75,7 +75,7 @@ def generate_sample_points(line, n_samples=10):
     return [Point(item) for item in list(line.coords)]
 
 
-def generate_perpendicular_line(point, line, offset=10):
+def generate_perpendicular_line(point, line, offset=20):
     """
     Generate a perpendicular line to the input line at the given point.
 
