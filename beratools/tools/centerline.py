@@ -88,9 +88,10 @@ def centerline(callback, in_line, in_cost, line_radius,
     feat_props = []
     center_line_geoms = []
     corridor_poly_list = []
+
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        feat_geoms, feat_props, center_line_geoms, corridor_poly_list = execute_multiprocessing(all_lines,
-                                                                                                processes, verbose)
+        (feat_geoms, feat_props,
+         center_line_geoms, corridor_poly_list) = execute_multiprocessing(all_lines, processes, verbose)
     elif PARALLEL_MODE == MODE_SEQUENTIAL:
         for line in all_lines:
             geom, prop, center_line, corridor_poly_gpd = process_single_line(line)
@@ -131,24 +132,48 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     in_cost_raster = line_args[2]
     line_id = line_args[3]
     seed_line = shape(line)  # LineString
+    line_radius = float(line_radius)
 
     return_none = [None]*4
     print(" Searching centerline: line {} ".format(line_id), flush=True)
 
-    line_buffer = seed_line.buffer(float(line_radius))
+    # line_buffer = seed_line.buffer(float(line_radius))
 
     # buffer clip
-    with rasterio.open(in_cost_raster) as raster_file:
-        out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer],
-                                                      crop=True, nodata=BT_NODATA, filled=True)
+    # with rasterio.open(in_cost_raster) as raster_file:
+    #     out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer],
+    #                                                   crop=True, nodata=BT_NODATA, filled=True)
+    cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
+    out_transform = out_meta['transform']
 
-    ras_nodata = raster_file.meta['nodata']
+    ras_nodata = out_meta['nodata']
     if not ras_nodata:
         ras_nodata = BT_NODATA
 
-    least_cost_path = find_least_cost_path(ras_nodata, out_image, out_transform, line_id, shape(line))
-    center_line = None
-    lc_path_coords = least_cost_path[0]
+    # skimage shortest path
+    transformer = rasterio.transform.AffineTransformer(out_transform)
+    x1, y1 = list(seed_line.coords)[0][:2]
+    x2, y2 = list(seed_line.coords)[-1][:2]
+    row1, col1 = transformer.rowcol(x1, y1)
+    row2, col2 = transformer.rowcol(x2, y2)
+    path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
+    # path_new = [list(shapely.force_2d(seed_line).coords)]
+    lc_path_new = []
+
+    if path_new[0]:
+        for row, col in path_new[0]:
+            x, y = transformer.xy(row, col)
+            lc_path_new.append((x, y))
+
+    if len(lc_path_new) < 2:
+        print('No least cost path detected, pass.')
+        return return_none
+    else:
+        lc_path_new = LineString(lc_path_new)
+
+    # least_cost_path = find_least_cost_path(ras_nodata, cost_clip, out_transform, line_id, shape(line))
+    # lc_path_coords = least_cost_path[0]
+    lc_path_coords = list(lc_path_new.coords)
 
     # search for centerline
     if len(lc_path_coords) < 2:
@@ -245,6 +270,7 @@ def execute_multiprocessing(line_args, processes, verbose):
         feat_props = []
         center_line_geoms = []
         corridor_poly_list = []
+
         with Pool(processes) as pool:
             step = 0
             # execute tasks in order, process results out of order
@@ -260,6 +286,7 @@ def execute_multiprocessing(line_args, processes, verbose):
                 prop = result[1]
                 center_line = result[2]
                 corridor_poly = result[3]
+
                 if geom and prop:
                     try:
                         feat_geoms.append(geom)
