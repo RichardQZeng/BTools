@@ -37,16 +37,14 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     max_ln_width = float(max_ln_width)
     exp_shk_cell = int(exp_shk_cell)
 
-    with rasterio.open(in_canopy) as raster:
-        if line_seg.crs.to_epsg() != raster.crs.to_epsg():
-            print("Line and raster spatial references are not same, please check.")
-            exit()
-    del raster
-    with rasterio.open(in_cost) as raster:
-        if line_seg.crs.to_epsg() != raster.crs.to_epsg():
-            print("Line and raster spatial references are not same, please check.")
-            exit()
-    del raster
+    if not compare_crs(vector_crs(in_line), raster_crs(in_canopy)):
+        print("Line and canopy have different spatial references, please check.")
+        return
+
+    if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
+        print("Line and cost have different spatial references, please check.")
+        return
+
     if 'OLnFID' not in line_seg.columns.array:
         print("Cannot find {} column in input line data.\n '{}' column will be created".format('OLnFID', 'OLnFID'))
         line_seg['OLnFID'] = line_seg.index
@@ -112,14 +110,14 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     print("Saving output ...")
     dissolved_results.to_file(out_footprint)
 
-    # dissolved polygon group by column 'OLnFID'
-    print("Generating centerlines ...")
-    results = GeoDataFrame(pd.concat(poly_list))
-    dissolved_polys = results.dissolve(by='OLnFID', as_index=False)
-    poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg, processes)
-
-    # save lines to file
+    # detect centerlines
     if out_centerline:
+        # dissolved polygon group by column 'OLnFID'
+        print("Generating centerlines ...")
+        results = GeoDataFrame(pd.concat(poly_list))
+        dissolved_polys = results.dissolve(by='OLnFID', as_index=False)
+        poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg, processes)
+
         poly_gpd = poly_centerline_gpd.copy()
         centerline_gpd = poly_centerline_gpd.copy()
 
@@ -246,33 +244,40 @@ def process_single_line_segment(dict_segment):
 
     # Buffer around line and clip cost raster and canopy raster
     # TODO: deal with NODATA
-    with rasterio.open(in_cost_r) as src1:
-        clip_in_cost_r, out_transform1 = rasterio.mask.mask(src1, [shapely.buffer(feat, max_ln_width)],
-                                                            crop=True, nodata=BT_NODATA, filled=True)
-        out_meta = src1.meta
-        crs = src1.crs
-        crs_code = src1.meta['crs']
-        crs_wkt = crs.wkt
-        cell_size_x = src1.transform[0]
-        cell_size_y = -src1.transform[4]
+    clip_in_cost_r, out_meta = clip_raster(in_cost_r, feat, max_ln_width)
+    out_transform1 = out_meta['transform']
+    cell_size_x = out_transform1[0]
+    cell_size_y = -out_transform1[4]
+    # with rasterio.open(in_cost_r) as src1:
+    #     clip_in_cost_r, out_transform1 = rasterio.mask.mask(src1, [shapely.buffer(feat, max_ln_width)],
+    #                                                         crop=True, nodata=BT_NODATA, filled=True)
+    #     out_meta = src1.meta
+    #     crs = src1.crs
+    #     crs_code = src1.meta['crs']
+    #     crs_wkt = crs.wkt
+    #     cell_size_x = src1.transform[0]
+    #     cell_size_y = -src1.transform[4]
+    #
+    # out_meta.update({"driver": "GTiff",
+    #                  "height": clip_in_cost_r.shape[1],
+    #                  "width": clip_in_cost_r.shape[2],
+    #                  "transform": out_transform1})
 
-    out_meta.update({"driver": "GTiff",
-                     "height": clip_in_cost_r.shape[1],
-                     "width": clip_in_cost_r.shape[2],
-                     "transform": out_transform1})
+    # del src1
+    clip_in_canopy_r, out_meta = clip_raster(in_canopy_r, feat, max_ln_width)
+    out_transform2 = out_meta['transform']
 
-    del src1
-    with rasterio.open(in_canopy_r) as src:
-        clip_in_canopy_r, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, max_ln_width)],
-                                                              crop=True, nodata=BT_NODATA, filled=True)
-        out_meta = src.meta
-        crs = src.crs
-
-    out_meta.update({"driver": "GTiff",
-                     "height": clip_in_canopy_r.shape[1],
-                     "width": clip_in_canopy_r.shape[2],
-                     "transform": out_transform2})
-    del src
+    # with rasterio.open(in_canopy_r) as src:
+    #     clip_in_canopy_r, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, max_ln_width)],
+    #                                                           crop=True, nodata=BT_NODATA, filled=True)
+    #     out_meta = src.meta
+    #     crs = src.crs
+    #
+    # out_meta.update({"driver": "GTiff",
+    #                  "height": clip_in_canopy_r.shape[1],
+    #                  "width": clip_in_canopy_r.shape[2],
+    #                  "transform": out_transform2})
+    # del src
 
     # Work out the corridor from both end of the centerline
     try:
