@@ -71,8 +71,7 @@ LP_SEGMENT_LENGTH = 500
 # centerline
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
-CL_SNAP_TOLERANCE = 10.0
-CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
+CL_SNAP_TOLERANCE = 15.0
 CL_SEGMENTIZE_LENGTH = 1.0
 CL_SIMPLIFY_LENGTH = 0.5
 CL_SMOOTH_SIGMA = 0.5
@@ -556,12 +555,10 @@ def find_centerline(poly, input_line):
     """
     poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
 
-    exterior_pts = []
+    poly = poly.buffer(BT_EPSLON)  # buffer polygon to reduce MultiPolygons
     if type(poly) is MultiPolygon:
-        poly = poly.buffer(CL_BUFFER_MULTIPOLYGON)
-        if type(poly) is MultiPolygon:
-            print('MultiPolygon encountered, skip.')
-            return None
+        print('MultiPolygon encountered, skip.')
+        return None
 
     exterior_pts = list(poly.exterior.coords)
 
