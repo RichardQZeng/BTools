@@ -183,6 +183,8 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     lc_path = LineString(lc_path_coords)
     cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, float(line_radius))
     out_transform = out_meta['transform']
+    cell_size_x = out_transform[0]
+    cell_size_y = -out_transform[4]
 
     x1, y1 = lc_path_coords[0]
     x2, y2 = lc_path_coords[-1]
@@ -198,7 +200,7 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         source = [transformer.rowcol(x1, y1)]
 
         # generate the cost raster to source point
-        mcp_source = MCP_Geometric(cost_clip)
+        mcp_source = MCP_Geometric(cost_clip, sampling=(cell_size_x, cell_size_y))
         source_cost_acc = mcp_source.find_costs(source)[0]
         del mcp_source
 
@@ -206,7 +208,7 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         destination = [transformer.rowcol(x2, y2)]
 
         # # # generate the cost raster to destination point
-        mcp_dest = MCP_Geometric(cost_clip)
+        mcp_dest = MCP_Geometric(cost_clip, sampling=(cell_size_x, cell_size_y))
         dest_cost_acc = mcp_dest.find_costs(destination)[0]
 
         # Generate corridor
@@ -221,14 +223,12 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
-        cell_size_x = out_transform[0]
-        # cell_size_y = -out_transform[4]
-
-        corridor_th_value = FP_CORRIDOR_THRESHOLD/cell_size_x
+        corridor_th_value = FP_CORRIDOR_THRESHOLD
         corridor_thresh_cl = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
+
     except Exception as e:
         print(e)
-        print('process_single_line: Exception occured.')
+        print('process_single_line: Exception occurred.')
 
     # export intermediate raster for debugging
     if BT_DEBUGGING:
