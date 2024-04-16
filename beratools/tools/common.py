@@ -890,9 +890,9 @@ def corridor_raster(raster_clip, source, destination, cell_size, corridor_thresh
     Parameters
     ----------
     raster_clip : raster
-    source :
+    source : list of point tuple(s)
         start point in row/col
-    destination :
+    destination : list of point tuple(s)
         end point in row/col
     cell_size: tuple
         (cell_size_x, cell_size_y)

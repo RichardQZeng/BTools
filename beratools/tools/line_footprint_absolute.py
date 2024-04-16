@@ -263,51 +263,20 @@ def process_single_line_segment(dict_segment):
 
     # Work out the corridor from both end of the centerline
     try:
-        clip_cost_r = numpy.squeeze(clip_in_cost_r, axis=0)
         clip_canopy_r = numpy.squeeze(clip_in_canopy_r, axis=0)
+        transformer = rasterio.transform.AffineTransformer(out_transform)
+        source = [transformer.rowcol(x1, y1)]
+        destination = [transformer.rowcol(x2, y2)]
 
-        # Rasterize source point
-        rasterized_source = features.rasterize(origin, out_shape=clip_cost_r.shape, transform=out_transform,
-                                               out=None, fill=0, all_touched=True, default_value=1, dtype=None)
-        source = numpy.transpose(numpy.nonzero(rasterized_source))
+        # rasterized_source = features.rasterize([origin_point], out_shape=clip_canopy_r.shape, transform=out_transform,
+        #                                        out=None, fill=0, all_touched=True, default_value=1, dtype=None)
+        # source_1 = numpy.transpose(numpy.nonzero(rasterized_source))
+        # rasterized_destination = features.rasterize([destination_point], out_shape=clip_canopy_r.shape, transform=out_transform,
+        #                                             out=None, fill=0, all_touched=True, default_value=1, dtype=None)
+        # destination_1 = numpy.transpose(numpy.nonzero(rasterized_destination))
 
-        # TODO: further investigate and submit issue to skimage
-        # There is a severe bug in skimage find_costs
-        # when nan is present in clip_cost_r, find_costs cause access violation
-        # no message/exception will be caught
-        # change all nan to -9999 for workaround
-        remove_nan_from_array(clip_cost_r)
-
-        # generate the cost raster to source point
-        mcp_source = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
-        source_cost_acc, traceback = mcp_source.find_costs(source)
-        del mcp_source
-
-        # Rasterize destination point
-        rasterized_destination = features.rasterize(destination, out_shape=clip_cost_r.shape, transform=out_transform,
-                                                    out=None, fill=0, all_touched=True, default_value=1, dtype=None)
-        destination = numpy.transpose(numpy.nonzero(rasterized_destination))
-
-        # generate the cost raster to destination point
-        mcp_dest = MCP_Geometric(clip_cost_r, sampling=(cell_size_x, cell_size_y))
-        dest_cost_acc, traceback = mcp_dest.find_costs(destination)
-        del mcp_dest
-
-        # Generate corridor raster
-        corridor = source_cost_acc + dest_cost_acc
-        corridor = numpy.ma.masked_invalid(corridor)
-
-        # Calculate minimum value of corridor raster
-        if numpy.ma.min(corridor) is not None:
-            corr_min = float(numpy.ma.min(corridor))
-        else:
-            corr_min = 0.05
-
-        # normalize corridor raster by deducting corr_min
-        corridor_norm = corridor - corr_min
-
-        # Set minimum as zero and save minimum file
-        corridor_thresh = numpy.ma.where(corridor_norm > corridor_th_value, 1.0, 0.0)
+        corridor_thresh = corridor_raster(clip_in_cost_r, source, destination,
+                                          (cell_size_x, cell_size_y), corridor_th_value)
 
         # Process: Stamp CC and Max Line Width
         # Original code here
@@ -368,7 +337,6 @@ def process_single_line_segment(dict_segment):
 
     except Exception as e:
         print('Exception: {}'.format(e))
-        print('Line footprint: 318')
         return None
 
 
