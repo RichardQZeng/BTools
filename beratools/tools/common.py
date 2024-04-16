@@ -17,6 +17,7 @@ from itertools import zip_longest, compress
 
 import json
 import shlex
+import uuid
 import argparse
 import numpy as np
 
@@ -39,8 +40,9 @@ from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
-from label_centerlines import get_centerline
+from skimage.graph import MCP_Geometric
 
+from label_centerlines import get_centerline
 from multiprocessing.pool import Pool
 
 # constants
@@ -592,9 +594,18 @@ def find_centerline(poly, input_line):
 
     if centerline.is_empty:
         print('No centerline is detected, use input line instead.')
-        return input_line
-    else:
-        return centerline
+        centerline = input_line
+
+    # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
+    if not centerline_is_valid(centerline, input_line):
+        try:
+            print('Regenerating line {} ... '.format(input_line.centroid))
+            centerline = regenerate_centerline(poly, input_line)
+        except Exception as e:
+            print('find_centerline:  Exception occurred. \n {}'.format(e))
+            return None
+
+    return centerline
 
 
 def find_route(array, start, end, fully_connected,geometric):
@@ -871,4 +882,77 @@ def snap_end_to_end(in_line, line_reference):
     pts[-1] = snap_end.coords[0]
 
     return LineString(pts)
+
+
+def corridor_raster(raster_clip, source, destination, cell_size, corridor_threshold):
+    """
+    Calculate corridor raster
+    Parameters
+    ----------
+    raster_clip : raster
+    source :
+        start point in row/col
+    destination :
+        end point in row/col
+    cell_size: tuple
+        (cell_size_x, cell_size_y)
+    corridor_threshold : double
+
+    Returns
+    -------
+    corridor raster
+    """
+
+    try:
+        # change all nan to BT_NODATA_COST for workaround
+        raster_clip = np.squeeze(raster_clip, axis=0)
+        remove_nan_from_array(raster_clip)
+
+        # generate the cost raster to source point
+        mcp_source = MCP_Geometric(raster_clip, sampling=cell_size)
+        source_cost_acc = mcp_source.find_costs(source)[0]
+        del mcp_source
+
+        # # # generate the cost raster to destination point
+        mcp_dest = MCP_Geometric(raster_clip, sampling=cell_size)
+        dest_cost_acc = mcp_dest.find_costs(destination)[0]
+
+        # Generate corridor
+        corridor = source_cost_acc + dest_cost_acc
+        corridor = np.ma.masked_invalid(corridor)
+
+        # Calculate minimum value of corridor raster
+        if not np.ma.min(corridor) is None:
+            corr_min = float(np.ma.min(corridor))
+        else:
+            corr_min = 0.5
+
+        # normalize corridor raster by deducting corr_min
+        corridor_norm = corridor - corr_min
+        corridor_thresh_cl = np.ma.where(corridor_norm >= corridor_threshold, 1.0, 0.0)
+
+    except Exception as e:
+        print(e)
+        print('corridor_raster: Exception occurred.')
+        return None
+
+    # export intermediate raster for debugging
+    # if BT_DEBUGGING:
+    #     suffix = str(uuid.uuid4())[:8]
+    #     path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
+    #     if path_temp.exists():
+    #         path_cost = path_temp.joinpath(suffix + '_cost.tif')
+    #         path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
+    #         path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
+    #         path_corridor_cl = path_temp.joinpath(suffix + '_corridor_cl_poly.tif')
+    #         out_cost = np.ma.masked_equal(raster_clip, np.inf)
+    #         save_raster_to_file(out_cost, out_meta, path_cost)
+    #         save_raster_to_file(corridor, out_meta, path_corridor)
+    #         save_raster_to_file(corridor_norm, out_meta, path_corridor_norm)
+    #         save_raster_to_file(corridor_thresh_cl, out_meta, path_corridor_cl)
+    #     else:
+    #         print('Debugging: raster folder not exists.')
+
+    return corridor_thresh_cl
+
 
