@@ -29,7 +29,7 @@ from fiona import Geometry
 
 import shapely
 from shapely.affinity import rotate
-from shapely.ops import unary_union, snap, split, transform, substring, linemerge
+from shapely.ops import unary_union, snap, split, transform, substring, linemerge, nearest_points
 from shapely.geometry import (shape, mapping, Point, LineString,
                               MultiLineString, MultiPoint, Polygon, MultiPolygon)
 
@@ -48,7 +48,7 @@ MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 
-PARALLEL_MODE = MODE_SEQUENTIAL
+PARALLEL_MODE = MODE_MULTIPROCESSING
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -78,6 +78,7 @@ CL_SMOOTH_SIGMA = 0.5
 CL_DELETE_HOLES = True
 CL_SIMPLIFY_POLYGON = True
 CL_CLEANUP_POLYGON_BY_AREA = 1.0
+CL_POLYGON_BUFFER = 1e-6
 
 FP_CORRIDOR_THRESHOLD = 3.0
 FP_SEGMENTIZE_LENGTH = 2.0
@@ -555,7 +556,7 @@ def find_centerline(poly, input_line):
     """
     poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
 
-    poly = poly.buffer(BT_EPSLON)  # buffer polygon to reduce MultiPolygons
+    poly = poly.buffer(CL_POLYGON_BUFFER)  # buffer polygon to reduce MultiPolygons
     if type(poly) is MultiPolygon:
         print('MultiPolygon encountered, skip.')
         return None
@@ -587,25 +588,7 @@ def find_centerline(poly, input_line):
 
     end_buffer = Point(cl_coords[-1]).buffer(CL_BUFFER_CLIP)
     centerline = centerline.difference(end_buffer)
-
-    # snap two end vertices to the least cost path ends
-    lc_coords = list(input_line.coords)
-
-    # check if point is 2D or 3D
-    lc_start_pt = None
-    lc_end_pt = None
-
-    # convert LC end points to 2D or 3D
-    if len(cl_coords[0]) == 2:
-        lc_start_pt = lc_coords[0][0:2]
-        lc_end_pt = lc_coords[-1][0:2]
-    elif len(cl_coords[0]) == 3:
-        lc_start_pt = lc_coords[0][0:3]
-        lc_end_pt = lc_coords[-1][0:3]
-
-    # snap centerline to LC end points
-    lc_end_pts = MultiPoint([lc_start_pt, lc_end_pt])
-    centerline = snap(centerline, lc_end_pts, CL_SNAP_TOLERANCE)
+    centerline = snap_end_to_end(centerline, input_line)
 
     if centerline.is_empty:
         print('No centerline is detected, use input line instead.')
@@ -819,7 +802,7 @@ def regenerate_centerline(poly, input_line):
 
     # MultiPolygon is rare, but need to be dealt with
     # remove polygon of area less than CL_CLEANUP_POLYGON_BY_AREA
-    poly = poly.buffer(BT_EPSLON)
+    poly = poly.buffer(CL_POLYGON_BUFFER)
     if type(poly) is MultiPolygon:
         poly_geoms = list(poly.geoms)
         poly_valid = [True] * len(poly_geoms)
@@ -833,7 +816,7 @@ def regenerate_centerline(poly, input_line):
 
         poly = Polygon(poly_geoms[0])
 
-    poly_exterior = Polygon(poly.buffer(BT_EPSLON).exterior)
+    poly_exterior = Polygon(poly.buffer(CL_POLYGON_BUFFER).exterior)
     poly_split = split(poly_exterior, perp)
 
     if len(poly_split.geoms) < 2:
@@ -862,3 +845,30 @@ def regenerate_centerline(poly, input_line):
 
     print('Centerline is regenerated.')
     return linemerge(MultiLineString([center_line_1, center_line_2]))
+
+
+def snap_end_to_end(in_line, line_reference):
+    pts = list(in_line.coords)
+    if len(pts) < 2:
+        print('snap_end_to_end: input line invalid.')
+        return in_line
+
+    line_start = Point(pts[0])
+    line_end = Point(pts[-1])
+    ref_ends = MultiPoint([line_reference.coords[0], line_reference.coords[-1]])
+
+    _, snap_start = nearest_points(line_start, ref_ends)
+    _, snap_end = nearest_points(line_end, ref_ends)
+
+    if in_line.has_z:
+        snap_start = shapely.force_3d(snap_start)
+        snap_end = shapely.force_3d(snap_end)
+    else:
+        snap_start = shapely.force_2d(snap_start)
+        snap_end = shapely.force_2d(snap_end)
+
+    pts[0] = snap_start.coords[0]
+    pts[-1] = snap_end.coords[0]
+
+    return LineString(pts)
+

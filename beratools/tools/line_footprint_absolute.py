@@ -76,6 +76,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     feat_list = []
     footprint_list = []
     poly_list = []
+    centerline_list = []
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         feat_list = execute_multiprocessing(line_args, processes, verbose)
@@ -93,12 +94,16 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
                 print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format(step / total_steps * 100), flush=True)
 
-    print('Generating shapefile ...')
+    print('Generating shapefile ...', flush=True)
 
     if feat_list:
         for i in feat_list:
             footprint_list.append(i[0])
             poly_list.append(i[1])
+
+            for item in i[2]:
+                if item:
+                    centerline_list.append(item)
     
     results = geopandas.GeoDataFrame(pandas.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
@@ -107,31 +112,32 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     # dissolved polygon group by column 'OLnFID'
     dissolved_results = results.dissolve(by='OLnFID', as_index=False)
     dissolved_results = dissolved_results.drop(columns=['OLnSEG'])
-    print("Saving output ...")
+    print("Saving output ...", flush=True)
     dissolved_results.to_file(out_footprint)
 
     # detect centerlines
     if out_centerline:
         # dissolved polygon group by column 'OLnFID'
-        print("Generating centerlines ...")
-        results = GeoDataFrame(pd.concat(poly_list))
-        dissolved_polys = results.dissolve(by='OLnFID', as_index=False)
-        poly_centerline_gpd = find_centerlines(dissolved_polys, line_seg, processes)
-
-        poly_gpd = poly_centerline_gpd.copy()
-        centerline_gpd = poly_centerline_gpd.copy()
-
-        centerline_gpd = centerline_gpd.set_geometry('centerline')
-        centerline_gpd = centerline_gpd.drop(columns=['geometry'])
-        centerline_gpd.crs = poly_centerline_gpd.crs
-        centerline_gpd.to_file(out_centerline)
-        print("Centerline file saved")
+        print("Saving polygons for generating centerlines ...", flush=True)
+        polys_for_centerline = GeoDataFrame(pd.concat(poly_list))
+        polys_for_centerline = polys_for_centerline.dissolve(by='OLnFID', as_index=False)
+        # poly_gpd = poly_centerline_gpd.copy()
 
         # save polygons
         path = Path(out_centerline)
         path = path.with_stem(path.stem + '_poly')
-        poly_gpd = poly_gpd.drop(columns=['centerline'])
-        poly_gpd.to_file(path)
+        polys_for_centerline.to_file(path.as_posix())
+
+        # poly_gpd = find_centerlines(dissolved_polys, line_seg, processes)
+        # centerline_gpd = poly_centerline_gpd.copy()
+        # centerline_gpd = centerline_gpd.set_geometry('centerline')
+        # centerline_gpd = centerline_gpd.drop(columns=['geometry'])
+        # centerline_gpd.crs = poly_centerline_gpd.crs
+
+        centerline_gpd = gpd.GeoDataFrame(geometry=centerline_list, crs=polys_for_centerline.crs)
+        centerline_gpd.to_file(out_centerline)
+        print("Centerline file saved", flush=True)
+
 
     print('%{}'.format(100))
 
@@ -170,14 +176,22 @@ def has_field(fc, fi):
 def process_single_line_whole(line):
     footprints = []
     line_polys = []
+    centerline_list = []
     for line_seg in line:
         footprint = process_single_line_segment(line_seg)
-        footprints.append(footprint[0])
-        line_polys.append(footprint[1])
+        if footprint:
+            footprints.append(footprint[0])
+            line_polys.append(footprint[1])
+            centerline_list.append(footprint[2])
+        else:
+            print('No footprint or centerline found.')
 
-    polys = pd.concat(line_polys)
-    polys = polys.dissolve()
+    polys = None
+    if line_polys:
+        polys = pd.concat(line_polys)
+        polys = polys.dissolve()
 
+    footprint_merge = None
     if footprints:
         if not all(item is None for item in footprints):
             footprint_merge = pandas.concat(footprints)
@@ -185,15 +199,11 @@ def process_single_line_whole(line):
             footprint_merge.drop(columns=['OLnSEG'])
         else:
             print(f'Empty footprint returned.')
-            return None
-    else:
-        print(f'Empty footprint returned.')
-        return None
 
     if len(line) > 0:
-        print('process_single_line_whole: Processing line with ID: {}, done.'
-              .format(line[0]['OLnFID']), flush=True)
-    return footprint_merge, polys
+        print('Processing line with ID: {}, done.'.format(line[0]['OLnFID']), flush=True)
+
+    return footprint_merge, polys, centerline_list
 
 
 def process_single_line_segment(dict_segment):
@@ -245,39 +255,11 @@ def process_single_line_segment(dict_segment):
     # Buffer around line and clip cost raster and canopy raster
     # TODO: deal with NODATA
     clip_in_cost_r, out_meta = clip_raster(in_cost_r, feat, max_ln_width)
-    out_transform1 = out_meta['transform']
-    cell_size_x = out_transform1[0]
-    cell_size_y = -out_transform1[4]
-    # with rasterio.open(in_cost_r) as src1:
-    #     clip_in_cost_r, out_transform1 = rasterio.mask.mask(src1, [shapely.buffer(feat, max_ln_width)],
-    #                                                         crop=True, nodata=BT_NODATA, filled=True)
-    #     out_meta = src1.meta
-    #     crs = src1.crs
-    #     crs_code = src1.meta['crs']
-    #     crs_wkt = crs.wkt
-    #     cell_size_x = src1.transform[0]
-    #     cell_size_y = -src1.transform[4]
-    #
-    # out_meta.update({"driver": "GTiff",
-    #                  "height": clip_in_cost_r.shape[1],
-    #                  "width": clip_in_cost_r.shape[2],
-    #                  "transform": out_transform1})
+    out_transform = out_meta['transform']
+    cell_size_x = out_transform[0]
+    cell_size_y = -out_transform[4]
 
-    # del src1
     clip_in_canopy_r, out_meta = clip_raster(in_canopy_r, feat, max_ln_width)
-    out_transform2 = out_meta['transform']
-
-    # with rasterio.open(in_canopy_r) as src:
-    #     clip_in_canopy_r, out_transform2 = rasterio.mask.mask(src, [shapely.buffer(feat, max_ln_width)],
-    #                                                           crop=True, nodata=BT_NODATA, filled=True)
-    #     out_meta = src.meta
-    #     crs = src.crs
-    #
-    # out_meta.update({"driver": "GTiff",
-    #                  "height": clip_in_canopy_r.shape[1],
-    #                  "width": clip_in_canopy_r.shape[2],
-    #                  "transform": out_transform2})
-    # del src
 
     # Work out the corridor from both end of the centerline
     try:
@@ -285,7 +267,7 @@ def process_single_line_segment(dict_segment):
         clip_canopy_r = numpy.squeeze(clip_in_canopy_r, axis=0)
 
         # Rasterize source point
-        rasterized_source = features.rasterize(origin, out_shape=clip_cost_r.shape, transform=out_transform1,
+        rasterized_source = features.rasterize(origin, out_shape=clip_cost_r.shape, transform=out_transform,
                                                out=None, fill=0, all_touched=True, default_value=1, dtype=None)
         source = numpy.transpose(numpy.nonzero(rasterized_source))
 
@@ -302,7 +284,7 @@ def process_single_line_segment(dict_segment):
         del mcp_source
 
         # Rasterize destination point
-        rasterized_destination = features.rasterize(destination, out_shape=clip_cost_r.shape, transform=out_transform1,
+        rasterized_destination = features.rasterize(destination, out_shape=clip_cost_r.shape, transform=out_transform,
                                                     out=None, fill=0, all_touched=True, default_value=1, dtype=None)
         destination = numpy.transpose(numpy.nonzero(rasterized_destination))
 
@@ -363,7 +345,7 @@ def process_single_line_segment(dict_segment):
         msk = numpy.where(clean_raster == 1, True, False)
 
         # Process: ndarray to shapely Polygon
-        out_polygon = features.shapes(clean_raster, mask=msk, transform=out_transform1)
+        out_polygon = features.shapes(clean_raster, mask=msk, transform=out_transform)
 
         # create a shapely multipolygon
         multi_polygon = []
@@ -379,9 +361,10 @@ def process_single_line_segment(dict_segment):
             print('LP:PSLS: Processing line ID: {}, done.'.format(dict_segment['OLnSEG']), flush=True)
 
         # find contiguous corridor polygon for centerline
-        corridor_poly_gpd = find_corridor_polygon(corridor_thresh, out_transform1, line_gpd)
+        corridor_poly_gpd = find_corridor_polygon(corridor_thresh, out_transform, line_gpd)
+        centerline = find_centerline(corridor_poly_gpd.geometry.iloc[0], feat)
 
-        return out_gdata, corridor_poly_gpd
+        return out_gdata, corridor_poly_gpd, centerline
 
     except Exception as e:
         print('Exception: {}'.format(e))
