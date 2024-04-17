@@ -592,9 +592,13 @@ def find_centerline(poly, input_line):
     centerline = centerline.difference(end_buffer)
     centerline = snap_end_to_end(centerline, input_line)
 
+    if not centerline:
+        print('No centerline detected, use input line instead.')
+        return input_line
+
     if centerline.is_empty:
-        print('No centerline is detected, use input line instead.')
-        centerline = input_line
+        print('Empty centerline detected, use input line instead.')
+        return input_line
 
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(centerline, input_line):
@@ -859,6 +863,12 @@ def regenerate_centerline(poly, input_line):
 
 
 def snap_end_to_end(in_line, line_reference):
+    if type(in_line) is MultiLineString:
+        in_line = linemerge(in_line)
+        if type(in_line) is MultiLineString:
+            print(f'MultiLineString found {in_line.centroid}, pass.')
+            return None
+
     pts = list(in_line.coords)
     if len(pts) < 2:
         print('snap_end_to_end: input line invalid.')
