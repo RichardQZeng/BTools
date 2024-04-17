@@ -13,10 +13,11 @@ import math
 import tempfile
 from pathlib import Path
 from collections import OrderedDict
-from itertools import zip_longest
+from itertools import zip_longest, compress
 
 import json
 import shlex
+import uuid
 import argparse
 import numpy as np
 
@@ -29,7 +30,7 @@ from fiona import Geometry
 
 import shapely
 from shapely.affinity import rotate
-from shapely.ops import unary_union, snap, split, transform, substring
+from shapely.ops import unary_union, snap, split, transform, substring, linemerge, nearest_points
 from shapely.geometry import (shape, mapping, Point, LineString,
                               MultiLineString, MultiPoint, Polygon, MultiPolygon)
 
@@ -39,8 +40,9 @@ from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
-from label_centerlines import get_centerline
+from skimage.graph import MCP_Geometric
 
+from label_centerlines import get_centerline
 from multiprocessing.pool import Pool
 
 # constants
@@ -71,13 +73,14 @@ LP_SEGMENT_LENGTH = 500
 # centerline
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
-CL_SNAP_TOLERANCE = 10.0
-CL_BUFFER_MULTIPOLYGON = 0.01  # buffer MultiPolygon by 0.01 meter to convert to Polygon
+CL_SNAP_TOLERANCE = 15.0
 CL_SEGMENTIZE_LENGTH = 1.0
 CL_SIMPLIFY_LENGTH = 0.5
 CL_SMOOTH_SIGMA = 0.5
 CL_DELETE_HOLES = True
 CL_SIMPLIFY_POLYGON = True
+CL_CLEANUP_POLYGON_BY_AREA = 1.0
+CL_POLYGON_BUFFER = 1e-6
 
 FP_CORRIDOR_THRESHOLD = 3.0
 FP_SEGMENTIZE_LENGTH = 2.0
@@ -275,6 +278,20 @@ def check_arguments():
 
 
 def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=None):
+    """
+
+    Parameters
+    ----------
+    out_file :
+    crs :
+    geoms : shapely geometry objects
+    schema :
+    properties :
+
+    Returns
+    -------
+
+    """
     # remove all None items
     # TODO: check geom type consistency
     # geoms = [item for item in geoms if item is not None]
@@ -527,12 +544,13 @@ def cut(line, distance, lines):
     return lines
 
 
-def find_centerline(poly, lc_path):
+def find_centerline(poly, input_line):
     """
     Parameters
     ----------
-    poly
-    lc_path
+    poly : Polygon
+    input_line : LineString
+        Least cost path or seed line
 
     Returns
     -------
@@ -540,12 +558,10 @@ def find_centerline(poly, lc_path):
     """
     poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
 
-    exterior_pts = []
+    poly = poly.buffer(CL_POLYGON_BUFFER)  # buffer polygon to reduce MultiPolygons
     if type(poly) is MultiPolygon:
-        poly = poly.buffer(CL_BUFFER_MULTIPOLYGON)
-        if type(poly) is MultiPolygon:
-            print('MultiPolygon encountered, skip.')
-            return None
+        print('MultiPolygon encountered, skip.')
+        return None
 
     exterior_pts = list(poly.exterior.coords)
 
@@ -574,25 +590,24 @@ def find_centerline(poly, lc_path):
 
     end_buffer = Point(cl_coords[-1]).buffer(CL_BUFFER_CLIP)
     centerline = centerline.difference(end_buffer)
+    centerline = snap_end_to_end(centerline, input_line)
 
-    # snap two end vertices to the least cost path ends
-    lc_coords = list(lc_path.coords)
+    if not centerline:
+        print('No centerline detected, use input line instead.')
+        return input_line
 
-    # check if point is 2D or 3D
-    lc_start_pt = None
-    lc_end_pt = None
+    if centerline.is_empty:
+        print('Empty centerline detected, use input line instead.')
+        return input_line
 
-    # convert LC end points to 2D or 3D
-    if len(cl_coords[0]) == 2:
-        lc_start_pt = lc_coords[0][0:2]
-        lc_end_pt = lc_coords[-1][0:2]
-    elif len(cl_coords[0]) == 3:
-        lc_start_pt = lc_coords[0][0:3]
-        lc_end_pt = lc_coords[-1][0:3]
-
-    # snap centerline to LC end points
-    lc_end_pts = MultiPoint([lc_start_pt, lc_end_pt])
-    centerline = snap(centerline, lc_end_pts, CL_SNAP_TOLERANCE)
+    # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
+    if not centerline_is_valid(centerline, input_line):
+        try:
+            print('Regenerating line {} ... '.format(input_line.centroid))
+            centerline = regenerate_centerline(poly, input_line)
+        except Exception as e:
+            print('find_centerline:  Exception occurred. \n {}'.format(e))
+            return None
 
     return centerline
 
@@ -665,7 +680,9 @@ def find_single_centerline(row_and_path):
 
     Parameters
     ----------
-    row_and_path: list of row (polygon and props) and least cost path
+    row_and_path:
+        list of row (polygon and props) and least cost path
+        first is geopandas row, second is input line, (least cost path)
 
     Returns
     -------
@@ -696,13 +713,14 @@ def line_angle(point_1, point_2):
     return angle
 
 
-def centerline_is_valid(centerline, least_cost_path):
+def centerline_is_valid(centerline, input_line):
     """
     Check if centerline is valid
     Parameters
     ----------
     centerline :
-    least_cost_path :
+    input_line : shapely LineString
+        This can be input seed line or least cost path. Only two end points are used.
 
     Returns
     -------
@@ -712,51 +730,15 @@ def centerline_is_valid(centerline, least_cost_path):
         return False
 
     # centerline length less the half of least cost path
-    if (centerline.length < least_cost_path.length / 2 or
-            centerline.distance(Point(least_cost_path.coords[0])) > BT_EPSLON or
-            centerline.distance(Point(least_cost_path.coords[-1])) > BT_EPSLON):
+    if (centerline.length < input_line.length / 2 or
+            centerline.distance(Point(input_line.coords[0])) > BT_EPSLON or
+            centerline.distance(Point(input_line.coords[-1])) > BT_EPSLON):
         return False
 
     return True
 
 
-def regenerate_centerline(poly, least_cost_path):
-    """
-    Regenerates centerline when initial line is not valid
-    Parameters
-    ----------
-    poly :
-    least_cost_path :
-
-    Returns
-    -------
-
-    """
-    line_1 = substring(least_cost_path, start_dist=0.0, end_dist=least_cost_path.length/2)
-    line_2 = substring(least_cost_path, start_dist=least_cost_path.length/2, end_dist=least_cost_path.length)
-
-    pts = shapely.force_2d([Point(list(least_cost_path.coords)[0]),
-                            Point(list(line_1.coords)[-1]),
-                            Point(list(least_cost_path.coords)[-1])])
-    perp = generate_perpendicular_line_precise(pts)
-
-    poly_exterior = Polygon(poly.buffer(1e-3).exterior)
-    poly_split = split(poly_exterior, perp)
-    poly_1 = poly_split.geoms[0]
-    poly_2 = poly_split.geoms[1]
-
-    center_line_1 = find_centerline(poly_2, line_1)
-    center_line_2 = find_centerline(poly_1, line_2)
-
-    if center_line_1.is_empty or center_line_2.is_empty:
-        print('Regenerate line: Centerline is empty')
-        return None
-
-    print('Centerline is regenerated.')
-    return MultiLineString([center_line_1, center_line_2])
-
-
-def generate_perpendicular_line_precise(points, offset=10):
+def generate_perpendicular_line_precise(points, offset=20):
     """
     Generate a perpendicular line to the input line at the given point.
 
@@ -810,3 +792,177 @@ def generate_perpendicular_line_precise(points, offset=10):
         perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
 
     return perp_line
+
+
+def regenerate_centerline(poly, input_line):
+    """
+    Regenerates centerline when initial
+    ----------
+    poly : line is not valid
+    Parameters
+    input_line : shapely LineString
+        This can be input seed line or least cost path. Only two end points will be used
+
+    Returns
+    -------
+
+    """
+    line_1 = substring(input_line, start_dist=0.0, end_dist=input_line.length/2)
+    line_2 = substring(input_line, start_dist=input_line.length/2, end_dist=input_line.length)
+
+    pts = shapely.force_2d([Point(list(input_line.coords)[0]),
+                            Point(list(line_1.coords)[-1]),
+                            Point(list(input_line.coords)[-1])])
+    perp = generate_perpendicular_line_precise(pts)
+
+    # MultiPolygon is rare, but need to be dealt with
+    # remove polygon of area less than CL_CLEANUP_POLYGON_BY_AREA
+    poly = poly.buffer(CL_POLYGON_BUFFER)
+    if type(poly) is MultiPolygon:
+        poly_geoms = list(poly.geoms)
+        poly_valid = [True] * len(poly_geoms)
+        for i, item in enumerate(poly_geoms):
+            if item.area < CL_CLEANUP_POLYGON_BY_AREA:
+                poly_valid[i] = False
+
+        poly_geoms = list(compress(poly_geoms, poly_valid))
+        if len(poly_geoms) != 1:  # still multi polygon
+            print('regenerate_centerline: Multi or none polygon found, pass.')
+
+        poly = Polygon(poly_geoms[0])
+
+    poly_exterior = Polygon(poly.buffer(CL_POLYGON_BUFFER).exterior)
+    poly_split = split(poly_exterior, perp)
+
+    if len(poly_split.geoms) < 2:
+        print('regenerate_centerline: polygon split failed, pass.')
+        return None
+
+    poly_1 = poly_split.geoms[0]
+    poly_2 = poly_split.geoms[1]
+
+    # find polygon and line pairs
+    pair_line_1 = line_1
+    pair_line_2 = line_2
+    if not poly_1.intersects(line_1):
+        pair_line_1 = line_2
+        pair_line_2 = line_1
+    elif poly_1.intersection(line_1).length < line_1.length / 3:
+        pair_line_1 = line_2
+        pair_line_2 = line_1
+
+    center_line_1 = find_centerline(poly_1, pair_line_1)
+    center_line_2 = find_centerline(poly_2, pair_line_2)
+
+    if center_line_1.is_empty or center_line_2.is_empty:
+        print('Regenerate line: Centerline is empty')
+        return None
+
+    print('Centerline is regenerated.')
+    return linemerge(MultiLineString([center_line_1, center_line_2]))
+
+
+def snap_end_to_end(in_line, line_reference):
+    if type(in_line) is MultiLineString:
+        in_line = linemerge(in_line)
+        if type(in_line) is MultiLineString:
+            print(f'MultiLineString found {in_line.centroid}, pass.')
+            return None
+
+    pts = list(in_line.coords)
+    if len(pts) < 2:
+        print('snap_end_to_end: input line invalid.')
+        return in_line
+
+    line_start = Point(pts[0])
+    line_end = Point(pts[-1])
+    ref_ends = MultiPoint([line_reference.coords[0], line_reference.coords[-1]])
+
+    _, snap_start = nearest_points(line_start, ref_ends)
+    _, snap_end = nearest_points(line_end, ref_ends)
+
+    if in_line.has_z:
+        snap_start = shapely.force_3d(snap_start)
+        snap_end = shapely.force_3d(snap_end)
+    else:
+        snap_start = shapely.force_2d(snap_start)
+        snap_end = shapely.force_2d(snap_end)
+
+    pts[0] = snap_start.coords[0]
+    pts[-1] = snap_end.coords[0]
+
+    return LineString(pts)
+
+
+def corridor_raster(raster_clip, source, destination, cell_size, corridor_threshold):
+    """
+    Calculate corridor raster
+    Parameters
+    ----------
+    raster_clip : raster
+    source : list of point tuple(s)
+        start point in row/col
+    destination : list of point tuple(s)
+        end point in row/col
+    cell_size: tuple
+        (cell_size_x, cell_size_y)
+    corridor_threshold : double
+
+    Returns
+    -------
+    corridor raster
+    """
+
+    try:
+        # change all nan to BT_NODATA_COST for workaround
+        raster_clip = np.squeeze(raster_clip, axis=0)
+        remove_nan_from_array(raster_clip)
+
+        # generate the cost raster to source point
+        mcp_source = MCP_Geometric(raster_clip, sampling=cell_size)
+        source_cost_acc = mcp_source.find_costs(source)[0]
+        del mcp_source
+
+        # # # generate the cost raster to destination point
+        mcp_dest = MCP_Geometric(raster_clip, sampling=cell_size)
+        dest_cost_acc = mcp_dest.find_costs(destination)[0]
+
+        # Generate corridor
+        corridor = source_cost_acc + dest_cost_acc
+        corridor = np.ma.masked_invalid(corridor)
+
+        # Calculate minimum value of corridor raster
+        if not np.ma.min(corridor) is None:
+            corr_min = float(np.ma.min(corridor))
+        else:
+            corr_min = 0.5
+
+        # normalize corridor raster by deducting corr_min
+        corridor_norm = corridor - corr_min
+        corridor_thresh_cl = np.ma.where(corridor_norm >= corridor_threshold, 1.0, 0.0)
+
+    except Exception as e:
+        print(e)
+        print('corridor_raster: Exception occurred.')
+        return None
+
+    # export intermediate raster for debugging
+    # if BT_DEBUGGING:
+    #     suffix = str(uuid.uuid4())[:8]
+    #     path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
+    #     if path_temp.exists():
+    #         path_cost = path_temp.joinpath(suffix + '_cost.tif')
+    #         path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
+    #         path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
+    #         path_corridor_cl = path_temp.joinpath(suffix + '_corridor_cl_poly.tif')
+    #         out_cost = np.ma.masked_equal(raster_clip, np.inf)
+    #         save_raster_to_file(out_cost, out_meta, path_cost)
+    #         save_raster_to_file(corridor, out_meta, path_corridor)
+    #         save_raster_to_file(corridor_norm, out_meta, path_corridor_norm)
+    #         save_raster_to_file(corridor_thresh_cl, out_meta, path_corridor_cl)
+    #     else:
+    #         print('Debugging: raster folder not exists.')
+
+    return corridor_thresh_cl
+
+
