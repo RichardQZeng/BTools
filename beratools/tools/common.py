@@ -377,19 +377,21 @@ def compare_crs(crs_org, crs_dst):
             crs_dst_norm = CRS(crs_dst.ExportToWkt())
             if crs_org_norm.is_compound:
                 crs_org_proj=crs_org_norm.sub_crs_list[0].coordinate_operation.name
+            elif crs_org_norm.name == 'unnamed':
+                return False
             else:
                 crs_org_proj=crs_org_norm.coordinate_operation.name
 
             if crs_dst_norm.is_compound:
                 crs_dst_proj = crs_dst_norm.sub_crs_list[0].coordinate_operation.name
+            elif crs_org_norm.name == 'unnamed':
+                return False
             else:
                 crs_dst_proj = crs_dst_norm.coordinate_operation.name
 
-            if crs_org_proj== crs_dst_proj :
+            if crs_org_proj == crs_dst_proj:
                 print('Checked: Input files Spatial Reference are the same, continue.')
                 return True
-
-        print('Different GCS, please check.')
 
     return False
 
@@ -572,8 +574,12 @@ def find_centerline(poly, input_line):
     if CL_SIMPLIFY_POLYGON:
         poly = poly.simplify(CL_SIMPLIFY_LENGTH)
 
-    centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
-                                simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
+    try:
+        centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
+                                    simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
+    except Exception as e:
+        print(e)
+        return None
 
     if type(centerline) is MultiLineString:
         if len(centerline.geoms) > 1:
