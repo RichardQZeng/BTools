@@ -75,7 +75,7 @@ def generate_sample_points(line, n_samples=10):
     return [Point(item) for item in list(line.coords)]
 
 
-def generate_perpendicular_line(point, line, offset=20):
+def generate_perpendicular_line(point, line, offset=FP_PERP_LINE_OFFSET):
     """
     Generate a perpendicular line to the input line at the given point.
 
@@ -120,14 +120,22 @@ def process_single_line(line_arg):
     # filter zeros in width array
     arr_filter = [False if math.isclose(i, 0.0) else True for i in widths]
     widths = widths[arr_filter]
-    q3_width = np.percentile(widths, 40)
-    q4_width = np.percentile(widths, 90)
+
+    q3_width = FP_FIXED_WIDTH_DEFAULT
+    q4_width = FP_FIXED_WIDTH_DEFAULT
+    try:
+        q3_width = np.percentile(widths, 40)
+        q4_width = np.percentile(widths, 90)
+    except Exception as e:
+        print(e)
 
     # Store the 75th percentile width as a new attribute
     row['avg_width'] = q3_width
     row['max_width'] = q4_width
-    row['sampling_widths'] = [widths]
-    row['sampling_widths'] = row['sampling_widths'].apply(lambda x: str(x))
+    hist, bins = np.histogram(widths)
+    bins = pd.Series(bins).rolling(2).mean()[1:].to_numpy()  # mid-points of bins
+    row['width_hist'] = str(hist)
+    row['width_bins'] = str(bins)
 
     row['geometry'] = line
     try:
@@ -282,7 +290,7 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     line_attr = line_attr.drop(columns='perp_lines')
     line_attr.to_file(gdf_simplified_path)
 
-    callback('tool_template tool done.')
+    callback('Fixed width footprint tool finished.')
 
 
 # protect the entry point
