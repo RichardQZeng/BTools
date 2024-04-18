@@ -84,6 +84,8 @@ CL_POLYGON_BUFFER = 1e-6
 
 FP_CORRIDOR_THRESHOLD = 3.0
 FP_SEGMENTIZE_LENGTH = 2.0
+FP_FIXED_WIDTH_DEFAULT = 5.0
+FP_PERP_LINE_OFFSET = 30.0
 
 # restore .shx for shapefile for using GDAL or pyogrio
 gdal.SetConfigOption('SHAPE_RESTORE_SHX', 'YES')
@@ -744,8 +746,8 @@ def generate_perpendicular_line_precise(points, offset=20):
 
     Parameters
     ----------
-    points : shapely.geometry.Point
-        The point on the line where the perpendicular should be generated.
+    points : shapely.geometry.Point list
+        The points on the line where the perpendicular should be generated.
     offset : float, optional
         The length of the perpendicular line.
 
@@ -755,7 +757,6 @@ def generate_perpendicular_line_precise(points, offset=20):
         The generated perpendicular line.
     """
     # Compute the angle of the line
-
     center = points[1]
     perp_line = None
 
@@ -785,11 +786,15 @@ def generate_perpendicular_line_precise(points, offset=20):
         angle_diff = (angle_2 - angle_1) / 2.0
         head_line = LineString([center, head])
         head_new = Point(center.x + offset / 2.0 * math.cos(angle_1), center.y + offset / 2.0 * math.sin(angle_1))
-        perp_seg_1 = LineString([center, head_new])
-        perp_seg_1 = rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
-        perp_seg_2 = rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
-
-        perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
+        if head.has_z:
+            head_new = shapely.force_3d(head_new)
+        try:
+            perp_seg_1 = LineString([center, head_new])
+            perp_seg_1 = rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
+            perp_seg_2 = rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
+            perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
+        except Exception as e:
+            print(e)
 
     return perp_line
 
