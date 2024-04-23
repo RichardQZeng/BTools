@@ -156,7 +156,13 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     x2, y2 = list(seed_line.coords)[-1][:2]
     row1, col1 = transformer.rowcol(x1, y1)
     row2, col2 = transformer.rowcol(x2, y2)
-    path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
+    try:
+        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
+    except Exception as e:
+        print(e)
+        print(f'Regenerate least cost path at line {seed_line.centroid}')
+        path_new = find_least_cost_path(ras_nodata, cost_clip, out_transform, line_id, seed_line)
+
     lc_path_new = []
 
     if path_new[0]:
