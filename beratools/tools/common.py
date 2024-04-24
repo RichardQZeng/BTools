@@ -45,13 +45,14 @@ from skimage.graph import MCP_Geometric, route_through_array
 from label_centerlines import get_centerline
 from multiprocessing.pool import Pool
 
-from enum import Enum, unique
+from enum import IntEnum, unique
 @unique
-class LineStatus(Enum):
+class CenterlineStatus(IntEnum):
     SUCCESS = 1
-    REGENERATED_SUCCESS = 2
-    REGENERATED_FAILED = 3
-    FAILED = 4
+    FAILED = 2
+    REGENERATE_SUCCESS = 3
+    REGENERATE_FAILED = 4
+
 
 # constants
 MODE_MULTIPROCESSING = 1
@@ -60,7 +61,7 @@ MODE_DASK = 3
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
 @unique
-class ParallelMode(Enum):
+class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
     SEQUENTIAL = 2
     DASK = 3
@@ -573,12 +574,13 @@ def find_centerline(poly, input_line):
     -------
 
     """
+    default_return = input_line, CenterlineStatus.FAILED
     poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
 
     poly = poly.buffer(CL_POLYGON_BUFFER)  # buffer polygon to reduce MultiPolygons
     if type(poly) is MultiPolygon:
         print('MultiPolygon encountered, skip.')
-        return None
+        return default_return
 
     exterior_pts = list(poly.exterior.coords)
 
@@ -592,16 +594,16 @@ def find_centerline(poly, input_line):
                                     simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
     except Exception as e:
         print('Exception in get_centerline.')
-        return None
+        return default_return
 
     if type(centerline) is MultiLineString:
         if len(centerline.geoms) > 1:
             print(" Multiple centerline segments detected, no further processing.")
-            return centerline
+            return centerline, CenterlineStatus.SUCCESS  # TODO: inspect
         elif len(centerline.geoms) == 1:
             centerline = centerline.geoms[0]
         else:
-            return None
+            return default_return
 
     cl_coords = list(centerline.coords)
 
@@ -615,22 +617,25 @@ def find_centerline(poly, input_line):
 
     if not centerline:
         print('No centerline detected, use input line instead.')
-        return input_line
-
-    if centerline.is_empty:
-        print('Empty centerline detected, use input line instead.')
-        return input_line
+        return default_return
+    try:
+        if centerline.is_empty:
+            print('Empty centerline detected, use input line instead.')
+            return default_return
+    except Exception as e:
+        print(e)
 
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(centerline, input_line):
         try:
             print('Regenerating line {} ... '.format(input_line.centroid))
             centerline = regenerate_centerline(poly, input_line)
+            return centerline, CenterlineStatus.REGENERATE_SUCCESS
         except Exception as e:
             print('find_centerline:  Exception occurred. \n {}'.format(e))
-            return None
+            return input_line, CenterlineStatus.REGENERATE_FAILED
 
-    return centerline
+    return centerline, CenterlineStatus.SUCCESS
 
 
 def find_route(array, start, end, fully_connected,geometric):
@@ -878,9 +883,21 @@ def regenerate_centerline(poly, input_line):
     center_line_1 = find_centerline(poly_1, pair_line_1)
     center_line_2 = find_centerline(poly_2, pair_line_2)
 
-    if center_line_1.is_empty or center_line_2.is_empty:
-        print('Regenerate line: Centerline is empty')
+    status_1 = center_line_1[1]
+    center_line_1 = center_line_1[0]
+    status_2 = center_line_2[1]
+    center_line_2 = center_line_2[0]
+
+    if not center_line_1 or not center_line_2:
+        print('Regenerate line: centerline is None')
         return None
+
+    try:
+        if center_line_1.is_empty or center_line_2.is_empty:
+            print('Regenerate line: centerline is empty')
+            return None
+    except Exception as e:
+        print(e)
 
     print('Centerline is regenerated.')
     return linemerge(MultiLineString([center_line_1, center_line_2]))

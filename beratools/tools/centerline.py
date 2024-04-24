@@ -89,8 +89,10 @@ def centerline(callback, in_line, in_cost, line_radius,
     corridor_poly_list = []
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        (feat_geoms, feat_props,
-         center_line_geoms, corridor_poly_list) = execute_multiprocessing(all_lines, processes, verbose)
+        (feat_geoms,
+         feat_props,
+         center_line_geoms,
+         corridor_poly_list) = execute_multiprocessing(all_lines, processes, verbose)
     elif PARALLEL_MODE == MODE_SEQUENTIAL:
         for line in all_lines:
             geom, prop, center_line, corridor_poly_gpd = process_single_line(line)
@@ -111,6 +113,7 @@ def centerline(callback, in_line, in_cost, line_radius,
 
     out_least_cost_path = Path(out_line)
     out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem+'_least_cost_path')
+    schema['properties']['status'] = 'int'
     if not BT_DEBUGGING:
         save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
 
@@ -176,7 +179,8 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     # find contiguous corridor polygon and extract centerline
     df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta['crs'])
     corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
-    center_line = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
+    center_line, status = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
+    prop['status'] = int(status)
 
     return lc_path, prop, center_line, corridor_poly_gpd
 
