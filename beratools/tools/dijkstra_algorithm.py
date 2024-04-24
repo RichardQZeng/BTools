@@ -347,7 +347,7 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
     return [(path, costs, end_tuple)]
 
 
-def find_least_cost_path(ras_nodata, out_image, out_transform, line_id, line,
+def find_least_cost_path(ras_nodata, out_image, transformer, line_id, line,
                          find_nearest=True, output_linear_reference=False):
     pt_start = line.coords[0]
     pt_end = line.coords[-1]
@@ -366,10 +366,12 @@ def find_least_cost_path(ras_nodata, out_image, out_transform, line_id, line,
         raise Exception('ERROR: Raster has negative values.')
 
     # get row col for points
-    ras_transform = rasterio.transform.AffineTransformer(out_transform)
+    # ras_transform = rasterio.transform.AffineTransformer(out_transform)
 
-    if (type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or
-        type(pt_end[0]) is tuple or type(pt_end[1]) is tuple):
+    if (type(pt_start[0]) is tuple or
+            type(pt_start[1]) is tuple or
+            type(pt_end[0]) is tuple or
+            type(pt_end[1]) is tuple):
         print("Point initialization error. Input is tuple.")
         return None, None
 
@@ -377,8 +379,8 @@ def find_least_cost_path(ras_nodata, out_image, out_transform, line_id, line,
     end_tuples = []
     start_tuple = []
     try:
-        start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
-        end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
+        start_tuples = [(transformer.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
+        end_tuples = [(transformer.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
         start_tuple = start_tuples[0]
         end_tuple = end_tuples[0]
 
@@ -411,7 +413,7 @@ def find_least_cost_path(ras_nodata, out_image, out_transform, line_id, line,
 
     path_points = None
     for path, costs, end_tuple in result:
-        path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
+        path_points = MinCostPathHelper.create_points_from_path(transformer, path,
                                                                 start_tuple[1], end_tuple[1])
         if output_linear_reference:
             # TODO: code not reached

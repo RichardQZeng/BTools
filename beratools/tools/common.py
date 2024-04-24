@@ -40,10 +40,18 @@ from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
-from skimage.graph import MCP_Geometric
+from skimage.graph import MCP_Geometric, route_through_array
 
 from label_centerlines import get_centerline
 from multiprocessing.pool import Pool
+
+from enum import Enum, unique
+@unique
+class LineStatus(Enum):
+    SUCCESS = 1
+    REGENERATED_SUCCESS = 2
+    REGENERATED_FAILED = 3
+    FAILED = 4
 
 # constants
 MODE_MULTIPROCESSING = 1
@@ -51,6 +59,11 @@ MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
+@unique
+class ParallelMode(Enum):
+    MULTIPROCESSING = 1
+    SEQUENTIAL = 2
+    DASK = 3
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -578,7 +591,7 @@ def find_centerline(poly, input_line):
         centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
                                     simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
     except Exception as e:
-        print(e)
+        print('Exception in get_centerline.')
         return None
 
     if type(centerline) is MultiLineString:
@@ -977,3 +990,34 @@ def corridor_raster(raster_clip, source, destination, cell_size, corridor_thresh
     return corridor_thresh_cl
 
 
+def find_least_cost_path_skimage(cost_clip, start_pt, end_pt, transformer):
+    lc_path_new = []
+
+    try:
+        path_new = route_through_array(cost_clip[0], start_pt, end_pt)
+    except Exception as e:
+        print(e)
+        return None
+
+    if path_new[0]:
+        for row, col in path_new[0]:
+            x, y = transformer.xy(row, col)
+            lc_path_new.append((x, y))
+
+    if len(lc_path_new) < 2:
+        print('No least cost path detected, pass.')
+        return None
+    else:
+        lc_path_new = LineString(lc_path_new)    # if path_new[0]:
+
+    for row, col in path_new[0]:
+        x, y = transformer.xy(row, col)
+        lc_path_new.append((x, y))
+
+    if len(lc_path_new) < 2:
+        print('No least cost path detected, pass.')
+        return None
+    else:
+        lc_path_new = LineString(lc_path_new)
+
+    return lc_path_new
