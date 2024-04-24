@@ -40,10 +40,19 @@ from osgeo import ogr, gdal, osr
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
-from skimage.graph import MCP_Geometric
+from skimage.graph import MCP_Geometric, route_through_array
 
 from label_centerlines import get_centerline
 from multiprocessing.pool import Pool
+
+from enum import IntEnum, unique
+@unique
+class CenterlineStatus(IntEnum):
+    SUCCESS = 1
+    FAILED = 2
+    REGENERATE_SUCCESS = 3
+    REGENERATE_FAILED = 4
+
 
 # constants
 MODE_MULTIPROCESSING = 1
@@ -51,6 +60,11 @@ MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
+@unique
+class ParallelMode(IntEnum):
+    MULTIPROCESSING = 1
+    SEQUENTIAL = 2
+    DASK = 3
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -84,6 +98,8 @@ CL_POLYGON_BUFFER = 1e-6
 
 FP_CORRIDOR_THRESHOLD = 3.0
 FP_SEGMENTIZE_LENGTH = 2.0
+FP_FIXED_WIDTH_DEFAULT = 5.0
+FP_PERP_LINE_OFFSET = 30.0
 
 # restore .shx for shapefile for using GDAL or pyogrio
 gdal.SetConfigOption('SHAPE_RESTORE_SHX', 'YES')
@@ -375,19 +391,21 @@ def compare_crs(crs_org, crs_dst):
             crs_dst_norm = CRS(crs_dst.ExportToWkt())
             if crs_org_norm.is_compound:
                 crs_org_proj=crs_org_norm.sub_crs_list[0].coordinate_operation.name
+            elif crs_org_norm.name == 'unnamed':
+                return False
             else:
                 crs_org_proj=crs_org_norm.coordinate_operation.name
 
             if crs_dst_norm.is_compound:
                 crs_dst_proj = crs_dst_norm.sub_crs_list[0].coordinate_operation.name
+            elif crs_org_norm.name == 'unnamed':
+                return False
             else:
                 crs_dst_proj = crs_dst_norm.coordinate_operation.name
 
-            if crs_org_proj== crs_dst_proj :
+            if crs_org_proj == crs_dst_proj:
                 print('Checked: Input files Spatial Reference are the same, continue.')
                 return True
-
-        print('Different GCS, please check.')
 
     return False
 
@@ -556,12 +574,13 @@ def find_centerline(poly, input_line):
     -------
 
     """
+    default_return = input_line, CenterlineStatus.FAILED
     poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
 
     poly = poly.buffer(CL_POLYGON_BUFFER)  # buffer polygon to reduce MultiPolygons
     if type(poly) is MultiPolygon:
         print('MultiPolygon encountered, skip.')
-        return None
+        return default_return
 
     exterior_pts = list(poly.exterior.coords)
 
@@ -570,17 +589,21 @@ def find_centerline(poly, input_line):
     if CL_SIMPLIFY_POLYGON:
         poly = poly.simplify(CL_SIMPLIFY_LENGTH)
 
-    centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
-                                simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
+    try:
+        centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
+                                    simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
+    except Exception as e:
+        print('Exception in get_centerline.')
+        return default_return
 
     if type(centerline) is MultiLineString:
         if len(centerline.geoms) > 1:
             print(" Multiple centerline segments detected, no further processing.")
-            return centerline
+            return centerline, CenterlineStatus.SUCCESS  # TODO: inspect
         elif len(centerline.geoms) == 1:
             centerline = centerline.geoms[0]
         else:
-            return None
+            return default_return
 
     cl_coords = list(centerline.coords)
 
@@ -594,22 +617,25 @@ def find_centerline(poly, input_line):
 
     if not centerline:
         print('No centerline detected, use input line instead.')
-        return input_line
-
-    if centerline.is_empty:
-        print('Empty centerline detected, use input line instead.')
-        return input_line
+        return default_return
+    try:
+        if centerline.is_empty:
+            print('Empty centerline detected, use input line instead.')
+            return default_return
+    except Exception as e:
+        print(e)
 
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(centerline, input_line):
         try:
             print('Regenerating line {} ... '.format(input_line.centroid))
             centerline = regenerate_centerline(poly, input_line)
+            return centerline, CenterlineStatus.REGENERATE_SUCCESS
         except Exception as e:
             print('find_centerline:  Exception occurred. \n {}'.format(e))
-            return None
+            return input_line, CenterlineStatus.REGENERATE_FAILED
 
-    return centerline
+    return centerline, CenterlineStatus.SUCCESS
 
 
 def find_route(array, start, end, fully_connected,geometric):
@@ -744,8 +770,8 @@ def generate_perpendicular_line_precise(points, offset=20):
 
     Parameters
     ----------
-    points : shapely.geometry.Point
-        The point on the line where the perpendicular should be generated.
+    points : shapely.geometry.Point list
+        The points on the line where the perpendicular should be generated.
     offset : float, optional
         The length of the perpendicular line.
 
@@ -755,7 +781,6 @@ def generate_perpendicular_line_precise(points, offset=20):
         The generated perpendicular line.
     """
     # Compute the angle of the line
-
     center = points[1]
     perp_line = None
 
@@ -785,11 +810,15 @@ def generate_perpendicular_line_precise(points, offset=20):
         angle_diff = (angle_2 - angle_1) / 2.0
         head_line = LineString([center, head])
         head_new = Point(center.x + offset / 2.0 * math.cos(angle_1), center.y + offset / 2.0 * math.sin(angle_1))
-        perp_seg_1 = LineString([center, head_new])
-        perp_seg_1 = rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
-        perp_seg_2 = rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
-
-        perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
+        if head.has_z:
+            head_new = shapely.force_3d(head_new)
+        try:
+            perp_seg_1 = LineString([center, head_new])
+            perp_seg_1 = rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
+            perp_seg_2 = rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
+            perp_line = LineString([list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]])
+        except Exception as e:
+            print(e)
 
     return perp_line
 
@@ -854,9 +883,21 @@ def regenerate_centerline(poly, input_line):
     center_line_1 = find_centerline(poly_1, pair_line_1)
     center_line_2 = find_centerline(poly_2, pair_line_2)
 
-    if center_line_1.is_empty or center_line_2.is_empty:
-        print('Regenerate line: Centerline is empty')
+    status_1 = center_line_1[1]
+    center_line_1 = center_line_1[0]
+    status_2 = center_line_2[1]
+    center_line_2 = center_line_2[0]
+
+    if not center_line_1 or not center_line_2:
+        print('Regenerate line: centerline is None')
         return None
+
+    try:
+        if center_line_1.is_empty or center_line_2.is_empty:
+            print('Regenerate line: centerline is empty')
+            return None
+    except Exception as e:
+        print(e)
 
     print('Centerline is regenerated.')
     return linemerge(MultiLineString([center_line_1, center_line_2]))
@@ -966,3 +1007,34 @@ def corridor_raster(raster_clip, source, destination, cell_size, corridor_thresh
     return corridor_thresh_cl
 
 
+def find_least_cost_path_skimage(cost_clip, start_pt, end_pt, transformer):
+    lc_path_new = []
+
+    try:
+        path_new = route_through_array(cost_clip[0], start_pt, end_pt)
+    except Exception as e:
+        print(e)
+        return None
+
+    if path_new[0]:
+        for row, col in path_new[0]:
+            x, y = transformer.xy(row, col)
+            lc_path_new.append((x, y))
+
+    if len(lc_path_new) < 2:
+        print('No least cost path detected, pass.')
+        return None
+    else:
+        lc_path_new = LineString(lc_path_new)    # if path_new[0]:
+
+    for row, col in path_new[0]:
+        x, y = transformer.xy(row, col)
+        lc_path_new.append((x, y))
+
+    if len(lc_path_new) < 2:
+        print('No least cost path detected, pass.')
+        return None
+    else:
+        lc_path_new = LineString(lc_path_new)
+
+    return lc_path_new
