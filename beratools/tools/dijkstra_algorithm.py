@@ -347,8 +347,9 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
     return [(path, costs, end_tuple)]
 
 
-def find_least_cost_path(ras_nodata, out_image, transformer, line_id, line,
+def find_least_cost_path(out_image, in_meta, line_id, line,
                          find_nearest=True, output_linear_reference=False):
+    ras_nodata = in_meta['nodata']
     pt_start = line.coords[0]
     pt_end = line.coords[-1]
 
@@ -365,8 +366,7 @@ def find_least_cost_path(ras_nodata, out_image, transformer, line_id, line,
     if contains_negative:
         raise Exception('ERROR: Raster has negative values.')
 
-    # get row col for points
-    # ras_transform = rasterio.transform.AffineTransformer(out_transform)
+    transformer = rasterio.transform.AffineTransformer(in_meta['transform'])
 
     if (type(pt_start[0]) is tuple or
             type(pt_start[1]) is tuple or
@@ -424,4 +424,4 @@ def find_least_cost_path(ras_nodata, out_image, transformer, line_id, line,
         total_cost = costs[-1]
 
     feat_attr = (start_tuple[2], end_tuple[2], total_cost)
-    return path_points, feat_attr
+    return LineString(path_points), feat_attr
