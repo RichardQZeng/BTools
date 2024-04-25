@@ -119,18 +119,20 @@ if not BT_DEBUGGING:
 
 
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
+    out_meta = None
     with (rasterio.open(in_raster_file)) as raster_file:
-        if raster_file.meta['nodata']:
-            ras_nodata = raster_file.meta['nodata']
+        out_meta = raster_file.meta
+        if out_meta['nodata']:
+            ras_nodata = out_meta['nodata']
+        else:
+            out_meta['nodata'] = ras_nodata
 
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
         out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer,
                                                       crop=True, nodata=ras_nodata, filled=True)
 
-    out_meta = raster_file.meta.copy()
     height, width = out_image.shape[1:]
-
     out_meta.update({"driver": "GTiff",
                      "height": height,
                      "width": width,
@@ -364,21 +366,21 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
     out_line_file.close()
 
 
-def vector_crs(vector_file):
-    in_line_file = ogr.Open(vector_file)
+def vector_crs(in_vector):
+    vec_crs = None
+    with ogr.Open(in_vector) as vector_file:
+        if vector_file:
+            vec_crs = vector_file.GetLayer().GetSpatialRef()
 
-    # TODO: in_line_file is None
-    vec_crs = in_line_file.GetLayer().GetSpatialRef()
-
-    del in_line_file
     return vec_crs
 
 
-def raster_crs(raster_file):
-    cost_raster_file = gdal.Open(raster_file)
-    ras_crs = cost_raster_file.GetSpatialRef()
+def raster_crs(in_raster):
+    ras_crs = None
+    with gdal.Open(in_raster) as raster_file:
+        if raster_file:
+            ras_crs = raster_file.GetSpatialRef()
 
-    del cost_raster_file
     return ras_crs
 
 
