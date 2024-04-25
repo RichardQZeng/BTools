@@ -142,9 +142,11 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
     out_transform = out_meta['transform']
 
-    ras_nodata = out_meta['nodata']
-    if not ras_nodata:
-        ras_nodata = BT_NODATA
+    ras_nodata = BT_NODATA
+    if out_meta['nodata']:
+        ras_nodata = out_meta['nodata']
+    else:
+        out_meta['nodata'] = ras_nodata
 
     transformer = rasterio.transform.AffineTransformer(out_transform)
 
@@ -160,11 +162,12 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
 
     # search for centerline
     if len(lc_path_coords) < 2:
-        print('No least cost path detected at: {}.'.format(seed_line.centroid))
-        return return_none
+        print('No least cost path detected, use input line.')
+        prop['status'] = CenterlineStatus.FAILED.value
+        return seed_line, prop, seed_line, None
 
     lc_path = LineString(lc_path_coords)
-    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, float(line_radius))
+    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius*0.9)
     out_transform = out_meta['transform']
     cell_size = (out_transform[0], -out_transform[4])
 
@@ -174,13 +177,13 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     # get corridor raster
     source = [transformer.rowcol(x1, y1)]
     destination = [transformer.rowcol(x2, y2)]
-    corridor_thresh_cl = corridor_raster(cost_clip, source, destination, cell_size, FP_CORRIDOR_THRESHOLD)
+    corridor_thresh_cl = corridor_raster(cost_clip, out_meta, source, destination, cell_size, FP_CORRIDOR_THRESHOLD)
 
     # find contiguous corridor polygon and extract centerline
     df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta['crs'])
     corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
     center_line, status = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
-    prop['status'] = int(status)
+    prop['status'] = status.value
 
     return lc_path, prop, center_line, corridor_poly_gpd
 
