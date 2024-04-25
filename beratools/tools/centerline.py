@@ -140,14 +140,8 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     print(" Searching centerline: line {} ".format(line_id), flush=True)
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
+
     out_transform = out_meta['transform']
-
-    ras_nodata = BT_NODATA
-    if out_meta['nodata']:
-        ras_nodata = out_meta['nodata']
-    else:
-        out_meta['nodata'] = ras_nodata
-
     transformer = rasterio.transform.AffineTransformer(out_transform)
 
     # skimage shortest path
@@ -157,8 +151,11 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     # row2, col2 = transformer.rowcol(x2, y2)
     # path_new = find_least_cost_path_skimage(cost_clip, [row1, col1], [row2, col2])
 
-    path_new = find_least_cost_path(ras_nodata, cost_clip, transformer, line_id, seed_line)
-    lc_path_coords = path_new[0]
+    path_new = find_least_cost_path(cost_clip, out_meta, line_id, seed_line)
+    if path_new[0]:
+        lc_path_coords = path_new[0].coords
+    else:
+        lc_path_coords = []
 
     # search for centerline
     if len(lc_path_coords) < 2:
