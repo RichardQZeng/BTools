@@ -34,7 +34,6 @@ import time
 from pathlib import Path
 
 import uuid
-import shapely.geometry as shgeo
 from shapely.geometry import shape, mapping, Point, LineString, \
      MultiLineString, GeometryCollection, Polygon
 import fiona
@@ -52,7 +51,7 @@ class VertexOptimization:
     def __init__(self, callback, in_line, in_cost, line_radius, out_line, processes, verbose):
         self.in_line = in_line
         self.in_cost = in_cost
-        self.line_radius = line_radius
+        self.line_radius = float(line_radius)
         self.out_line = out_line
         self.processes = processes
         self.verbose = verbose
@@ -91,68 +90,19 @@ class VertexOptimization:
 
         return centerlines
 
-    def least_cost_path(self, in_raster, anchors, line_radius):
-        line = shgeo.LineString(anchors)
+    @staticmethod
+    def segments(line_coords):
+        """
+        Split LineString to segments at vertices
+        Parameters
+        ----------
+        self :
+        line_coords :
 
-        line_buffer = shape(line).buffer(float(line_radius))
-        pt_start = anchors[0]
-        pt_end = anchors[-1]
+        Returns
+        -------
 
-        # buffer clip
-        with(rasterio.open(in_raster)) as raster_file:
-            out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True, nodata=BT_NODATA)
-
-        ras_nodata = raster_file.meta['nodata']
-        if not ras_nodata:
-            ras_nodata = BT_NODATA
-
-        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
-
-        if contains_negative:
-            raise Exception('ERROR: Raster has negative values.')
-
-        # get row col for points
-        ras_transform = rasterio.transform.AffineTransformer(out_transform)
-
-        if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or \
-           type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
-            print("Point initialization error. Input is tuple.")
-            return None, None
-
-        start_tuples = []
-        end_tuples = []
-        start_tuple = []
-        try:
-            start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
-            end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
-            start_tuple = start_tuples[0]
-            end_tuple = end_tuples[0]
-        except Exception as e:
-            print(e)
-
-        print(" Searching least cost path for line with id", flush=True)
-        result = dijkstra_np(start_tuple, end_tuple, matrix)
-
-        if result is None:
-            # raise Exception
-            return None, None
-
-        if len(result) == 0:
-            # raise Exception
-            print('No result returned.')
-            return None, None
-
-        path_points = None
-        for path, costs, end_tuples in result:
-            path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
-                                                                    start_tuple[1], end_tuple[1])
-            total_cost = costs[-1]
-
-        feat_attr = (start_tuple[2], end_tuple[2], total_cost)
-        return LineString(path_points), feat_attr
-
-    # Split LineString to segments at vertices
-    def segments(self, line_coords):
+        """
         if len(line_coords) == 2:
             line = shape({'type': 'LineString', 'coordinates': line_coords})
             if not np.isclose(line.length, 0.0):
@@ -203,7 +153,8 @@ class VertexOptimization:
 
         return input_lines
 
-    def update_line_vertex(self, line, index, point):
+    @staticmethod
+    def update_line_vertex(line, index, point):
         if not line:
             return None
 
@@ -218,8 +169,19 @@ class VertexOptimization:
 
         return LineString(coords)
 
-    # only LINESTRING is dealt with for now
-    def intersection_of_lines(self, line_1, line_2):
+    @staticmethod
+    def intersection_of_lines(line_1, line_2):
+        """
+         only LINESTRING is dealt with for now
+        Parameters
+        ----------
+        line_1 :
+        line_2 :
+
+        Returns
+        -------
+
+        """
         # intersection collection, may contain points and lines
         inter = None
         if line_1 and line_2:
@@ -232,11 +194,12 @@ class VertexOptimization:
 
         return inter
 
-    def closest_point_to_line(self, point, line):
+    @staticmethod
+    def closest_point_to_line(point, line):
         if not line:
             return None
 
-        pt = line.interpolate(line.project(shgeo.Point(point)))
+        pt = line.interpolate(line.project(Point(point)))
         return pt
 
     def append_to_group(self, vertex, vertex_grp, UID):
@@ -249,7 +212,7 @@ class VertexOptimization:
         vertex["lines"][0][2]["UID"] = UID
 
         # Calculate anchor point for each vertex
-        point = shgeo.Point(vertex["point"][0], vertex["point"][1])
+        point = Point(vertex["point"][0], vertex["point"][1])
         line = vertex["lines"][0][0]
         index = vertex["lines"][0][1]
         pts = self.points_in_line(line)
@@ -286,13 +249,14 @@ class VertexOptimization:
         if not pt_added:
             vertex_grp.append(vertex)
 
-    def points_in_line(self, line):
+    @staticmethod
+    def points_in_line(line):
         point_list = []
         try:
             for point in list(line.coords):  # loops through every point in a line
                 # loops through every vertex of every segment
                 if point:  # adds all the vertices to segment_list, which creates an array
-                    point_list.append(shgeo.Point(point[0], point[1]))
+                    point_list.append(Point(point[0], point[1]))
         except Exception as e:
             print(e)
 
@@ -320,7 +284,6 @@ class VertexOptimization:
                 pt_end = {"point": [point_list[-1].x, point_list[-1].y], "lines": [[line[0], -1, {"lineNo": line[1]}]]}
                 self.append_to_group(pt_start, vertex_grp, line[2][BT_UID])
                 self.append_to_group(pt_end, vertex_grp, line[2][BT_UID])
-                # print(i)
                 i += 1
         except Exception as e:
             # TODO: test traceback
@@ -473,13 +436,19 @@ class VertexOptimization:
 
         try:
             if len(anchors) == 4:
-                centerline_1, _ = self.least_cost_path(self.in_cost, anchors[0:2], self.line_radius)
-                centerline_2, _ = self.least_cost_path(self.in_cost, anchors[2:4], self.line_radius)
+                seed_line = LineString(anchors[0:2])
+                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                centerline_1, _ = find_least_cost_path(cost_clip, out_meta, 0, seed_line)
+                seed_line = LineString(anchors[2:4])
+                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                centerline_2, _ = find_least_cost_path(cost_clip, out_meta, 0, seed_line)
 
                 if centerline_1 and centerline_2:
                     intersection = self.intersection_of_lines(centerline_1, centerline_2)
             elif len(anchors) == 2:
-                centerline_1, _ = self.least_cost_path(self.in_cost, anchors, self.line_radius)
+                seed_line = LineString(anchors)
+                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                centerline_1, _ = find_least_cost_path(cost_clip, out_meta, 0, seed_line)
 
                 if centerline_1:
                     intersection = self.closest_point_to_line(vertex["point"], centerline_1)
@@ -487,13 +456,10 @@ class VertexOptimization:
             print(e)
 
         # Update vertices according to intersection, new center lines are returned
-        try:
-            temp = [anchors, [centerline_1, centerline_2], intersection, vertex]
-            print("Processing vertex {} done".format(vertex["point"]))
-        except Exception as e:
-            print(e)
+        lst = [anchors, [centerline_1, centerline_2], intersection, vertex]
+        print("Processing vertex {} done".format(vertex["point"]))
 
-        return temp
+        return lst
 
 
 def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose):
