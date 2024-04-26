@@ -136,24 +136,18 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
 
-    return_none = [None]*4
     print(" Searching centerline: line {} ".format(line_id), flush=True)
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
 
-    out_transform = out_meta['transform']
-    transformer = rasterio.transform.AffineTransformer(out_transform)
+    if CL_USE_SKIMAGE_GRAPH:
+        # skimage shortest path
+        lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+    else:
+        lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)[0]
 
-    # skimage shortest path
-    # x1, y1 = list(seed_line.coords)[0][:2]
-    # x2, y2 = list(seed_line.coords)[-1][:2]
-    # row1, col1 = transformer.rowcol(x1, y1)
-    # row2, col2 = transformer.rowcol(x2, y2)
-    # path_new = find_least_cost_path_skimage(cost_clip, [row1, col1], [row2, col2])
-
-    path_new = find_least_cost_path(cost_clip, out_meta, line_id, seed_line)
-    if path_new[0]:
-        lc_path_coords = path_new[0].coords
+    if lc_path:
+        lc_path_coords = lc_path.coords
     else:
         lc_path_coords = []
 
@@ -163,15 +157,15 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         prop['status'] = CenterlineStatus.FAILED.value
         return seed_line, prop, seed_line, None
 
+    # get corridor raster
     lc_path = LineString(lc_path_coords)
     cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius*0.9)
     out_transform = out_meta['transform']
+    transformer = rasterio.transform.AffineTransformer(out_transform)
     cell_size = (out_transform[0], -out_transform[4])
 
     x1, y1 = lc_path_coords[0]
     x2, y2 = lc_path_coords[-1]
-
-    # get corridor raster
     source = [transformer.rowcol(x1, y1)]
     destination = [transformer.rowcol(x2, y2)]
     corridor_thresh_cl = corridor_raster(cost_clip, out_meta, source, destination, cell_size, FP_CORRIDOR_THRESHOLD)

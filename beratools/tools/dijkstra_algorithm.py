@@ -347,8 +347,8 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
     return [(path, costs, end_tuple)]
 
 
-def find_least_cost_path(out_image, in_meta, line_id, line,
-                         find_nearest=True, output_linear_reference=False):
+def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_linear_reference=False):
+    default_return = [None, None]
     ras_nodata = in_meta['nodata']
     pt_start = line.coords[0]
     pt_end = line.coords[-1]
@@ -373,7 +373,7 @@ def find_least_cost_path(out_image, in_meta, line_id, line,
             type(pt_end[0]) is tuple or
             type(pt_end[1]) is tuple):
         print("Point initialization error. Input is tuple.")
-        return None, None
+        return default_return
 
     start_tuples = []
     end_tuples = []
@@ -393,9 +393,6 @@ def find_least_cost_path(out_image, in_meta, line_id, line,
     except Exception as e:
         print(e)
 
-    if BT_DEBUGGING:
-        print(" Searching least cost path: line {} ".format(line_id), flush=True)
-
     if USE_NUMPY_FOR_DIJKSTRA:
         result = dijkstra_np(start_tuple, end_tuple, matrix)
     else:
@@ -404,12 +401,12 @@ def find_least_cost_path(out_image, in_meta, line_id, line,
 
     if result is None:
         # raise Exception
-        return None, None
+        return default_return
 
     if len(result) == 0:
         # raise Exception
         print('No result returned.')
-        return None, None
+        return default_return
 
     path_points = None
     for path, costs, end_tuple in result:
@@ -424,4 +421,8 @@ def find_least_cost_path(out_image, in_meta, line_id, line,
         total_cost = costs[-1]
 
     feat_attr = (start_tuple[2], end_tuple[2], total_cost)
-    return LineString(path_points), feat_attr
+    lc_path = None
+    if len(path_points) >= 2:
+        lc_path = LineString(path_points)
+
+    return lc_path, feat_attr
