@@ -144,7 +144,7 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
         # skimage shortest path
         lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
     else:
-        lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)[0]
+        lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
 
     if lc_path:
         lc_path_coords = lc_path.coords
@@ -168,7 +168,8 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     x2, y2 = lc_path_coords[-1]
     source = [transformer.rowcol(x1, y1)]
     destination = [transformer.rowcol(x2, y2)]
-    corridor_thresh_cl = corridor_raster(cost_clip, out_meta, source, destination, cell_size, FP_CORRIDOR_THRESHOLD)
+    corridor_thresh_cl = corridor_raster(cost_clip, out_meta, source, destination,
+                                         cell_size, FP_CORRIDOR_THRESHOLD)
 
     # find contiguous corridor polygon and extract centerline
     df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta['crs'])
@@ -191,9 +192,6 @@ def execute_multiprocessing(line_args, processes, verbose):
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):
-                if BT_DEBUGGING:
-                    print('Got result: {}'.format(result), flush=True)
-
                 if not result:
                     print('No line detected.')
                     continue
