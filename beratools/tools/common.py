@@ -58,6 +58,7 @@ class CenterlineStatus(IntEnum):
 MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_DASK = 3
+MODE_RAY = 4
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
 @unique
@@ -211,7 +212,8 @@ def generate_raster_footprint(in_raster, latlon=True):
     # gdal_translate -outsize 1024 0 vendor_image.tif myimage.tif
     options = None
     with tempfile.TemporaryDirectory() as tmp_folder:
-        print('Temporary folder: {}'.format(tmp_folder))
+        if BT_DEBUGGING:
+            print('Temporary folder: {}'.format(tmp_folder))
 
         if max(width, height) <= 1024:
             inter_img = in_raster

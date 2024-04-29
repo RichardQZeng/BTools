@@ -425,4 +425,4 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
     if len(path_points) >= 2:
         lc_path = LineString(path_points)
 
-    return lc_path, feat_attr
+    return lc_path
