@@ -99,7 +99,8 @@ class VertexGrouping:
             line_segs = segments(list(line[0].coords))
             if line_segs:
                 for seg in line_segs:
-                    input_lines_temp.append([seg, line_no, line[1], None])
+                    input_lines_temp.append({'line': seg, 'line_no': line_no,
+                                             'prop': line[1], 'visited': False})
                     line_no += 1
 
         self.segment_all = input_lines_temp
@@ -115,19 +116,20 @@ class VertexGrouping:
         i = 0
         try:
             for line in self.segment_all:
-                point_list = points_in_line(line[0])
+                point_list = points_in_line(line['line'])
 
                 if len(point_list) == 0:
-                    print("Line {} is empty".format(line[1]))
+                    print("Line {} is empty".format(line['line_no']))
                     continue
 
                 # Add line to groups based on proximity of two end points to group
-                pt_start = {"point": [point_list[0].x, point_list[0].y], "lines": [[line[0], 0, {"lineNo": line[1]}]]}
-                pt_end = {"point": [point_list[-1].x, point_list[-1].y], "lines": [[line[0], -1, {"lineNo": line[1]}]]}
-                self.append_to_group(pt_start, line[2][BT_UID])
-                self.append_to_group(pt_end, line[2][BT_UID])
+                pt_start = {"point": [point_list[0].x, point_list[0].y],
+                            "lines": [[line['line'], 0, {"line_no": line['line_no']}]]}
+                pt_end = {"point": [point_list[-1].x, point_list[-1].y],
+                          "lines": [[line['line'], -1, {"line_no": line['line_no']}]]}
+                self.append_to_group(pt_start, line['prop'][BT_UID])
+                self.append_to_group(pt_end, line['prop'][BT_UID])
                 i += 1
-                print(f'Group {i}/{len(self.segment_all)}')
         except Exception as e:
             # TODO: test traceback
             print(e)
@@ -169,6 +171,11 @@ class VertexGrouping:
         vertex["lines"][0].insert(-1, [X, Y])  # add anchor point to list (the third element)
 
         return vertex
+
+    @staticmethod
+    def add_line_to_group(vertex, group):
+        group["lines"].append(vertex["lines"][0])
+        return group
 
     @staticmethod
     def pt_of_vertex(vertex):
@@ -579,8 +586,8 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     # Dump all polylines into point array for vertex updates
     feature_all = {}
     for i in vg.segment_all:
-        feature = [i[0], i[2]]
-        feature_all[i[1]] = feature
+        feature = [i['line'], i['prop']]
+        feature_all[i['line_no']] = feature
 
     for sublist in centerlines:
         if not sublist:
@@ -595,8 +602,8 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
             for line in sublist[3]["lines"]:
                 index = line[1]
-                lineNo = line[3]["lineNo"]
-                pt_array = feature_all[lineNo][0]
+                line_no = line[3]["line_no"]
+                pt_array = feature_all[line_no][0]
 
                 if not pt_array or not sublist[2]:
                     continue
@@ -610,7 +617,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
                     except Exception as e:
                         print(e)
 
-                feature_all[lineNo][0] = updated_line
+                feature_all[line_no][0] = updated_line
 
     line_path = Path(out_line)
     file_name = line_path.stem
