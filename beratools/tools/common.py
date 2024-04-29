@@ -21,6 +21,10 @@ import uuid
 import argparse
 import numpy as np
 
+from dask.distributed import Client, progress, as_completed
+import multiprocessing
+import ray
+
 import rasterio
 import rasterio.mask
 from rasterio import features
@@ -66,6 +70,7 @@ class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
     SEQUENTIAL = 2
     DASK = 3
+    RAY = 4
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -86,7 +91,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_USE_SKIMAGE_GRAPH = False
+CL_USE_SKIMAGE_GRAPH = True
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
 CL_SNAP_TOLERANCE = 15.0
@@ -1055,3 +1060,65 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
 
     return lc_path_new
 
+
+def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
+    out_result = []
+    step = 0
+    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        pool = multiprocessing.Pool(processes)
+        print("Multiprocessing started...")
+        print("Using {} CPU cores".format(processes))
+        total_steps = len(in_data)
+        with Pool(processes) as pool:
+            for result in pool.imap_unordered(in_func, in_data):
+                if not result:
+                    print('No results found.')
+                    continue
+                if len(result) == 0:
+                    print('No results found.')
+                    continue
+                else:
+                    out_result.append(result)
+
+            step += 1
+            if verbose:
+                print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
+
+        pool.close()
+        pool.join()
+    elif PARALLEL_MODE == MODE_DASK:
+        dask_client = Client(threads_per_worker=2, n_workers=10)
+        print(dask_client)
+        try:
+            print('start processing')
+            result = dask_client.map(in_func, in_data)
+            seq = as_completed(result)
+
+            for i in seq:
+                out_result.append(i.result())
+        except Exception as e:
+            dask_client.close()
+            print(e)
+
+        dask_client.close()
+    elif PARALLEL_MODE == MODE_RAY:
+        ray.init(log_to_driver=False)
+        process_single_line_ray = ray.remote(in_func)
+        result_ids = [process_single_line_ray.remote(item) for item in in_data]
+
+        while len(result_ids):
+            done_id, result_ids = ray.wait(result_ids)
+            result_item = ray.get(done_id[0])
+            out_result.append(result_item)
+            print('Done {}'.format(step))
+            step += 1
+        ray.shutdown()
+
+    elif PARALLEL_MODE == MODE_SEQUENTIAL:
+        i = 0
+        for line in in_data:
+            result_item = in_func(line)
+            out_result.append(result_item)
+
+    return out_result

@@ -127,18 +127,17 @@ class VertexGrouping:
                 self.append_to_group(pt_start, line[2][BT_UID])
                 self.append_to_group(pt_end, line[2][BT_UID])
                 i += 1
+                print(f'Group {i}/{len(self.segment_all)}')
         except Exception as e:
             # TODO: test traceback
             print(e)
 
-
-    def append_to_group(self, vertex, UID):
+    @staticmethod
+    def add_anchors_to_vertex(vertex, UID):
         """
         Append new vertex to vertex group, by calculating distance to existing vertices
         An anchor point will be added together with line
         """
-        pt_added = False
-
         vertex["lines"][0][2]["UID"] = UID
 
         # Calculate anchor point for each vertex
@@ -169,6 +168,22 @@ class VertexGrouping:
         Y = pt_1.y + (pt_2.y - pt_1.y) * SEGMENT_LENGTH / dist_pt
         vertex["lines"][0].insert(-1, [X, Y])  # add anchor point to list (the third element)
 
+        return vertex
+
+    @staticmethod
+    def pt_of_vertex(vertex):
+        return Point(vertex["point"][0], vertex["point"][1])
+
+    def append_to_group(self, vertex, UID):
+        """
+        Append new vertex to vertex group, by calculating distance to existing vertices
+        An anchor point will be added together with line
+        """
+        pt_added = False
+
+        vertex = self.add_anchors_to_vertex(vertex, UID)
+        point = self.pt_of_vertex(vertex)
+
         for item in self.vertex_grp:
             if abs(point.x - item["point"][0]) < DISTANCE_THRESHOLD and \
                abs(point.y - item["point"][1]) < DISTANCE_THRESHOLD:
@@ -182,7 +197,9 @@ class VertexGrouping:
     def group_vertices(self):
         try:
             self.split_lines()
+            print('split_lines done.')
             self.group_intersections()
+            print('group_intersections done.')
 
             # add cost raster to every item
             for item in self.vertex_grp:
@@ -304,21 +321,26 @@ def process_single_line(vertex):
     centerline_2 = None
     intersection = None
 
+    if CL_USE_SKIMAGE_GRAPH:
+        find_lc_path = find_least_cost_path_skimage
+    else:
+        find_lc_path = find_least_cost_path
+
     try:
         if len(anchors) == 4:
             seed_line = LineString(anchors[0:2])
             cost_clip, out_meta = clip_raster(vo.in_cost, seed_line, vo.line_radius)
-            centerline_1 = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+            centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
             seed_line = LineString(anchors[2:4])
             cost_clip, out_meta = clip_raster(vo.in_cost, seed_line, vo.line_radius)
-            centerline_2 = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+            centerline_2 = find_lc_path(cost_clip, out_meta, seed_line)
 
             if centerline_1 and centerline_2:
                 intersection = intersection_of_lines(centerline_1, centerline_2)
         elif len(anchors) == 2:
             seed_line = LineString(anchors)
             cost_clip, out_meta = clip_raster(vo.in_cost, seed_line, vo.line_radius)
-            centerline_1 = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+            centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
 
             if centerline_1:
                 intersection = closest_point_to_line(vertex["point"], centerline_1)
@@ -333,68 +355,68 @@ def process_single_line(vertex):
     return lst
 
 
-def execute_multiprocessing(vertex_grp, processes, verbose):
-    centerlines = []
-    step = 0
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        pool = multiprocessing.Pool(processes)
-        print("Multiprocessing started...")
-        print("Using {} CPU cores".format(processes))
-        total_steps = len(vertex_grp)
-        with Pool(processes) as pool:
-            for result in pool.imap_unordered(process_single_line, vertex_grp):
-                if not result:
-                    print('No centerlines found.')
-                    continue
-                if len(result) == 0:
-                    print('No centerlines found.')
-                    continue
-                else:
-                    centerlines.append(result)
-
-            step += 1
-            if verbose:
-                print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100), flush=True)
-
-        pool.close()
-        pool.join()
-    elif PARALLEL_MODE == MODE_DASK:
-        dask_client = Client(threads_per_worker=2, n_workers=10)
-        print(dask_client)
-        try:
-            print('start processing')
-            result = dask_client.map(process_single_line, vertex_grp)
-            seq = as_completed(result)
-
-            for i in seq:
-                centerlines.append(i.result())
-                print(i.result())
-        except Exception as e:
-            dask_client.close()
-            print(e)
-
-        dask_client.close()
-    elif PARALLEL_MODE == MODE_RAY:
-        ray.init(log_to_driver=False)
-        process_single_line_ray = ray.remote(process_single_line)
-        result_ids = [process_single_line_ray.remote(vertex) for vertex in vertex_grp]
-
-        while len(result_ids):
-            done_id, result_ids = ray.wait(result_ids)
-            centerline = ray.get(done_id[0])
-            centerlines.append(centerline)
-            print('Done {}'.format(step))
-            step += 1
-        ray.shutdown()
-
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        i = 0
-        for line in vertex_grp:
-            centerline = process_single_line(line)
-            centerlines.append(centerline)
-
-    return centerlines
+# def execute_multiprocessing(vertex_grp, processes, verbose):
+#     centerlines = []
+#     step = 0
+#     if PARALLEL_MODE == MODE_MULTIPROCESSING:
+#         pool = multiprocessing.Pool(processes)
+#         print("Multiprocessing started...")
+#         print("Using {} CPU cores".format(processes))
+#         total_steps = len(vertex_grp)
+#         with Pool(processes) as pool:
+#             for result in pool.imap_unordered(process_single_line, vertex_grp):
+#                 if not result:
+#                     print('No centerlines found.')
+#                     continue
+#                 if len(result) == 0:
+#                     print('No centerlines found.')
+#                     continue
+#                 else:
+#                     centerlines.append(result)
+#
+#             step += 1
+#             if verbose:
+#                 print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
+#                 print(' %{} '.format(step / total_steps * 100), flush=True)
+#
+#         pool.close()
+#         pool.join()
+#     elif PARALLEL_MODE == MODE_DASK:
+#         dask_client = Client(threads_per_worker=2, n_workers=10)
+#         print(dask_client)
+#         try:
+#             print('start processing')
+#             result = dask_client.map(process_single_line, vertex_grp)
+#             seq = as_completed(result)
+#
+#             for i in seq:
+#                 centerlines.append(i.result())
+#                 print(i.result())
+#         except Exception as e:
+#             dask_client.close()
+#             print(e)
+#
+#         dask_client.close()
+#     elif PARALLEL_MODE == MODE_RAY:
+#         ray.init(log_to_driver=False)
+#         process_single_line_ray = ray.remote(process_single_line)
+#         result_ids = [process_single_line_ray.remote(vertex) for vertex in vertex_grp]
+#
+#         while len(result_ids):
+#             done_id, result_ids = ray.wait(result_ids)
+#             centerline = ray.get(done_id[0])
+#             centerlines.append(centerline)
+#             print('Done {}'.format(step))
+#             step += 1
+#         ray.shutdown()
+#
+#     elif PARALLEL_MODE == MODE_SEQUENTIAL:
+#         i = 0
+#         for line in vertex_grp:
+#             centerline = process_single_line(line)
+#             centerlines.append(centerline)
+#
+#     return centerlines
 
 
 class VertexOptimization:
@@ -540,7 +562,8 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     except Exception as e:
         print(e)
 
-    centerlines = execute_multiprocessing(vg.vertex_grp, vg.processes, vg.verbose)
+    centerlines = execute_multiprocessing(process_single_line, vg.vertex_grp,
+                                          vg.processes, 1, vg.verbose)
 
     # No line generated, exit
     if len(centerlines) <= 0:
