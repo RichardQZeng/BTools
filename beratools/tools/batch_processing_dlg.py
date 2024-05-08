@@ -5,15 +5,13 @@
 # https://gist.github.com/RichardQZeng/2cf5b6d3d383df2242fda75ddb533baf
 
 import pandas as pd
-from PyQt5.QtCore import (Qt, QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex, 
-                          QVariant, QSettings, pyqtSignal)
-from PyQt5.QtWidgets import (QTableView, QApplication, QLineEdit, QComboBox,
-                             QFileDialog, QAbstractItemView, QMessageBox, QWidget,
-                             QPushButton, QShortcut, QDialog, QDialogButtonBox)
-from PyQt5.QtGui import QIcon, QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
+from PyQt5.QtCore import (QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex,
+                          QVariant, QSettings)
+from PyQt5.QtWidgets import (QTableView, QAbstractItemView, QShortcut, QDialog, QDialogButtonBox)
+from PyQt5.QtGui import QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
-from bt_widgets import *
+from beratools.gui.bt_widgets import *
 
 class PandasModel(QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):

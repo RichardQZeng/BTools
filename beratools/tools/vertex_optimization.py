@@ -27,19 +27,21 @@
 # ---------------------------------------------------------------------------
 # System imports
 import os
-import multiprocessing
 import numpy as np
 import math
 import time
 from pathlib import Path
 
 import uuid
-import shapely.geometry as shgeo
 from shapely.geometry import shape, mapping, Point, LineString, \
      MultiLineString, GeometryCollection, Polygon
 import fiona
 import rasterio
 import rasterio.mask
+
+from dask.distributed import Client, progress, as_completed
+import ray
+import multiprocessing
 
 from common import *
 from dijkstra_algorithm import *
@@ -48,125 +50,26 @@ DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
 
 
-class VertexOptimization:
+class VertexGrouping:
     def __init__(self, callback, in_line, in_cost, line_radius, out_line, processes, verbose):
         self.in_line = in_line
         self.in_cost = in_cost
-        self.line_radius = line_radius
+        self.line_radius = float(line_radius)
         self.out_line = out_line
         self.processes = processes
         self.verbose = verbose
-        self.segment_all = None
+        self.segment_all = []
         self.in_schema = None  # input shapefile schema
+        self.crs = None
+        self.dask_client = None
+        self.vertex_grp = []
 
         # calculate cost raster footprint
-        footprint_coords = generate_raster_footprint(in_cost, latlon=False)
+        footprint_coords = generate_raster_footprint(self.in_cost, latlon=False)
         self.cost_footprint = Polygon(footprint_coords)
 
-    def execute(self):
-        vertex_grp = []
-        centerlines = []
-        try:
-            self.segment_all = self.split_lines(self.in_line)
-        except IndexError:
-            print(e)
-
-        try:
-            vertex_grp = self.group_intersections(self.segment_all)
-        except IndexError:
-            print(e)
-
-        if PARALLEL_MODE == MODE_MULTIPROCESSING:
-            pool = multiprocessing.Pool(self.processes)
-            print("Multiprocessing started...")
-            print("Using {} CPU cores".format(self.processes))
-            centerlines = pool.map(self.process_single_line, vertex_grp)
-            pool.close()
-            pool.join()
-        elif PARALLEL_MODE == MODE_SEQUENTIAL:
-            i = 0
-            for line in vertex_grp:
-                centerline = self.process_single_line(line)
-                centerlines.append(centerline)
-
-        return centerlines
-
-    def least_cost_path(self, in_raster, anchors, line_radius):
-        line = shgeo.LineString(anchors)
-
-        line_buffer = shape(line).buffer(float(line_radius))
-        pt_start = anchors[0]
-        pt_end = anchors[-1]
-
-        # buffer clip
-        with(rasterio.open(in_raster)) as raster_file:
-            out_image, out_transform = rasterio.mask.mask(raster_file, [line_buffer], crop=True, nodata=BT_NODATA)
-
-        ras_nodata = raster_file.meta['nodata']
-        if not ras_nodata:
-            ras_nodata = BT_NODATA
-
-        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image[0], ras_nodata)
-
-        if contains_negative:
-            raise Exception('ERROR: Raster has negative values.')
-
-        # get row col for points
-        ras_transform = rasterio.transform.AffineTransformer(out_transform)
-
-        if type(pt_start[0]) is tuple or type(pt_start[1]) is tuple or \
-           type(pt_end[0]) is tuple or type(pt_end[1]) is tuple:
-            print("Point initialization error. Input is tuple.")
-            return None, None
-
-        start_tuples = []
-        end_tuples = []
-        start_tuple = []
-        try:
-            start_tuples = [(ras_transform.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
-            end_tuples = [(ras_transform.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
-            start_tuple = start_tuples[0]
-            end_tuple = end_tuples[0]
-        except Exception as e:
-            print(e)
-
-        print(" Searching least cost path for line with id", flush=True)
-        result = dijkstra_np(start_tuple, end_tuple, matrix)
-
-        if result is None:
-            # raise Exception
-            return None, None
-
-        if len(result) == 0:
-            # raise Exception
-            print('No result returned.')
-            return None, None
-
-        path_points = None
-        for path, costs, end_tuples in result:
-            path_points = MinCostPathHelper.create_points_from_path(ras_transform, path,
-                                                                    start_tuple[1], end_tuple[1])
-            total_cost = costs[-1]
-
-        feat_attr = (start_tuple[2], end_tuple[2], total_cost)
-        return LineString(path_points), feat_attr
-
-    # Split LineString to segments at vertices
-    def segments(self, line_coords):
-        if len(line_coords) == 2:
-            line = shape({'type': 'LineString', 'coordinates': line_coords})
-            if not np.isclose(line.length, 0.0):
-                return [line]
-        elif len(line_coords) > 2:
-            seg_list = zip(line_coords[:-1], line_coords[1:])
-            line_list = [shape({'type': 'LineString', 'coordinates': coords}) for coords in seg_list]
-            return [line for line in line_list if not np.isclose(line.length, 0.0)]
-
-        return None
-
-    def split_lines(self, in_line):
-        input_lines = []
-        with fiona.open(in_line) as open_line_file:
+    def split_lines(self):
+        with fiona.open(self.in_line) as open_line_file:
             # get input shapefile fields
             self.in_schema = open_line_file.meta['schema']
             self.in_schema['properties']['BT_UID'] = 'int:10'  # add field
@@ -179,80 +82,71 @@ class VertexOptimization:
                     continue
                 if line['geometry']['type'] != 'MultiLineString':
                     props[BT_UID] = i
-                    input_lines.append([shape(line['geometry']), props])
+                    self.segment_all.append([shape(line['geometry']), props])
                     i += 1
                 else:
                     print('MultiLineString found.')
                     geoms = shape(line['geometry']).geoms
                     for item in geoms:
                         props[BT_UID] = i
-                        input_lines.append([shape(item), props])
+                        self.segment_all.append([shape(item), props])
                         i += 1
 
         # split line segments at vertices
         input_lines_temp = []
         line_no = 0
-        for line in input_lines:
-            line_segs = self.segments(list(line[0].coords))
+        for line in self.segment_all:
+            line_segs = segments(list(line[0].coords))
             if line_segs:
                 for seg in line_segs:
-                    input_lines_temp.append([seg, line_no, line[1], None])
+                    input_lines_temp.append({'line': seg, 'line_no': line_no,
+                                             'prop': line[1], 'visited': False})
                     line_no += 1
 
-        input_lines = input_lines_temp
+        self.segment_all = input_lines_temp
 
-        return input_lines
 
-    def update_line_vertex(self, line, index, point):
-        if not line:
-            return None
+    def group_intersections(self):
+        """
+        Identify intersections of 2,3 or 4 lines and group them.
+        Each group has all the end vertices, start(0) or end (-1) vertex and the line geometry
+        Intersection list format: {["point":intersection_pt, "lines":[[line_geom, pt_index, anchor_geom], ...]], ...}
+        pt_index: 0 is start vertex, -1 is end vertex
+        """
+        i = 0
+        try:
+            for line in self.segment_all:
+                point_list = points_in_line(line['line'])
 
-        if index >= len(line.coords) or index < -1:
-            return line
+                if len(point_list) == 0:
+                    print("Line {} is empty".format(line['line_no']))
+                    continue
 
-        coords = list(line.coords)
-        if len(coords[index]) == 2:
-            coords[index] = (point.x, point.y)
-        elif len(coords[index]) == 3:
-            coords[index] = (point.x, point.y, 0.0)
+                # Add line to groups based on proximity of two end points to group
+                pt_start = {"point": [point_list[0].x, point_list[0].y],
+                            "lines": [[line['line'], 0, {"line_no": line['line_no']}]]}
+                pt_end = {"point": [point_list[-1].x, point_list[-1].y],
+                          "lines": [[line['line'], -1, {"line_no": line['line_no']}]]}
+                self.append_to_group(pt_start, line['prop'][BT_UID])
+                self.append_to_group(pt_end, line['prop'][BT_UID])
+                i += 1
+        except Exception as e:
+            # TODO: test traceback
+            print(e)
 
-        return LineString(coords)
-
-    # only LINESTRING is dealt with for now
-    def intersection_of_lines(self, line_1, line_2):
-        # intersection collection, may contain points and lines
-        inter = None
-        if line_1 and line_2:
-            inter = line_1.intersection(line_2)
-
-        # TODO: intersection may return GEOMETRYCOLLECTION, LINESTRIMG or MultiLineString
-        if inter:
-            if type(inter) is GeometryCollection or type(inter) is LineString or type(inter) is MultiLineString:
-                return inter.centroid
-
-        return inter
-
-    def closest_point_to_line(self, point, line):
-        if not line:
-            return None
-
-        pt = line.interpolate(line.project(shgeo.Point(point)))
-        return pt
-
-    def append_to_group(self, vertex, vertex_grp, UID):
+    @staticmethod
+    def add_anchors_to_vertex(vertex, UID):
         """
         Append new vertex to vertex group, by calculating distance to existing vertices
         An anchor point will be added together with line
         """
-        pt_added = False
-
         vertex["lines"][0][2]["UID"] = UID
 
         # Calculate anchor point for each vertex
-        point = shgeo.Point(vertex["point"][0], vertex["point"][1])
+        point = Point(vertex["point"][0], vertex["point"][1])
         line = vertex["lines"][0][0]
         index = vertex["lines"][0][1]
-        pts = self.points_in_line(line)
+        pts = points_in_line(line)
 
         pt_1 = None
         pt_2 = None
@@ -276,7 +170,28 @@ class VertexOptimization:
         Y = pt_1.y + (pt_2.y - pt_1.y) * SEGMENT_LENGTH / dist_pt
         vertex["lines"][0].insert(-1, [X, Y])  # add anchor point to list (the third element)
 
-        for item in vertex_grp:
+        return vertex
+
+    @staticmethod
+    def add_line_to_group(vertex, group):
+        group["lines"].append(vertex["lines"][0])
+        return group
+
+    @staticmethod
+    def pt_of_vertex(vertex):
+        return Point(vertex["point"][0], vertex["point"][1])
+
+    def append_to_group(self, vertex, UID):
+        """
+        Append new vertex to vertex group, by calculating distance to existing vertices
+        An anchor point will be added together with line
+        """
+        pt_added = False
+
+        vertex = self.add_anchors_to_vertex(vertex, UID)
+        point = self.pt_of_vertex(vertex)
+
+        for item in self.vertex_grp:
             if abs(point.x - item["point"][0]) < DISTANCE_THRESHOLD and \
                abs(point.y - item["point"][1]) < DISTANCE_THRESHOLD:
                 item["lines"].append(vertex["lines"][0])
@@ -284,49 +199,242 @@ class VertexOptimization:
 
         # Add the first vertex or new vertex not found neighbour
         if not pt_added:
-            vertex_grp.append(vertex)
+            self.vertex_grp.append(vertex)
 
-    def points_in_line(self, line):
-        point_list = []
+    def group_vertices(self):
         try:
-            for point in list(line.coords):  # loops through every point in a line
-                # loops through every vertex of every segment
-                if point:  # adds all the vertices to segment_list, which creates an array
-                    point_list.append(shgeo.Point(point[0], point[1]))
+            self.split_lines()
+            print('split_lines done.')
+            self.group_intersections()
+            print('group_intersections done.')
+
+            # add cost raster to every item
+            for item in self.vertex_grp:
+                item.update({'cost': self.in_cost})
+                item.update({'radius': self.line_radius})
+                item.update({'footprint': self.cost_footprint})
         except Exception as e:
             print(e)
 
-        return point_list
 
-    def group_intersections(self, lines):
-        """
-        Identify intersections of 2,3 or 4 lines and group them.
-        Each group has all the end vertices, start(0) or end (-1) vertex and the line geometry
-        Intersection list format: {["point":intersection_pt, "lines":[[line_geom, pt_index, anchor_geom], ...]], ...}
-        pt_index: 0 is start vertex, -1 is end vertex
-        """
-        vertex_grp = []
-        i = 0
-        try:
-            for line in lines:
-                point_list = self.points_in_line(line[0])
+def points_in_line(line):
+    point_list = []
+    try:
+        for point in list(line.coords):  # loops through every point in a line
+            # loops through every vertex of every segment
+            if point:  # adds all the vertices to segment_list, which creates an array
+                point_list.append(Point(point[0], point[1]))
+    except Exception as e:
+        print(e)
 
-                if len(point_list) == 0:
-                    print("Line {} is empty".format(line[1]))
-                    continue
+    return point_list
 
-                # Add line to groups based on proximity of two end points to group
-                pt_start = {"point": [point_list[0].x, point_list[0].y], "lines": [[line[0], 0, {"lineNo": line[1]}]]}
-                pt_end = {"point": [point_list[-1].x, point_list[-1].y], "lines": [[line[0], -1, {"lineNo": line[1]}]]}
-                self.append_to_group(pt_start, vertex_grp, line[2][BT_UID])
-                self.append_to_group(pt_end, vertex_grp, line[2][BT_UID])
-                # print(i)
-                i += 1
-        except Exception as e:
-            # TODO: test traceback
-            print(e)
 
-        return vertex_grp
+def segments(line_coords):
+    """
+    Split LineString to segments at vertices
+    Parameters
+    ----------
+    self :
+    line_coords :
+
+    Returns
+    -------
+
+    """
+    if len(line_coords) == 2:
+        line = shape({'type': 'LineString', 'coordinates': line_coords})
+        if not np.isclose(line.length, 0.0):
+            return [line]
+    elif len(line_coords) > 2:
+        seg_list = zip(line_coords[:-1], line_coords[1:])
+        line_list = [shape({'type': 'LineString', 'coordinates': coords}) for coords in seg_list]
+        return [line for line in line_list if not np.isclose(line.length, 0.0)]
+
+    return None
+
+
+def update_line_vertex(line, index, point):
+    if not line:
+        return None
+
+    if index >= len(line.coords) or index < -1:
+        return line
+
+    coords = list(line.coords)
+    if len(coords[index]) == 2:
+        coords[index] = (point.x, point.y)
+    elif len(coords[index]) == 3:
+        coords[index] = (point.x, point.y, 0.0)
+
+    return LineString(coords)
+
+
+def intersection_of_lines(line_1, line_2):
+    """
+     only LINESTRING is dealt with for now
+    Parameters
+    ----------
+    line_1 :
+    line_2 :
+
+    Returns
+    -------
+
+    """
+    # intersection collection, may contain points and lines
+    inter = None
+    if line_1 and line_2:
+        inter = line_1.intersection(line_2)
+
+    # TODO: intersection may return GeometryCollection, LineString or MultiLineString
+    if inter:
+        if (type(inter) is GeometryCollection or
+                type(inter) is LineString or
+                type(inter) is MultiLineString):
+            return inter.centroid
+
+    return inter
+
+
+def closest_point_to_line(point, line):
+    if not line:
+        return None
+
+    pt = line.interpolate(line.project(Point(point)))
+    return pt
+
+
+def process_single_line(vertex):
+    """
+    It uses memory workspace instead of shapefiles.
+    The refactoring is to accelerate the processing speed.
+        vertex: intersection with all lines crossed at the intersection
+        return: one or two centerlines
+    """
+    vo = VertexOptimization(vertex)
+    anchors = []
+    try:
+        anchors = vo.generate_anchor_pairs()
+    except Exception as e:
+        print(e)
+
+    if not anchors:
+        if BT_DEBUGGING:
+            print("No anchors retrieved")
+        return None
+
+    centerline_1 = None
+    centerline_2 = None
+    intersection = None
+
+    if CL_USE_SKIMAGE_GRAPH:
+        find_lc_path = find_least_cost_path_skimage
+    else:
+        find_lc_path = find_least_cost_path
+
+    try:
+        if len(anchors) == 4:
+            seed_line = LineString(anchors[0:2])
+            cost_clip, out_meta = clip_raster(vo.in_cost, seed_line, vo.line_radius)
+            centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
+            seed_line = LineString(anchors[2:4])
+            cost_clip, out_meta = clip_raster(vo.in_cost, seed_line, vo.line_radius)
+            centerline_2 = find_lc_path(cost_clip, out_meta, seed_line)
+
+            if centerline_1 and centerline_2:
+                intersection = intersection_of_lines(centerline_1, centerline_2)
+        elif len(anchors) == 2:
+            seed_line = LineString(anchors)
+            cost_clip, out_meta = clip_raster(vo.in_cost, seed_line, vo.line_radius)
+            centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
+
+            if centerline_1:
+                intersection = closest_point_to_line(vertex["point"], centerline_1)
+    except Exception as e:
+        print(e)
+
+    # Update vertices according to intersection, new center lines are returned
+    lst = [anchors, [centerline_1, centerline_2], intersection, vertex]
+    pt = vertex["point"]
+    print(f'Processing vertex {pt[0]:.2f}, {pt[1]:.2f} done')
+
+    return lst
+
+
+# def execute_multiprocessing(vertex_grp, processes, verbose):
+#     centerlines = []
+#     step = 0
+#     if PARALLEL_MODE == MODE_MULTIPROCESSING:
+#         pool = multiprocessing.Pool(processes)
+#         print("Multiprocessing started...")
+#         print("Using {} CPU cores".format(processes))
+#         total_steps = len(vertex_grp)
+#         with Pool(processes) as pool:
+#             for result in pool.imap_unordered(process_single_line, vertex_grp):
+#                 if not result:
+#                     print('No centerlines found.')
+#                     continue
+#                 if len(result) == 0:
+#                     print('No centerlines found.')
+#                     continue
+#                 else:
+#                     centerlines.append(result)
+#
+#             step += 1
+#             if verbose:
+#                 print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
+#                 print(' %{} '.format(step / total_steps * 100), flush=True)
+#
+#         pool.close()
+#         pool.join()
+#     elif PARALLEL_MODE == MODE_DASK:
+#         dask_client = Client(threads_per_worker=2, n_workers=10)
+#         print(dask_client)
+#         try:
+#             print('start processing')
+#             result = dask_client.map(process_single_line, vertex_grp)
+#             seq = as_completed(result)
+#
+#             for i in seq:
+#                 centerlines.append(i.result())
+#                 print(i.result())
+#         except Exception as e:
+#             dask_client.close()
+#             print(e)
+#
+#         dask_client.close()
+#     elif PARALLEL_MODE == MODE_RAY:
+#         ray.init(log_to_driver=False)
+#         process_single_line_ray = ray.remote(process_single_line)
+#         result_ids = [process_single_line_ray.remote(vertex) for vertex in vertex_grp]
+#
+#         while len(result_ids):
+#             done_id, result_ids = ray.wait(result_ids)
+#             centerline = ray.get(done_id[0])
+#             centerlines.append(centerline)
+#             print('Done {}'.format(step))
+#             step += 1
+#         ray.shutdown()
+#
+#     elif PARALLEL_MODE == MODE_SEQUENTIAL:
+#         i = 0
+#         for line in vertex_grp:
+#             centerline = process_single_line(line)
+#             centerlines.append(centerline)
+#
+#     return centerlines
+
+
+class VertexOptimization:
+    def __init__(self, vertex_grp, callback=print):
+        self.in_cost = vertex_grp['cost']
+        self.line_radius = vertex_grp['radius']
+        self.cost_footprint = vertex_grp['footprint']
+        self.segment_all = None
+        self.in_schema = None  # input shapefile schema
+        self.crs = None
+        self.vertex = vertex_grp
 
     def get_angle(self, line, end_index):
         """
@@ -335,7 +443,7 @@ class VertexOptimization:
         end_index: 0 or -1 of the the line vertices. Consider the multipart.
         """
 
-        pt = self.points_in_line(line)
+        pt = points_in_line(line)
 
         if end_index == 0:
             pt_1 = pt[0]
@@ -361,7 +469,7 @@ class VertexOptimization:
 
         return angle
 
-    def generate_anchor_pairs(self, vertex):
+    def generate_anchor_pairs(self):
         """
         Extend line following outward direction to length of SEGMENT_LENGTH
         Use the end point as anchor point.
@@ -370,7 +478,7 @@ class VertexOptimization:
                     two pairs anchors return when 3 or 4 lines intersected
                     one pair anchors return when 1 or 2 lines intersected
         """
-        lines = vertex["lines"]
+        lines = self.vertex["lines"]
         slopes = []
         for line in lines:
             line_seg = line[0]
@@ -411,8 +519,8 @@ class VertexOptimization:
             try:
                 pt_start_2 = lines[remain][2]
                 # symmetry point of pt_start_2 regarding vertex["point"]
-                X = vertex["point"][0] - (pt_start_2[0] - vertex["point"][0])
-                Y = vertex["point"][1] - (pt_start_2[1] - vertex["point"][1])
+                X = self.vertex["point"][0] - (pt_start_2[0] - self.vertex["point"][0])
+                Y = self.vertex["point"][1] - (pt_start_2[1] - self.vertex["point"][1])
                 pt_end_2 = [X, Y]
             except Exception as e:
                 print(e)
@@ -424,8 +532,8 @@ class VertexOptimization:
         elif len(slopes) == 1:
             pt_start_1 = lines[0][2]
             # symmetry point of pt_start_1 regarding vertex["point"]
-            X = vertex["point"][0] - (pt_start_1[0] - vertex["point"][0])
-            Y = vertex["point"][1] - (pt_start_1[1] - vertex["point"][1])
+            X = self.vertex["point"][0] - (pt_start_1[0] - self.vertex["point"][0])
+            Y = self.vertex["point"][1] - (pt_start_1[1] - self.vertex["point"][1])
             pt_end_1 = [X, Y]
 
         if not pt_start_1 or not pt_end_1:
@@ -449,59 +557,20 @@ class VertexOptimization:
             else:
                 return pt_start_1, pt_end_1
 
-    def process_single_line(self, vertex):
-        """
-        New version of worklines. It uses memory workspace instead of shapefiles.
-        The refactoring is to accelerate the processing speed.
-            vertex: intersection with all lines crossed at the intersection
-            return: one or two centerlines
-        """
-        anchors = []
-        try:
-            anchors = self.generate_anchor_pairs(vertex)
-        except Exception as e:
-            print(e)
-
-        if not anchors:
-            if BT_DEBUGGING:
-                print("No anchors retrieved")
-            return None
-
-        centerline_1 = None
-        centerline_2 = None
-        intersection = None
-
-        try:
-            if len(anchors) == 4:
-                centerline_1, _ = self.least_cost_path(self.in_cost, anchors[0:2], self.line_radius)
-                centerline_2, _ = self.least_cost_path(self.in_cost, anchors[2:4], self.line_radius)
-
-                if centerline_1 and centerline_2:
-                    intersection = self.intersection_of_lines(centerline_1, centerline_2)
-            elif len(anchors) == 2:
-                centerline_1, _ = self.least_cost_path(self.in_cost, anchors, self.line_radius)
-
-                if centerline_1:
-                    intersection = self.closest_point_to_line(vertex["point"], centerline_1)
-        except Exception as e:
-            print(e)
-
-        # Update vertices according to intersection, new center lines are returned
-        try:
-            temp = [anchors, [centerline_1, centerline_2], intersection, vertex]
-            print("Processing vertex {} done".format(vertex["point"]))
-        except Exception as e:
-            print(e)
-
-        return temp
-
 
 def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose):
     if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
         return
 
-    tool_vo = VertexOptimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose)
-    centerlines = tool_vo.execute()
+    vertex_grp = None
+    vg = VertexGrouping(callback, in_line, in_cost, line_radius, out_line, processes, verbose)
+    try:
+        vg.group_vertices()
+    except Exception as e:
+        print(e)
+
+    centerlines = execute_multiprocessing(process_single_line, vg.vertex_grp,
+                                          vg.processes, 1, vg.verbose)
 
     # No line generated, exit
     if len(centerlines) <= 0:
@@ -516,9 +585,9 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
     # Dump all polylines into point array for vertex updates
     feature_all = {}
-    for i in tool_vo.segment_all:
-        feature = [i[0], i[2]]
-        feature_all[i[1]] = feature
+    for i in vg.segment_all:
+        feature = [i['line'], i['prop']]
+        feature_all[i['line_no']] = feature
 
     for sublist in centerlines:
         if not sublist:
@@ -533,8 +602,8 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
             for line in sublist[3]["lines"]:
                 index = line[1]
-                lineNo = line[3]["lineNo"]
-                pt_array = feature_all[lineNo][0]
+                line_no = line[3]["line_no"]
+                pt_array = feature_all[line_no][0]
 
                 if not pt_array or not sublist[2]:
                     continue
@@ -544,15 +613,15 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
                 updated_line = pt_array
                 if index == 0 or index == -1:
                     try:
-                        updated_line = tool_vo.update_line_vertex(pt_array, index, new_intersection)
+                        updated_line = update_line_vertex(pt_array, index, new_intersection)
                     except Exception as e:
                         print(e)
 
-                feature_all[lineNo][0] = updated_line
+                feature_all[line_no][0] = updated_line
 
     line_path = Path(out_line)
     file_name = line_path.stem
-    file_leastcost = line_path.with_stem(file_name + '_leastcost').as_posix()
+    file_lc = line_path.with_stem(file_name + '_leastcost').as_posix()
     file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
     file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
 
@@ -560,10 +629,10 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     properites = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    save_features_to_shapefile(out_line, tool_vo.crs, all_lines, tool_vo.in_schema, all_props)
-    save_features_to_shapefile(file_leastcost, tool_vo.crs, leastcost_list, fields, properites)
-    save_features_to_shapefile(file_anchors, tool_vo.crs, anchor_list, fields, properites)
-    save_features_to_shapefile(file_inter, tool_vo.crs, inter_list, fields, properites)
+    save_features_to_shapefile(out_line, vg.crs, all_lines, vg.in_schema, all_props)
+    save_features_to_shapefile(file_lc, vg.crs, leastcost_list, fields, properites)
+    save_features_to_shapefile(file_anchors, vg.crs, anchor_list, fields, properites)
+    save_features_to_shapefile(file_inter, vg.crs, inter_list, fields, properites)
 
 
 if __name__ == '__main__':

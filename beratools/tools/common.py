@@ -21,6 +21,10 @@ import uuid
 import argparse
 import numpy as np
 
+from dask.distributed import Client, progress, as_completed
+import multiprocessing
+import ray
+
 import rasterio
 import rasterio.mask
 from rasterio import features
@@ -58,6 +62,7 @@ class CenterlineStatus(IntEnum):
 MODE_MULTIPROCESSING = 1
 MODE_SEQUENTIAL = 2
 MODE_DASK = 3
+MODE_RAY = 4
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
 @unique
@@ -65,6 +70,7 @@ class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
     SEQUENTIAL = 2
     DASK = 3
+    RAY = 4
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -85,18 +91,19 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
+CL_USE_SKIMAGE_GRAPH = True
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
 CL_SNAP_TOLERANCE = 15.0
 CL_SEGMENTIZE_LENGTH = 1.0
 CL_SIMPLIFY_LENGTH = 0.5
-CL_SMOOTH_SIGMA = 0.5
+CL_SMOOTH_SIGMA = 0.8
 CL_DELETE_HOLES = True
 CL_SIMPLIFY_POLYGON = True
 CL_CLEANUP_POLYGON_BY_AREA = 1.0
 CL_POLYGON_BUFFER = 1e-6
 
-FP_CORRIDOR_THRESHOLD = 3.0
+FP_CORRIDOR_THRESHOLD = 2.5
 FP_SEGMENTIZE_LENGTH = 2.0
 FP_FIXED_WIDTH_DEFAULT = 5.0
 FP_PERP_LINE_OFFSET = 30.0
@@ -119,22 +126,25 @@ if not BT_DEBUGGING:
 
 
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
+    out_meta = None
     with (rasterio.open(in_raster_file)) as raster_file:
-        if raster_file.meta['nodata']:
-            ras_nodata = raster_file.meta['nodata']
+        out_meta = raster_file.meta
+        if out_meta['nodata']:
+            ras_nodata = out_meta['nodata']
+        else:
+            out_meta['nodata'] = ras_nodata
 
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
         out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer,
                                                       crop=True, nodata=ras_nodata, filled=True)
 
-    out_meta = raster_file.meta.copy()
     height, width = out_image.shape[1:]
-
     out_meta.update({"driver": "GTiff",
                      "height": height,
                      "width": width,
-                     "transform": out_transform})
+                     "transform": out_transform,
+                     "nodata": ras_nodata})
 
     if out_raster_file:
         with rasterio.open(out_raster_file, "w", **out_meta) as dest:
@@ -207,7 +217,8 @@ def generate_raster_footprint(in_raster, latlon=True):
     # gdal_translate -outsize 1024 0 vendor_image.tif myimage.tif
     options = None
     with tempfile.TemporaryDirectory() as tmp_folder:
-        print('Temporary folder: {}'.format(tmp_folder))
+        if BT_DEBUGGING:
+            print('Temporary folder: {}'.format(tmp_folder))
 
         if max(width, height) <= 1024:
             inter_img = in_raster
@@ -363,21 +374,21 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
     out_line_file.close()
 
 
-def vector_crs(vector_file):
-    in_line_file = ogr.Open(vector_file)
+def vector_crs(in_vector):
+    vec_crs = None
+    with ogr.Open(in_vector) as vector_file:
+        if vector_file:
+            vec_crs = vector_file.GetLayer().GetSpatialRef()
 
-    # TODO: in_line_file is None
-    vec_crs = in_line_file.GetLayer().GetSpatialRef()
-
-    del in_line_file
     return vec_crs
 
 
-def raster_crs(raster_file):
-    cost_raster_file = gdal.Open(raster_file)
-    ras_crs = cost_raster_file.GetSpatialRef()
+def raster_crs(in_raster):
+    ras_crs = None
+    with gdal.Open(in_raster) as raster_file:
+        if raster_file:
+            ras_crs = raster_file.GetSpatialRef()
 
-    del cost_raster_file
     return ras_crs
 
 
@@ -499,7 +510,6 @@ def split_line_nPart(line,seg_length):
     if len(distances) > 0:
         points = [shapely.line_interpolate_point(seg_line, distance) for distance in distances]
 
-        # snap_points = snap(points, seg_line, 0.001)
         split_points = shapely.multipoints(points)
         mline = split(seg_line, split_points)
     else:
@@ -575,6 +585,10 @@ def find_centerline(poly, input_line):
 
     """
     default_return = input_line, CenterlineStatus.FAILED
+    if not poly:
+        print('find_centerline: No polygon found')
+        return default_return
+
     poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
 
     poly = poly.buffer(CL_POLYGON_BUFFER)  # buffer polygon to reduce MultiPolygons
@@ -613,7 +627,6 @@ def find_centerline(poly, input_line):
 
     end_buffer = Point(cl_coords[-1]).buffer(CL_BUFFER_CLIP)
     centerline = centerline.difference(end_buffer)
-    centerline = snap_end_to_end(centerline, input_line)
 
     if not centerline:
         print('No centerline detected, use input line instead.')
@@ -625,10 +638,12 @@ def find_centerline(poly, input_line):
     except Exception as e:
         print(e)
 
+    centerline = snap_end_to_end(centerline, input_line)
+
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(centerline, input_line):
         try:
-            print('Regenerating line {} ... '.format(input_line.centroid))
+            print(f'Regenerating line ...')
             centerline = regenerate_centerline(poly, input_line)
             return centerline, CenterlineStatus.REGENERATE_SUCCESS
         except Exception as e:
@@ -651,9 +666,16 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
     poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
     corridor_polygon = []
 
-    for poly, value in poly_generator:
-        corridor_polygon.append(shape(poly))
-    corridor_polygon = unary_union(corridor_polygon)
+    try:
+        for poly, value in poly_generator:
+            corridor_polygon.append(shape(poly))
+    except Exception as e:
+        print(e)
+
+    if corridor_polygon:
+        corridor_polygon = unary_union(corridor_polygon)
+    else:
+        corridor_polygon = None
 
     # create GeoDataFrame for centerline
     corridor_poly_gpd = gpd.GeoDataFrame.copy(line_gpd)
@@ -899,7 +921,7 @@ def regenerate_centerline(poly, input_line):
     except Exception as e:
         print(e)
 
-    print('Centerline is regenerated.')
+    print(f'Centerline is regenerated.')
     return linemerge(MultiLineString([center_line_1, center_line_2]))
 
 
@@ -935,12 +957,13 @@ def snap_end_to_end(in_line, line_reference):
     return LineString(pts)
 
 
-def corridor_raster(raster_clip, source, destination, cell_size, corridor_threshold):
+def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corridor_threshold):
     """
     Calculate corridor raster
     Parameters
     ----------
     raster_clip : raster
+    out_meta : raster file meta
     source : list of point tuple(s)
         start point in row/col
     destination : list of point tuple(s)
@@ -988,30 +1011,38 @@ def corridor_raster(raster_clip, source, destination, cell_size, corridor_thresh
         return None
 
     # export intermediate raster for debugging
-    # if BT_DEBUGGING:
-    #     suffix = str(uuid.uuid4())[:8]
-    #     path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
-    #     if path_temp.exists():
-    #         path_cost = path_temp.joinpath(suffix + '_cost.tif')
-    #         path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
-    #         path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
-    #         path_corridor_cl = path_temp.joinpath(suffix + '_corridor_cl_poly.tif')
-    #         out_cost = np.ma.masked_equal(raster_clip, np.inf)
-    #         save_raster_to_file(out_cost, out_meta, path_cost)
-    #         save_raster_to_file(corridor, out_meta, path_corridor)
-    #         save_raster_to_file(corridor_norm, out_meta, path_corridor_norm)
-    #         save_raster_to_file(corridor_thresh_cl, out_meta, path_corridor_cl)
-    #     else:
-    #         print('Debugging: raster folder not exists.')
+    if BT_DEBUGGING:
+        suffix = str(uuid.uuid4())[:8]
+        path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
+        if path_temp.exists():
+            path_cost = path_temp.joinpath(suffix + '_cost.tif')
+            path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
+            path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
+            path_corridor_cl = path_temp.joinpath(suffix + '_corridor_cl_poly.tif')
+            out_cost = np.ma.masked_equal(raster_clip, np.inf)
+            save_raster_to_file(out_cost, out_meta, path_cost)
+            save_raster_to_file(corridor, out_meta, path_corridor)
+            save_raster_to_file(corridor_norm, out_meta, path_corridor_norm)
+            save_raster_to_file(corridor_thresh_cl, out_meta, path_corridor_cl)
+        else:
+            print('Debugging: raster folder not exists.')
 
     return corridor_thresh_cl
 
 
-def find_least_cost_path_skimage(cost_clip, start_pt, end_pt, transformer):
+def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     lc_path_new = []
 
+    out_transform = in_meta['transform']
+    transformer = rasterio.transform.AffineTransformer(out_transform)
+
+    x1, y1 = list(seed_line.coords)[0][:2]
+    x2, y2 = list(seed_line.coords)[-1][:2]
+    row1, col1 = transformer.rowcol(x1, y1)
+    row2, col2 = transformer.rowcol(x2, y2)
+
     try:
-        path_new = route_through_array(cost_clip[0], start_pt, end_pt)
+        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
     except Exception as e:
         print(e)
         return None
@@ -1025,16 +1056,69 @@ def find_least_cost_path_skimage(cost_clip, start_pt, end_pt, transformer):
         print('No least cost path detected, pass.')
         return None
     else:
-        lc_path_new = LineString(lc_path_new)    # if path_new[0]:
-
-    for row, col in path_new[0]:
-        x, y = transformer.xy(row, col)
-        lc_path_new.append((x, y))
-
-    if len(lc_path_new) < 2:
-        print('No least cost path detected, pass.')
-        return None
-    else:
         lc_path_new = LineString(lc_path_new)
 
     return lc_path_new
+
+
+def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
+    out_result = []
+    step = 0
+    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        pool = multiprocessing.Pool(processes)
+        print("Multiprocessing started...")
+        print("Using {} CPU cores".format(processes))
+        total_steps = len(in_data)
+        with Pool(processes) as pool:
+            for result in pool.imap_unordered(in_func, in_data):
+                if not result:
+                    print('No results found.')
+                    continue
+                if len(result) == 0:
+                    print('No results found.')
+                    continue
+                else:
+                    out_result.append(result)
+
+            step += 1
+            if verbose:
+                print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
+
+        pool.close()
+        pool.join()
+    elif PARALLEL_MODE == MODE_DASK:
+        dask_client = Client(threads_per_worker=2, n_workers=10)
+        print(dask_client)
+        try:
+            print('start processing')
+            result = dask_client.map(in_func, in_data)
+            seq = as_completed(result)
+
+            for i in seq:
+                out_result.append(i.result())
+        except Exception as e:
+            dask_client.close()
+            print(e)
+
+        dask_client.close()
+    elif PARALLEL_MODE == MODE_RAY:
+        ray.init(log_to_driver=False)
+        process_single_line_ray = ray.remote(in_func)
+        result_ids = [process_single_line_ray.remote(item) for item in in_data]
+
+        while len(result_ids):
+            done_id, result_ids = ray.wait(result_ids)
+            result_item = ray.get(done_id[0])
+            out_result.append(result_item)
+            print('Done {}'.format(step))
+            step += 1
+        ray.shutdown()
+
+    elif PARALLEL_MODE == MODE_SEQUENTIAL:
+        i = 0
+        for line in in_data:
+            result_item = in_func(line)
+            out_result.append(result_item)
+
+    return out_result

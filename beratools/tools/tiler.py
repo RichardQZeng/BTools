@@ -1,16 +1,8 @@
 import os
-import sys
-import argparse
-import json
-import math
-import fiona
-from pathlib import Path
-from shapely.geometry import shape, Polygon, mapping
 from qtpy.QtWidgets import QApplication, QDialog
-from pyproj import CRS, Transformer
 
 from common import *
-from map_window import MapWindow
+from beratools.gui.map_window import MapWindow
 
 
 class Tiler:

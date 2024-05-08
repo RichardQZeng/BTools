@@ -260,6 +260,8 @@ def process_single_line_segment(dict_segment):
     cell_size_y = -out_transform[4]
 
     clip_in_canopy_r, out_meta = clip_raster(in_canopy_r, feat, max_ln_width)
+    if not out_meta['nodata']:
+        out_meta['nodata'] = BT_NODATA
 
     # Work out the corridor from both end of the centerline
     try:
@@ -275,7 +277,7 @@ def process_single_line_segment(dict_segment):
         #                                             out=None, fill=0, all_touched=True, default_value=1, dtype=None)
         # destination_1 = numpy.transpose(numpy.nonzero(rasterized_destination))
 
-        corridor_thresh = corridor_raster(clip_in_cost_r, source, destination,
+        corridor_thresh = corridor_raster(clip_in_cost_r, out_meta, source, destination,
                                           (cell_size_x, cell_size_y), corridor_th_value)
 
         # Process: Stamp CC and Max Line Width

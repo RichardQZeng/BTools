@@ -136,51 +136,46 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
 
-    return_none = [None]*4
     print(" Searching centerline: line {} ".format(line_id), flush=True)
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
-    out_transform = out_meta['transform']
 
-    ras_nodata = out_meta['nodata']
-    if not ras_nodata:
-        ras_nodata = BT_NODATA
+    if CL_USE_SKIMAGE_GRAPH:
+        # skimage shortest path
+        lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+    else:
+        lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
 
-    transformer = rasterio.transform.AffineTransformer(out_transform)
-
-    # skimage shortest path
-    # x1, y1 = list(seed_line.coords)[0][:2]
-    # x2, y2 = list(seed_line.coords)[-1][:2]
-    # row1, col1 = transformer.rowcol(x1, y1)
-    # row2, col2 = transformer.rowcol(x2, y2)
-    # path_new = find_least_cost_path_skimage(cost_clip, [row1, col1], [row2, col2])
-
-    path_new = find_least_cost_path(ras_nodata, cost_clip, transformer, line_id, seed_line)
-    lc_path_coords = path_new[0]
+    if lc_path:
+        lc_path_coords = lc_path.coords
+    else:
+        lc_path_coords = []
 
     # search for centerline
     if len(lc_path_coords) < 2:
-        print('No least cost path detected at: {}.'.format(seed_line.centroid))
-        return return_none
+        print('No least cost path detected, use input line.')
+        prop['status'] = CenterlineStatus.FAILED.value
+        return seed_line, prop, seed_line, None
 
+    # get corridor raster
     lc_path = LineString(lc_path_coords)
-    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, float(line_radius))
+    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius*0.9)
     out_transform = out_meta['transform']
+    transformer = rasterio.transform.AffineTransformer(out_transform)
     cell_size = (out_transform[0], -out_transform[4])
 
     x1, y1 = lc_path_coords[0]
     x2, y2 = lc_path_coords[-1]
-
-    # get corridor raster
     source = [transformer.rowcol(x1, y1)]
     destination = [transformer.rowcol(x2, y2)]
-    corridor_thresh_cl = corridor_raster(cost_clip, source, destination, cell_size, FP_CORRIDOR_THRESHOLD)
+    corridor_thresh_cl = corridor_raster(cost_clip, out_meta, source, destination,
+                                         cell_size, FP_CORRIDOR_THRESHOLD)
 
     # find contiguous corridor polygon and extract centerline
     df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta['crs'])
     corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
     center_line, status = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
-    prop['status'] = int(status)
+    prop['status'] = status.value
 
     return lc_path, prop, center_line, corridor_poly_gpd
 
@@ -197,9 +192,6 @@ def execute_multiprocessing(line_args, processes, verbose):
             step = 0
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(process_single_line, line_args):
-                if BT_DEBUGGING:
-                    print('Got result: {}'.format(result), flush=True)
-
                 if not result:
                     print('No line detected.')
                     continue
