@@ -408,6 +408,9 @@ def process_single_line(vertex):
         print(e)
 
     # Update vertices according to intersection, new center lines are returned
+    if type(intersection) is MultiPoint:
+        intersection = intersection.centroid
+
     lst = [anchors, [centerline_1, centerline_2], intersection, vertex]
     pt = vertex.point()
     print(f'Processing vertex {pt[0]:.2f}, {pt[1]:.2f} done')
