@@ -35,6 +35,7 @@ from pathlib import Path
 import uuid
 from shapely.geometry import shape, mapping, Point, LineString, \
      MultiLineString, GeometryCollection, Polygon
+from shapely import STRtree
 import fiona
 import rasterio
 import rasterio.mask
@@ -48,6 +49,70 @@ from dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
+
+class Vertex:
+    def __init__(self, point, line, line_no, end_no, uid):
+        self.vertex = {"point": [point.x, point.y], "lines": []}
+        self.add_line(line, line_no, end_no, uid)
+
+    # @staticmethod
+    # def create_vertex(point, line, line_no, end_no, uid):
+    #     vertex = {"point": [point.x, point.y],
+    #               "lines": [[line, end_no, {"line_no": line_no}]]}
+    #
+    #     vertex = VertexGrouping.add_anchors_to_vertex(vertex, uid)
+    #
+    #     return vertex
+
+    def add_line(self, line, line_no, end_no, uid):
+        item = [line, end_no, {"line_no": line_no}]
+        item = self.add_anchors_to_line(item, uid)
+        if item:
+            self.vertex["lines"].append(item)
+
+    def add_anchors_to_line(self, line, uid):
+        """
+        Append new vertex to vertex group, by calculating distance to existing vertices
+        An anchor point will be added together with line
+        """
+        line[2]["UID"] = uid
+
+        # Calculate anchor point for each vertex
+        point = Point(self.vertex["point"][0], self.vertex["point"][1])
+        line_string = line[0]
+        index = line[1]
+        pts = points_in_line(line_string)
+
+        pt_1 = None
+        pt_2 = None
+        if index == 0:
+            pt_1 = point
+            pt_2 = pts[1]
+        elif index == -1:
+            pt_1 = point
+            pt_2 = pts[-2]
+
+        # Calculate anchor point
+        dist_pt = 0.0
+        if pt_1 and pt_2:
+            dist_pt = pt_1.distance(pt_2)
+
+        # TODO: check why two points are the same
+        if np.isclose(dist_pt, 0.0):
+            print('Points are close, return')
+            return None
+
+        X = pt_1.x + (pt_2.x - pt_1.x) * SEGMENT_LENGTH / dist_pt
+        Y = pt_1.y + (pt_2.y - pt_1.y) * SEGMENT_LENGTH / dist_pt
+        line.insert(-1, [X, Y])  # add anchor point to list (the third element)
+
+        return line
+
+    def lines(self):
+        return self.vertex["lines"]
+
+    def point(self):
+        return self.vertex["point"]
 
 
 class VertexGrouping:
@@ -63,6 +128,7 @@ class VertexGrouping:
         self.crs = None
         self.dask_client = None
         self.vertex_grp = []
+        self.sindex = None
 
         # calculate cost raster footprint
         footprint_coords = generate_raster_footprint(self.in_cost, latlon=False)
@@ -99,12 +165,52 @@ class VertexGrouping:
             line_segs = segments(list(line[0].coords))
             if line_segs:
                 for seg in line_segs:
-                    input_lines_temp.append({'line': seg, 'line_no': line_no,
-                                             'prop': line[1], 'visited': False})
+                    input_lines_temp.append({'line': seg, 'line_no': line_no, 'prop': line[1],
+                                             'start_visited': False, 'end_visited': False})
                     line_no += 1
+
+            print(f'Splitting line {line_no}')
 
         self.segment_all = input_lines_temp
 
+        # create spatial index for all line segments
+        self.sindex = STRtree([item['line'] for item in self.segment_all])
+
+    def create_vertex_group(self, point, line, line_no, end_no, uid):
+        """
+
+        Parameters
+        ----------
+        point :
+        line :
+        end_no : head or tail of line, 0, -1
+
+        Returns
+        -------
+
+        """
+        # all end points not added will be stay with this vertex
+        vertex = Vertex(point, line, line_no, end_no, uid)
+        search = self.sindex.query(point.buffer(CL_POLYGON_BUFFER))
+
+        # add more vertices to the new group
+        for i in search:
+            seg = self.segment_all[i]
+            if line_no == seg['line_no']:
+                continue
+
+            uid = seg['prop']['BT_UID']
+            if not seg['start_visited']:
+                if self.points_are_close(point, Point(seg['line'].coords[0])):
+                    vertex.add_line(seg['line'], seg['line_no'], 0, uid)
+                    seg['start_visited'] = True
+
+            if not seg['end_visited']:
+                if self.points_are_close(point, Point(seg['line'].coords[-1])):
+                    vertex.add_line(seg['line'], seg['line_no'], -1, uid)
+                    seg['end_visited'] = True
+
+        self.vertex_grp.append(vertex)
 
     def group_intersections(self):
         """
@@ -114,63 +220,23 @@ class VertexGrouping:
         pt_index: 0 is start vertex, -1 is end vertex
         """
         i = 0
-        try:
-            for line in self.segment_all:
-                point_list = points_in_line(line['line'])
+        # try:
+        for line in self.segment_all:
+            pt_list = points_in_line(line['line'])
+            if len(pt_list) == 0:
+                print(f"Line {line['line_no']} is empty")
+                continue
+            uid = line['prop']['BT_UID']
+            if not line['start_visited']:
+                self.create_vertex_group(pt_list[0], line['line'], line['line_no'], 0, uid)
+                line['start_visited'] = True
 
-                if len(point_list) == 0:
-                    print("Line {} is empty".format(line['line_no']))
-                    continue
+            if not line['end_visited']:
+                self.create_vertex_group(pt_list[-1], line['line'], line['line_no'], -1, uid)
+                line['end_visited'] = True
 
-                # Add line to groups based on proximity of two end points to group
-                pt_start = {"point": [point_list[0].x, point_list[0].y],
-                            "lines": [[line['line'], 0, {"line_no": line['line_no']}]]}
-                pt_end = {"point": [point_list[-1].x, point_list[-1].y],
-                          "lines": [[line['line'], -1, {"line_no": line['line_no']}]]}
-                self.append_to_group(pt_start, line['prop'][BT_UID])
-                self.append_to_group(pt_end, line['prop'][BT_UID])
-                i += 1
-        except Exception as e:
-            # TODO: test traceback
-            print(e)
-
-    @staticmethod
-    def add_anchors_to_vertex(vertex, UID):
-        """
-        Append new vertex to vertex group, by calculating distance to existing vertices
-        An anchor point will be added together with line
-        """
-        vertex["lines"][0][2]["UID"] = UID
-
-        # Calculate anchor point for each vertex
-        point = Point(vertex["point"][0], vertex["point"][1])
-        line = vertex["lines"][0][0]
-        index = vertex["lines"][0][1]
-        pts = points_in_line(line)
-
-        pt_1 = None
-        pt_2 = None
-        if index == 0:
-            pt_1 = point
-            pt_2 = pts[1]
-        elif index == -1:
-            pt_1 = point
-            pt_2 = pts[-2]
-
-        # Calculate anchor point
-        dist_pt = 0.0
-        if pt_1 and pt_2:
-            dist_pt = pt_1.distance(pt_2)
-
-        # TODO: check why two points are the same
-        if np.isclose(dist_pt, 0.0):
-            return
-
-        X = pt_1.x + (pt_2.x - pt_1.x) * SEGMENT_LENGTH / dist_pt
-        Y = pt_1.y + (pt_2.y - pt_1.y) * SEGMENT_LENGTH / dist_pt
-        vertex["lines"][0].insert(-1, [X, Y])  # add anchor point to list (the third element)
-
-        return vertex
+            i += 1
+            print(f'Create vertex group {i}')
 
     @staticmethod
     def add_line_to_group(vertex, group):
@@ -181,25 +247,12 @@ class VertexGrouping:
     def pt_of_vertex(vertex):
         return Point(vertex["point"][0], vertex["point"][1])
 
-    def append_to_group(self, vertex, UID):
-        """
-        Append new vertex to vertex group, by calculating distance to existing vertices
-        An anchor point will be added together with line
-        """
-        pt_added = False
-
-        vertex = self.add_anchors_to_vertex(vertex, UID)
-        point = self.pt_of_vertex(vertex)
-
-        for item in self.vertex_grp:
-            if abs(point.x - item["point"][0]) < DISTANCE_THRESHOLD and \
-               abs(point.y - item["point"][1]) < DISTANCE_THRESHOLD:
-                item["lines"].append(vertex["lines"][0])
-                pt_added = True
-
-        # Add the first vertex or new vertex not found neighbour
-        if not pt_added:
-            self.vertex_grp.append(vertex)
+    @staticmethod
+    def points_are_close(pt1, pt2):
+        if abs(pt1.x - pt2.x) < DISTANCE_THRESHOLD and abs(pt1.y - pt2.y) < DISTANCE_THRESHOLD:
+            return True
+        else:
+            return False
 
     def group_vertices(self):
         try:
@@ -210,9 +263,9 @@ class VertexGrouping:
 
             # add cost raster to every item
             for item in self.vertex_grp:
-                item.update({'cost': self.in_cost})
-                item.update({'radius': self.line_radius})
-                item.update({'footprint': self.cost_footprint})
+                item.cost = self.in_cost
+                item.radius = self.line_radius
+                item.footprint = self.cost_footprint
         except Exception as e:
             print(e)
 
@@ -350,87 +403,23 @@ def process_single_line(vertex):
             centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
 
             if centerline_1:
-                intersection = closest_point_to_line(vertex["point"], centerline_1)
+                intersection = closest_point_to_line(vertex.point(), centerline_1)
     except Exception as e:
         print(e)
 
     # Update vertices according to intersection, new center lines are returned
     lst = [anchors, [centerline_1, centerline_2], intersection, vertex]
-    pt = vertex["point"]
+    pt = vertex.point()
     print(f'Processing vertex {pt[0]:.2f}, {pt[1]:.2f} done')
 
     return lst
 
 
-# def execute_multiprocessing(vertex_grp, processes, verbose):
-#     centerlines = []
-#     step = 0
-#     if PARALLEL_MODE == MODE_MULTIPROCESSING:
-#         pool = multiprocessing.Pool(processes)
-#         print("Multiprocessing started...")
-#         print("Using {} CPU cores".format(processes))
-#         total_steps = len(vertex_grp)
-#         with Pool(processes) as pool:
-#             for result in pool.imap_unordered(process_single_line, vertex_grp):
-#                 if not result:
-#                     print('No centerlines found.')
-#                     continue
-#                 if len(result) == 0:
-#                     print('No centerlines found.')
-#                     continue
-#                 else:
-#                     centerlines.append(result)
-#
-#             step += 1
-#             if verbose:
-#                 print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-#                 print(' %{} '.format(step / total_steps * 100), flush=True)
-#
-#         pool.close()
-#         pool.join()
-#     elif PARALLEL_MODE == MODE_DASK:
-#         dask_client = Client(threads_per_worker=2, n_workers=10)
-#         print(dask_client)
-#         try:
-#             print('start processing')
-#             result = dask_client.map(process_single_line, vertex_grp)
-#             seq = as_completed(result)
-#
-#             for i in seq:
-#                 centerlines.append(i.result())
-#                 print(i.result())
-#         except Exception as e:
-#             dask_client.close()
-#             print(e)
-#
-#         dask_client.close()
-#     elif PARALLEL_MODE == MODE_RAY:
-#         ray.init(log_to_driver=False)
-#         process_single_line_ray = ray.remote(process_single_line)
-#         result_ids = [process_single_line_ray.remote(vertex) for vertex in vertex_grp]
-#
-#         while len(result_ids):
-#             done_id, result_ids = ray.wait(result_ids)
-#             centerline = ray.get(done_id[0])
-#             centerlines.append(centerline)
-#             print('Done {}'.format(step))
-#             step += 1
-#         ray.shutdown()
-#
-#     elif PARALLEL_MODE == MODE_SEQUENTIAL:
-#         i = 0
-#         for line in vertex_grp:
-#             centerline = process_single_line(line)
-#             centerlines.append(centerline)
-#
-#     return centerlines
-
-
 class VertexOptimization:
     def __init__(self, vertex_grp, callback=print):
-        self.in_cost = vertex_grp['cost']
-        self.line_radius = vertex_grp['radius']
-        self.cost_footprint = vertex_grp['footprint']
+        self.in_cost = vertex_grp.cost
+        self.line_radius = vertex_grp.radius
+        self.cost_footprint = vertex_grp.footprint
         self.segment_all = None
         self.in_schema = None  # input shapefile schema
         self.crs = None
@@ -478,7 +467,8 @@ class VertexOptimization:
                     two pairs anchors return when 3 or 4 lines intersected
                     one pair anchors return when 1 or 2 lines intersected
         """
-        lines = self.vertex["lines"]
+        lines = self.vertex.lines()
+        point = self.vertex.point()
         slopes = []
         for line in lines:
             line_seg = line[0]
@@ -519,8 +509,8 @@ class VertexOptimization:
             try:
                 pt_start_2 = lines[remain][2]
                 # symmetry point of pt_start_2 regarding vertex["point"]
-                X = self.vertex["point"][0] - (pt_start_2[0] - self.vertex["point"][0])
-                Y = self.vertex["point"][1] - (pt_start_2[1] - self.vertex["point"][1])
+                X = point[0] - (pt_start_2[0] - point[0])
+                Y = point[1] - (pt_start_2[1] - point[1])
                 pt_end_2 = [X, Y]
             except Exception as e:
                 print(e)
@@ -532,8 +522,8 @@ class VertexOptimization:
         elif len(slopes) == 1:
             pt_start_1 = lines[0][2]
             # symmetry point of pt_start_1 regarding vertex["point"]
-            X = self.vertex["point"][0] - (pt_start_1[0] - self.vertex["point"][0])
-            Y = self.vertex["point"][1] - (pt_start_1[1] - self.vertex["point"][1])
+            X = point[0] - (pt_start_1[0] - point[0])
+            Y = point[1] - (pt_start_1[1] - point[1])
             pt_end_1 = [X, Y]
 
         if not pt_start_1 or not pt_end_1:
@@ -600,7 +590,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
             inter_list.append(sublist[2])
 
-            for line in sublist[3]["lines"]:
+            for line in sublist[3].lines():
                 index = line[1]
                 line_no = line[3]["line_no"]
                 pt_array = feature_all[line_no][0]

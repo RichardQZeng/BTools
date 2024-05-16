@@ -64,7 +64,7 @@ MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_RAY
 @unique
 class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
@@ -91,7 +91,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_USE_SKIMAGE_GRAPH = True
+CL_USE_SKIMAGE_GRAPH = False
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
 CL_SNAP_TOLERANCE = 15.0
@@ -1081,14 +1081,13 @@ def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
                     out_result.append(result)
 
             step += 1
-            if verbose:
-                print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100), flush=True)
+            print(' "PROGRESS_LABEL Item {} of {}" '.format(step, total_steps), flush=True)
+            print(' %{} '.format(step / total_steps * 100), flush=True)
 
         pool.close()
         pool.join()
     elif PARALLEL_MODE == MODE_DASK:
-        dask_client = Client(threads_per_worker=2, n_workers=10)
+        dask_client = Client(threads_per_worker=1, n_workers=processes)
         print(dask_client)
         try:
             print('start processing')
