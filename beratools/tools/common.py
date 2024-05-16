@@ -64,7 +64,7 @@ MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_RAY
+PARALLEL_MODE = MODE_MULTIPROCESSING
 @unique
 class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
@@ -1064,11 +1064,17 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
 def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
     out_result = []
     step = 0
+    print("Using {} CPU cores".format(processes))
+    total_steps = len(in_data)
+
+    def print_msg(step, total_steps):
+        print(' "PROGRESS_LABEL Item {} of {}" '.format(step, total_steps), flush=True)
+        print(' %{} '.format(step / total_steps * 100), flush=True)
+
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         pool = multiprocessing.Pool(processes)
         print("Multiprocessing started...")
-        print("Using {} CPU cores".format(processes))
-        total_steps = len(in_data)
+
         with Pool(processes) as pool:
             for result in pool.imap_unordered(in_func, in_data):
                 if not result:
@@ -1080,9 +1086,11 @@ def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
                 else:
                     out_result.append(result)
 
-            step += 1
-            print(' "PROGRESS_LABEL Item {} of {}" '.format(step, total_steps), flush=True)
-            print(' %{} '.format(step / total_steps * 100), flush=True)
+                step += 1
+                print_msg(step, total_steps)
+
+            # print(' "PROGRESS_LABEL Item {} of {}" '.format(step, total_steps), flush=True)
+            # print(' %{} '.format(step / total_steps * 100), flush=True)
 
         pool.close()
         pool.join()
@@ -1096,6 +1104,8 @@ def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
 
             for i in seq:
                 out_result.append(i.result())
+                step += 1
+                print_msg(step, total_steps)
         except Exception as e:
             dask_client.close()
             print(e)
@@ -1110,14 +1120,15 @@ def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
             done_id, result_ids = ray.wait(result_ids)
             result_item = ray.get(done_id[0])
             out_result.append(result_item)
-            print('Done {}'.format(step))
             step += 1
+            print_msg(step, total_steps)
         ray.shutdown()
 
     elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        i = 0
         for line in in_data:
             result_item = in_func(line)
             out_result.append(result_item)
+            step += 1
+            print_msg(step, total_steps)
 
     return out_result
