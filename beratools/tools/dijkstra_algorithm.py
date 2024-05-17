@@ -348,7 +348,7 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
 
 
 def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_linear_reference=False):
-    default_return = [None, None]
+    default_return = None
     ras_nodata = in_meta['nodata']
     pt_start = line.coords[0]
     pt_end = line.coords[-1]
