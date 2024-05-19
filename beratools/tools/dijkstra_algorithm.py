@@ -33,6 +33,8 @@ import queue
 import collections
 from common import *
 
+from line_profiler import profile
+
 sqrt2 = sqrt(2)
 
 
@@ -68,7 +70,8 @@ class MinCostPathHelper:
         contains_negative = False
         with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
             for x in it:
-                if np.isclose(x, nodata) or np.isnan(x):
+                # if np.isclose(x, nodata) or np.isnan(x):
+                if x <= nodata or np.isnan(x):
                     x[...] = 9999.0
                 elif x < 0:
                     contains_negative = True

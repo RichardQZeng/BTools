@@ -64,7 +64,7 @@ MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_DASK
+PARALLEL_MODE = MODE_RAY
 @unique
 class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
@@ -91,7 +91,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_USE_SKIMAGE_GRAPH = True
+CL_USE_SKIMAGE_GRAPH = False
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
 CL_SNAP_TOLERANCE = 15.0
@@ -1126,3 +1126,4 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
             print_msg(app_name, step, total_steps)
 
     return out_result
+
