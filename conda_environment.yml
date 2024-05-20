@@ -11,7 +11,6 @@ dependencies:
   - distributed
   - geopandas
   - huggingface_hub
-  - line_profiler
   - matplotlib
   - pip
   # - pip:
