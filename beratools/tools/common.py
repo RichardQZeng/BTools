@@ -64,7 +64,7 @@ MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_RAY
 @unique
 class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
@@ -91,7 +91,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_USE_SKIMAGE_GRAPH = True
+CL_USE_SKIMAGE_GRAPH = False
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
 CL_SNAP_TOLERANCE = 15.0
@@ -1061,34 +1061,35 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     return lc_path_new
 
 
-def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
+def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verbose):
     out_result = []
     step = 0
+    print("Using {} CPU cores".format(processes))
+    total_steps = len(in_data)
+
+    def print_msg(app_name, step, total_steps):
+        print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
+        print(f' %{step / total_steps * 100} ', flush=True)
+
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         pool = multiprocessing.Pool(processes)
         print("Multiprocessing started...")
-        print("Using {} CPU cores".format(processes))
-        total_steps = len(in_data)
+
         with Pool(processes) as pool:
             for result in pool.imap_unordered(in_func, in_data):
                 if not result:
                     print('No results found.')
                     continue
-                if len(result) == 0:
-                    print('No results found.')
-                    continue
                 else:
                     out_result.append(result)
 
-            step += 1
-            if verbose:
-                print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100), flush=True)
+                step += 1
+                print_msg(app_name, step, total_steps)
 
         pool.close()
         pool.join()
     elif PARALLEL_MODE == MODE_DASK:
-        dask_client = Client(threads_per_worker=2, n_workers=10)
+        dask_client = Client(threads_per_worker=1, n_workers=processes)
         print(dask_client)
         try:
             print('start processing')
@@ -1097,6 +1098,8 @@ def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
 
             for i in seq:
                 out_result.append(i.result())
+                step += 1
+                print_msg(app_name, step, total_steps)
         except Exception as e:
             dask_client.close()
             print(e)
@@ -1111,14 +1114,16 @@ def execute_multiprocessing(in_func, in_data, processes, workers, verbose):
             done_id, result_ids = ray.wait(result_ids)
             result_item = ray.get(done_id[0])
             out_result.append(result_item)
-            print('Done {}'.format(step))
             step += 1
+            print_msg(app_name, step, total_steps)
         ray.shutdown()
 
     elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        i = 0
         for line in in_data:
             result_item = in_func(line)
             out_result.append(result_item)
+            step += 1
+            print_msg(app_name, step, total_steps)
 
     return out_result
+

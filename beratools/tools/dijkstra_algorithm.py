@@ -33,6 +33,8 @@ import queue
 import collections
 from common import *
 
+from line_profiler import profile
+
 sqrt2 = sqrt(2)
 
 
@@ -68,7 +70,8 @@ class MinCostPathHelper:
         contains_negative = False
         with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
             for x in it:
-                if np.isclose(x, nodata) or np.isnan(x):
+                # if np.isclose(x, nodata) or np.isnan(x):
+                if x <= nodata or np.isnan(x):
                     x[...] = 9999.0
                 elif x < 0:
                     contains_negative = True
@@ -348,7 +351,7 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
 
 
 def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_linear_reference=False):
-    default_return = [None, None]
+    default_return = None
     ras_nodata = in_meta['nodata']
     pt_start = line.coords[0]
     pt_end = line.coords[-1]

@@ -12,11 +12,6 @@ import ray
 
 from common import *
 
-# import line_profiler
-# profile = line_profiler.LineProfiler()
-
-# from memory_profiler import profile
-
 
 class OperationCancelledException(Exception):
     pass
@@ -147,7 +142,6 @@ def split_polygon_with_polygon(in_poly, polygon):
         return inter
 
 
-# @profile
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
     """
     Parameters
