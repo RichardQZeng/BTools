@@ -70,6 +70,7 @@ class MinCostPathHelper:
         contains_negative = False
         with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
             for x in it:
+                # TODO: this speeds up a lot, but need further inspection
                 # if np.isclose(x, nodata) or np.isnan(x):
                 if x <= nodata or np.isnan(x):
                     x[...] = 9999.0
