@@ -34,8 +34,15 @@ import collections
 from common import *
 
 from line_profiler import profile
+from numba import njit
 
 sqrt2 = sqrt(2)
+
+
+# @njit(nopython=True)
+def block_nodata(block, nodata):
+    a = np.isclose(block, nodata) | np.isnan(block)
+    return a
 
 
 class MinCostPathHelper:
@@ -65,17 +72,28 @@ class MinCostPathHelper:
 
         return LineString(path_points_raw), attr_vals
 
+    # @staticmethod
+    # def block2matrix_numpy(block, nodata):
+    #     contains_negative = False
+    #     with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
+    #         for x in it:
+    #             # TODO: this speeds up a lot, but need further inspection
+    #             # if np.isclose(x, nodata) or np.isnan(x):
+    #             if x <= nodata or np.isnan(x):
+    #                 x[...] = 9999.0
+    #             elif x < 0:
+    #                 contains_negative = True
+    #
+    #     return block, contains_negative
     @staticmethod
     def block2matrix_numpy(block, nodata):
         contains_negative = False
-        with np.nditer(block, flags=["refs_ok"], op_flags=['readwrite']) as it:
-            for x in it:
-                # TODO: this speeds up a lot, but need further inspection
-                # if np.isclose(x, nodata) or np.isnan(x):
-                if x <= nodata or np.isnan(x):
-                    x[...] = 9999.0
-                elif x < 0:
-                    contains_negative = True
+
+        # a = block <= nodata | np.isnan(block)
+        a = block_nodata(block, nodata)
+        block[a] = 9999.0
+        if block.min() < 0:
+            contains_negative = True
 
         return block, contains_negative
 
