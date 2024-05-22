@@ -121,18 +121,11 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         print("Saving polygons for generating centerlines ...", flush=True)
         polys_for_centerline = GeoDataFrame(pd.concat(poly_list))
         polys_for_centerline = polys_for_centerline.dissolve(by='OLnFID', as_index=False)
-        # poly_gpd = poly_centerline_gpd.copy()
 
         # save polygons
         path = Path(out_centerline)
         path = path.with_stem(path.stem + '_poly')
         polys_for_centerline.to_file(path.as_posix())
-
-        # poly_gpd = find_centerlines(dissolved_polys, line_seg, processes)
-        # centerline_gpd = poly_centerline_gpd.copy()
-        # centerline_gpd = centerline_gpd.set_geometry('centerline')
-        # centerline_gpd = centerline_gpd.drop(columns=['geometry'])
-        # centerline_gpd.crs = poly_centerline_gpd.crs
 
         centerline_gpd = gpd.GeoDataFrame(geometry=centerline_list, crs=polys_for_centerline.crs)
         centerline_gpd.to_file(out_centerline)
@@ -270,24 +263,12 @@ def process_single_line_segment(dict_segment):
         source = [transformer.rowcol(x1, y1)]
         destination = [transformer.rowcol(x2, y2)]
 
-        # rasterized_source = features.rasterize([origin_point], out_shape=clip_canopy_r.shape, transform=out_transform,
-        #                                        out=None, fill=0, all_touched=True, default_value=1, dtype=None)
-        # source_1 = numpy.transpose(numpy.nonzero(rasterized_source))
-        # rasterized_destination = features.rasterize([destination_point], out_shape=clip_canopy_r.shape, transform=out_transform,
-        #                                             out=None, fill=0, all_touched=True, default_value=1, dtype=None)
-        # destination_1 = numpy.transpose(numpy.nonzero(rasterized_destination))
-
         corridor_thresh = corridor_raster(clip_in_cost_r, out_meta, source, destination,
                                           (cell_size_x, cell_size_y), corridor_th_value)
 
         # Process: Stamp CC and Max Line Width
-        # Original code here
-        # RasterClass = SetNull(IsNull(CorridorMin),((CorridorMin) + ((Canopy_Raster) >= 1)) > 0)
         temp1 = (corridor_thresh + clip_canopy_r)
         raster_class = numpy.ma.where(temp1 == 0, 1, 0).data
-
-        # BERA proposed Binary morphology
-        # RasterClass_binary=numpy.where(RasterClass==0,False,True)
 
         if exp_shk_cell > 0 and cell_size_x < 1:
             # Process: Expand
@@ -295,15 +276,10 @@ def process_single_line_segment(dict_segment):
             cell_size = int(exp_shk_cell * 2 + 1)
             expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
 
-            # BERA proposed Binary morphology Expand
-            # Expanded = ndimage.binary_dilation(RasterClass_binary, iterations=exp_shk_cell,border_value=1)
-
             # Process: Shrink
             # FLM original Shrink equivalent
             file_shrink = ndimage.grey_erosion(expanded, size=(cell_size, cell_size))
 
-            # BERA proposed Binary morphology Shrink
-            # fileShrink = ndimage.binary_erosion((Expanded),iterations=Exp_Shk_cell,border_value=1)
         else:
             if BT_DEBUGGING:
                 print('No Expand And Shrink cell performed.')
@@ -333,7 +309,7 @@ def process_single_line_segment(dict_segment):
 
         # find contiguous corridor polygon for centerline
         corridor_poly_gpd = find_corridor_polygon(corridor_thresh, out_transform, line_gpd)
-        centerline = find_centerline(corridor_poly_gpd.geometry.iloc[0], feat)
+        centerline, status = find_centerline(corridor_poly_gpd.geometry.iloc[0], feat)
 
         return out_gdata, corridor_poly_gpd, centerline
 
