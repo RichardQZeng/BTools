@@ -46,13 +46,13 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         return
 
     if 'OLnFID' not in line_seg.columns.array:
-        print("Cannot find {} column in input line data.\n '{}' column will be created".format('OLnFID', 'OLnFID'))
+        print("Cannot find 'OLnFID' column in input line data.\n 'OLnFID' will be created")
         line_seg['OLnFID'] = line_seg.index
 
     if 'CorridorTh' not in line_seg.columns.array:
         if BT_DEBUGGING:
-            print("Cannot find {} column in input line data".format('CorridorTh'))
-        print("New column created: {}".format('CorridorTh'))
+            print("Cannot find 'CorridorTh' column in input line data")
+        print("New column created: 'CorridorTh")
         line_seg['CorridorTh'] = corridor_th_value
     else:
         corridor_th_value = float(9999999)
@@ -65,7 +65,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     if proc_segments:
         print("Splitting lines into segments...")
         line_seg = split_into_segments(line_seg)
-        print("Splitting lines into segments...Done")
+        print("Splitting lines into segments... Done")
     else:
         line_seg = split_into_equal_nth_segments(line_seg)
 
@@ -78,21 +78,27 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     poly_list = []
     centerline_list = []
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        feat_list = execute_multiprocessing(line_args, processes, verbose)
-    else:
-        process_single_line = process_single_line_segment
-        if GROUPING_SEGMENT:
-            process_single_line = process_single_line_whole
+    process_single_line = process_single_line_segment
+    if GROUPING_SEGMENT:
+        process_single_line = process_single_line_whole
 
-        total_steps = len(line_args)
-        step = 0
-        for row in line_args:
-            feat_list.append(process_single_line(row))
-            step += 1
-            if verbose:
-                print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100), flush=True)
+    # if PARALLEL_MODE == MODE_MULTIPROCESSING:
+    #     feat_list = execute_multiprocessing(line_args, processes, verbose)
+    # else:
+    #     process_single_line = process_single_line_segment
+    #     if GROUPING_SEGMENT:
+    #         process_single_line = process_single_line_whole
+    #
+    #     total_steps = len(line_args)
+    #     step = 0
+    #     for row in line_args:
+    #         feat_list.append(process_single_line(row))
+    #         step += 1
+    #         if verbose:
+    #             print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+    #             print(' %{} '.format(step / total_steps * 100), flush=True)
+    feat_list = execute_multiprocessing(process_single_line, 'Line footprint',
+                                        line_args, processes, 1, verbose)
 
     print('Generating shapefile ...', flush=True)
 
@@ -131,10 +137,9 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         centerline_gpd.to_file(out_centerline)
         print("Centerline file saved", flush=True)
 
+    print(f'%{100}')
 
-    print('%{}'.format(100))
-
-    print('Finishing footprint processing in {} seconds)'.format(time.time()-start_time))
+    print(f'Finishing footprint processing in {time.time()-start_time} seconds')
 
 
 def field_name_list(fc):
@@ -150,7 +155,7 @@ def has_field(fc, fi):
     # Check column name
     field_list = field_name_list(fc)
     if fi in field_list:
-        print("column: {} is found".format(fi))
+        print("column: {fi} is found")
         return True
     elif fi == 'CorridorTh':
         shapefile = geopandas.GeoDataFrame.from_file(fc)
@@ -159,10 +164,10 @@ def has_field(fc, fi):
 
         shapefile.to_file(fc)
         print("Warning: There is no field named {} in the input data".format('CorridorTh'))
-        print("Field: '{}' is added and default threshold (i.e.3) is adopted".format('CorridorTh'))
+        print("Field: 'CorridorTh' is added and default threshold (i.e.3) is adopted")
         return True
     else:
-        print("Warning: There is no field named {} in the input data".format(fi))
+        print("Warning: There is no field named {fi} in the input data")
         return False
 
 
@@ -194,7 +199,7 @@ def process_single_line_whole(line):
             print(f'Empty footprint returned.')
 
     if len(line) > 0:
-        print('Processing line with ID: {}, done.'.format(line[0]['OLnFID']), flush=True)
+        print(f"Processing line: {line[0]['OLnFID']}, done.", flush=True)
 
     return footprint_merge, polys, centerline_list
 
@@ -305,7 +310,7 @@ def process_single_line_segment(dict_segment):
         out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         if not GROUPING_SEGMENT:
-            print('LP:PSLS: Processing line ID: {}, done.'.format(dict_segment['OLnSEG']), flush=True)
+            print(f"LP:PSLS: Processing line ID: {dict_segment['OLnSEG']}, done.", flush=True)
 
         # find contiguous corridor polygon for centerline
         corridor_poly_gpd = find_corridor_polygon(corridor_thresh, out_transform, line_gpd)
@@ -314,7 +319,7 @@ def process_single_line_segment(dict_segment):
         return out_gdata, corridor_poly_gpd, centerline
 
     except Exception as e:
-        print('Exception: {}'.format(e))
+        print(f'Exception: {e}')
         return None
 
 
@@ -398,7 +403,7 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
                 list_of_segment.append(feature_attributes)
                 i += 1
 
-        print("There are {} lines to be processed.".format(ori_total_feat))
+        print(f"There are {ori_total_feat} lines to be processed.")
     else:
         print("Input line feature is corrupted, exit!")
         exit()
@@ -430,41 +435,41 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         return list_of_segment
 
 
-def execute_multiprocessing(line_args, processes, verbose):
-    try:
-        total_steps = len(line_args)
-        features = []
-
-        with Pool(processes) as pool:
-            # chunk_size = 1
-            step = 0
-            process_single_line = process_single_line_segment
-            if GROUPING_SEGMENT:
-                process_single_line = process_single_line_whole
-
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_single_line, line_args):
-                if BT_DEBUGGING:
-                    print('Got result: {}'.format(result), flush=True)
-                features.append(result)
-                step += 1
-                if verbose:
-                    print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                    print(' %{} '.format(step/total_steps*100), flush=True)
-
-        print('Multiprocessing done.')
-        return features
-    except OperationCancelledException:
-        print("Operation cancelled")
-        return None
+# def execute_multiprocessing(line_args, processes, verbose):
+#     try:
+#         total_steps = len(line_args)
+#         features = []
+#
+#         with Pool(processes) as pool:
+#             # chunk_size = 1
+#             step = 0
+#             process_single_line = process_single_line_segment
+#             if GROUPING_SEGMENT:
+#                 process_single_line = process_single_line_whole
+#
+#             # execute tasks in order, process results out of order
+#             for result in pool.imap_unordered(process_single_line, line_args):
+#                 if BT_DEBUGGING:
+#                     print('Got result: {}'.format(result), flush=True)
+#                 features.append(result)
+#                 step += 1
+#                 if verbose:
+#                     print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+#                     print(' %{} '.format(step/total_steps*100), flush=True)
+#
+#         print('Multiprocessing done.')
+#         return features
+#     except OperationCancelledException:
+#         print("Operation cancelled")
+#         return None
 
 
 if __name__ == '__main__':
     start_time = time.time()
     print('Footprint processing started')
-    print('Current time: {}'.format(time.strftime("%b %Y %H:%M:%S", time.localtime())))
+    print(f'Current time: {time.strftime("%b %Y %H:%M:%S", time.localtime())}')
 
     in_args, in_verbose = check_arguments()
     line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
-    print('Current time: {}'.format(time.strftime("%b %Y %H:%M:%S", time.localtime())))
+    print(f'Current time: {time.strftime("%b %Y %H:%M:%S", time.localtime())}')
 
