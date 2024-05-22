@@ -125,6 +125,10 @@ if not BT_DEBUGGING:
     warnings.simplefilter(action='ignore', category=UserWarning)
 
 
+class OperationCancelledException(Exception):
+    pass
+
+
 def print_msg(app_name, step, total_steps):
     print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
     print(f' %{step / total_steps * 100} ', flush=True)

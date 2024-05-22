@@ -26,10 +26,6 @@ from dijkstra_algorithm import *
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 
-class OperationCancelledException(Exception):
-    pass
-
-
 def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max_ln_width,
                    exp_shk_cell, out_footprint, out_centerline, processes, verbose):
     corridor_th_field = 'CorridorTh'
@@ -82,21 +78,6 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     if GROUPING_SEGMENT:
         process_single_line = process_single_line_whole
 
-    # if PARALLEL_MODE == MODE_MULTIPROCESSING:
-    #     feat_list = execute_multiprocessing(line_args, processes, verbose)
-    # else:
-    #     process_single_line = process_single_line_segment
-    #     if GROUPING_SEGMENT:
-    #         process_single_line = process_single_line_whole
-    #
-    #     total_steps = len(line_args)
-    #     step = 0
-    #     for row in line_args:
-    #         feat_list.append(process_single_line(row))
-    #         step += 1
-    #         if verbose:
-    #             print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-    #             print(' %{} '.format(step / total_steps * 100), flush=True)
     feat_list = execute_multiprocessing(process_single_line, 'Line footprint',
                                         line_args, processes, 1, verbose)
 
@@ -433,35 +414,6 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         return lines
     else:
         return list_of_segment
-
-
-# def execute_multiprocessing(line_args, processes, verbose):
-#     try:
-#         total_steps = len(line_args)
-#         features = []
-#
-#         with Pool(processes) as pool:
-#             # chunk_size = 1
-#             step = 0
-#             process_single_line = process_single_line_segment
-#             if GROUPING_SEGMENT:
-#                 process_single_line = process_single_line_whole
-#
-#             # execute tasks in order, process results out of order
-#             for result in pool.imap_unordered(process_single_line, line_args):
-#                 if BT_DEBUGGING:
-#                     print('Got result: {}'.format(result), flush=True)
-#                 features.append(result)
-#                 step += 1
-#                 if verbose:
-#                     print(' "PROGRESS_LABEL Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-#                     print(' %{} '.format(step/total_steps*100), flush=True)
-#
-#         print('Multiprocessing done.')
-#         return features
-#     except OperationCancelledException:
-#         print("Operation cancelled")
-#         return None
 
 
 if __name__ == '__main__':
