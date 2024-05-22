@@ -64,7 +64,7 @@ MODE_SEQUENTIAL = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_SEQUENTIAL
+PARALLEL_MODE = MODE_MULTIPROCESSING
 @unique
 class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
@@ -123,6 +123,11 @@ if not BT_DEBUGGING:
 
     # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
     warnings.simplefilter(action='ignore', category=UserWarning)
+
+
+def print_msg(app_name, step, total_steps):
+    print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
+    print(f' %{step / total_steps * 100} ', flush=True)
 
 
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
@@ -1066,10 +1071,6 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
     step = 0
     print("Using {} CPU cores".format(processes))
     total_steps = len(in_data)
-
-    def print_msg(app_name, step, total_steps):
-        print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
-        print(f' %{step / total_steps * 100} ', flush=True)
 
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         pool = multiprocessing.Pool(processes)

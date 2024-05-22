@@ -120,7 +120,6 @@ def centerline(callback, in_line, in_cost, line_radius,
     out_corridor_poly_path = out_corridor_poly_path.with_stem(out_corridor_poly_path.stem + '_corridor_poly')
     corridor_polys.to_file(out_corridor_poly_path.as_posix())
 
-
 def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
     line = line_args[0][0]
     prop = line_args[0][1]

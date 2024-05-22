@@ -370,7 +370,7 @@ class VertexGrouping:
                                              'start_visited': False, 'end_visited': False})
                     line_no += 1
 
-            print(f'Splitting line {line_no}')
+            print_msg('Splitting lines', line_no, len(self.segment_all))
 
         self.segment_all = input_lines_temp
 
@@ -439,13 +439,14 @@ class VertexGrouping:
                     self.create_vertex_group(pt_list[0], line['line'], line['line_no'], 0, uid)
                     line['start_visited'] = True
                     i += 1
-                    print(f'Create vertex group {i}')
+                    print_msg('Grouping vertices', i, len(self.segment_all))
 
                 if not line['end_visited']:
                     self.create_vertex_group(pt_list[-1], line['line'], line['line_no'], -1, uid)
                     line['end_visited'] = True
                     i += 1
-                    print(f'Create vertex group {i}')
+                    print_msg('Grouping vertices', i, len(self.segment_all))
+
             print('group_intersections done.')
 
         except Exception as e:
