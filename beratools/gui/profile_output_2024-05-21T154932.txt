@@ -1,0 +1,22 @@
+Timer unit: 1e-07 s
+
+Total time: 0.0008096 s
+File: C:\BERATools\BTools\beratools\tools\dijkstra_algorithm.py
+Function: block2matrix_numpy at line 87
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    87                                               @staticmethod
+    88                                               @profile
+    89                                               def block2matrix_numpy(block, nodata):
+    90         6         26.0      4.3      0.3          contains_negative = False
+    91                                           
+    92                                                   # a = block <= nodata | np.isnan(block)
+    93         6       5255.0    875.8     64.9          a = block_nodata(block, nodata)
+    94         6        750.0    125.0      9.3          block[a] = 9999.0
+    95         6       2033.0    338.8     25.1          if block.min() < 0:
+    96                                                       contains_negative = True
+    97                                           
+    98         6         32.0      5.3      0.4          return block, contains_negative
+
+  0.00 seconds - C:\BERATools\BTools\beratools\tools\dijkstra_algorithm.py:87 - block2matrix_numpy

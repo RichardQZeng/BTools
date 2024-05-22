@@ -1,0 +1,90 @@
+Timer unit: 1e-07 s
+
+Total time: 0.483742 s
+File: C:\BERATools\BTools\beratools\tools\dijkstra_algorithm.py
+Function: find_least_cost_path at line 354
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   354                                           @profile
+   355                                           def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_linear_reference=False):
+   356         6         41.0      6.8      0.0      default_return = None
+   357         6         29.0      4.8      0.0      ras_nodata = in_meta['nodata']
+   358         6       2753.0    458.8      0.1      pt_start = line.coords[0]
+   359         6       1921.0    320.2      0.0      pt_end = line.coords[-1]
+   360                                           
+   361         6         28.0      4.7      0.0      image_shp = out_image.shape
+   362         6         31.0      5.2      0.0      image_data = out_image[0]
+   363         6         63.0     10.5      0.0      if len(image_shp) == 2:
+   364                                                   image_data = out_image
+   365                                           
+   366         6         28.0      4.7      0.0      if USE_NUMPY_FOR_DIJKSTRA:
+   367         6    3371461.0 561910.2     69.7          matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(image_data, ras_nodata)
+   368                                               else:
+   369                                                   matrix, contains_negative = MinCostPathHelper.block2matrix(image_data, ras_nodata)
+   370                                           
+   371         6         25.0      4.2      0.0      if contains_negative:
+   372                                                   raise Exception('ERROR: Raster has negative values.')
+   373                                           
+   374         6        710.0    118.3      0.0      transformer = rasterio.transform.AffineTransformer(in_meta['transform'])
+   375                                           
+   376         6         73.0     12.2      0.0      if (type(pt_start[0]) is tuple or
+   377         6         28.0      4.7      0.0              type(pt_start[1]) is tuple or
+   378         6         28.0      4.7      0.0              type(pt_end[0]) is tuple or
+   379         6         25.0      4.2      0.0              type(pt_end[1]) is tuple):
+   380                                                   print("Point initialization error. Input is tuple.")
+   381                                                   return default_return
+   382                                           
+   383         6         80.0     13.3      0.0      start_tuples = []
+   384         6         15.0      2.5      0.0      end_tuples = []
+   385         6         16.0      2.7      0.0      start_tuple = []
+   386         6         14.0      2.3      0.0      try:
+   387         6       8733.0   1455.5      0.2          start_tuples = [(transformer.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
+   388         6       5506.0    917.7      0.1          end_tuples = [(transformer.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
+   389         6         20.0      3.3      0.0          start_tuple = start_tuples[0]
+   390         6         14.0      2.3      0.0          end_tuple = end_tuples[0]
+   391                                           
+   392                                                   # regulate end poit coords in case they are out of index of matrix
+   393         6         29.0      4.8      0.0          mat_size = matrix.shape
+   394         6         37.0      6.2      0.0          mat_size = (mat_size[0] - 1, mat_size[0] - 1)
+   395         6         90.0     15.0      0.0          start_tuple = (min(start_tuple[0], mat_size), start_tuple[1], start_tuple[2])
+   396         6         38.0      6.3      0.0          end_tuple = (min(end_tuple[0], mat_size), end_tuple[1], end_tuple[2])
+   397                                           
+   398                                               except Exception as e:
+   399                                                   print(e)
+   400                                           
+   401         6         22.0      3.7      0.0      if USE_NUMPY_FOR_DIJKSTRA:
+   402         6     242012.0  40335.3      5.0          result = dijkstra_np(start_tuple, end_tuple, matrix)
+   403                                               else:
+   404                                                   # TODO: change end_tuples to end_tuple
+   405                                                   result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
+   406                                           
+   407         6         24.0      4.0      0.0      if result is None:
+   408                                                   # raise Exception
+   409                                                   return default_return
+   410                                           
+   411         6         43.0      7.2      0.0      if len(result) == 0:
+   412                                                   # raise Exception
+   413                                                   print('No result returned.')
+   414                                                   return default_return
+   415                                           
+   416         6         19.0      3.2      0.0      path_points = None
+   417        12         62.0      5.2      0.0      for path, costs, end_tuple in result:
+   418        12    1143667.0  95305.6     23.6          path_points = MinCostPathHelper.create_points_from_path(transformer, path,
+   419         6         26.0      4.3      0.0                                                                  start_tuple[1], end_tuple[1])
+   420         6         22.0      3.7      0.0          if output_linear_reference:
+   421                                                       # TODO: code not reached
+   422                                                       # add linear reference
+   423                                                       for point, cost in zip(path_points, costs):
+   424                                                           point.addMValue(cost)
+   425                                           
+   426         6         32.0      5.3      0.0          total_cost = costs[-1]
+   427                                           
+   428         6         24.0      4.0      0.0      feat_attr = (start_tuple[2], end_tuple[2], total_cost)
+   429         6         15.0      2.5      0.0      lc_path = None
+   430         6         46.0      7.7      0.0      if len(path_points) >= 2:
+   431         6      59553.0   9925.5      1.2          lc_path = LineString(path_points)
+   432                                           
+   433         6         17.0      2.8      0.0      return lc_path
+
+  0.48 seconds - C:\BERATools\BTools\beratools\tools\dijkstra_algorithm.py:354 - find_least_cost_path
