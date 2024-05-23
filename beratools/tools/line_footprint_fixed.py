@@ -1,18 +1,5 @@
 import time
-import math
-from multiprocessing.pool import Pool
-
-import numpy as np
-import geopandas as gpd
-import pandas as pd
-from shapely.affinity import scale, rotate
-from shapely.geometry import Point, LineString
-
 from common import *
-
-
-class OperationCancelledException(Exception):
-    pass
 
 
 def prepare_line_args(shp_line, shp_poly, n_samples, offset):
@@ -256,20 +243,14 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     offset = float(offset)
     line_args = prepare_line_args(in_line, in_footprint, n_samples, offset)
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        out_lines = execute_multiprocessing(line_args, processes, verbose)
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        out_lines = execute_multiprocessing(line_args, processes, verbose)
-
+    out_lines = execute_multiprocessing(process_single_line, 'Fixed footprint',
+                                        line_args, processes, 1, verbose)
     line_attr = pd.concat(out_lines)
 
     # create fixed width footprint
     buffer_gdf = generate_fixed_width_footprint(line_attr, in_footprint, max_width=max_width)
 
     # Save the lines with attributes and polygons to a new shapefile
-    # shp_line_attr = r'D:\Temp\test-ecosite\fixed_width_line_attr.shp'
-    # print('Line with width attributes saved to... ', shp_line_attr)
-    # line_attr.to_file(shp_line_attr)
     perp_lines_gdf = buffer_gdf.copy(deep=True)
     buffer_gdf = buffer_gdf.drop(columns=['perp_lines'])
     buffer_gdf.crs = perp_lines_gdf.crs
@@ -291,46 +272,6 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     line_attr.to_file(gdf_simplified_path)
 
     callback('Fixed width footprint tool finished.')
-
-
-# protect the entry point
-def execute_multiprocessing(line_args, processes, verbose):
-    try:
-        total_steps = len(line_args)
-        features = []
-        with Pool(processes) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_single_line, line_args):
-                if BT_DEBUGGING:
-                    print('Got result: {}'.format(result), flush=True)
-
-                features.append(result)
-                step += 1
-                if verbose:
-                    print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-                    print(' %{} '.format(step / total_steps * 100), flush=True)
-
-        return features
-    except OperationCancelledException:
-        print("Operation cancelled")
-        return None
-
-
-def execute_sequential_processing(line_args, processes, verbose):
-    total_steps = len(line_args)
-    step = 0
-    features = []
-    for line in line_args:
-        result = process_single_line(line)
-        features.append(result)
-
-        step += 1
-        if verbose:
-            print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-            print(' %{} '.format(step / total_steps * 100), flush=True)
-
-    return features
 
 
 if __name__ == '__main__':

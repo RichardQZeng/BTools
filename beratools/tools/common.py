@@ -63,12 +63,14 @@ class CenterlineStatus(IntEnum):
 
 
 # constants
-MODE_MULTIPROCESSING = 1
-MODE_SEQUENTIAL = 2
+MODE_SEQUENTIAL = 1
+MODE_MULTIPROCESSING = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
 PARALLEL_MODE = MODE_MULTIPROCESSING
+
+
 @unique
 class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
@@ -1075,6 +1077,19 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     return lc_path_new
 
 
+def result_is_valid(result):
+    if type(result) is list or type(result) is tuple:
+        if len(result) > 0:
+            return True
+    elif type(result) is pd.DataFrame or type(result) is gpd.GeoDataFrame:
+        if not result.empty:
+            return True
+    elif result:
+        return True
+
+    return False
+
+
 def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verbose):
     out_result = []
     step = 0
@@ -1087,10 +1102,7 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
 
             with Pool(processes) as pool:
                 for result in pool.imap_unordered(in_func, in_data):
-                    if not result:
-                        print('No results found.')
-                        continue
-                    else:
+                    if result_is_valid(result):
                         out_result.append(result)
 
                     step += 1
@@ -1108,12 +1120,13 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
                 seq = as_completed(result)
 
                 for i in seq:
-                    out_result.append(i.result())
+                    if result_is_valid(result):
+                        out_result.append(i.result())
+
                     step += 1
                     print_msg(app_name, step, total_steps)
             except Exception as e:
                 dask_client.close()
-                # print(e)
 
             dask_client.close()
 
@@ -1125,7 +1138,10 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
             while len(result_ids):
                 done_id, result_ids = ray.wait(result_ids)
                 result_item = ray.get(done_id[0])
-                out_result.append(result_item)
+
+                if result_is_valid(result_item):
+                    out_result.append(result_item)
+
                 step += 1
                 print_msg(app_name, step, total_steps)
             ray.shutdown()
@@ -1133,7 +1149,9 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
         elif PARALLEL_MODE == MODE_SEQUENTIAL:
             for line in in_data:
                 result_item = in_func(line)
-                out_result.append(result_item)
+                if result_is_valid(result_item):
+                    out_result.append(result_item)
+
                 step += 1
                 print_msg(app_name, step, total_steps)
     except OperationCancelledException:
