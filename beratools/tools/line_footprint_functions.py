@@ -28,36 +28,23 @@
 #
 # ---------------------------------------------------------------------------
 
-import math
 import time
-from pathlib import Path
-import uuid
-
-from multiprocessing.pool import Pool
 
 from scipy import stats
 import xarray as xr
 from xrspatial import convolution, focal
-import os
-import pandas as pd
+
 from geopandas import GeoDataFrame
 
 from scipy import ndimage
 from rasterio import features, mask
-
 from shapely import buffer
-from shapely.geometry import LineString, Point, MultiPolygon, shape
 
 from common import *
 import skimage
 from skimage.morphology import *
-from skimage.graph import MCP_Geometric, MCP_Connect,MCP,MCP_Flexible
+from skimage.graph import MCP_Geometric, MCP_Flexible
 from dijkstra_algorithm import *
-
-import numpy as np
-
-class OperationCancelledException(Exception):
-    pass
 
 
 def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
@@ -297,9 +284,6 @@ def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_r
                            float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
                            line_seg.iloc[[record]], out_metaR, line_id,RCut,'Right',canopy_thresh_percentage,line_bufferC])
 
-
-
-
         line_id += 1
 
     return line_argsL,line_argsR,line_argsC
@@ -369,69 +353,6 @@ def find_corridor_threshold(raster):
     return corridor_threshold
 
 
-# def find_centerlines(poly_gpd, line_seg, processes):
-#     centerline = None
-#     centerline_gpd = []
-#     rows_and_paths = []
-#
-#     try:
-#         for i in poly_gpd.index:
-#             row = poly_gpd.loc[[i]]
-#             poly = row.geometry.iloc[0]
-#             line_id = row.OLnFID[i]
-#             lc_path = line_seg.loc[line_seg['OLnFID']==line_id].geometry[i]
-#             rows_and_paths.append((row, lc_path))
-#     except Exception as e:
-#         print(e)
-#
-#     total_steps = len(rows_and_paths)
-#     step = 0
-#
-#     if PARALLEL_MODE == MODE_MULTIPROCESSING:
-#         with Pool(processes=processes) as pool:
-#             # execute tasks in order, process results out of order
-#             for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
-#                 centerline_gpd.append(result)
-#                 step += 1
-#                 print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-#                 print(' %{} '.format(step / total_steps * 100))
-#                 # print('Centerline No. {} done'.format(step))
-#     elif PARALLEL_MODE == MODE_SEQUENTIAL:
-#         for item in rows_and_paths:
-#             row_with_centerline = find_single_centerline(item)
-#             centerline_gpd.append(row_with_centerline)
-#             step += 1
-#             print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-#             print(' %{} '.format(step / total_steps * 100))
-#             # print('Centerline No. {} done'.format(step))
-#
-#     return pd.concat(centerline_gpd)
-
-
-# def find_single_centerline(row_and_path):
-#     """
-#
-#     Parameters
-#     ----------
-#         in_canopy_r has np.inf, not masked
-#         in_cost_r has BT_NODATA_COST, not masked
-#         All other rasters are masked
-#     segment
-#
-#     Returns
-#     -------
-#
-#     """
-#     row = row_and_path[0]
-#     lc_path = row_and_path[1]
-#
-#     poly = row.geometry.iloc[0]
-#     centerline = find_centerline(poly, lc_path)
-#     row['centerline'] = centerline
-#
-#     return row
-
-
 def process_single_line_relative(segment):
     # Segment args from mulitprocessing:
     # [clipped_chm, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
@@ -456,13 +377,12 @@ def process_single_line_relative(segment):
     if np.isnan(in_cost_r).all():
         print("Cost raster empty")
 
-
     in_meta = segment[3]
     exp_shk_cell = segment[4]
     no_data = segment[5]
     line_id = segment[6]
-    Cut_Dist=segment[7]
-    line_bufferR=segment[8]
+    Cut_Dist = segment[7]
+    line_bufferR = segment[8]
 
     shapefile_proj = df.crs
     in_transform = in_meta['transform']
@@ -476,34 +396,11 @@ def process_single_line_relative(segment):
     for coord in feat.coords:
         segment_list.append(coord)
 
-    # Find origin and destination coordinates
-    # x1, y1 = segment_list[0][0:2]
-    # x2, y2 = segment_list[-1][0:2]
-
-    # Create Point "origin"
-    # origin_point = Point([x1, y1])
-    # origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
-    #
-    # # Create Point "destination"
-    # destination_point = Point([x2, y2])
-    # destination = [shapes for shapes in
-    #                GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
-
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
 
     # Work out the corridor from both end of the centerline
     try:
-        # Rasterize source point
-        # rasterized_source = features.rasterize(origin, out_shape=in_cost_r.shape, transform=in_transform,
-        #                                        fill=0, all_touched=True, default_value=1)
-        # source = np.transpose(np.nonzero(rasterized_source))
-
-        # Rasterize destination point
-        # rasterized_dest = features.rasterize(destination, out_shape=in_cost_r.shape, transform=in_transform,
-        #                                        fill=0, all_touched=True, default_value=1)
-        # destination= np.transpose(np.nonzero(rasterized_dest))
-
         # TODO: further investigate and submit issue to skimage
         # There is a severe bug in skimage find_costs
         # when nan is present in clip_cost_r, find_costs cause access violation
@@ -511,49 +408,23 @@ def process_single_line_relative(segment):
         # change all nan to BT_NODATA_COST for workaround
         remove_nan_from_array(in_cost_r)
 
-        # generate the cost raster to source point
-        # transformer = rasterio.transform.AffineTransformer(in_transform)
-        # source = [transformer.rowcol(x1, y1)]
-
-        # generate the cost raster to source point
-        # mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        # source_cost_acc = mcp_source.find_costs(source)[0]
-        # del mcp_source
-
-        # generate the cost raster to destination point
-        # destination = [transformer.rowcol(x2, y2)]
-
-
-        # # # generate the cost raster to destination point
-        # mcp_dest = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        # dest_cost_acc = mcp_dest.find_costs(destination)[0]
-
         # generate 1m interval points along line
         distance_delta = 1
         distances = np.arange(0, feat.length, distance_delta)
-
         multipoint_along_line = [feat.interpolate(distance) for distance in distances]
-        # points_along_line=[]
-
-        # for coord in multipoint_along_line:
-        #     points_along_line.append([coord.x, coord.y])
-        # points_Alongln=[]
-        # for pt in range(0,len(points_along_line)):
-        #     points_Alongln.append([transformer.rowcol(points_along_line[pt][0], points_along_line[pt][1])[0],transformer.rowcol(points_along_line[pt][0], points_along_line[pt][1])[1]])
 
         # Rasterize points along line
         rasterized_points_Alongln = features.rasterize(multipoint_along_line, out_shape=in_cost_r.shape, transform=in_transform,
                                                fill=0, all_touched=True, default_value=1)
         points_Alongln = np.transpose(np.nonzero(rasterized_points_Alongln))
 
-
-        #Find minimum cost paths through an N-d costs array.
-        mcp_flexible1=MCP_Flexible(in_cost_r,sampling=(cell_size_x, cell_size_y),fully_connected=True)
+        # Find minimum cost paths through an N-d costs array.
+        mcp_flexible1 = MCP_Flexible(in_cost_r, sampling=(cell_size_x, cell_size_y), fully_connected=True)
         flex_cost_alongLn, flex_back_alongLn = mcp_flexible1.find_costs(starts=points_Alongln)
 
         # Generate corridor
         # corridor = source_cost_acc + dest_cost_acc
-        corridor=flex_cost_alongLn#+flex_cost_dest #cum_cost_tosource+cum_cost_todestination
+        corridor = flex_cost_alongLn  # +flex_cost_dest #cum_cost_tosource+cum_cost_todestination
         corridor = np.ma.masked_invalid(corridor)
 
         # Calculate minimum value of corridor raster
@@ -566,7 +437,7 @@ def process_single_line_relative(segment):
         corridor_norm = corridor - corr_min
 
         # export intermediate raster for debugging
-        BT_DEBUGGING=False
+        BT_DEBUGGING = False
         if BT_DEBUGGING:
             suffix = str(uuid.uuid4())[:8]
             path_temp = Path(r"D:\BT_Test\ConcaveHull\test-cost")
@@ -649,7 +520,6 @@ def process_single_line_relative(segment):
         out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'CorriThresh': corridor_th_value, 'geometry': poly})
         out_gdata = GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
-
         return out_gdata, corridor_poly_gpd
 
     except Exception as e:
@@ -692,7 +562,6 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         canopy_thresh_percentage=50
     else:
         canopy_thresh_percentage = float(canopy_thresh_percentage)
-
 
     if float(canopy_avoidance)<=0.0:
         canopy_avoidance=0.0
@@ -813,8 +682,6 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         if feat:
             footprint_listR.append(feat[0])
             poly_listR.append(feat[1])
-
-
 
     print('Writing shapefile ...')
     resultsL = GeoDataFrame(pd.concat(footprint_listL))

@@ -47,8 +47,11 @@ from dask import config as cfg
 import dask.distributed
 import ray
 import warnings
+
 cfg.set({'distributed.scheduler.worker-ttl': None})
 warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
+# to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
+warnings.simplefilter(action='ignore', category=UserWarning)
 
 
 @unique

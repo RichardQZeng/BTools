@@ -1,35 +1,14 @@
 import time
-import warnings
-import numpy
-import math
 import itertools
 
-import pandas
-import geopandas
-import pandas as pd
-from geopandas import GeoDataFrame
-
-import shapely
-from shapely import *
-
-from scipy import ndimage
-from rasterio import features, mask
-from skimage.graph import MCP_Geometric
-
-# from multiprocessing.pool import Pool
-
+from line_footprint_functions import *
 from common import *
-from dijkstra_algorithm import *
-
-
-# to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
-warnings.simplefilter(action='ignore', category=UserWarning)
 
 
 def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max_ln_width,
                    exp_shk_cell, out_footprint, out_centerline, processes, verbose):
     corridor_th_field = 'CorridorTh'
-    line_seg = geopandas.GeoDataFrame.from_file(in_line)
+    line_seg = gpd.GeoDataFrame.from_file(in_line)
     max_ln_width = float(max_ln_width)
     exp_shk_cell = int(exp_shk_cell)
 
@@ -92,7 +71,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
                 if item:
                     centerline_list.append(item)
     
-    results = geopandas.GeoDataFrame(pandas.concat(footprint_list))
+    results = gpd.GeoDataFrame(pd.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
     results = results.reset_index(drop=True)
 
@@ -106,7 +85,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     if out_centerline:
         # dissolved polygon group by column 'OLnFID'
         print("Saving polygons for generating centerlines ...", flush=True)
-        polys_for_centerline = GeoDataFrame(pd.concat(poly_list))
+        polys_for_centerline = gpd.GeoDataFrame(pd.concat(poly_list))
         polys_for_centerline = polys_for_centerline.dissolve(by='OLnFID', as_index=False)
 
         # save polygons
@@ -119,16 +98,15 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         print("Centerline file saved", flush=True)
 
     print(f'%{100}')
-
     print(f'Finishing footprint processing in {time.time()-start_time} seconds')
 
 
 def field_name_list(fc):
     # return a list of column name from shapefile
-    if isinstance(fc, geopandas.GeoDataFrame):
+    if isinstance(fc, gpd.GeoDataFrame):
         field_list = fc.columns.array
     else:
-        field_list = geopandas.read_file(fc).columns.array
+        field_list = gpd.read_file(fc).columns.array
     return field_list
 
 
@@ -139,7 +117,7 @@ def has_field(fc, fi):
         print("column: {fi} is found")
         return True
     elif fi == 'CorridorTh':
-        shapefile = geopandas.GeoDataFrame.from_file(fc)
+        shapefile = gpd.GeoDataFrame.from_file(fc)
         for row in range(0, len(shapefile)):
             shapefile.loc[row, fi] = 3.0
 
@@ -173,7 +151,7 @@ def process_single_line_whole(line):
     footprint_merge = None
     if footprints:
         if not all(item is None for item in footprints):
-            footprint_merge = pandas.concat(footprints)
+            footprint_merge = pd.concat(footprints)
             footprint_merge.dissolve()
             footprint_merge.drop(columns=['OLnSEG'])
         else:
@@ -208,7 +186,7 @@ def process_single_line_segment(dict_segment):
     max_ln_width = dict_segment['max_ln_width']
     exp_shk_cell = dict_segment['exp_shk_cell']
     shapefile_proj = dict_segment['Proj_crs']
-    orginal_col_name_list = dict_segment['org_col']
+    original_col_name_list = dict_segment['org_col']
 
     FID = dict_segment['OLnSEG']  # segment line feature ID
     OID = dict_segment['OLnFID']  # original line ID for segment line
@@ -224,11 +202,11 @@ def process_single_line_segment(dict_segment):
 
     # Create Point "origin"
     origin_point = shapely.Point([x1, y1])
-    origin = [shapes for shapes in geopandas.GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
+    origin = [shapes for shapes in gpd.GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
 
     # Create Point "destination"
     destination_point = shapely.Point([x2, y2])
-    destination = [shapes for shapes in geopandas.GeoDataFrame(geometry=[destination_point],
+    destination = [shapes for shapes in gpd.GeoDataFrame(geometry=[destination_point],
                                                                crs=shapefile_proj).geometry]
 
     # Buffer around line and clip cost raster and canopy raster
@@ -244,7 +222,7 @@ def process_single_line_segment(dict_segment):
 
     # Work out the corridor from both end of the centerline
     try:
-        clip_canopy_r = numpy.squeeze(clip_in_canopy_r, axis=0)
+        clip_canopy_r = np.squeeze(clip_in_canopy_r, axis=0)
         transformer = rasterio.transform.AffineTransformer(out_transform)
         source = [transformer.rowcol(x1, y1)]
         destination = [transformer.rowcol(x2, y2)]
@@ -254,7 +232,7 @@ def process_single_line_segment(dict_segment):
 
         # Process: Stamp CC and Max Line Width
         temp1 = (corridor_thresh + clip_canopy_r)
-        raster_class = numpy.ma.where(temp1 == 0, 1, 0).data
+        raster_class = np.ma.where(temp1 == 0, 1, 0).data
 
         if exp_shk_cell > 0 and cell_size_x < 1:
             # Process: Expand
@@ -275,7 +253,7 @@ def process_single_line_segment(dict_segment):
         clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode='nearest')
 
         # creat mask for non-polygon area
-        msk = numpy.where(clean_raster == 1, True, False)
+        msk = np.where(clean_raster == 1, True, False)
 
         # Process: ndarray to shapely Polygon
         out_polygon = features.shapes(clean_raster, mask=msk, transform=out_transform)
@@ -287,8 +265,8 @@ def process_single_line_segment(dict_segment):
         poly = shapely.geometry.MultiPolygon(multi_polygon)
 
         # create a pandas dataframe for the footprint
-        out_data = pandas.DataFrame({'OLnFID': [OID], 'OLnSEG': [FID], 'geometry': poly})
-        out_gdata = geopandas.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
+        out_data = pd.DataFrame({'OLnFID': [OID], 'OLnSEG': [FID], 'geometry': poly})
+        out_gdata = gpd.GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
         if not GROUPING_SEGMENT:
             print(f"LP:PSLS: Processing line ID: {dict_segment['OLnSEG']}, done.", flush=True)
@@ -302,58 +280,6 @@ def process_single_line_segment(dict_segment):
     except Exception as e:
         print(f'Exception: {e}')
         return None
-
-
-def split_line_fc(line):
-    return list(map(LineString, zip(line.coords[:-1], line.coords[1:])))
-
-
-def split_line_npart(line):
-    if not line:
-        return None
-    # Work out n parts for each line (divided by 30m)
-    n = math.ceil(line.length/LP_SEGMENT_LENGTH)
-    if n > 1:
-        # divided line into n-1 equal parts;
-        distances = numpy.linspace(0, line.length, n)
-        points = [line.interpolate(dist) for dist in distances]
-        line = shapely.LineString(points)
-        mline = split_line_fc(line)
-    else:
-        mline = line
-
-    return mline
-
-
-def split_into_segments(df):
-    odf = df
-    crs = odf.crs
-    if 'OLnSEG' not in odf.columns.array:
-        df['OLnSEG'] = numpy.nan
-
-    df = odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
-    df = df.explode()
-
-    df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
-    gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
-    gdf = gdf.reset_index(drop=True)
-    return gdf
-
-
-def split_into_equal_nth_segments(df):
-    odf = df
-    crs = odf.crs
-    if 'OLnSEG' not in odf.columns.array:
-        df['OLnSEG'] = numpy.nan
-    df = odf.assign(geometry=odf.apply(lambda x: split_line_npart(x.geometry), axis=1))
-    df = df.explode()
-
-    df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
-    gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
-    gdf = gdf.reset_index(drop=True)
-    return gdf
 
 
 def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, corridor_th_value,
@@ -408,6 +334,7 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
         # group line segments by line id
         def key_func(x): return x['OLnFID']
         lines = []
+
         for key, group in itertools.groupby(list_of_segment, key_func):
             lines.append(list(group))
 
