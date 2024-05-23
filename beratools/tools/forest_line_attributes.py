@@ -1,20 +1,7 @@
-import math
 import time
-import pandas as pd
-import geopandas as gpd
-import numpy
-import scipy
-import shapely
-from shapely import MultiPoint
-from shapely.ops import unary_union, split
-from rasterio import mask
-from multiprocessing.pool import Pool
+from scipy.spatial import distance
 
 from common import *
-
-
-class OperationCancelledException(Exception):
-    pass
 
 
 def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_type, verbose):
@@ -139,7 +126,7 @@ def find_euc_distance(in_feat):
     x1, y1 = line_coords[0][0:2]  # in case has_z
     x2, y2 = line_coords[-1][0:2]
 
-    return scipy.spatial.distance.euclidean([x1, y1], [x2, y2])
+    return distance.euclidean([x1, y1], [x2, y2])
 
 
 def find_bearing(seg):  # Geodataframe
@@ -150,7 +137,7 @@ def find_bearing(seg):  # Geodataframe
     dx = x2 - x1
     dy = y2 - y1
 
-    bearing = numpy.nan
+    bearing = np.nan
 
     if dx == 0.0 and dy < 0.0:
         bearing = 180.0
@@ -196,7 +183,7 @@ def fill_attributes(line_args):
     index = attr_seg_line.index[0]
     fields = ['LENGTH', 'FP_Area', 'Perimeter', 'Bearing', 'Direction', 'Sinuosity',
               'AvgWidth', 'Fragment', 'AvgHeight', 'Volume', 'Roughness']
-    values = dict.fromkeys(fields, numpy.nan)
+    values = dict.fromkeys(fields, np.nan)
     line_feat = attr_seg_line.geometry.iloc[0]
     # default footprint by buffering
     line_buffer = line_feat.buffer(float(max_ln_width), cap_style=shapely.BufferCapStyle.flat)
@@ -218,15 +205,15 @@ def fill_attributes(line_args):
     try:
         values['Sinuosity'] = line_feat.length / euc_distance
     except ZeroDivisionError as e:
-        values['Sinuosity'] = numpy.nan
+        values['Sinuosity'] = np.nan
     try:
         values["AvgWidth"] = values['FP_Area'] / line_feat.length
     except ZeroDivisionError as e:
-        values["AvgWidth"] = numpy.nan
+        values["AvgWidth"] = np.nan
     try:
         values["Fragment"] = values['Perimeter'] / values['FP_Area']
     except ZeroDivisionError as e:
-        values["Fragment"] = numpy.nan
+        values["Fragment"] = np.nan
 
     if height_analysis:  # with CHM
         with rasterio.open(in_chm) as in_chm_file:
@@ -237,16 +224,16 @@ def fill_attributes(line_args):
             clipped_chm, out_transform = rasterio.mask.mask(in_chm_file, [line_buffer], crop=True)
 
             # drop the ndarray to 2D ndarray
-            clipped_chm = numpy.squeeze(clipped_chm, axis=0)
+            clipped_chm = np.squeeze(clipped_chm, axis=0)
 
             # masked all NoData value cells
-            clean_chm = numpy.ma.masked_where(clipped_chm == in_chm_file.nodata, clipped_chm)
+            clean_chm = np.ma.masked_where(clipped_chm == in_chm_file.nodata, clipped_chm)
 
             # Calculate the summary statistics from the clipped CHM
-            chm_mean = numpy.ma.mean(clean_chm)
-            chm_std = numpy.ma.std(clean_chm)
-            chm_sum = numpy.ma.sum(clean_chm)
-            chm_count = numpy.ma.count(clean_chm)
+            chm_mean = np.ma.mean(clean_chm)
+            chm_std = np.ma.std(clean_chm)
+            chm_sum = np.ma.sum(clean_chm)
+            chm_count = np.ma.count(clean_chm)
             one_cell_area = cell_size_y * cell_size_x
 
             sq_std_pow = 0.0
@@ -273,60 +260,6 @@ def fill_attributes(line_args):
     footprint = gpd.GeoDataFrame({'geometry': [line_buffer]}, crs=attr_seg_line.crs)
 
     return attr_seg_line, footprint
-
-
-def execute_multiprocessing_identity(line_args, processes):
-    # Multiprocessing identity polygon
-    try:
-        total_steps = len(line_args)
-        features = []
-        with Pool(processes) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(identity_polygon, line_args):
-                if BT_DEBUGGING:
-                    print('Got result: {}'.format(result), flush=True)
-                features.append(result)
-                step += 1
-                print('%{}'.format(step / total_steps * 100))
-
-    except OperationCancelledException:
-        print("Operation cancelled")
-        exit()
-
-    print("Identifies are done.")
-    return features
-
-
-def execute_multiprocessing_attributes(line_args, processes):
-    try:
-        total_steps = len(line_args)
-        line_segments = []
-        line_footprints = []
-        with Pool(processes) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(fill_attributes, line_args):
-                if BT_DEBUGGING:
-                    print('Got result: {}'.format(result), flush=True)
-
-                if type(result[0]) is gpd.GeoDataFrame:
-                    if not result[0].empty:
-                        line_segments.append(result[0])
-
-                if type(result[1]) is gpd.GeoDataFrame:
-                    if not result[1].empty:
-                        line_footprints.append(result[1])
-
-                step += 1
-                print('Line processed: {}'.format(step))
-                print('%{}'.format(step / total_steps * 100))
-
-    except OperationCancelledException:
-        print("Operation cancelled")
-        exit()
-
-    return line_segments, line_footprints
 
 
 def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_type, seg_len,
@@ -405,7 +338,9 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
 
     # multiprocessing of identity polygons
     features = []
-    features = execute_multiprocessing_identity(line_args, processes)
+    # features = execute_multiprocessing_identity(line_args, processes)
+    features = execute_multiprocessing(identity_polygon, 'Identify polygons', line_args,
+                                       processes, 1, verbose)
 
     print("Prepare for filling attributes ...")
     # prepare list of result_identity, Att_seg_lines, areaAnalysis, heightAnalysis, args.input
@@ -419,15 +354,21 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     print('%{}'.format(60))
 
     # Multiprocessing identity polygon
-    features = execute_multiprocessing_attributes(line_args, processes)
+    # features = execute_multiprocessing_attributes(line_args, processes)
+    features = execute_multiprocessing(fill_attributes, 'Filling attributes', line_args,
+                                       processes, 1, verbose)
 
     # Combine into one geodataframe
     if len(features) == 0:
         print('No lines found.')
         exit()
 
-    line_segments = features[0]
-    line_footprints = features[1]
+    line_segments = []
+    line_footprints = []
+
+    for item in features:
+        line_segments.append(item[0])
+        line_footprints.append(item[1])
 
     result_segments = gpd.GeoDataFrame(pd.concat(line_segments, ignore_index=True))
     result_segments.reset_index()
@@ -451,8 +392,6 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
 
     # Save attributed lines, was output_att_line
     result_segments.to_file(out_line)
-    # only for debugging, save footprint used for each line segment
-    # result_footprints.to_file(r'D:\Temp\test-ecosite\footprint_inter.shp')
 
     print('%{}'.format(100))
 
