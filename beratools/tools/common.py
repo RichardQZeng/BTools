@@ -1076,59 +1076,63 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
     print("Using {} CPU cores".format(processes))
     total_steps = len(in_data)
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        pool = multiprocessing.Pool(processes)
-        print("Multiprocessing started...")
+    try:
+        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+            pool = multiprocessing.Pool(processes)
+            print("Multiprocessing started...")
 
-        with Pool(processes) as pool:
-            for result in pool.imap_unordered(in_func, in_data):
-                if not result:
-                    print('No results found.')
-                    continue
-                else:
-                    out_result.append(result)
+            with Pool(processes) as pool:
+                for result in pool.imap_unordered(in_func, in_data):
+                    if not result:
+                        print('No results found.')
+                        continue
+                    else:
+                        out_result.append(result)
 
-                step += 1
-                print_msg(app_name, step, total_steps)
+                    step += 1
+                    print_msg(app_name, step, total_steps)
 
-        pool.close()
-        pool.join()
-    elif PARALLEL_MODE == MODE_DASK:
-        dask_client = Client(threads_per_worker=1, n_workers=processes)
-        print(dask_client)
-        try:
-            print('start processing')
-            result = dask_client.map(in_func, in_data)
-            seq = as_completed(result)
+            pool.close()
+            pool.join()
+        elif PARALLEL_MODE == MODE_DASK:
+            dask_client = Client(threads_per_worker=1, n_workers=processes)
+            print(dask_client)
+            try:
+                print('start processing')
+                result = dask_client.map(in_func, in_data)
+                seq = as_completed(result)
 
-            for i in seq:
-                out_result.append(i.result())
-                step += 1
-                print_msg(app_name, step, total_steps)
-        except Exception as e:
+                for i in seq:
+                    out_result.append(i.result())
+                    step += 1
+                    print_msg(app_name, step, total_steps)
+            except Exception as e:
+                dask_client.close()
+                print(e)
+
             dask_client.close()
-            print(e)
+        elif PARALLEL_MODE == MODE_RAY:
+            ray.init(log_to_driver=False)
+            process_single_line_ray = ray.remote(in_func)
+            result_ids = [process_single_line_ray.remote(item) for item in in_data]
 
-        dask_client.close()
-    elif PARALLEL_MODE == MODE_RAY:
-        ray.init(log_to_driver=False)
-        process_single_line_ray = ray.remote(in_func)
-        result_ids = [process_single_line_ray.remote(item) for item in in_data]
+            while len(result_ids):
+                done_id, result_ids = ray.wait(result_ids)
+                result_item = ray.get(done_id[0])
+                out_result.append(result_item)
+                step += 1
+                print_msg(app_name, step, total_steps)
+            ray.shutdown()
 
-        while len(result_ids):
-            done_id, result_ids = ray.wait(result_ids)
-            result_item = ray.get(done_id[0])
-            out_result.append(result_item)
-            step += 1
-            print_msg(app_name, step, total_steps)
-        ray.shutdown()
-
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        for line in in_data:
-            result_item = in_func(line)
-            out_result.append(result_item)
-            step += 1
-            print_msg(app_name, step, total_steps)
+        elif PARALLEL_MODE == MODE_SEQUENTIAL:
+            for line in in_data:
+                result_item = in_func(line)
+                out_result.append(result_item)
+                step += 1
+                print_msg(app_name, step, total_steps)
+    except OperationCancelledException:
+        print("Operation cancelled")
+        return None
 
     return out_result
 
