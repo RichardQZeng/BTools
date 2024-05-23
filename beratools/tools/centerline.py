@@ -1,18 +1,11 @@
-from collections import OrderedDict
-from multiprocessing.pool import Pool
-
 import time
-import uuid
 from pathlib import Path
 import numpy as np
 import pandas as pd
 
 import rasterio
-import rasterio.mask
 import fiona
-from fiona import Geometry
-from osgeo import gdal, ogr
-from shapely.geometry import shape, mapping, LineString, MultiLineString, Point
+from shapely.geometry import shape, LineString, MultiLineString
 
 from dijkstra_algorithm import *
 from common import *
@@ -44,7 +37,7 @@ def centerline(callback, in_line, in_cost, line_radius,
                     print('MultiLineString found.')
                     geoms = shape(line['geometry']).geoms
                     for item in geoms:
-                        line_part = Geometry.from_dict(item)
+                        line_part = fiona.Geometry.from_dict(item)
                         if line_part:
                             input_lines.append([line_part, line.properties])
             else:
@@ -63,48 +56,33 @@ def centerline(callback, in_line, in_cost, line_radius,
 
         input_lines = input_lines_temp
 
-    out_fields_list = ["start_pt_id", "end_pt_id", "total_cost"]
-
     # Process lines
-    fiona_features = []
     all_lines = []
-    features = []
-    id = 0
+    i = 0
     for line in input_lines:
-        all_lines.append((line, line_radius, in_cost, id))
-        id += 1
+        all_lines.append((line, line_radius, in_cost, i))
+        i += 1
 
     print('{} lines to be processed.'.format(len(all_lines)))
-    step = 0
-    total_steps = len(all_lines)
 
     feat_geoms = []
     feat_props = []
     center_line_geoms = []
     corridor_poly_list = []
+    result = execute_multiprocessing(process_single_line, 'Centerline',
+                                     all_lines, processes, 1, verbose)
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        (feat_geoms,
-         feat_props,
-         center_line_geoms,
-         corridor_poly_list) = execute_multiprocessing(all_lines, processes, verbose)
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        for line in all_lines:
-            geom, prop, center_line, corridor_poly_gpd = process_single_line(line)
-            if geom and prop:
-                feat_geoms.append(geom)
-                feat_props.append(prop)
-                center_line_geoms.append(center_line)
-                corridor_poly_list.append(corridor_poly_gpd)
-            step += 1
-            if verbose:
-                print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100), flush=True)
+    for item in result:
+        geom = item[0]
+        prop = item[1]
+        center_line = item[2]
+        corridor_poly = item[3]
 
-    i = 0
-
-    driver = 'ESRI Shapefile'
-    print('Start writing lines to shapefile')
+        if geom and prop:
+            feat_geoms.append(geom)
+            feat_props.append(prop)
+            center_line_geoms.append(center_line)
+            corridor_poly_list.append(corridor_poly)
 
     out_least_cost_path = Path(out_line)
     out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem+'_least_cost_path')
@@ -120,7 +98,8 @@ def centerline(callback, in_line, in_cost, line_radius,
     out_corridor_poly_path = out_corridor_poly_path.with_stem(out_corridor_poly_path.stem + '_corridor_poly')
     corridor_polys.to_file(out_corridor_poly_path.as_posix())
 
-def process_single_line(line_args, find_nearest=True, output_linear_reference=False):
+
+def process_single_line(line_args):
     line = line_args[0][0]
     prop = line_args[0][1]
     line_radius = line_args[1]
@@ -128,8 +107,6 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     line_id = line_args[3]
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
-
-    print(" Searching centerline: line {} ".format(line_id), flush=True)
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
 
@@ -170,49 +147,8 @@ def process_single_line(line_args, find_nearest=True, output_linear_reference=Fa
     center_line, status = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
     prop['status'] = status.value
 
+    print(" Searching centerline: line {} ".format(line_id), flush=True)
     return lc_path, prop, center_line, corridor_poly_gpd
-
-
-def execute_multiprocessing(line_args, processes, verbose):
-    try:
-        total_steps = len(line_args)
-        feat_geoms = []
-        feat_props = []
-        center_line_geoms = []
-        corridor_poly_list = []
-
-        with Pool(processes) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(process_single_line, line_args):
-                if not result:
-                    print('No line detected.')
-                    continue
-
-                geom = result[0]
-                prop = result[1]
-                center_line = result[2]
-                corridor_poly = result[3]
-
-                if geom and prop:
-                    try:
-                        feat_geoms.append(geom)
-                        feat_props.append(prop)
-                        center_line_geoms.append(center_line)
-                        corridor_poly_list.append(corridor_poly)
-                    except Exception as e:
-                        print(e)
-
-                step += 1
-                if verbose:
-                    print(' "PROGRESS_LABEL Ceterline {} of {}" '.format(step, total_steps), flush=True)
-                    print(' %{} '.format(step/total_steps*100), flush=True)
-
-        print('All lines processed, continue to save the results.')
-        return feat_geoms, feat_props, center_line_geoms, corridor_poly_list
-    except OperationCancelledException:
-        print("Operation cancelled")
-        return None
 
 
 if __name__ == '__main__':

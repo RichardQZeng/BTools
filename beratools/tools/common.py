@@ -21,35 +21,36 @@ import uuid
 import argparse
 import numpy as np
 
-from dask.distributed import Client, progress, as_completed
-import multiprocessing
-import ray
-
 import rasterio
-import rasterio.mask
-from rasterio import features
+from rasterio import features, mask
 
 import fiona
-from fiona import Geometry
-
 import shapely
 from shapely.affinity import rotate
-from shapely.ops import unary_union, snap, split, transform, substring, linemerge, nearest_points
-from shapely.geometry import (shape, mapping, Point, LineString,
-                              MultiLineString, MultiPoint, Polygon, MultiPolygon)
+from shapely.ops import unary_union, split, transform, substring, linemerge, nearest_points
+from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, MultiPoint, Polygon, MultiPolygon
 
 import pandas as pd
 import geopandas as gpd
-from osgeo import ogr, gdal, osr
+from osgeo import ogr, gdal
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
 from skimage.graph import MCP_Geometric, route_through_array
+from enum import IntEnum, unique
 
 from label_centerlines import get_centerline
-from multiprocessing.pool import Pool
 
-from enum import IntEnum, unique
+from multiprocessing.pool import Pool
+from dask.distributed import Client, as_completed
+from dask import config as cfg
+import dask.distributed
+import ray
+import warnings
+cfg.set({'distributed.scheduler.worker-ttl': None})
+warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
+
+
 @unique
 class CenterlineStatus(IntEnum):
     SUCCESS = 1
@@ -71,6 +72,7 @@ class ParallelMode(IntEnum):
     SEQUENTIAL = 2
     DASK = 3
     RAY = 4
+
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -145,7 +147,7 @@ def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras
 
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
-        out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer,
+        out_image, out_transform = mask.mask(raster_file, clip_geo_buffer,
                                                       crop=True, nodata=ras_nodata, filled=True)
 
     height, width = out_image.shape[1:]
@@ -276,11 +278,11 @@ def segments(line_coords):
     if len(line_coords) < 2:
         return None
     elif len(line_coords) == 2:
-        return [Geometry.from_dict({'type': 'LineString', 'coordinates': line_coords})]
+        return [fiona.Geometry.from_dict({'type': 'LineString', 'coordinates': line_coords})]
     else:
         seg_list = zip(line_coords[:-1], line_coords[1:])
         line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]
-        return [Geometry.from_dict(line) for line in line_list]
+        return [fiona.Geometry.from_dict(line) for line in line_list]
 
 
 def extract_string_from_printout(str_print, str_extract):
@@ -1078,7 +1080,6 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
 
     try:
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
-            pool = multiprocessing.Pool(processes)
             print("Multiprocessing started...")
 
             with Pool(processes) as pool:
@@ -1094,6 +1095,7 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
 
             pool.close()
             pool.join()
+
         elif PARALLEL_MODE == MODE_DASK:
             dask_client = Client(threads_per_worker=1, n_workers=processes)
             print(dask_client)
@@ -1108,9 +1110,10 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
                     print_msg(app_name, step, total_steps)
             except Exception as e:
                 dask_client.close()
-                print(e)
+                # print(e)
 
             dask_client.close()
+
         elif PARALLEL_MODE == MODE_RAY:
             ray.init(log_to_driver=False)
             process_single_line_ray = ray.remote(in_func)
