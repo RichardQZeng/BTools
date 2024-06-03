@@ -28,76 +28,89 @@
 #
 # ---------------------------------------------------------------------------
 
+import math
 import time
+from pathlib import Path
+import uuid
+
+from multiprocessing.pool import Pool
 
 from scipy import stats
 import xarray as xr
 from xrspatial import convolution, focal
-
+import os
+import pandas as pd
 from geopandas import GeoDataFrame
 
 from scipy import ndimage
 from rasterio import features, mask
+
 from shapely import buffer
+from shapely.geometry import LineString, Point, MultiPolygon, shape
 
 from common import *
 import skimage
 from skimage.morphology import *
-from skimage.graph import MCP_Geometric, MCP_Flexible
+from skimage.graph import MCP_Geometric, MCP_Connect,MCP,MCP_Flexible
 from dijkstra_algorithm import *
 
+import numpy as np
 
-def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
-    masked_array = np.ma.masked_where(in_array == nodata, in_array)
-    canopy_ndarray = np.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
-    canopy_ndarray = np.ma.where(in_array == nodata, BT_NODATA, canopy_ndarray).data  # TODO check the code, extra step?
-    return canopy_ndarray, masked_array
+class OperationCancelledException(Exception):
+    pass
 
 
-def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
-    # This function uses xrspatial which can handle large data but slow
-    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
-    ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
-    result_ndarray = focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
-
-    # Flattening the array
-    flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
-    flatten_mean_result_ndarray = result_ndarray[1].data.reshape(-1)
-
-    # Re-shaping the array
-    reshape_std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-    reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-    return reshape_std_ndarray, reshape_mean_ndarray
+# def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
+#     masked_array = np.ma.masked_where(in_array == nodata, in_array)
+#     canopy_ndarray = np.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
+#     canopy_ndarray = np.ma.where(in_array == nodata, BT_NODATA, canopy_ndarray).data  # TODO check the code, extra step?
+#     return canopy_ndarray, masked_array
 
 
-def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
-    # print('Generating Cost Raster ...')
+# def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
+#     # This function uses xrspatial which can handle large data but slow
+#     # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
+#     ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
+#     result_ndarray = focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
+#
+#     # Flattening the array
+#     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
+#     flatten_mean_result_ndarray = result_ndarray[1].data.reshape(-1)
+#
+#     # Re-shaping the array
+#     reshape_std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
+#     reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
+#     return reshape_std_ndarray, reshape_mean_ndarray
 
-    # scipy way to do Euclidean distance transform
-    euc_dist_array = None
-    euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=[cell_x, cell_y])
 
-    smooth1 = float(max_line_dist) - euc_dist_array
-    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
-    smooth1[smooth1 <= 0.0] = 0.0
-    smooth_cost_array = smooth1 / float(max_line_dist)
+# def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
+#     # print('Generating Cost Raster ...')
+#
+#     # scipy way to do Euclidean distance transform
+#     euc_dist_array = None
+#     euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=[cell_x, cell_y])
+#
+#     smooth1 = float(max_line_dist) - euc_dist_array
+#     # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
+#     smooth1[smooth1 <= 0.0] = 0.0
+#     smooth_cost_array = smooth1 / float(max_line_dist)
+#
+#     return smooth_cost_array
 
-    return smooth_cost_array
 
-
-def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
-    aM1a = (cc_mean - cc_std)
-    aM1b = (cc_mean + cc_std)
-    aM1 = np.divide(aM1a, aM1b, where=aM1b != 0., out=np.zeros(aM1a.shape, dtype=float))
-    aM = (1. + aM1) / 2.
-    aaM = (cc_mean + cc_std)
-    bM = np.where(aaM <= 0., 0., aM)
-    cM = bM * (1. - avoidance) + (cc_smooth * avoidance)
-    dM = np.where(canopy_ndarray == 1., 1., cM)
-    eM = np.exp(dM)
-    result = np.where(np.isnan(eM), BT_NODATA, np.power(eM, float(cost_raster_exponent)))
-
-    return result
+# def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
+#     aM1a = (cc_mean - cc_std)
+#     aM1b = (cc_mean + cc_std)
+#     aM1 = np.divide(aM1a, aM1b, where=aM1b != 0., out=np.zeros(aM1a.shape, dtype=float))
+#     aM = (1. + aM1) / 2.
+#     aaM = (cc_mean + cc_std)
+#     bM = np.where(aaM <= 0., 0., aM)
+#     cM = bM * (1. - avoidance) + (cc_smooth * avoidance)
+#     dM = np.where(canopy_ndarray == 1., 1., cM)
+#     eM = np.exp(dM)
+#     result = np.power(eM, float(cost_raster_exponent))
+#
+#     return result
 
 
 def dyn_canopy_cost_raster(args):
@@ -118,7 +131,7 @@ def dyn_canopy_cost_raster(args):
     line_buffer=args[14]
 
     if Side=='Left':
-        canopy_ht_threshold=line_df.CL_CutHt#*canopy_thresh_percentage
+        canopy_ht_threshold=line_df.CL_CutHt #*canopy_thresh_percentage
     elif Side=='Right':
         canopy_ht_threshold = line_df.CR_CutHt #*canopy_thresh_percentage
     else:
@@ -138,16 +151,16 @@ def dyn_canopy_cost_raster(args):
     band1_ndarray = in_chm
 
     # print('Preparing Kernel window ...')
-    kernel = convolution.circle_kernel(cell_x, cell_y, math.ceil(tree_radius))
+    kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
 
     # Generate Canopy Raster and return the Canopy array
-    dyn_canopy_ndarray, masked_array = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
+    dyn_canopy_ndarray = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
 
     # Calculating focal statistic from canopy raster
     cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, nodata)
 
     # Smoothing raster
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, cell_x, cell_y)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
     avoidance = max(min(float(canopy_avoid), 1), 0)
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                           cc_smooth, avoidance, cost_raster_exponent)
@@ -283,6 +296,9 @@ def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_r
         line_argsR.append([clipped_rasterR, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
                            float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
                            line_seg.iloc[[record]], out_metaR, line_id,RCut,'Right',canopy_thresh_percentage,line_bufferC])
+
+        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id +1+len(work_in_bufferL), len(work_in_bufferL)+len(work_in_bufferR)), flush=True)
+        print(' %{} '.format((line_id + 1+len(work_in_bufferL)) / (len(work_in_bufferL)+len(work_in_bufferR)) * 100), flush=True)
 
         line_id += 1
 
@@ -466,7 +482,7 @@ def process_single_line_relative(segment):
 
         # corridor_th_value = FP_CORRIDOR_THRESHOLD
         corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-        corridor_thresh_cl = np.ma.where(corridor_norm >= (corridor_th_value+(1/cell_size_x)), 1.0, 0.0)
+        corridor_thresh_cl = np.ma.where(corridor_norm >= (corridor_th_value+(5/cell_size_x)), 1.0, 0.0)
 
         # find contiguous corridor polygon for centerline
         corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, in_transform, df)
@@ -540,8 +556,8 @@ def multiprocessing_footprint_relative(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 feats.append(result)
                 step += 1
-                print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100))
+                print(' "PROGRESS_LABEL Dynamic Segment Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
         return feats
     except OperationCancelledException:
         print("Operation cancelled")
@@ -573,7 +589,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         line_seg['OLnFID'] = line_seg.index
 
     if 'OLnSEG' not in line_seg.columns.array:
-        line_seg['OLnSEG'] = line_seg['OLnFID']
+        line_seg['OLnSEG'] = 0
 
     print('%{}'.format(10))
 
@@ -589,8 +605,10 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                 print("Splitting lines into segments...Done")
             else:
                 if full_step:
+                    print("Tool runs on input lines......")
                     line_seg_split = line_seg
                 else:
+                    print("Tool runs on input segment lines......")
                     line_seg_split = split_into_Equal_Nth_segments(line_seg,250)
 
             print('%{}'.format(20))
@@ -619,7 +637,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
 
             work_in_bufferC['geometry'] = buffer(work_in_bufferC['geometry'], distance=float(max_ln_width),
                                                  cap_style=3, single_sided=False)
-            print("Prepare CHMs for Dynamic cost raster ...")
+            print("Prepare arguments for Dynamic FP ...")
             line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
                                            canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
         else:
