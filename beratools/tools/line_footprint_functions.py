@@ -60,57 +60,57 @@ class OperationCancelledException(Exception):
     pass
 
 
-def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
-    masked_array = np.ma.masked_where(in_array == nodata, in_array)
-    canopy_ndarray = np.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
-    canopy_ndarray = np.ma.where(in_array == nodata, BT_NODATA, canopy_ndarray).data  # TODO check the code, extra step?
-    return canopy_ndarray, masked_array
+# def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
+#     masked_array = np.ma.masked_where(in_array == nodata, in_array)
+#     canopy_ndarray = np.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
+#     canopy_ndarray = np.ma.where(in_array == nodata, BT_NODATA, canopy_ndarray).data  # TODO check the code, extra step?
+#     return canopy_ndarray, masked_array
 
 
-def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
-    # This function uses xrspatial which can handle large data but slow
-    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
-    ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
-    result_ndarray = focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
-
-    # Flattening the array
-    flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
-    flatten_mean_result_ndarray = result_ndarray[1].data.reshape(-1)
-
-    # Re-shaping the array
-    reshape_std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-    reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-    return reshape_std_ndarray, reshape_mean_ndarray
-
-
-def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
-    # print('Generating Cost Raster ...')
-
-    # scipy way to do Euclidean distance transform
-    euc_dist_array = None
-    euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=[cell_x, cell_y])
-
-    smooth1 = float(max_line_dist) - euc_dist_array
-    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
-    smooth1[smooth1 <= 0.0] = 0.0
-    smooth_cost_array = smooth1 / float(max_line_dist)
-
-    return smooth_cost_array
+# def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
+#     # This function uses xrspatial which can handle large data but slow
+#     # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
+#     ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
+#     result_ndarray = focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
+#
+#     # Flattening the array
+#     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
+#     flatten_mean_result_ndarray = result_ndarray[1].data.reshape(-1)
+#
+#     # Re-shaping the array
+#     reshape_std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
+#     reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
+#     return reshape_std_ndarray, reshape_mean_ndarray
 
 
-def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
-    aM1a = (cc_mean - cc_std)
-    aM1b = (cc_mean + cc_std)
-    aM1 = np.divide(aM1a, aM1b, where=aM1b != 0., out=np.zeros(aM1a.shape, dtype=float))
-    aM = (1. + aM1) / 2.
-    aaM = (cc_mean + cc_std)
-    bM = np.where(aaM <= 0., 0., aM)
-    cM = bM * (1. - avoidance) + (cc_smooth * avoidance)
-    dM = np.where(canopy_ndarray == 1., 1., cM)
-    eM = np.exp(dM)
-    result = np.where(np.isnan(eM), BT_NODATA, np.power(eM, float(cost_raster_exponent)))
+# def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
+#     # print('Generating Cost Raster ...')
+#
+#     # scipy way to do Euclidean distance transform
+#     euc_dist_array = None
+#     euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=[cell_x, cell_y])
+#
+#     smooth1 = float(max_line_dist) - euc_dist_array
+#     # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
+#     smooth1[smooth1 <= 0.0] = 0.0
+#     smooth_cost_array = smooth1 / float(max_line_dist)
+#
+#     return smooth_cost_array
 
-    return result
+
+# def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
+#     aM1a = (cc_mean - cc_std)
+#     aM1b = (cc_mean + cc_std)
+#     aM1 = np.divide(aM1a, aM1b, where=aM1b != 0., out=np.zeros(aM1a.shape, dtype=float))
+#     aM = (1. + aM1) / 2.
+#     aaM = (cc_mean + cc_std)
+#     bM = np.where(aaM <= 0., 0., aM)
+#     cM = bM * (1. - avoidance) + (cc_smooth * avoidance)
+#     dM = np.where(canopy_ndarray == 1., 1., cM)
+#     eM = np.exp(dM)
+#     result = np.power(eM, float(cost_raster_exponent))
+#
+#     return result
 
 
 def dyn_canopy_cost_raster(args):
@@ -131,7 +131,7 @@ def dyn_canopy_cost_raster(args):
     line_buffer=args[14]
 
     if Side=='Left':
-        canopy_ht_threshold=line_df.CL_CutHt#*canopy_thresh_percentage
+        canopy_ht_threshold=line_df.CL_CutHt #*canopy_thresh_percentage
     elif Side=='Right':
         canopy_ht_threshold = line_df.CR_CutHt #*canopy_thresh_percentage
     else:
@@ -151,16 +151,16 @@ def dyn_canopy_cost_raster(args):
     band1_ndarray = in_chm
 
     # print('Preparing Kernel window ...')
-    kernel = convolution.circle_kernel(cell_x, cell_y, math.ceil(tree_radius))
+    kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
 
     # Generate Canopy Raster and return the Canopy array
-    dyn_canopy_ndarray, masked_array = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
+    dyn_canopy_ndarray = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
 
     # Calculating focal statistic from canopy raster
     cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, nodata)
 
     # Smoothing raster
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, cell_x, cell_y)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
     avoidance = max(min(float(canopy_avoid), 1), 0)
     dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                           cc_smooth, avoidance, cost_raster_exponent)
@@ -297,8 +297,8 @@ def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_r
                            float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
                            line_seg.iloc[[record]], out_metaR, line_id,RCut,'Right',canopy_thresh_percentage,line_bufferC])
 
-
-
+        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id +1+len(work_in_bufferL), len(work_in_bufferL)+len(work_in_bufferR)), flush=True)
+        print(' %{} '.format((line_id + 1+len(work_in_bufferL)) / (len(work_in_bufferL)+len(work_in_bufferR)) * 100), flush=True)
 
         line_id += 1
 
@@ -369,69 +369,6 @@ def find_corridor_threshold(raster):
     return corridor_threshold
 
 
-# def find_centerlines(poly_gpd, line_seg, processes):
-#     centerline = None
-#     centerline_gpd = []
-#     rows_and_paths = []
-#
-#     try:
-#         for i in poly_gpd.index:
-#             row = poly_gpd.loc[[i]]
-#             poly = row.geometry.iloc[0]
-#             line_id = row.OLnFID[i]
-#             lc_path = line_seg.loc[line_seg['OLnFID']==line_id].geometry[i]
-#             rows_and_paths.append((row, lc_path))
-#     except Exception as e:
-#         print(e)
-#
-#     total_steps = len(rows_and_paths)
-#     step = 0
-#
-#     if PARALLEL_MODE == MODE_MULTIPROCESSING:
-#         with Pool(processes=processes) as pool:
-#             # execute tasks in order, process results out of order
-#             for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
-#                 centerline_gpd.append(result)
-#                 step += 1
-#                 print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-#                 print(' %{} '.format(step / total_steps * 100))
-#                 # print('Centerline No. {} done'.format(step))
-#     elif PARALLEL_MODE == MODE_SEQUENTIAL:
-#         for item in rows_and_paths:
-#             row_with_centerline = find_single_centerline(item)
-#             centerline_gpd.append(row_with_centerline)
-#             step += 1
-#             print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-#             print(' %{} '.format(step / total_steps * 100))
-#             # print('Centerline No. {} done'.format(step))
-#
-#     return pd.concat(centerline_gpd)
-
-
-# def find_single_centerline(row_and_path):
-#     """
-#
-#     Parameters
-#     ----------
-#         in_canopy_r has np.inf, not masked
-#         in_cost_r has BT_NODATA_COST, not masked
-#         All other rasters are masked
-#     segment
-#
-#     Returns
-#     -------
-#
-#     """
-#     row = row_and_path[0]
-#     lc_path = row_and_path[1]
-#
-#     poly = row.geometry.iloc[0]
-#     centerline = find_centerline(poly, lc_path)
-#     row['centerline'] = centerline
-#
-#     return row
-
-
 def process_single_line_relative(segment):
     # Segment args from mulitprocessing:
     # [clipped_chm, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
@@ -456,13 +393,12 @@ def process_single_line_relative(segment):
     if np.isnan(in_cost_r).all():
         print("Cost raster empty")
 
-
     in_meta = segment[3]
     exp_shk_cell = segment[4]
     no_data = segment[5]
     line_id = segment[6]
-    Cut_Dist=segment[7]
-    line_bufferR=segment[8]
+    Cut_Dist = segment[7]
+    line_bufferR = segment[8]
 
     shapefile_proj = df.crs
     in_transform = in_meta['transform']
@@ -476,34 +412,11 @@ def process_single_line_relative(segment):
     for coord in feat.coords:
         segment_list.append(coord)
 
-    # Find origin and destination coordinates
-    # x1, y1 = segment_list[0][0:2]
-    # x2, y2 = segment_list[-1][0:2]
-
-    # Create Point "origin"
-    # origin_point = Point([x1, y1])
-    # origin = [shapes for shapes in GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
-    #
-    # # Create Point "destination"
-    # destination_point = Point([x2, y2])
-    # destination = [shapes for shapes in
-    #                GeoDataFrame(geometry=[destination_point], crs=shapefile_proj).geometry]
-
     cell_size_x = in_transform[0]
     cell_size_y = -in_transform[4]
 
     # Work out the corridor from both end of the centerline
     try:
-        # Rasterize source point
-        # rasterized_source = features.rasterize(origin, out_shape=in_cost_r.shape, transform=in_transform,
-        #                                        fill=0, all_touched=True, default_value=1)
-        # source = np.transpose(np.nonzero(rasterized_source))
-
-        # Rasterize destination point
-        # rasterized_dest = features.rasterize(destination, out_shape=in_cost_r.shape, transform=in_transform,
-        #                                        fill=0, all_touched=True, default_value=1)
-        # destination= np.transpose(np.nonzero(rasterized_dest))
-
         # TODO: further investigate and submit issue to skimage
         # There is a severe bug in skimage find_costs
         # when nan is present in clip_cost_r, find_costs cause access violation
@@ -511,49 +424,23 @@ def process_single_line_relative(segment):
         # change all nan to BT_NODATA_COST for workaround
         remove_nan_from_array(in_cost_r)
 
-        # generate the cost raster to source point
-        # transformer = rasterio.transform.AffineTransformer(in_transform)
-        # source = [transformer.rowcol(x1, y1)]
-
-        # generate the cost raster to source point
-        # mcp_source = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        # source_cost_acc = mcp_source.find_costs(source)[0]
-        # del mcp_source
-
-        # generate the cost raster to destination point
-        # destination = [transformer.rowcol(x2, y2)]
-
-
-        # # # generate the cost raster to destination point
-        # mcp_dest = MCP_Geometric(in_cost_r, sampling=(cell_size_x, cell_size_y))
-        # dest_cost_acc = mcp_dest.find_costs(destination)[0]
-
         # generate 1m interval points along line
         distance_delta = 1
         distances = np.arange(0, feat.length, distance_delta)
-
         multipoint_along_line = [feat.interpolate(distance) for distance in distances]
-        # points_along_line=[]
-
-        # for coord in multipoint_along_line:
-        #     points_along_line.append([coord.x, coord.y])
-        # points_Alongln=[]
-        # for pt in range(0,len(points_along_line)):
-        #     points_Alongln.append([transformer.rowcol(points_along_line[pt][0], points_along_line[pt][1])[0],transformer.rowcol(points_along_line[pt][0], points_along_line[pt][1])[1]])
 
         # Rasterize points along line
         rasterized_points_Alongln = features.rasterize(multipoint_along_line, out_shape=in_cost_r.shape, transform=in_transform,
                                                fill=0, all_touched=True, default_value=1)
         points_Alongln = np.transpose(np.nonzero(rasterized_points_Alongln))
 
-
-        #Find minimum cost paths through an N-d costs array.
-        mcp_flexible1=MCP_Flexible(in_cost_r,sampling=(cell_size_x, cell_size_y),fully_connected=True)
+        # Find minimum cost paths through an N-d costs array.
+        mcp_flexible1 = MCP_Flexible(in_cost_r, sampling=(cell_size_x, cell_size_y), fully_connected=True)
         flex_cost_alongLn, flex_back_alongLn = mcp_flexible1.find_costs(starts=points_Alongln)
 
         # Generate corridor
         # corridor = source_cost_acc + dest_cost_acc
-        corridor=flex_cost_alongLn#+flex_cost_dest #cum_cost_tosource+cum_cost_todestination
+        corridor = flex_cost_alongLn  # +flex_cost_dest #cum_cost_tosource+cum_cost_todestination
         corridor = np.ma.masked_invalid(corridor)
 
         # Calculate minimum value of corridor raster
@@ -566,7 +453,7 @@ def process_single_line_relative(segment):
         corridor_norm = corridor - corr_min
 
         # export intermediate raster for debugging
-        BT_DEBUGGING=False
+        BT_DEBUGGING = False
         if BT_DEBUGGING:
             suffix = str(uuid.uuid4())[:8]
             path_temp = Path(r"D:\BT_Test\ConcaveHull\test-cost")
@@ -595,7 +482,7 @@ def process_single_line_relative(segment):
 
         # corridor_th_value = FP_CORRIDOR_THRESHOLD
         corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-        corridor_thresh_cl = np.ma.where(corridor_norm >= (corridor_th_value+(1/cell_size_x)), 1.0, 0.0)
+        corridor_thresh_cl = np.ma.where(corridor_norm >= (corridor_th_value+(5/cell_size_x)), 1.0, 0.0)
 
         # find contiguous corridor polygon for centerline
         corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, in_transform, df)
@@ -649,7 +536,6 @@ def process_single_line_relative(segment):
         out_data = pd.DataFrame({'OLnFID': OID, 'OLnSEG': FID, 'CorriThresh': corridor_th_value, 'geometry': poly})
         out_gdata = GeoDataFrame(out_data, geometry='geometry', crs=shapefile_proj)
 
-
         return out_gdata, corridor_poly_gpd
 
     except Exception as e:
@@ -670,8 +556,8 @@ def multiprocessing_footprint_relative(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 feats.append(result)
                 step += 1
-                print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100))
+                print(' "PROGRESS_LABEL Dynamic Segment Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
         return feats
     except OperationCancelledException:
         print("Operation cancelled")
@@ -693,7 +579,6 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     else:
         canopy_thresh_percentage = float(canopy_thresh_percentage)
 
-
     if float(canopy_avoidance)<=0.0:
         canopy_avoidance=0.0
     if float(exponent)<=0.0:
@@ -704,7 +589,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         line_seg['OLnFID'] = line_seg.index
 
     if 'OLnSEG' not in line_seg.columns.array:
-        line_seg['OLnSEG'] = line_seg['OLnFID']
+        line_seg['OLnSEG'] = 0
 
     print('%{}'.format(10))
 
@@ -720,8 +605,10 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                 print("Splitting lines into segments...Done")
             else:
                 if full_step:
+                    print("Tool runs on input lines......")
                     line_seg_split = line_seg
                 else:
+                    print("Tool runs on input segment lines......")
                     line_seg_split = split_into_Equal_Nth_segments(line_seg,250)
 
             print('%{}'.format(20))
@@ -750,7 +637,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
 
             work_in_bufferC['geometry'] = buffer(work_in_bufferC['geometry'], distance=float(max_ln_width),
                                                  cap_style=3, single_sided=False)
-            print("Prepare CHMs for Dynamic cost raster ...")
+            print("Prepare arguments for Dynamic FP ...")
             line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
                                            canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
         else:
@@ -813,8 +700,6 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         if feat:
             footprint_listR.append(feat[0])
             poly_listR.append(feat[1])
-
-
 
     print('Writing shapefile ...')
     resultsL = GeoDataFrame(pd.concat(footprint_listL))

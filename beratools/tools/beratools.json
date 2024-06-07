@@ -358,6 +358,70 @@
                     ]
                 },
                 {
+                    "name": "LCP from CHM",
+                    "info": "Finding Least Cost path from Corridor between vertices of the input lines using CHM.",
+                    "multiprocessing": true,
+                    "batch_processing": true,
+                    "tool_type": "python",
+                    "tool_api": "Corridor_LCP_frCHM",
+                    "paramFile": "\\Scripts\\FLM_CL_params.txt",
+                    "image": "../Images/FLM_IO_CenterLine.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/Centerline.html",
+                    "parameters":[
+                        {
+							"variable": "in_line",
+                            "parameter": "Forest Lines Feature Class",
+                            "description": "Input polyline shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+							"variable": "in_chm",
+                            "parameter": "CHM Raster",
+                            "description": "Input raster image used to calculate the least cost path.",
+                            "type": "raster",
+                            "typelab": "TIF",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+							"variable": "line_radius",
+                            "parameter": "Line Processing Radius",
+                            "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 15.0,
+                            "output": false,
+                            "optional": true
+                        },
+                        {
+							"variable": "proc_segments",
+                            "parameter": "Process Segments",
+                            "description": "If set to True, will process each segment between each vertex of the input lines separately. If set to False, will process each line from start to end ignoring midpoints. The default is True, since it is assumed that the input lines for this tool are lines manually digitized at regional-scale with sparse vertices at a fine-scale. If using fine-scale (1:1,000) lines as input this may be set to False.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": true,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+							"variable": "out_line",
+                            "parameter": "Output Centerline",
+                            "description": "Output centerline shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
                     "name": "Center Line",
                     "info": "Determines the least cost path between vertices of the input lines.",
                     "multiprocessing": true,
@@ -1275,6 +1339,17 @@
                             "optional": false
                         },
                         {
+                            "variable": "Smooth_by",
+                            "parameter": "Smoothing DEM by mean or median.",
+                            "description": "Select parameter : 'mean' or 'median' to smooth the DEM surface.",
+                            "type": "list",
+                            "typelab": "text",
+                            "data": ["mean", "median"],
+                            "default": "mean",
+                            "output": false,
+                            "optional": true
+                        },
+                        {
                             "variable": "Min_ws",
                             "parameter": "Minimum circular diameter of the dynamic moving window (in meter).",
                             "description": "Minimum circular diameter of the dynamic moving window used to detect the local maxima in the units of the input data (usually meters).",
@@ -1344,6 +1419,17 @@
                             "default": 3.0,
                             "output": false,
                             "optional": false
+                        },
+                        {
+                            "variable": "Smooth_by",
+                            "parameter": "Smoothing DEM by mean or median.",
+                            "description": "Select parameter : 'mean' or 'median' to smooth the DEM surface.",
+                            "type": "list",
+                            "typelab": "text",
+                            "data": ["mean", "median"],
+                            "default": "mean",
+                            "output": false,
+                            "optional": true
                         },
                         {
                             "variable": "lawn_range",
@@ -1861,8 +1947,8 @@
                         },
                         {
                             "variable": "out_folder",
-                            "parameter": "Output folder for the raster results.",
-                            "description": "Output folder for the raster results.",
+                            "parameter": "Output folder for the point cloud data .",
+                            "description": "Output point cloud (LAZ) data in LAS Specification 1.4 - R15.",
                             "type": "Directory",
                             "typelab": "",
                             "default": "",
@@ -1893,8 +1979,8 @@
                         },
                         {
                             "variable": "out_folder",
-                            "parameter": "Output folder for the raster results.",
-                            "description": "Output folder for the raster results.",
+                            "parameter": "Output folder for the classified results data.",
+                            "description": "Output folder for the ground classified results data.",
                             "type": "Directory",
                             "typelab": "",
                             "default": "",
@@ -1942,7 +2028,75 @@
                             "optional": true
                         }
                     ]
+                },
+                {
+                    "name": "Conductivity Raster",
+                    "info": "Generating multiple conductivity raster on: CHM, Slope, Roughness, ground point density, intensity raster.  Idea from Correction, update, and enhancement of vectorial forestry road maps using\nALS data, a pathfinder, and seven metrics, Jean-Romain Roussel, etl 2022.",
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "rpy_conduct_raster",
+                    "paramFile": "\\Scripts\\rpy_rpy_gnd_csf_params.txt",
+                    "image": "",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
+                    "parameters": [
+                        {
+                            "variable": "in_las_folder",
+                            "parameter": "Input LiDAR point cloud folder.",
+                            "description": "Input LiDAR point cloud folder.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+
+                        {
+                            "variable": "cell_size",
+                            "parameter": "Raster cell size",
+                            "description": "Output cell size of conductivity raster.",
+                            "type": "number",
+                            "typelab": "float",
+                            "default": 1.0,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_folder",
+                            "parameter": "Output folder for the classified results data.",
+                            "description": "Output folder for the ground classified results data.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
+                    "name": "Update R-package for BERA toolset",
+                    "info": "Tool for updating R-package in BERA Tools ",
+                    "multiprocessing": false,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "r-update",
+                    "paramFile": "",
+                    "image": "",
+                    "tech_link": "",
+                    "parameters": [
+                         {  "variable": "r_installed",
+                            "parameter": "R language installed",
+                            "description": "Has R langauge been installed.",
+                            "type": "list",
+                            "typelab": "bool",
+                            "data": [true, false],
+                            "default": true,
+                            "output": false,
+                            "optional": true
+                        }
+
+                    ]
                 }
+
 
             ]
         },
@@ -2142,6 +2296,7 @@
                         }
                     ]
                 }
+
             ]
         }
     ]

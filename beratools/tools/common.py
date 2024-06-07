@@ -21,35 +21,44 @@ import uuid
 import argparse
 import numpy as np
 
-from dask.distributed import Client, progress, as_completed
-import multiprocessing
-import ray
-
 import rasterio
-import rasterio.mask
-from rasterio import features
+from rasterio import features, mask
 
 import fiona
-from fiona import Geometry
-
 import shapely
 from shapely.affinity import rotate
-from shapely.ops import unary_union, snap, split, transform, substring, linemerge, nearest_points
-from shapely.geometry import (shape, mapping, Point, LineString,
-                              MultiLineString, MultiPoint, Polygon, MultiPolygon)
+from shapely.ops import unary_union, split, transform, substring, linemerge, nearest_points
+from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, MultiPoint, Polygon, MultiPolygon
 
 import pandas as pd
 import geopandas as gpd
-from osgeo import ogr, gdal, osr
+from osgeo import ogr, gdal
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
 from skimage.graph import MCP_Geometric, route_through_array
+from enum import IntEnum, unique
 
 from label_centerlines import get_centerline
+
 from multiprocessing.pool import Pool
+from dask.distributed import Client, as_completed
+from dask import config as cfg
+import dask.distributed
+import ray
+import warnings
+
+cfg.set({'distributed.scheduler.worker-ttl': None})
+warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
+# to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
+warnings.simplefilter(action='ignore', category=UserWarning)
 
 from enum import IntEnum, unique
+
+from scipy import ndimage
+import xarray as xr
+from xrspatial import convolution, focal
+
 @unique
 class CenterlineStatus(IntEnum):
     SUCCESS = 1
@@ -59,18 +68,21 @@ class CenterlineStatus(IntEnum):
 
 
 # constants
-MODE_MULTIPROCESSING = 1
-MODE_SEQUENTIAL = 2
+MODE_SEQUENTIAL = 1
+MODE_MULTIPROCESSING = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_RAY
+PARALLEL_MODE = MODE_MULTIPROCESSING
+
+
 @unique
 class ParallelMode(IntEnum):
     MULTIPROCESSING = 1
     SEQUENTIAL = 2
     DASK = 3
     RAY = 4
+
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -91,7 +103,7 @@ GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_USE_SKIMAGE_GRAPH = False
+CL_USE_SKIMAGE_GRAPH = True
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
 CL_SNAP_TOLERANCE = 15.0
@@ -125,6 +137,15 @@ if not BT_DEBUGGING:
     warnings.simplefilter(action='ignore', category=UserWarning)
 
 
+class OperationCancelledException(Exception):
+    pass
+
+
+def print_msg(app_name, step, total_steps):
+    print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
+    print(f' %{step / total_steps * 100} ', flush=True)
+
+
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
     out_meta = None
     with (rasterio.open(in_raster_file)) as raster_file:
@@ -136,8 +157,8 @@ def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras
 
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
-        out_image, out_transform = rasterio.mask.mask(raster_file, clip_geo_buffer,
-                                                      crop=True, nodata=ras_nodata, filled=True)
+        out_image, out_transform = mask.mask(raster_file, clip_geo_buffer,
+                                                      crop=True, nodata=ras_nodata, filled=False)
 
     height, width = out_image.shape[1:]
     out_meta.update({"driver": "GTiff",
@@ -261,17 +282,29 @@ def remove_nan_from_array(matrix):
             if np.isnan(x[...]):
                 x[...] = BT_NODATA_COST
 
+def replace_Nodata2NaN(matrix,nodata):
+    with np.nditer(matrix, op_flags=['readwrite']) as it:
+        for x in it:
+            if (x[...]==nodata):
+                x[...] = np.NaN
+
+def replace_Nodata2Inf(matrix,nodata):
+    with np.nditer(matrix, op_flags=['readwrite']) as it:
+        for x in it:
+            if (x[...]==nodata):
+                x[...] = np.Inf
+
 
 # Split LineString to segments at vertices
 def segments(line_coords):
     if len(line_coords) < 2:
         return None
     elif len(line_coords) == 2:
-        return [Geometry.from_dict({'type': 'LineString', 'coordinates': line_coords})]
+        return [fiona.Geometry.from_dict({'type': 'LineString', 'coordinates': line_coords})]
     else:
         seg_list = zip(line_coords[:-1], line_coords[1:])
         line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]
-        return [Geometry.from_dict(line) for line in line_list]
+        return [fiona.Geometry.from_dict(line) for line in line_list]
 
 
 def extract_string_from_printout(str_print, str_extract):
@@ -668,12 +701,26 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
 
     try:
         for poly, value in poly_generator:
-            corridor_polygon.append(shape(poly))
+            if shape(poly).area > 1:
+                corridor_polygon.append(shape(poly))
     except Exception as e:
         print(e)
 
     if corridor_polygon:
-        corridor_polygon = unary_union(corridor_polygon)
+        corridor_polygon = (unary_union(corridor_polygon))
+        if type(corridor_polygon)==MultiPolygon:
+            poly_list = shapely.get_parts(corridor_polygon)
+            merge_poly=poly_list[0]
+            for i in range(1,len(poly_list)):
+                if shapely.intersects(merge_poly,poly_list[i]):
+                    merge_poly=shapely.union(merge_poly,poly_list[i])
+                else:
+                    buffer_dist=poly_list[i].distance(merge_poly)+0.1
+                    buffer_poly=poly_list[i].buffer(buffer_dist)
+                    merge_poly=shapely.union(merge_poly,buffer_poly)
+            corridor_polygon=merge_poly
+
+
     else:
         corridor_polygon = None
 
@@ -693,15 +740,21 @@ def find_centerlines(poly_gpd, line_seg, processes):
         for i in poly_gpd.index:
             row = poly_gpd.loc[[i]]
             poly = row.geometry.iloc[0]
-            line_id = row['OLnFID']
-            lc_path = line_seg.loc[line_id].geometry.iloc[0]
+            if 'OLnSEG' in line_seg.columns:
+                line_id,Seg_id = row['OLnFID'].iloc[0],row['OLnSEG'].iloc[0]
+                lc_path = line_seg.loc[(line_seg.OLnFID == line_id) & (line_seg.OLnSEG == Seg_id)]['geometry'].iloc[0]
+            else:
+                line_id = row['OLnFID'].iloc[0]
+                lc_path = line_seg.loc[(line_seg.OLnFID == line_id)]['geometry'].iloc[0]
+
+
             rows_and_paths.append((row, lc_path))
     except Exception as e:
         print(e)
 
     total_steps = len(rows_and_paths)
     step = 0
-
+    # PARALLEL_MODE = MODE_SEQUENTIAL
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         with Pool(processes=processes) as pool:
             # execute tasks in order, process results out of order
@@ -740,7 +793,7 @@ def find_single_centerline(row_and_path):
     lc_path = row_and_path[1]
 
     poly = row.geometry.iloc[0]
-    centerline = find_centerline(poly, lc_path)
+    centerline,status = find_centerline(poly, lc_path)
     row['centerline'] = centerline
 
     return row
@@ -979,7 +1032,8 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
 
     try:
         # change all nan to BT_NODATA_COST for workaround
-        raster_clip = np.squeeze(raster_clip, axis=0)
+        if len(raster_clip.shape)>2:
+            raster_clip = np.squeeze(raster_clip, axis=0)
         remove_nan_from_array(raster_clip)
 
         # generate the cost raster to source point
@@ -1032,6 +1086,8 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
 
 def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     lc_path_new = []
+    if len(cost_clip.shape)>2:
+        cost_clip=np.squeeze(cost_clip, axis=0)
 
     out_transform = in_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
@@ -1042,7 +1098,7 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     row2, col2 = transformer.rowcol(x2, y2)
 
     try:
-        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
+        path_new = route_through_array(cost_clip, [row1, col1], [row2, col2])
     except Exception as e:
         print(e)
         return None
@@ -1061,69 +1117,160 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     return lc_path_new
 
 
+def result_is_valid(result):
+    if type(result) is list or type(result) is tuple:
+        if len(result) > 0:
+            return True
+    elif type(result) is pd.DataFrame or type(result) is gpd.GeoDataFrame:
+        if not result.empty:
+            return True
+    elif result:
+        return True
+
+    return False
+
+
 def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verbose):
     out_result = []
     step = 0
     print("Using {} CPU cores".format(processes))
     total_steps = len(in_data)
 
-    def print_msg(app_name, step, total_steps):
-        print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
-        print(f' %{step / total_steps * 100} ', flush=True)
+    try:
+        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+            print("Multiprocessing started...")
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
-        pool = multiprocessing.Pool(processes)
-        print("Multiprocessing started...")
+            with Pool(processes) as pool:
+                for result in pool.imap_unordered(in_func, in_data):
+                    if result_is_valid(result):
+                        out_result.append(result)
 
-        with Pool(processes) as pool:
-            for result in pool.imap_unordered(in_func, in_data):
-                if not result:
-                    print('No results found.')
-                    continue
-                else:
-                    out_result.append(result)
+                    step += 1
+                    print_msg(app_name, step, total_steps)
 
-                step += 1
-                print_msg(app_name, step, total_steps)
+            pool.close()
+            pool.join()
 
-        pool.close()
-        pool.join()
-    elif PARALLEL_MODE == MODE_DASK:
-        dask_client = Client(threads_per_worker=1, n_workers=processes)
-        print(dask_client)
-        try:
-            print('start processing')
-            result = dask_client.map(in_func, in_data)
-            seq = as_completed(result)
+        elif PARALLEL_MODE == MODE_DASK:
+            dask_client = Client(threads_per_worker=1, n_workers=processes)
+            print(dask_client)
+            try:
+                print('start processing')
+                result = dask_client.map(in_func, in_data)
+                seq = as_completed(result)
 
-            for i in seq:
-                out_result.append(i.result())
-                step += 1
-                print_msg(app_name, step, total_steps)
-        except Exception as e:
+                for i in seq:
+                    if result_is_valid(result):
+                        out_result.append(i.result())
+
+                    step += 1
+                    print_msg(app_name, step, total_steps)
+            except Exception as e:
+                dask_client.close()
+
             dask_client.close()
-            print(e)
 
-        dask_client.close()
-    elif PARALLEL_MODE == MODE_RAY:
-        ray.init(log_to_driver=False)
-        process_single_line_ray = ray.remote(in_func)
-        result_ids = [process_single_line_ray.remote(item) for item in in_data]
+        elif PARALLEL_MODE == MODE_RAY:
+            ray.init(log_to_driver=False)
+            process_single_line_ray = ray.remote(in_func)
+            result_ids = [process_single_line_ray.remote(item) for item in in_data]
 
-        while len(result_ids):
-            done_id, result_ids = ray.wait(result_ids)
-            result_item = ray.get(done_id[0])
-            out_result.append(result_item)
-            step += 1
-            print_msg(app_name, step, total_steps)
-        ray.shutdown()
+            while len(result_ids):
+                done_id, result_ids = ray.wait(result_ids)
+                result_item = ray.get(done_id[0])
 
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
-        for line in in_data:
-            result_item = in_func(line)
-            out_result.append(result_item)
-            step += 1
-            print_msg(app_name, step, total_steps)
+                if result_is_valid(result_item):
+                    out_result.append(result_item)
+
+                step += 1
+                print_msg(app_name, step, total_steps)
+            ray.shutdown()
+
+        elif PARALLEL_MODE == MODE_SEQUENTIAL:
+            for line in in_data:
+                result_item = in_func(line)
+                if result_is_valid(result_item):
+                    out_result.append(result_item)
+
+                step += 1
+                print_msg(app_name, step, total_steps)
+    except OperationCancelledException:
+        print("Operation cancelled")
+        return None
 
     return out_result
 
+
+def chk_df_multipart(df, chk_shp_in_string):
+    try:
+        found = False
+        if str.upper(chk_shp_in_string) in [x.upper() for x in df.geom_type.values]:
+            found = True
+            df =df.explode()
+            if type(df)==gpd.geodataframe.GeoDataFrame:
+                df['OLnSEG'] = df.groupby('OLnFID').cumcount()
+                df = df.sort_values(by=['OLnFID', 'OLnSEG'])
+                df = df.reset_index(drop=True)
+        else:
+                found = False
+        return df, found
+    except Exception as e:
+        print(e)
+        return df, False
+
+
+def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
+    # This function uses xrspatial which can handle large data but slow
+    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
+    in_ndarray[in_ndarray == nodata] = np.nan
+    result_ndarray = focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
+
+    # Assign std and mean ndarray
+    reshape_std_ndarray = result_ndarray[0].data#.reshape(-1)
+    reshape_mean_ndarray = result_ndarray[1].data#.reshape(-1)
+
+    # Re-shaping the array np.squeeze(flatten_std_result_ndarray, axis=0)
+    # reshape_std_ndarray = flatten_std_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
+    # reshape_std_ndarray = np.squeeze(flatten_std_result_ndarray, axis=0)
+    # reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
+    # reshape_mean_ndarray = np.squeeze(flatten_mean_result_ndarray, axis=0)
+    return reshape_std_ndarray, reshape_mean_ndarray
+
+
+def dyn_smooth_cost(in_raster, max_line_dist, sampling):
+    # print('Generating Cost Raster ...')
+
+    # scipy way to do Euclidean distance transform
+    euc_dist_array = None
+    euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
+
+    smooth1 = float(max_line_dist) - euc_dist_array
+    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
+    smooth1[smooth1 <= 0.0] = 0.0
+    smooth_cost_array = smooth1 / float(max_line_dist)
+
+    return smooth_cost_array
+
+def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
+
+    aM1a = (cc_mean - cc_std)
+    aM1b = (cc_mean + cc_std)
+    aM1 = np.divide(aM1a, aM1b, where=aM1b != 0, out=np.zeros(aM1a.shape, dtype=float))
+    aM = (1 + aM1) / 2
+    aaM = (cc_mean + cc_std)
+    bM = np.where(aaM <= 0, 0, aM)
+    cM = bM * (1 - avoidance) + (cc_smooth * avoidance)
+    dM = np.where(canopy_ndarray == 1, 1, cM)
+    eM = np.exp(dM)
+    result = np.power(eM, float(cost_raster_exponent))
+
+
+    return result
+
+def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
+
+    canopy_ndarray = np.ma.where(in_array >= canopy_ht_threshold, 1., 0.).astype(float)
+    canopy_ndarray = np.ma.filled(canopy_ndarray,nodata)
+    # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
+
+    return canopy_ndarray

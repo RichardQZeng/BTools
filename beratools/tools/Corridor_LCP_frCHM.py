@@ -1,4 +1,8 @@
+from collections import OrderedDict
+from multiprocessing.pool import Pool
+
 import time
+import uuid
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -15,9 +19,9 @@ class OperationCancelledException(Exception):
     pass
 
 
-def centerline(callback, in_line, in_cost, line_radius,
+def centerline(callback, in_line, in_chm, line_radius,
                proc_segments, out_line, processes, verbose):
-    if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
+    if not compare_crs(vector_crs(in_line), raster_crs(in_chm)):
         print("Line and CHM have different spatial references, please check.")
         return
 
@@ -25,6 +29,12 @@ def centerline(callback, in_line, in_cost, line_radius,
     layer_crs = None
     schema = None
     input_lines = []
+
+    df,found=chk_df_multipart(gpd.GeoDataFrame.from_file(in_line),'MultiLineString')
+    if found:
+        df.to_file(in_line)
+    else:
+        del df, found
 
     with fiona.open(in_line) as open_line_file:
         layer_crs = open_line_file.crs
@@ -60,7 +70,7 @@ def centerline(callback, in_line, in_cost, line_radius,
     all_lines = []
     i = 0
     for line in input_lines:
-        all_lines.append((line, line_radius, in_cost, i))
+        all_lines.append((line, line_radius, in_chm, i))
         i += 1
 
     print('{} lines to be processed.'.format(len(all_lines)))
@@ -87,8 +97,8 @@ def centerline(callback, in_line, in_cost, line_radius,
     out_least_cost_path = Path(out_line)
     out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem+'_least_cost_path')
     schema['properties']['status'] = 'int'
-    if not BT_DEBUGGING:
-        save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
+
+    save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
 
     save_features_to_shapefile(out_line, layer_crs, center_line_geoms, schema, feat_props)
 
@@ -103,18 +113,31 @@ def process_single_line(line_args):
     line = line_args[0][0]
     prop = line_args[0][1]
     line_radius = line_args[1]
-    in_cost_raster = line_args[2]
+    in_chm_raster = line_args[2]
     line_id = line_args[3]
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
 
-    cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
 
-    if CL_USE_SKIMAGE_GRAPH:
-        # skimage shortest path
-        lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
-    else:
-        lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
+
+    chm_clip, out_meta = clip_raster(in_chm_raster, seed_line, line_radius)
+    in_chm = np.squeeze(chm_clip, axis=0)
+    cell_x, cell_y=out_meta['transform'][0],-out_meta['transform'][4]
+    kernel = convolution.circle_kernel(cell_x, cell_y, 1.5)
+    dyn_canopy_ndarray = dyn_np_cc_map(in_chm, FP_CORRIDOR_THRESHOLD, BT_NODATA)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel,BT_NODATA)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 1.5, [cell_x, cell_y])
+    avoidance = max(min(float(0.4), 1), 0)
+    cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
+                                          cc_smooth, 0.4, 1.5)
+
+
+    # if CL_USE_SKIMAGE_GRAPH:
+        # skimage shortest path (Cost Array elements with infinite or negative costs will simply be ignored.)
+    negative_cost_clip=np.where(np.isnan(cost_clip),-9999,cost_clip)
+    lc_path = find_least_cost_path_skimage(negative_cost_clip, out_meta, seed_line)
+    # else:
+    #     lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
 
     if lc_path:
         lc_path_coords = lc_path.coords
@@ -127,9 +150,16 @@ def process_single_line(line_args):
         prop['status'] = CenterlineStatus.FAILED.value
         return seed_line, prop, seed_line, None
 
+
     # get corridor raster
-    lc_path = LineString(lc_path_coords)
-    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius*0.9)
+    # lc_path = LineString(lc_path_coords)
+    # if seed_line.has_z:
+    #     lc_path_coords = np.delete(np.array(seed_line.coords),np.s_[2],1)
+    #     lc_path_coords=[tuple(x) for x in lc_path_coords.tolist()]
+    # else:
+    #     lc_path_coords=seed_line.coords
+    # lc_path = seed_line
+    # cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius*0.9)
     out_transform = out_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
     cell_size = (out_transform[0], -out_transform[4])
@@ -138,7 +168,8 @@ def process_single_line(line_args):
     x2, y2 = lc_path_coords[-1]
     source = [transformer.rowcol(x1, y1)]
     destination = [transformer.rowcol(x2, y2)]
-    corridor_thresh_cl = corridor_raster(cost_clip, out_meta, source, destination,
+    # skimage graph.MCP (Cost Array elements with infinite or negative costs will simply be ignored.)
+    corridor_thresh_cl = corridor_raster(negative_cost_clip, out_meta, source, destination,
                                          cell_size, FP_CORRIDOR_THRESHOLD)
 
     # find contiguous corridor polygon and extract centerline

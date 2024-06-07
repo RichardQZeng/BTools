@@ -66,12 +66,8 @@ def main_canopy_threshold_relative(callback, in_line, in_chm, off_ln_dist, canop
 
         print("New column created: {}".format('OLnSEG'))
         line_seg['OLnSEG'] = 0
-    found = chk_df_multipart(line_seg, shapely.LineString)
-    if found:
-        line_seg = line_seg.explode(index_parts=False)
-        line_seg['OLnSEG'] = line_seg.groupby('OLnFID').cumcount()
-        line_seg = line_seg.sort_values(by=['OLnFID', 'OLnSEG'])
-        line_seg = line_seg.reset_index(drop=True)
+
+    line_seg= chk_df_multipart(line_seg,'LineString')[0]
 
     proc_segments = False
     if proc_segments:

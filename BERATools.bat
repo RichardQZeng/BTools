@@ -1,1 +1,1 @@
-C:\Users\qingyerichard.zeng\miniconda3\envs\bera39\python.exe main.py
+C:\Users\qingyerichard.zeng\miniconda3\envs\bera\python.exe main.py
