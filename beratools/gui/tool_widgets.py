@@ -1,38 +1,49 @@
 import os
 import sys
-from PyQt5.QtWidgets import (QApplication, QLineEdit, QFileDialog, QComboBox, QWidget,
-                             QPushButton, QLabel, QSlider, QMessageBox,
-                             QStyleOptionSlider, QStyle, QToolTip, QAbstractSlider,
-                             QHBoxLayout, QVBoxLayout, QSpinBox, QDoubleSpinBox)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QLineEdit,
+    QFileDialog,
+    QComboBox,
+    QWidget,
+    QPushButton,
+    QLabel,
+    QSlider,
+    QMessageBox,
+    QStyleOptionSlider,
+    QStyle,
+    QToolTip,
+    QAbstractSlider,
+    QHBoxLayout,
+    QVBoxLayout,
+    QSpinBox,
+    QDoubleSpinBox
+)
 
 from PyQt5.QtCore import pyqtSignal, Qt, QPoint
-from pathlib import Path
-import json
-import re
+from re import search
 
 import inspect
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
+from ..tools.common import *
 
-from beratools_main import BeraTools
-from common import *
-
-bt = BeraTools()
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
 
 
 class ToolWidgets(QWidget):
     signal_save_tool_params = pyqtSignal(object)
 
-    def __init__(self, tool_name, parent=None):
+    def __init__(self, tool_name, tool_args, show_advanced, parent=None):
         super(ToolWidgets, self).__init__(parent)
 
         self.tool_name = tool_name
+        self.show_advanced = show_advanced
         self.current_tool_api = ''
         self.widget_list = []
         self.setWindowTitle("Tool widgets")
 
-        self.create_widgets()
+        self.create_widgets(tool_args)
         layout = QVBoxLayout()
 
         for item in self.widget_list:
@@ -42,24 +53,27 @@ class ToolWidgets(QWidget):
         self.save_button.clicked.connect(self.save_tool_parameters)
         self.save_button.setFixedSize(200, 50)
         layout.addSpacing(20)
-        layout.addWidget(self.save_button, alignment=Qt.AlignCenter)
-        layout.addStretch()
         self.setLayout(layout)
 
-    def get_current_tool_parameters(self):
-        tool_params = bt.get_bera_tool_parameters(self.tool_name)
-        self.current_tool_api = tool_params['tool_api']
-        return tool_params
+    def get_widgets_arguments(self):
+        args = {}
+        param_missing = False
+        for widget in self.widget_list:
+            v = widget.get_value()
+            if v and len(v) == 2:
+                args[v[0]] = v[1]
+            else:
+                print(f'[Missing argument]: {widget.name} parameter not specified.', 'missing')
+                param_missing = True
 
-    def create_widgets(self):
-        k = bt.get_bera_tool_info(self.tool_name)
-        print(k)
-        print('\n')
+        if param_missing:
+            args = None
 
-        j = self.get_current_tool_parameters()
+        return args
 
+    def create_widgets(self, tool_args):
         param_num = 0
-        for p in j['parameters']:
+        for p in tool_args:
             json_str = json.dumps(p, sort_keys=True, indent=2, separators=(',', ': '))
             pt = p['parameter_type']
             widget = None
@@ -71,7 +85,7 @@ class ToolWidgets(QWidget):
                 widget = FileSelector(json_str, None)
                 param_num = param_num + 1
             elif 'FileList' in pt:
-                widget = MultifileSelector(json_str, None)
+                widget = MultiFileSelector(json_str, None)
                 param_num = param_num + 1
             elif 'Boolean' in pt:
                 widget = BooleanInput(json_str)
@@ -108,16 +122,10 @@ class ToolWidgets(QWidget):
                 if widget.optional and widget.label:
                     widget.label.setStyleSheet("QLabel { background-color : transparent; color : blue; }")
 
-                # if widget.optional and not bt.show_advanced:
-                #     widget.hide()
+                if not self.show_advanced and widget.optional:
+                    widget.hide()
 
             self.widget_list.append(widget)
-
-    def update_widgets(self, values_dict):
-        for key, value in values_dict.items():
-            for item in self.widget_list:
-                if key == item.flag:
-                    item.set_value(value)
 
     def save_tool_parameters(self):
         params = {}
@@ -127,31 +135,37 @@ class ToolWidgets(QWidget):
 
         self.signal_save_tool_params.emit(params)
 
+    def load_default_args(self):
+        for item in self.widget_list:
+            item.set_default_value()
+
 
 class FileSelector(QWidget):
-    def __init__(self, json_str, runner, master=None, parent=None):
+    def __init__(self, json_str, parent=None):
         super(FileSelector, self).__init__(parent)
 
         # first make sure that the json data has the correct fields
-        j = json.loads(json_str)
-        self.name = j['name']
-        self.description = j['description']
-        self.flag = j['flag']
-        self.parameter_type = j['parameter_type']
+        params = json.loads(json_str)
+        self.name = params['name']
+        self.description = params['description']
+        self.flag = params['flag']
+        self.parameter_type = params['parameter_type']
         self.file_type = ""
         if "ExistingFile" in self.parameter_type:
-            self.file_type = j['parameter_type']['ExistingFile']
+            self.file_type = params['parameter_type']['ExistingFile']
         elif "NewFile" in self.parameter_type:
-            self.file_type = j['parameter_type']['NewFile']
-        self.optional = j['optional']
-        self.value = j['default_value']
+            self.file_type = params['parameter_type']['NewFile']
+        self.optional = params['optional']
 
-        self.runner = runner
+        self.default_value = params['default_value']
+        self.value = self.default_value
+        if 'saved_value' in params.keys():
+            self.value = params['saved_value']
 
         self.layout = QHBoxLayout()
         self.label = QLabel(self.name)
         self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
-        self.in_file = QLineEdit()
+        self.in_file = QLineEdit(self.value)
         self.btn_select = QPushButton("...")
         self.btn_select.clicked.connect(self.select_file)
         self.layout.addWidget(self.label)
@@ -226,13 +240,11 @@ class FileSelector(QWidget):
                         if selected_filters[0] != '.*':
                             file_path = file_path.with_suffix(selected_filters[0])
 
-                result = str(file_path)
+                result = file_path.as_posix()
                 self.set_value(result)
+        except Exception as e:
+            print(e)
 
-            # update the working
-            # if not self.runner and str(result) != '':
-            #     self.runner.working_dir = os.path.dirname(result)
-        except:
             t = "file"
             if self.parameter_type == "Directory":
                 t = "directory"
@@ -242,56 +254,64 @@ class FileSelector(QWidget):
             msg_box.setText("Could not find {}".format(t))
             msg_box.exec()
 
-    def get_file_filter_list(self, filter_str):
+    @staticmethod
+    def get_file_filter_list(filter_str):
         """
         Extract filters out of full filter string, split int list and replace first '*'
         Result: ['.shp', '.*']
         """
-        filter_list = re.search('\((.+?)\)', filter_str).group(1).split(' ')
+        filter_list = search('\((.+?)\)', filter_str).group(1).split(' ')
         filter_list = [item.replace('*', '', 1) for item in filter_list if item != '']
         return filter_list
 
     def get_value(self):
-        return self.value
+        return self.flag, self.value
 
     def set_value(self, value):
         self.value = value
-        self.in_file.setText(Path(self.value).name)
-        self.in_file.setToolTip(value)
+        self.in_file.setText(self.value)
+        self.in_file.setToolTip(self.value)
+
+    def set_default_value(self):
+        self.value = self.default_value
+        self.in_file.setText(self.value)
 
 
 class FileOrFloat(QWidget):
-    def __init__(self, json_str, runner, master=None, parent=None):
+    def __init__(self, json_str, parent=None):
         super(FileOrFloat, self).__init__(parent)
         pass
 
 
-class MultifileSelector(QWidget):
-    def __init__(self, json_str, runner, master=None, parent=None):
-        super(MultifileSelector, self).__init__(parent)
+class MultiFileSelector(QWidget):
+    def __init__(self, json_str, parent=None):
+        super(MultiFileSelector, self).__init__(parent)
         pass
 
 
 class BooleanInput(QWidget):
-    def __init__(self, json_str, master=None, parent=None):
+    def __init__(self, json_str, parent=None):
         super(BooleanInput, self).__init__(parent)
         pass
 
 
 class OptionsInput(QWidget):
-    def __init__(self, json_str, master=None, parent=None):
+    def __init__(self, json_str, parent=None):
         super(OptionsInput, self).__init__(parent)
 
         # first make sure that the json data has the correct fields
-        j = json.loads(json_str)
-        self.name = j['name']
-        self.description = j['description']
-        self.flag = j['flag']
-        self.parameter_type = j['parameter_type']
-        self.optional = j['optional']
-        self.data_type = j['data_type']
-        self.default_value = str(j['default_value'])
-        self.value = self.default_value  # initialize in event of no default and no selection
+        params = json.loads(json_str)
+        self.name = params['name']
+        self.description = params['description']
+        self.flag = params['flag']
+        self.parameter_type = params['parameter_type']
+        self.optional = params['optional']
+        self.data_type = params['data_type']
+
+        self.default_value = str(params['default_value'])
+        self.value = self.default_value
+        if 'saved_value' in params.keys():
+            self.value = params['saved_value']
 
         self.label = QLabel(self.name)
         self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
@@ -300,13 +320,13 @@ class OptionsInput(QWidget):
 
         i = 1
         default_index = -1
-        self.option_list = j['parameter_type']['OptionList']
+        self.option_list = params['parameter_type']['OptionList']
         if self.option_list:
             self.option_list = [str(item) for item in self.option_list]  # convert to strings
         values = ()
         for v in self.option_list:
             values += (v,)
-            if v == str(self.default_value):
+            if v == str(self.value):
                 default_index = i - 1
             i = i + 1
 
@@ -322,28 +342,38 @@ class OptionsInput(QWidget):
         self.value = self.option_list[i]
 
     def set_value(self, value):
-        self.value = self.value
+        self.value = value
         for v in self.option_list:
             if value == v:
                 self.combobox.setCurrentIndex(self.option_list.index(v))
 
+    def set_default_value(self):
+        self.value = self.default_value
+        for v in self.option_list:
+            if self.value == v:
+                self.combobox.setCurrentIndex(self.option_list.index(v))
+
     def get_value(self):
-        return self.value
+        return self.flag, self.value
 
 
 class DataInput(QWidget):
-    def __init__(self, json_str, master=None, parent=None):
+    def __init__(self, json_str, parent=None):
         super(DataInput, self).__init__(parent)
 
         # first make sure that the json data has the correct fields
-        j = json.loads(json_str)
-        self.name = j['name']
-        self.description = j['description']
-        self.flag = j['flag']
-        self.parameter_type = j['parameter_type']
-        self.optional = j['optional']
-        self.default_value = j['default_value']
-        self.data = j['default_value']
+        params = json.loads(json_str)
+        self.name = params['name']
+        self.description = params['description']
+        self.flag = params['flag']
+        self.parameter_type = params['parameter_type']
+        self.optional = params['optional']
+
+        self.default_value = params['default_value']
+        self.value = self.default_value
+        if 'saved_value' in params.keys():
+            self.value = params['saved_value']
+
         self.label = QLabel(self.name)
         self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
         self.data_input = None
@@ -354,7 +384,7 @@ class DataInput(QWidget):
             self.data_input = QDoubleSpinBox()
 
         if self.data_input:
-            self.data_input.setValue(self.data)
+            self.data_input.setValue(self.value)
 
         self.data_input.valueChanged.connect(self.update_value)
 
@@ -364,19 +394,19 @@ class DataInput(QWidget):
         self.setLayout(self.layout)
 
     def update_value(self):
-        self.data = self.data_input.value
+        self.value = self.data_input.value()
 
     def get_value(self):
-        v = self.data
-        if v:
+        v = self.value
+        if v is not None:
             if "Integer" in self.parameter_type:
-                return self.flag, int(self.data())
+                return self.flag, int(self.value)
             elif "Float" in self.parameter_type:
-                return self.flag, float(self.data())
+                return self.flag, float(self.value)
             elif "Double" in self.parameter_type:
-                return self.flag, float(self.data())
+                return self.flag, float(self.value)
             else:  # String or StringOrNumber types
-                return self.flag, self.value.get()
+                return self.flag, self.value
         else:
             if not self.optional:
                 msg_box = QMessageBox()
@@ -391,9 +421,14 @@ class DataInput(QWidget):
             self.data_input.setValue(value)
             self.update_value()
 
-class DoubleSlider(QSlider):
+    def set_default_value(self):
+        if self.data_input:
+            self.data_input.setValue(self.default_value)
+            self.update_value()
 
-    # create our our signal that we can connect to if necessary
+
+class DoubleSlider(QSlider):
+    # create our signal that we can connect to if necessary
     doubleValueChanged = pyqtSignal(float)
 
     def __init__(self, decimals=3, *args, **kargs):
@@ -403,10 +438,10 @@ class DoubleSlider(QSlider):
         self.opt = QStyleOptionSlider()
         self.initStyleOption(self.opt)
 
-        self.valueChanged.connect(self.emitDoubleValueChanged)
+        self.valueChanged.connect(self.emit_double_value_changed)
 
-    def emitDoubleValueChanged(self):
-        value = float(super(DoubleSlider, self).value())/self._multi
+    def emit_double_value_changed(self):
+        value = float(super(DoubleSlider, self).value()) / self._multi
         self.doubleValueChanged.emit(value)
 
     def value(self):
@@ -430,13 +465,19 @@ class DoubleSlider(QSlider):
     def sliderChange(self, change):
         if change == QAbstractSlider.SliderValueChange:
             sr = self.style().subControlRect(QStyle.CC_Slider, self.opt, QStyle.SC_SliderHandle)
-            bottomRightCorner = sr.bottomLeft()
-            QToolTip.showText(self.mapToGlobal(QPoint(bottomRightCorner.x(), bottomRightCorner.y())),
+            bottom_right_corner = sr.bottomLeft()
+            QToolTip.showText(self.mapToGlobal(QPoint(bottom_right_corner.x(), bottom_right_corner.y())),
                               str(self.value()), self)
 
 
 if __name__ == '__main__':
+    from bt_data import BTData
+
+    bt = BTData()
+
     app = QApplication(sys.argv)
-    dlg = ToolWidgets('Raster Line Attributes')
+    dlg = ToolWidgets('Raster Line Attributes',
+                      bt.get_bera_tool_args('Raster Line Attributes'),
+                      bt.show_advanced)
     dlg.show()
     sys.exit(app.exec_())

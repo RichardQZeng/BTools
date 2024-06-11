@@ -27,8 +27,24 @@ from rasterio import features, mask
 import fiona
 import shapely
 from shapely.affinity import rotate
-from shapely.ops import unary_union, split, transform, substring, linemerge, nearest_points
-from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, MultiPoint, Polygon, MultiPolygon
+from shapely.ops import (
+    unary_union,
+    split,
+    transform,
+    substring,
+    linemerge,
+    nearest_points
+)
+from shapely.geometry import (
+    shape,
+    mapping,
+    Point,
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    Polygon,
+    MultiPolygon
+)
 
 import pandas as pd
 import geopandas as gpd
@@ -53,11 +69,6 @@ warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
 
-from enum import IntEnum, unique
-
-from scipy import ndimage
-import xarray as xr
-from xrspatial import convolution, focal
 
 @unique
 class CenterlineStatus(IntEnum):
@@ -73,7 +84,7 @@ MODE_MULTIPROCESSING = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_DASK
 
 
 @unique
@@ -96,14 +107,14 @@ BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
 BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
 BT_LABEL_MIN_WIDTH = 130
 BT_SHOW_ADVANCED_OPTIONS = False
-BT_EPSLON = sys.float_info.epsilon  # np.finfo(float).eps
+BT_EPSILON = sys.float_info.epsilon  # np.finfo(float).eps
 BT_UID = 'BT_UID'
 
 GROUPING_SEGMENT = True
 LP_SEGMENT_LENGTH = 500
 
 # centerline
-CL_USE_SKIMAGE_GRAPH = True
+CL_USE_SKIMAGE_GRAPH = False
 CL_BUFFER_CLIP = 5.0
 CL_BUFFER_CENTROID = 3.0
 CL_SNAP_TOLERANCE = 15.0
@@ -131,6 +142,7 @@ if not BT_DEBUGGING:
 
     # suppress warnings
     import warnings
+
     warnings.filterwarnings("ignore")
 
     # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
@@ -158,7 +170,7 @@ def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
         out_image, out_transform = mask.mask(raster_file, clip_geo_buffer,
-                                                      crop=True, nodata=ras_nodata, filled=False)
+                                             crop=True, nodata=ras_nodata, filled=True)
 
     height, width = out_image.shape[1:]
     out_meta.update({"driver": "GTiff",
@@ -194,7 +206,7 @@ def save_raster_to_file(in_raster_mem, in_meta, out_raster_file):
 
 def clip_lines(clip_geom, buffer, in_line_file, out_line_file):
     in_line = gpd.read_file(in_line_file)
-    out_line = in_line.clip(clip_geom.buffer(buffer*BT_BUFFER_RATIO))
+    out_line = in_line.clip(clip_geom.buffer(buffer * BT_BUFFER_RATIO))
 
     if out_line_file and len(out_line) > 0:
         out_line.to_file(out_line_file)
@@ -281,18 +293,6 @@ def remove_nan_from_array(matrix):
         for x in it:
             if np.isnan(x[...]):
                 x[...] = BT_NODATA_COST
-
-def replace_Nodata2NaN(matrix,nodata):
-    with np.nditer(matrix, op_flags=['readwrite']) as it:
-        for x in it:
-            if (x[...]==nodata):
-                x[...] = np.NaN
-
-def replace_Nodata2Inf(matrix,nodata):
-    with np.nditer(matrix, op_flags=['readwrite']) as it:
-        for x in it:
-            if (x[...]==nodata):
-                x[...] = np.Inf
 
 
 # Split LineString to segments at vertices
@@ -434,11 +434,11 @@ def compare_crs(crs_org, crs_dst):
             crs_org_norm = CRS(crs_org.ExportToWkt())
             crs_dst_norm = CRS(crs_dst.ExportToWkt())
             if crs_org_norm.is_compound:
-                crs_org_proj=crs_org_norm.sub_crs_list[0].coordinate_operation.name
+                crs_org_proj = crs_org_norm.sub_crs_list[0].coordinate_operation.name
             elif crs_org_norm.name == 'unnamed':
                 return False
             else:
-                crs_org_proj=crs_org_norm.coordinate_operation.name
+                crs_org_proj = crs_org_norm.coordinate_operation.name
 
             if crs_dst_norm.is_compound:
                 crs_dst_proj = crs_dst_norm.sub_crs_list[0].coordinate_operation.name
@@ -482,7 +482,7 @@ def identity_polygon(line_args):
         for i in in_fp_polygon.index:
             if not in_fp_polygon.loc[i].geometry.intersects(line_geom):
                 drop_list.append(i)
-            elif line_geom.intersection(in_fp_polygon.loc[i].geometry).length/line_geom.length < 0.30:
+            elif line_geom.intersection(in_fp_polygon.loc[i].geometry).length / line_geom.length < 0.30:
                 drop_list.append(i)  # if less the 1/5 of line is inside of polygon, ignore
 
         # drop all polygons not used
@@ -499,8 +499,7 @@ def identity_polygon(line_args):
     return line, identity
 
 
-def line_split2(in_ln_shp,seg_length):
-
+def line_split2(in_ln_shp, seg_length):
     # Check the OLnFID column in data. If it is not, column will be created
     if 'OLnFID' not in in_ln_shp.columns.array:
         if BT_DEBUGGING:
@@ -518,9 +517,9 @@ def split_into_Equal_Nth_segments(df, seg_length):
     crs = odf.crs
     if 'OLnSEG' not in odf.columns.array:
         df['OLnSEG'] = np.nan
-    df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry,seg_length), axis=1))
+    df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, seg_length), axis=1))
     # df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, x.geometry.length), axis=1))
-    df=df.explode()
+    df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
     gdf = gpd.GeoDataFrame(df, geometry=df.geometry, crs=crs)
@@ -530,13 +529,13 @@ def split_into_Equal_Nth_segments(df, seg_length):
     if "shape_leng" in gdf.columns.array:
         gdf["shape_leng"] = gdf.geometry.length
     elif "LENGTH" in gdf.columns.array:
-        gdf["LENGTH"]=gdf.geometry.length
+        gdf["LENGTH"] = gdf.geometry.length
     else:
         gdf["shape_leng"] = gdf.geometry.length
     return gdf
 
 
-def split_line_nPart(line,seg_length):
+def split_line_nPart(line, seg_length):
     seg_line = shapely.segmentize(line, seg_length)
     distances = np.arange(seg_length, line.length, seg_length)
 
@@ -589,8 +588,8 @@ def cut(line, distance, lines):
         for i, p in enumerate(coords):
             pd = line.project(Point(p))
 
-            if abs(pd - distance) < BT_EPSLON:
-                lines.append(LineString(coords[:i+1]))
+            if abs(pd - distance) < BT_EPSILON:
+                lines.append(LineString(coords[:i + 1]))
                 line = LineString(coords[i:])
                 end_pt = None
                 break
@@ -686,10 +685,10 @@ def find_centerline(poly, input_line):
     return centerline, CenterlineStatus.SUCCESS
 
 
-def find_route(array, start, end, fully_connected,geometric):
+def find_route(array, start, end, fully_connected, geometric):
     from skimage.graph import route_through_array
-    route_list,cost_list = route_through_array(array, start, end,fully_connected,geometric)
-    return route_list,cost_list
+    route_list, cost_list = route_through_array(array, start, end, fully_connected, geometric)
+    return route_list, cost_list
 
 
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
@@ -701,26 +700,12 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
 
     try:
         for poly, value in poly_generator:
-            if shape(poly).area > 1:
-                corridor_polygon.append(shape(poly))
+            corridor_polygon.append(shape(poly))
     except Exception as e:
         print(e)
 
     if corridor_polygon:
-        corridor_polygon = (unary_union(corridor_polygon))
-        if type(corridor_polygon)==MultiPolygon:
-            poly_list = shapely.get_parts(corridor_polygon)
-            merge_poly=poly_list[0]
-            for i in range(1,len(poly_list)):
-                if shapely.intersects(merge_poly,poly_list[i]):
-                    merge_poly=shapely.union(merge_poly,poly_list[i])
-                else:
-                    buffer_dist=poly_list[i].distance(merge_poly)+0.1
-                    buffer_poly=poly_list[i].buffer(buffer_dist)
-                    merge_poly=shapely.union(merge_poly,buffer_poly)
-            corridor_polygon=merge_poly
-
-
+        corridor_polygon = unary_union(corridor_polygon)
     else:
         corridor_polygon = None
 
@@ -740,21 +725,15 @@ def find_centerlines(poly_gpd, line_seg, processes):
         for i in poly_gpd.index:
             row = poly_gpd.loc[[i]]
             poly = row.geometry.iloc[0]
-            if 'OLnSEG' in line_seg.columns:
-                line_id,Seg_id = row['OLnFID'].iloc[0],row['OLnSEG'].iloc[0]
-                lc_path = line_seg.loc[(line_seg.OLnFID == line_id) & (line_seg.OLnSEG == Seg_id)]['geometry'].iloc[0]
-            else:
-                line_id = row['OLnFID'].iloc[0]
-                lc_path = line_seg.loc[(line_seg.OLnFID == line_id)]['geometry'].iloc[0]
-
-
+            line_id = row['OLnFID']
+            lc_path = line_seg.loc[line_id].geometry.iloc[0]
             rows_and_paths.append((row, lc_path))
     except Exception as e:
         print(e)
 
     total_steps = len(rows_and_paths)
     step = 0
-    # PARALLEL_MODE = MODE_SEQUENTIAL
+
     if PARALLEL_MODE == MODE_MULTIPROCESSING:
         with Pool(processes=processes) as pool:
             # execute tasks in order, process results out of order
@@ -793,7 +772,7 @@ def find_single_centerline(row_and_path):
     lc_path = row_and_path[1]
 
     poly = row.geometry.iloc[0]
-    centerline,status = find_centerline(poly, lc_path)
+    centerline = find_centerline(poly, lc_path)
     row['centerline'] = centerline
 
     return row
@@ -832,8 +811,8 @@ def centerline_is_valid(centerline, input_line):
 
     # centerline length less the half of least cost path
     if (centerline.length < input_line.length / 2 or
-            centerline.distance(Point(input_line.coords[0])) > BT_EPSLON or
-            centerline.distance(Point(input_line.coords[-1])) > BT_EPSLON):
+            centerline.distance(Point(input_line.coords[0])) > BT_EPSILON or
+            centerline.distance(Point(input_line.coords[-1])) > BT_EPSILON):
         return False
 
     return True
@@ -911,8 +890,8 @@ def regenerate_centerline(poly, input_line):
     -------
 
     """
-    line_1 = substring(input_line, start_dist=0.0, end_dist=input_line.length/2)
-    line_2 = substring(input_line, start_dist=input_line.length/2, end_dist=input_line.length)
+    line_1 = substring(input_line, start_dist=0.0, end_dist=input_line.length / 2)
+    line_2 = substring(input_line, start_dist=input_line.length / 2, end_dist=input_line.length)
 
     pts = shapely.force_2d([Point(list(input_line.coords)[0]),
                             Point(list(line_1.coords)[-1]),
@@ -1032,8 +1011,7 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
 
     try:
         # change all nan to BT_NODATA_COST for workaround
-        if len(raster_clip.shape)>2:
-            raster_clip = np.squeeze(raster_clip, axis=0)
+        raster_clip = np.squeeze(raster_clip, axis=0)
         remove_nan_from_array(raster_clip)
 
         # generate the cost raster to source point
@@ -1086,8 +1064,6 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
 
 def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     lc_path_new = []
-    if len(cost_clip.shape)>2:
-        cost_clip=np.squeeze(cost_clip, axis=0)
 
     out_transform = in_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
@@ -1098,7 +1074,7 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     row2, col2 = transformer.rowcol(x2, y2)
 
     try:
-        path_new = route_through_array(cost_clip, [row1, col1], [row2, col2])
+        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
     except Exception as e:
         print(e)
         return None
@@ -1199,78 +1175,3 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
         return None
 
     return out_result
-
-
-def chk_df_multipart(df, chk_shp_in_string):
-    try:
-        found = False
-        if str.upper(chk_shp_in_string) in [x.upper() for x in df.geom_type.values]:
-            found = True
-            df =df.explode()
-            if type(df)==gpd.geodataframe.GeoDataFrame:
-                df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-                df = df.sort_values(by=['OLnFID', 'OLnSEG'])
-                df = df.reset_index(drop=True)
-        else:
-                found = False
-        return df, found
-    except Exception as e:
-        print(e)
-        return df, False
-
-
-def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
-    # This function uses xrspatial which can handle large data but slow
-    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
-    in_ndarray[in_ndarray == nodata] = np.nan
-    result_ndarray = focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
-
-    # Assign std and mean ndarray
-    reshape_std_ndarray = result_ndarray[0].data#.reshape(-1)
-    reshape_mean_ndarray = result_ndarray[1].data#.reshape(-1)
-
-    # Re-shaping the array np.squeeze(flatten_std_result_ndarray, axis=0)
-    # reshape_std_ndarray = flatten_std_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
-    # reshape_std_ndarray = np.squeeze(flatten_std_result_ndarray, axis=0)
-    # reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
-    # reshape_mean_ndarray = np.squeeze(flatten_mean_result_ndarray, axis=0)
-    return reshape_std_ndarray, reshape_mean_ndarray
-
-
-def dyn_smooth_cost(in_raster, max_line_dist, sampling):
-    # print('Generating Cost Raster ...')
-
-    # scipy way to do Euclidean distance transform
-    euc_dist_array = None
-    euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
-
-    smooth1 = float(max_line_dist) - euc_dist_array
-    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
-    smooth1[smooth1 <= 0.0] = 0.0
-    smooth_cost_array = smooth1 / float(max_line_dist)
-
-    return smooth_cost_array
-
-def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
-
-    aM1a = (cc_mean - cc_std)
-    aM1b = (cc_mean + cc_std)
-    aM1 = np.divide(aM1a, aM1b, where=aM1b != 0, out=np.zeros(aM1a.shape, dtype=float))
-    aM = (1 + aM1) / 2
-    aaM = (cc_mean + cc_std)
-    bM = np.where(aaM <= 0, 0, aM)
-    cM = bM * (1 - avoidance) + (cc_smooth * avoidance)
-    dM = np.where(canopy_ndarray == 1, 1, cM)
-    eM = np.exp(dM)
-    result = np.power(eM, float(cost_raster_exponent))
-
-
-    return result
-
-def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
-
-    canopy_ndarray = np.ma.where(in_array >= canopy_ht_threshold, 1., 0.).astype(float)
-    canopy_ndarray = np.ma.filled(canopy_ndarray,nodata)
-    # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
-
-    return canopy_ndarray
