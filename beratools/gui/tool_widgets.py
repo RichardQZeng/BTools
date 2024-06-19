@@ -183,8 +183,13 @@ class FileSelector(QWidget):
             result = None
             file_names = None
 
-            if self.parameter_type == "Directory":
-                dialog.setFileMode(QFileDialog.FileMode.Directory)
+            if "Directory" in self.parameter_type:
+                dialog.setFileMode(QFileDialog.Directory)
+
+                if dialog.exec_():
+                    folder_name = dialog.selectedFiles()
+                    print(folder_name)
+                    self.set_value(folder_name)
             elif "ExistingFile" in self.parameter_type or "NewFile" in self.parameter_type:
                 file_types = "All files '*.*')"
                 if 'RasterAndVector' in self.file_type:
@@ -268,6 +273,10 @@ class FileSelector(QWidget):
         return self.flag, self.value
 
     def set_value(self, value):
+        if type(value) is list:
+            if len(value) > 0:
+                value = value[0]
+
         self.value = value
         self.in_file.setText(self.value)
         self.in_file.setToolTip(self.value)
