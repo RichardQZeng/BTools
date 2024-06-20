@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from common import *
 from r_interface import *
@@ -7,22 +8,7 @@ check_r_env()
 
 
 def find_cell_size(callback, in_las_folder, processes, verbose):
-    # r = robjects.r
-    # import psutil
-    # stats = psutil.virtual_memory()  # returns a named tuple
-    # available = getattr(stats, 'available') / 1024000000
-    # if 2 < processes <= 8:
-    #     if available <= 50:
-    #         rprocesses = 2
-    #     elif 50 < available <= 150:
-    #         rprocesses = 4
-    #     elif 150 < available <= 250:
-    #         rprocesses = 8
-    # else:
-    #     rprocesses = 8
-
     rprocesses = r_processes(processes)
-
     in_las_folder = in_las_folder.replace("\\", "/")
 
     # assign R script file to local variable

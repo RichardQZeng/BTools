@@ -92,12 +92,12 @@ class BTTreeView(QWidget):
         self.tags_model = SearchProxyModel()
         self.tree_model = QStandardItemModel()
         self.tags_model.setSourceModel(self.tree_model)
-        self.tags_model.setDynamicSortFilter(True)
+        # self.tags_model.setDynamicSortFilter(True)
         self.tags_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
 
         self.tree_view = QTreeView()
-        self.tree_view.setSortingEnabled(True)
-        self.tree_view.sortByColumn(0, Qt.AscendingOrder)
+        # self.tree_view.setSortingEnabled(False)
+        # self.tree_view.sortByColumn(0, Qt.AscendingOrder)
         self.tree_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tree_view.setHeaderHidden(True)
         self.tree_view.setRootIsDecorated(True)
@@ -141,7 +141,7 @@ class BTTreeView(QWidget):
     def create_model(self):
         model = self.tree_view.model().sourceModel()
         first_child = self.add_tool_list_to_tree(bt.toolbox_list, bt.sorted_tools)
-        self.tree_view.sortByColumn(0, Qt.AscendingOrder)
+        # self.tree_view.sortByColumn(0, Qt.AscendingOrder)
 
         return first_child
 
