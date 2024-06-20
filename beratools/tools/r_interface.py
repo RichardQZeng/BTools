@@ -38,3 +38,18 @@ def r_processes(processes):
         rprocesses = 8
 
     return rprocesses
+
+
+def check_las_files_existence(folder):
+    if not os.path.exists(folder):
+        print("Error! Cannot locate Las folder, please check.")
+        exit()
+    else:
+        found = False
+        for files in os.listdir(folder):
+            if files.endswith(".las") or files.endswith(".laz"):
+                found = True
+                break
+        if not found:
+            print("Error! Cannot locate input LAS file(s), please check!")
+            exit()
