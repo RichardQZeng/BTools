@@ -186,7 +186,7 @@ class BTData(object):
             tool_args = None
 
             if tool_type == 'python':
-                tool_args = [Path(work_dir).joinpath(f'beratools\tools\{tool_api}.py').as_posix(),
+                tool_args = [Path(work_dir).joinpath(f'beratools/tools/{tool_api}.py').as_posix(),
                              '-i', args_string, '-p', str(self.get_max_procs()),
                              '-v', str(self.verbose)]
             elif tool_type == 'executable':
