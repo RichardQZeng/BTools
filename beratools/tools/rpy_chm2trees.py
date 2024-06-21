@@ -3,8 +3,6 @@ import time
 from multiprocessing.pool import Pool
 
 from common import *
-class OperationCancelledException(Exception):
-    pass
 
 try: # integrated R env
     #check R language within env
