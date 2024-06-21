@@ -30,26 +30,6 @@ if __name__ == '__main__':
     print('Normalize Lidar data processing\n @ {}'
           .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
-    # r = robjects.r
-    # utils = importr('utils')
-    # base = importr('base')
-    # utils.chooseCRANmirror(ind=12)  # select the 12th mirror in the list: Canada
-    # print("Checking R packages....")
-    # CRANpacknames = ['lidR', 'rgrass', 'rlas', 'future', 'terra',
-    #                  'sp']  # ,'comprehenr','na.tools','sf','sp']#,'devtools','gdal']#,'fasterRaster']
-    # CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
-    #
-    # if len(CRANnames_to_install) > 0:
-    #     utils.install_packages(StrVector(CRANnames_to_install))
-    #     packages_found = True
-    # else:
-    #     packages_found = True
-    #
-    # # if packages_found:
-    # #    utils.update_packages(checkBuilt = True, ask=False)
-    #
-    # del CRANpacknames, CRANnames_to_install
-
     print("Checking input parameters....")
     in_args, in_verbose = check_arguments()
 
@@ -62,19 +42,6 @@ if __name__ == '__main__':
     in_las_folder = in_args.input["in_las_folder"]
     out_folder = in_args.input["out_folder"]
     check_las_files_existence(in_las_folder)
-
-    # if not os.path.exists(in_las_folder):
-    #     print("Error! Cannot locate Las folder, please check.")
-    #     exit()
-    # else:
-    #     found = False
-    #     for files in os.listdir(in_las_folder):
-    #         if files.endswith(".las") or files.endswith(".laz"):
-    #             found = True
-    #             break
-    #     if not found:
-    #         print("Error! Cannot locate input LAS file(s), please check!")
-    #         exit()
 
     if not os.path.exists(out_folder):
         print("Warning! Cannot locate output folder, It will be created.")
