@@ -36,7 +36,7 @@ from osgeo import ogr, gdal
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
-from skimage.graph import MCP_Geometric, route_through_array
+from skimage.graph import MCP_Geometric, route_through_array, MCP_Connect, MCP_Flexible
 from enum import IntEnum, unique
 
 from label_centerlines import get_centerline
@@ -73,7 +73,7 @@ MODE_MULTIPROCESSING = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_SEQUENTIAL
 
 
 @unique
@@ -1115,7 +1115,43 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
         lc_path_new = LineString(lc_path_new)
 
     return lc_path_new
+def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
+    lc_path_new = []
+    if len(cost_clip.shape)>2:
+        cost_clip=np.squeeze(cost_clip, axis=0)
 
+    out_transform = in_meta['transform']
+    transformer = rasterio.transform.AffineTransformer(out_transform)
+
+    x1, y1 = list(seed_line.coords)[0][:2]
+    x2, y2 = list(seed_line.coords)[-1][:2]
+    source = [transformer.rowcol(x1, y1)]
+    destination = [transformer.rowcol(x2, y2)]
+
+    try:
+
+        init_obj1=MCP_Connect(cost_clip)
+        results=init_obj1.find_costs(source,destination)
+        # init_obj2 = MCP_Geometric(cost_clip)
+        path=[]
+        for end in destination:
+            path.append(init_obj1.traceback(end))
+        for row, col in path[0]:
+            x, y = transformer.xy(row, col)
+            lc_path_new.append((x, y))
+
+
+    except Exception as e:
+        print(e)
+        return None
+
+    if len(lc_path_new) < 2:
+        print('No least cost path detected, pass.')
+        return None
+    else:
+        lc_path_new = LineString(lc_path_new)
+
+    return lc_path_new
 
 def result_is_valid(result):
     if type(result) is list or type(result) is tuple:
@@ -1274,3 +1310,92 @@ def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
 
     return canopy_ndarray
+
+
+def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm, tree_radius, max_line_dist,
+                                    canopy_avoidance, exponent, canopy_thresh_percentage):
+
+    line_argsC = []
+
+    for record in range(0, len(work_in_buffer)):
+        try:
+            line_bufferC = work_in_buffer.loc[record, 'geometry']
+
+            nodata = BT_NODATA
+            line_argsC.append([in_chm, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
+                               float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
+                               line_seg.iloc[[record]], in_chm_obj.meta.copy(), record, 10,'Center', canopy_thresh_percentage, line_bufferC])
+
+
+        except Exception as e:
+
+            print(e)
+
+        print(' "PROGRESS_LABEL Preparing lines {} of {}" '.format(record + 1, len(work_in_buffer)), flush=True)
+        print(' %{} '.format((record+1) / len(work_in_buffer) * 100))
+
+    return line_argsC
+
+
+def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC,in_chm_obj,in_chm, tree_radius, max_line_dist,
+                           canopy_avoidance, exponent, work_in_bufferR, canopy_thresh_percentage):
+    line_argsL = []
+    line_argsR = []
+    line_argsC = []
+    line_id = 0
+    for record in range(0, len(work_in_bufferL)):
+        line_bufferL = work_in_bufferL.loc[record, 'geometry']
+        line_bufferC = work_in_bufferC.loc[record, 'geometry']
+        LCut=work_in_bufferL.loc[record, 'LDist_Cut']
+
+        nodata = BT_NODATA
+        line_argsL.append([in_chm, float(work_in_bufferL.loc[record, 'DynCanTh']), float(tree_radius),
+                           float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
+                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, LCut,'Left', canopy_thresh_percentage, line_bufferL])
+
+        line_argsC.append([in_chm, float(work_in_bufferC.loc[record, 'DynCanTh']), float(tree_radius),
+                           float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
+                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, 10,'Center', canopy_thresh_percentage, line_bufferC])
+
+        line_id += 1
+
+    line_id = 0
+    for record in range(0, len(work_in_bufferR)):
+        line_bufferR = work_in_bufferR.loc[record, 'geometry']
+        RCut = work_in_bufferR.loc[record, 'RDist_Cut']
+        # clipped_rasterR, out_transformR = rasterio.mask.mask(in_chm, [line_bufferR], crop=True,
+        #                                                      nodata=BT_NODATA, filled=True)
+        # clipped_rasterR = np.squeeze(clipped_rasterR, axis=0)
+        #
+        # # make rasterio meta for saving raster later
+        # out_metaR = in_chm.meta.copy()
+        # out_metaR.update({"driver": "GTiff",
+        #                  "height": clipped_rasterR.shape[0],
+        #                  "width": clipped_rasterR.shape[1],
+        #                  "nodata": BT_NODATA,
+        #                  "transform": out_transformR})
+        line_bufferC = work_in_bufferC.loc[record, 'geometry']
+        # clipped_rasterC, out_transformC = rasterio.mask.mask(in_chm, [line_bufferC], crop=True,
+        #                                                      nodata=BT_NODATA, filled=True)
+        #
+        # clipped_rasterC = np.squeeze(clipped_rasterC, axis=0)
+        # out_metaC = in_chm.meta.copy()
+        # out_metaC.update({"driver": "GTiff",
+        #                   "height": clipped_rasterC.shape[0],
+        #                   "width": clipped_rasterC.shape[1],
+        #                   "nodata": BT_NODATA,
+        #                   "transform": out_transformC})
+
+        nodata = BT_NODATA
+        # TODO deal with inherited nodata and BT_NODATA_COST
+        # TODO convert nodata to BT_NODATA_COST
+        line_argsR.append([in_chm, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
+                           float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
+                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, RCut,'Right', canopy_thresh_percentage, line_bufferR])
+
+        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id +1+len(work_in_bufferL), len(work_in_bufferL)+len(work_in_bufferR)), flush=True)
+        print(' %{} '.format((line_id + 1+len(work_in_bufferL)) / (len(work_in_bufferL)+len(work_in_bufferR)) * 100), flush=True)
+
+        line_id += 1
+
+    return line_argsL,line_argsR,line_argsC
