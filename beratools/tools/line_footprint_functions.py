@@ -28,30 +28,30 @@
 #
 # ---------------------------------------------------------------------------
 
-import math
+# import math
 import time
-from pathlib import Path
-import uuid
+# from pathlib import Path
+# import uuid
 
-from multiprocessing.pool import Pool
+# from multiprocessing.pool import Pool
 
 from scipy import stats
-import xarray as xr
-from xrspatial import convolution, focal
-import os
-import pandas as pd
+# import xarray as xr
+# from xrspatial import convolution, focal
+# import os
+# import pandas as pd
 from geopandas import GeoDataFrame
 
-from scipy import ndimage
-from rasterio import features, mask
+# from scipy import ndimage
+from rasterio import mask
 
 from shapely import buffer
-from shapely.geometry import LineString, Point, MultiPolygon, shape
+# from shapely.geometry import LineString, Point, MultiPolygon, shape
 
-from common import *
+# from common import *
 import skimage
 from skimage.morphology import *
-from skimage.graph import MCP_Geometric, MCP_Connect,MCP,MCP_Flexible
+# from skimage.graph import MCP_Geometric, MCP_Connect,MCP,MCP_Flexible
 from dijkstra_algorithm import *
 
 import numpy as np
@@ -60,62 +60,9 @@ class OperationCancelledException(Exception):
     pass
 
 
-# def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
-#     masked_array = np.ma.masked_where(in_array == nodata, in_array)
-#     canopy_ndarray = np.ma.where(masked_array >= canopy_ht_threshold, 1., 0.)
-#     canopy_ndarray = np.ma.where(in_array == nodata, BT_NODATA, canopy_ndarray).data  # TODO check the code, extra step?
-#     return canopy_ndarray, masked_array
-
-
-# def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
-#     # This function uses xrspatial which can handle large data but slow
-#     # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
-#     ndarray = np.where(in_ndarray == nodata, np.nan, in_ndarray)
-#     result_ndarray = focal.focal_stats(xr.DataArray(ndarray), kernel, stats_funcs=['std', 'mean'])
-#
-#     # Flattening the array
-#     flatten_std_result_ndarray = result_ndarray[0].data.reshape(-1)
-#     flatten_mean_result_ndarray = result_ndarray[1].data.reshape(-1)
-#
-#     # Re-shaping the array
-#     reshape_std_ndarray = flatten_std_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-#     reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(ndarray.shape[0], ndarray.shape[1])
-#     return reshape_std_ndarray, reshape_mean_ndarray
-
-
-# def dyn_smooth_cost(in_raster, max_line_dist, cell_x, cell_y):
-#     # print('Generating Cost Raster ...')
-#
-#     # scipy way to do Euclidean distance transform
-#     euc_dist_array = None
-#     euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=[cell_x, cell_y])
-#
-#     smooth1 = float(max_line_dist) - euc_dist_array
-#     # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
-#     smooth1[smooth1 <= 0.0] = 0.0
-#     smooth_cost_array = smooth1 / float(max_line_dist)
-#
-#     return smooth_cost_array
-
-
-# def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
-#     aM1a = (cc_mean - cc_std)
-#     aM1b = (cc_mean + cc_std)
-#     aM1 = np.divide(aM1a, aM1b, where=aM1b != 0., out=np.zeros(aM1a.shape, dtype=float))
-#     aM = (1. + aM1) / 2.
-#     aaM = (cc_mean + cc_std)
-#     bM = np.where(aaM <= 0., 0., aM)
-#     cM = bM * (1. - avoidance) + (cc_smooth * avoidance)
-#     dM = np.where(canopy_ndarray == 1., 1., cM)
-#     eM = np.exp(dM)
-#     result = np.power(eM, float(cost_raster_exponent))
-#
-#     return result
-
-
 def dyn_canopy_cost_raster(args):
-    in_chm = args[0]
-    canopy_ht_threshold = args[1]
+    raster_obj = args[0]
+    DynCanTh = args[1]
     tree_radius = args[2]
     max_line_dist = args[3]
     canopy_avoid = args[4]
@@ -131,12 +78,14 @@ def dyn_canopy_cost_raster(args):
     line_buffer=args[14]
 
     if Side=='Left':
-        canopy_ht_threshold=line_df.CL_CutHt #*canopy_thresh_percentage
+        canopy_ht_threshold=line_df.CL_CutHt *canopy_thresh_percentage
     elif Side=='Right':
-        canopy_ht_threshold = line_df.CR_CutHt #*canopy_thresh_percentage
+        canopy_ht_threshold = line_df.CR_CutHt *canopy_thresh_percentage
+    elif Side == 'Center':
+        canopy_ht_threshold = DynCanTh *canopy_thresh_percentage
     else:
 
-        canopy_ht_threshold=1
+        canopy_ht_threshold = 0.5
 
     canopy_ht_threshold = float(canopy_ht_threshold)
     if canopy_ht_threshold<=0:
@@ -146,26 +95,44 @@ def dyn_canopy_cost_raster(args):
     canopy_avoid = float(canopy_avoid)
     cost_raster_exponent = float(exponent)
 
+    try:
+        clipped_rasterC, out_transformC = rasterio.mask.mask(raster_obj, [line_buffer], crop=True,
+                                                        filled=False)
+
+        in_chm = np.squeeze(clipped_rasterC, axis=0)
+
+        # make rasterio meta for saving raster later
+        out_meta = raster_obj.meta.copy()
+        out_meta.update({"driver": "GTiff",
+                         "height": in_chm.shape[0],
+                         "width": in_chm.shape[1],
+                         "nodata": BT_NODATA,
+                         "transform": out_transformC})
+
     # print('Loading CHM ...')
-    (cell_x, cell_y) = res
-    band1_ndarray = in_chm
+        (cell_x, cell_y) = res
+        band1_ndarray = in_chm
 
-    # print('Preparing Kernel window ...')
-    kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
+        # print('Preparing Kernel window ...')
+        kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
 
-    # Generate Canopy Raster and return the Canopy array
-    dyn_canopy_ndarray = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
+        # Generate Canopy Raster and return the Canopy array
+        dyn_canopy_ndarray = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
 
-    # Calculating focal statistic from canopy raster
-    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, nodata)
+        # Calculating focal statistic from canopy raster
+        cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, nodata)
 
-    # Smoothing raster
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
-    avoidance = max(min(float(canopy_avoid), 1), 0)
-    dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
-                                          cc_smooth, avoidance, cost_raster_exponent)
-    dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = BT_NODATA_COST  # TODO was nodata, changed to BT_NODATA_COST
-    return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer)
+        # Smoothing raster
+        cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
+        avoidance = max(min(float(canopy_avoid), 1), 0)
+        dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
+                                              cc_smooth, avoidance, cost_raster_exponent)
+        dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = BT_NODATA_COST  # TODO was nodata, changed to BT_NODATA_COST
+        return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer)
+
+    except Exception as e:
+        print("Error in dyn_canopy_cost_raster: {}".format(e))
+        return None
 
 
 def split_line_fc(line):
@@ -370,6 +337,11 @@ def find_corridor_threshold(raster):
 
 
 def process_single_line_relative(segment):
+    in_chm = rasterio.open(segment[0])
+    #
+    segment[0] = in_chm
+    DynCanTh=segment[1]
+
     # Segment args from mulitprocessing:
     # [clipped_chm, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
     # float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
@@ -385,6 +357,7 @@ def process_single_line_relative(segment):
     df = segment[0]
     in_canopy_r = segment[1]
     in_cost_r = segment[2]
+    out_meta = segment[3]
 
     # in_transform = segment[3]
     if np.isnan(in_canopy_r).all():
@@ -638,8 +611,12 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
             work_in_bufferC['geometry'] = buffer(work_in_bufferC['geometry'], distance=float(max_ln_width),
                                                  cap_style=3, single_sided=False)
             print("Prepare arguments for Dynamic FP ...")
-            line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
+            # line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
+            #                                canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
+
+            line_argsL, line_argsR,line_argsC=generate_line_args_DFP_NoClip(line_seg_split, work_in_bufferL,work_in_bufferC, raster,in_chm, tree_radius, max_line_dist,
                                            canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
+
         else:
             print("Line and canopy raster spatial references are not same, please check.")
             exit()
@@ -658,14 +635,17 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
             # feat_listC = multiprocessing_footprint_relative(line_argsC, processes)
             feat_listL = multiprocessing_footprint_relative(line_argsL, processes)
+            #feat_listL = execute_multiprocessing(process_single_line_relative,'Footprint',line_argsL, processes)
             feat_listR = multiprocessing_footprint_relative(line_argsR, processes)
+            #feat_listR = execute_multiprocessing(process_single_line_relative, 'Footprint', line_argsR, processes)
+
         elif PARALLEL_MODE == MODE_SEQUENTIAL:
-            print("There are {} result to process.".format(len(line_args)))
             step = 1
             total_steps = len(line_argsL)
+            print("There are {} result to process.".format(total_steps))
             for row in line_argsL:
                 feat_listL.append(process_single_line_relative(row))
-                print("Footprint for line {} is done".format(step))
+                print("Footprint (left side) for line {} is done".format(step))
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format((step/total_steps)*100))
                 step += 1
@@ -673,19 +653,10 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
             total_steps = len(line_argsR)
             for row in line_argsR:
                 feat_listR.append(process_single_line_relative(row))
-                print("Footprint for line {} is done".format(step))
+                print("Footprint for (right side) line {} is done".format(step))
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format((step/total_steps)*100))
                 step += 1
-
-            # step = 1
-            # total_steps = len(line_argsC)
-            # for row in line_argsC:
-            #     feat_listC.append(process_single_line_relative(row))
-            #     print("Footprint for line {} is done".format(step))
-            #     print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-            #     print(' %{} '.format((step / total_steps) * 100))
-            #     step += 1
 
     print('%{}'.format(80))
     print("Task done.")
@@ -711,9 +682,6 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     resultsL = resultsL.reset_index(drop=True)
     resultsR = resultsR.reset_index(drop=True)
     #
-    # # dissolved polygon group by column 'OLnFID'
-    # dissolved_resultsL = resultsL.dissolve(by='OLnFID', as_index=False)
-    # dissolved_resultsR = resultsR.dissolve(by='OLnFID', as_index=False)
 
     resultsAll=GeoDataFrame(pd.concat([resultsL,resultsR]))
     dissolved_results = resultsAll.dissolve(by='OLnFID', as_index=False)
@@ -723,15 +691,12 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     print("Footprint file saved")
 
     # dissolved polygon group by column 'OLnFID'
-    print("Generating centerlines ...")
+    print("Generating centerlines from corridor polygons ...")
     resultsCL = GeoDataFrame(pd.concat(poly_listL))
     resultsCL['geometry'] = resultsCL['geometry'].buffer(0.005)
     resultsCR = GeoDataFrame(pd.concat(poly_listR))
     resultsCR['geometry'] = resultsCR['geometry'].buffer(0.005)
-    # resultsCL = resultsCL.sort_values(by=['OLnFID', 'OLnSEG'])
-    # resultsCR = resultsCR.sort_values(by=['OLnFID', 'OLnSEG'])
-    # resultsCL = resultsCL.reset_index(drop=True)
-    # resultsCR = resultsCR.reset_index(drop=True)
+
     resultsCLR = GeoDataFrame(pd.concat([resultsCL, resultsCR]))
     resultsCLR = resultsCLR.dissolve(by='OLnFID', as_index=False)
     resultsCLR = resultsCLR.sort_values(by=['OLnFID', 'OLnSEG'])
