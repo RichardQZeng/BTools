@@ -208,7 +208,7 @@ def rate_of_change(in_arg): #,max_chmht):
     found = False
     changes =1.50
     Change = np.insert(diff, 0, 0)
-    scale_down=0.85
+    scale_down=1
 
 
     # test the rate of change is > than 150% (1.5), if it is
