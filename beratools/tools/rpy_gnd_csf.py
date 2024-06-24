@@ -23,6 +23,9 @@ if __name__ == '__main__':
     print('Ground Classification (Cloth Simulation Filter) processing\n @ {}'
           .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
+    packages = ['lidR', 'RCSF']
+    check_r_packages_installation(packages)
+
     print("Checking input parameters....")
     in_args, in_verbose = check_arguments()
     try:

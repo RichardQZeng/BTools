@@ -53,3 +53,18 @@ def check_las_files_existence(folder):
         if not found:
             print("Error! Cannot locate input LAS file(s), please check!")
             exit()
+
+
+def check_r_packages_installation(packages):
+    utils = importr('utils')
+    base = importr('base')
+    utils.chooseCRANmirror(ind=12)  # select the 12th mirror in the list: Canada
+    print("Checking R packages....")
+
+    cran_names_to_install = [x for x in packages if not robjects.packages.isinstalled(x)]
+
+    if len(cran_names_to_install) > 0:
+        utils.install_packages(StrVector(cran_names_to_install))
+        packages_found = True
+    else:
+        packages_found = True

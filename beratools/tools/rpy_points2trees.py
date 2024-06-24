@@ -31,6 +31,9 @@ if __name__ == '__main__':
     print('Starting tree detection from LAS processing\n @ {}'
           .format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
+    packages = ['lidR', 'rgrass', 'rlas', 'future', 'terra', 'sp']
+    check_r_packages_installation(packages)
+
     print("Checking input parameters ...")
     in_args, in_verbose = check_arguments()
     in_las_folder = in_args.input["in_las_folder"]

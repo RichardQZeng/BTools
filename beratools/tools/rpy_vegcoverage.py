@@ -24,6 +24,9 @@ if __name__ == '__main__':
     print('Finding Vegetation Coverage from Lidar data process\n @ {}'
           .format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
+    packages = ['lidR', 'future', 'terra']
+    check_r_packages_installation(packages)
+
     print("Checking input parameters ...")
     in_args, in_verbose = check_arguments()
     in_las_folder = in_args.input["in_las_folder"]

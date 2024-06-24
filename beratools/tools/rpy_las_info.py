@@ -24,6 +24,9 @@ if __name__ == '__main__':
     print('LiDAR data information..\n @ {}'
           .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
+    packages = ['lidR', 'future']
+    check_r_packages_installation(packages)
+
     print("Checking input parameters....")
     in_args, in_verbose = check_arguments()
 
