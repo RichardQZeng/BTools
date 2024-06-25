@@ -19,7 +19,7 @@ class OperationCancelledException(Exception):
     pass
 
 
-def centerline(callback, in_line, in_chm, line_radius,
+def LCP_centerline(callback, in_line, in_chm, line_radius,
                proc_segments, out_line, processes, verbose):
     if not compare_crs(vector_crs(in_line), raster_crs(in_chm)):
         print("Line and CHM have different spatial references, please check.")
@@ -100,13 +100,13 @@ def centerline(callback, in_line, in_chm, line_radius,
 
     save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
 
-    save_features_to_shapefile(out_line, layer_crs, center_line_geoms, schema, feat_props)
+    # save_features_to_shapefile(out_line, layer_crs, center_line_geoms, schema, feat_props)
 
     # save corridor polygons
-    corridor_polys = pd.concat(corridor_poly_list)
-    out_corridor_poly_path = Path(out_line)
-    out_corridor_poly_path = out_corridor_poly_path.with_stem(out_corridor_poly_path.stem + '_corridor_poly')
-    corridor_polys.to_file(out_corridor_poly_path.as_posix())
+    # corridor_polys = pd.concat(corridor_poly_list)
+    # out_corridor_poly_path = Path(out_line)
+    # out_corridor_poly_path = out_corridor_poly_path.with_stem(out_corridor_poly_path.stem + '_corridor_poly')
+    # corridor_polys.to_file(out_corridor_poly_path.as_posix())
 
 
 def process_single_line(line_args):
@@ -123,10 +123,10 @@ def process_single_line(line_args):
     chm_clip, out_meta = clip_raster(in_chm_raster, seed_line, line_radius)
     in_chm = np.squeeze(chm_clip, axis=0)
     cell_x, cell_y=out_meta['transform'][0],-out_meta['transform'][4]
-    kernel = convolution.circle_kernel(cell_x, cell_y, 1.5)
+    kernel = convolution.circle_kernel(cell_x, cell_y, 2.5)
     dyn_canopy_ndarray = dyn_np_cc_map(in_chm, FP_CORRIDOR_THRESHOLD, BT_NODATA)
     cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel,BT_NODATA)
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 1.5, [cell_x, cell_y])
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
     avoidance = max(min(float(0.4), 1), 0)
     cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                           cc_smooth, 0.4, 1.5)
@@ -135,7 +135,8 @@ def process_single_line(line_args):
     # if CL_USE_SKIMAGE_GRAPH:
         # skimage shortest path (Cost Array elements with infinite or negative costs will simply be ignored.)
     negative_cost_clip=np.where(np.isnan(cost_clip),-9999,cost_clip)
-    lc_path = find_least_cost_path_skimage(negative_cost_clip, out_meta, seed_line)
+    # lc_path = find_least_cost_path_skimage(negative_cost_clip, out_meta, seed_line)
+    lc_path = LCP_skimage_mcp_connect(negative_cost_clip, out_meta, seed_line)
     # else:
     #     lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
 
@@ -185,5 +186,5 @@ def process_single_line(line_args):
 if __name__ == '__main__':
     in_args, in_verbose = check_arguments()
     start_time = time.time()
-    centerline(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    LCP_centerline(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))
