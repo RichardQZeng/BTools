@@ -30,7 +30,7 @@ if __name__ == '__main__':
     print('Normalize Lidar data processing\n @ {}'
           .format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())))
 
-    packages = ['lidR','future','terra']
+    packages = ['lidR', 'future', 'terra']
     check_r_packages_installation(packages)
 
     print("Checking input parameters....")

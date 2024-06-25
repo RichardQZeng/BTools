@@ -35,18 +35,6 @@ if __name__ == '__main__':
 
     in_las_folder = in_args.input["in_las_folder"]
     check_las_files_existence(in_las_folder)
-    # if not os.path.exists(in_las_folder):
-    #     print("Error! Cannot locate Las folder, please check.")
-    #     exit()
-    # else:
-    #     found = False
-    #     for files in os.listdir(in_las_folder):
-    #         if files.endswith(".laz"):
-    #             found = True
-    #             break
-    #     if not found:
-    #         print("Error! Cannot locate input LAZ file(s), please check!")
-    #         exit()
 
     print("Checking input parameters....Done")
 

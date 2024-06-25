@@ -14,6 +14,10 @@ rpy2
 r-essentials
 r-lidr
 r-terra
+r-rlas
+r-sp
+r-rcsf
+r-sf
 scikit-image
 sphinx-tabs
 sphinx-rtd-theme

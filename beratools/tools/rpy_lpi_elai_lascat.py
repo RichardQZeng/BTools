@@ -356,7 +356,7 @@ if __name__ == '__main__':
     base = importr('base')
     utils.chooseCRANmirror(ind=12) # select the 12th mirror in the list: Canada
     print("Checking R packages ...")
-    CRANpacknames = ['lidR','rgrass','rlas','future','terra','na.tools','sf','sp']#,'fasterRaster']
+    CRANpacknames = ['lidR', 'rgrass', 'rlas', 'future', 'terra', 'na.tools', 'sf', 'sp']#,'fasterRaster']
     CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
     need_fasterRaster = False
     if len(CRANnames_to_install) > 0:
