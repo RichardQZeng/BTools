@@ -2,7 +2,6 @@ appliedgrg::label_centerlines
 appliedgrg::laserchicken
 dask
 distributed
-hatch
 geopandas
 huggingface_hub
 matplotlib
@@ -10,6 +9,7 @@ pip
 pyogrio
 psutil
 pyqt
+ray-default
 rioxarray
 rpy2
 r-essentials
@@ -31,3 +31,7 @@ xarray-spatial
 # > mamba install --file requirements.txt
 # set environment variable
 # GDAL_DATA : CONDA_ENV_PATH\Library\share\gdal
+#
+# conda build onlu
+# mamba install hatch
+# pip install build

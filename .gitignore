@@ -8,3 +8,7 @@
 /beratools/tools/__pycache__
 /beratools/gui/__pycache__
 *.pyc
+*.whl
+0.5.1
+0.5.1
+/dist
