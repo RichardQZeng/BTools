@@ -33,5 +33,6 @@ xarray-spatial
 # GDAL_DATA : CONDA_ENV_PATH\Library\share\gdal
 #
 # conda build onlu
-# mamba install hatch
-# pip install build
+# backend: mamba install hatch
+# front end: pip install build
+# PyPI upload: mamba install twine
