@@ -12,7 +12,31 @@ with open("HISTORY.md") as history_file:
     history = history_file.read()
 
 requirements = [
-    "Click>=6.0",
+    "label_centerlines",
+    "laserchicken",
+    "dask",
+    "distributed",
+    "geopandas",
+    "huggingface_hub",
+    "matplotlib",
+    "pip",
+    "pyogrio",
+    "psutil",
+    "pyqt",
+    "ray-default",
+    "rioxarray",
+    "rpy2",
+    "r-essentials",
+    "r-lidr",
+    "r-rcsf",
+    "r-rlas",
+    "r-sf",
+    "r-sp",
+    "r-terra",
+    "scikit-image",
+    "sphinx-tabs",
+    "sphinx-rtd-theme",
+    "xarray-spatial"
 ]
 
 setup_requirements = []
