@@ -32,7 +32,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "Click>=6.0",
 ]
 
 [project.scripts]
