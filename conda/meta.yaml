@@ -2,10 +2,10 @@
 # https://medium.com/analytics-vidhya/publish-a-python-package-to-conda-b352eb0bcb2e
 package:
     name: "beratools"
-    version: "0.1.0"
+    version: "0.9.1"
 
 source:
-    git_rev: 0.1.0
+    git_rev: 0.9.1
     git_url: git@github.com:RichardQZeng/BTools
 
 requirements:
