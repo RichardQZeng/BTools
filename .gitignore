@@ -8,3 +8,4 @@
 /beratools/tools/__pycache__
 /beratools/gui/__pycache__
 *.pyc
+/dist
