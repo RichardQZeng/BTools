@@ -31,8 +31,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "appliedgrg::label_centerlines",
-    "appliedgrg::laserchicken",
+    "label_centerlines",
+    "laserchicken",
     "dask",
     "distributed",
     "geopandas",
