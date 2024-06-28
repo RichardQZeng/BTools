@@ -1,5 +1,6 @@
-chm2trees <- function(in_chm, Min_ws, hmin, out_folder, rprocesses)
-{
+chm2trees<-function(in_chm,Min_ws,hmin,out_folder,rprocesses)
+  {
+#     update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
@@ -43,6 +44,7 @@ chm2trees <- function(in_chm, Min_ws, hmin, out_folder, rprocesses)
 #create a 'generate_pd' function
 generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folder,
                         cut_ht, PD_Ground_folder, PD_Total_folder, rprocesses) {
+#     update.packages(list('terra','lidR','future'))
     library(terra)
     library(lidR)
     library(future)
@@ -82,6 +84,7 @@ generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folde
 
     #normalized LAS with pulse info
     print("Indexing LAS Tiles...")
+    #lidR:::catalog_laxindex(ctg)
     catalog_laxindex(ctg)
     print("Normalize point cloud using K-nearest neighbour IDW ...")
     normalize_height(ctg, algorithm = knnidw())
@@ -127,6 +130,7 @@ generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folde
     #load normalized LAS for ground point density
     ht <- paste0("-drop_class 7 -drop_z_above ", cut_ht)
     ctg2 <- readLAScatalog(paste0(cache_folder, "/nlidar"), filter = ht)
+    #lidR:::catalog_laxindex(ctg2)
     catalog_laxindex(ctg2)
 
     print("Generating point density (ground focal sum) raster ...")
@@ -172,7 +176,7 @@ generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folde
 
 #########################################################################################################################
 hh_function <- function(in_las_folder, cell_size, Smooth_by, Min_ws, lawn_range, out_folder, rprocesses) {
-
+# update.packages(list('terra','lidR','future','sf'))
     library(lidR)
     library(terra)
     library(sf)
@@ -259,8 +263,8 @@ hh_function <- function(in_las_folder, cell_size, Smooth_by, Min_ws, lawn_range,
 }
 
 #########################################################################################################################
-hh_function_byraster <- function(in_raster, cell_size, Smooth_by, Min_ws, lawn_range, out_folder, rprocesses) {
-
+hh_function_byraster <- function(in_raster,cell_size, Min_ws, lawn_range, out_folder,rprocesses){
+# update.packages(list('terra'))
 
     library(terra)
     library(utils)
@@ -291,7 +295,7 @@ hh_function_byraster <- function(in_raster, cell_size, Smooth_by, Min_ws, lawn_r
 
 ###################################################################################################################################
 pd2cellsize <- function(in_las_folder, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
 
@@ -315,7 +319,7 @@ pd2cellsize <- function(in_las_folder, rprocesses) {
 
 points2trees <- function(in_folder, is_normalized, hmin, out_folder, rprocesses, CHMcell_size, cell_size)
 {
-
+#   update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
@@ -430,7 +434,7 @@ points2trees <- function(in_folder, is_normalized, hmin, out_folder, rprocesses,
 #########################################################################################################################################
 ht_metrics_lite <- function(in_las_folder, cell_size, out_folder, rprocesses)
 {
-
+#    update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
@@ -479,7 +483,7 @@ ht_metrics_lite <- function(in_las_folder, cell_size, out_folder, rprocesses)
 ######################################################################################
 veg_cover_percentage <- function(in_las_folder, is_normalized, out_folder, hmin, hmax, cell_size, rprocesses)
 {
-
+#     update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
@@ -572,7 +576,7 @@ veg_cover_percentage <- function(in_las_folder, is_normalized, out_folder, hmin,
 #########################################################################################
 percentage_aboveDBH <- function(in_las_folder, is_normalized, out_folder, DBH, cell_size, rprocesses)
 {
-
+#     update.packages(list('terra','lidR','future'))
     library(lidR)
     library(terra)
     library(future)
@@ -635,7 +639,7 @@ percentage_aboveDBH <- function(in_las_folder, is_normalized, out_folder, DBH, c
 
 #########################################################################################
 normalized_lidar_knnidw <- function(in_las_folder, out_folder, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
 
@@ -654,7 +658,7 @@ normalized_lidar_knnidw <- function(in_las_folder, out_folder, rprocesses) {
 
 ##########################################################################
 normalized_lidar_tin <- function(in_las_folder, out_folder, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
 
@@ -674,7 +678,7 @@ normalized_lidar_tin <- function(in_las_folder, out_folder, rprocesses) {
 
 ##########################################################################
 normalized_lidar_kriging <- function(in_las_folder, out_folder, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
 
@@ -693,7 +697,7 @@ normalized_lidar_kriging <- function(in_las_folder, out_folder, rprocesses) {
 
 #########################################################################################
 chm_by_dsmtin <- function(in_las_folder, out_folder, cell_size, is_normalized, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
     if (cell_size < 1.0) { rprocesses = rprocesses / 2 }
@@ -722,7 +726,7 @@ chm_by_dsmtin <- function(in_las_folder, out_folder, cell_size, is_normalized, r
 
 #########################################################################################
 chm_by_pitfree <- function(in_las_folder, out_folder, cell_size, is_normalized, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
     if (cell_size < 1.0) { rprocesses = rprocesses / 2 }
@@ -761,7 +765,7 @@ chm_by_pitfree <- function(in_las_folder, out_folder, cell_size, is_normalized, 
 
 #########################################################################################
 dtm_by_knnidw <- function(in_las_folder, out_folder, cell_size, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
     if (cell_size < 1.0) { rprocesses = rprocesses / 2 }
@@ -785,7 +789,7 @@ dtm_by_knnidw <- function(in_las_folder, out_folder, cell_size, rprocesses) {
 
 #########################################################################################
 dtm_by_kriging <- function(in_las_folder, out_folder, cell_size, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
     if (cell_size < 1.0) { rprocesses = rprocesses / 2 }
@@ -809,7 +813,7 @@ dtm_by_kriging <- function(in_las_folder, out_folder, cell_size, rprocesses) {
 
 #########################################################################################
 dtm_by_tin <- function(in_las_folder, out_folder, cell_size, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
     library(terra)
@@ -835,7 +839,7 @@ dtm_by_tin <- function(in_las_folder, out_folder, cell_size, rprocesses) {
 
 ###########################################################################################
 laz2las <- function(in_las_folder, out_folder, rprocesses) {
-
+#     update.packages(list('lidR','future'))
     library(lidR)
     library(future)
 
@@ -863,7 +867,7 @@ laz2las <- function(in_las_folder, out_folder, rprocesses) {
 las_info <- function(in_las_folder, rprocesses) {
     library(lidR)
     library(future)
-
+#     update.packages(list('lidR','future'))
 
     plan(multisession, workers = rprocesses)
     set_lidr_threads(rprocesses)
