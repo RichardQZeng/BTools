@@ -13,6 +13,7 @@ from PyQt5 import QtPrintSupport
 
 from beratools.gui.bt_widgets import *
 
+
 class PandasModel(QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):
         QAbstractTableModel.__init__(self, parent=None)

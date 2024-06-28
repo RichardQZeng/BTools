@@ -1,9 +1,9 @@
 from random import random
-from time import sleep
+import time
 from multiprocessing.pool import Pool
 from numpy import mean
-import json
-import argparse
+
+from common import *
 
 
 class OperationCancelledException(Exception):
@@ -22,7 +22,7 @@ def worker(task_data):
     print(f'Task {len(task_data)} with {value} executed', flush=True)
 
     # block for a moment
-    sleep(value * 10)
+    time.sleep(value * 10)
 
     # return the generated value
     return value
