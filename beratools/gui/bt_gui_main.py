@@ -684,7 +684,6 @@ class MainWindow(QMainWindow):
         self.progress_label.setText("")
 
 
-# start @ the beginning
 def runner():
     # faulthandler.enable()
     app = QApplication(sys.argv)

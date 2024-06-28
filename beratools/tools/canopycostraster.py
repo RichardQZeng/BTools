@@ -142,7 +142,6 @@ def smooth_cost(in_raster, search_dist, sampling):
         euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
 
     smooth1 = float(search_dist) - euc_dist_array
-    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
     smooth1[smooth1 <= 0.0] = 0.0
     smooth_cost_array = smooth1 / float(search_dist)
 

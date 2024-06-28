@@ -1,9 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-# QIcon fromtheme
-# https://gist.github.com/RichardQZeng/2cf5b6d3d383df2242fda75ddb533baf
-
 import pandas as pd
 from PyQt5.QtCore import (QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex,
                           QVariant, QSettings)
@@ -81,7 +78,6 @@ class PandasModel(QAbstractTableModel):
         for i in range(rows):
             self._df.loc[len(self._df)] = self.default_record
 
-        # self.items = self.items[:position] + self.items[position + rows:]
         self.endInsertRows()
         return True
 

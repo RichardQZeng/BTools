@@ -76,17 +76,6 @@ class MinCostPathHelper:
 
         return block, contains_negative
 
-    # @staticmethod
-    # def block2matrix_numpy(block, nodata):
-    #     contains_negative = False
-    #
-    #     a = block <= nodata | np.isnan(block)
-    #     block[a] = 9999.0
-    #     if block.min() < 0:
-    #         contains_negative = True
-    #
-    #     return block, contains_negative
-
     @staticmethod
     def block2matrix(block, nodata):
         contains_negative = False
@@ -253,10 +242,6 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
                 came_from[nex] = current_node
 
     return result
-
-
-#########################################################
-# Numpy based algorithm
 
 
 def valid_node(node, size_of_grid):

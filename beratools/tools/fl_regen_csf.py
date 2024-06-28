@@ -55,7 +55,6 @@ def regen_csf(line_args):
             # for long and skinny: estimate width = 2*Area / Perimeter
             P = float(result_identity.geometry.length)
             A = float(result_identity.geometry.area)
-            # max_ln_width = math.ceil(((P-math.sqrt(math.pow(P,2)-(16*A)))/4)/2)
             max_ln_width = math.ceil((2 * A) / P)
             if not max_ln_width >= 1.0:
                 max_ln_width = 0.5
@@ -135,10 +134,7 @@ def regen_csf(line_args):
                 reg_class = "Regenerating"
             else:
                 reg_class = "Arrested"
-
-
     elif not change_analysis or not has_footprint:  # Either no change_analysis or no footprint
-
         line_feat = attr_seg_line.geometry.iloc[0]
 
         # if the selected seg do not have identity footprint geometry
@@ -155,7 +151,6 @@ def regen_csf(line_args):
             reg_class = "Not Available"
 
         change_mean = numpy.nan
-
     elif not change_analysis and not has_footprint:  # no change raster and no footprint
         reg_class = "Not Available"
         change_mean = numpy.nan
@@ -171,7 +166,6 @@ def regen_csf(line_args):
 
 def identity_polygon(line_args):
     line = line_args[0]
-    # in_cl_buffer = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
     in_touched_fp = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
     in_search_polygon = line_args[2]
     if 'OLnSEG' not in in_search_polygon.columns.array:
@@ -253,9 +247,6 @@ def fl_restration_csf(callback, in_line, in_footprint, in_trees, in_change, proc
         in_line_shp = pyogrio.read_dataframe(in_line)
         in_tree_shp = pyogrio.read_dataframe(in_trees)
         in_fp_shp = pyogrio.read_dataframe(in_footprint)
-        # in_line_shp = geopandas.read_file(in_line,engine="pyogrio")
-        # in_tree_shp = geopandas.read_file(in_trees,engine="pyogrio")
-        # in_fp_shp = geopandas.read_file(in_footprint,engine="pyogrio")
     except SystemError:
         print("Invalid input feature, please check!")
         exit()
@@ -311,10 +302,8 @@ def fl_restration_csf(callback, in_line, in_footprint, in_trees, in_change, proc
     if len(in_fp_shp) == 0:
         print('No footprints provided, buffer of the input lines will be used instead')
         area_analysis = False
-        # AOI_trees = in_tree_shp[in_tree_shp.within(in_line_shp.buffer(50))]
     else:
         area_analysis = True
-        # AOI_trees = in_tree_shp[in_tree_shp.within(in_fp_shp)]
 
     print("Preparing line segments...")
 
@@ -326,7 +315,7 @@ def fl_restration_csf(callback, in_line, in_footprint, in_trees, in_change, proc
         print(
             "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
         in_line_shp['OLnFID'] = in_line_shp.index
-    if proc_segments == True:
+    if proc_segments:
         attr_seg_lines = line_split2(in_line_shp, 10)
     else:
         # copy original line input to another Geodataframe
@@ -384,6 +373,7 @@ def fl_restration_csf(callback, in_line, in_footprint, in_trees, in_change, proc
                 features.append(result)
 
     print("Prepare for classify ...")
+
     # prepare list of result_identity, Att_seg_lines, areaAnalysis, heightAnalysis, args.input
     AOI_trees = in_tree_shp
     line_args = []

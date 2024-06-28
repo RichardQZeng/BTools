@@ -15,9 +15,13 @@ chm2trees <- function(in_chm, Min_ws, hmin, out_folder, rprocesses)
     # find the highest point of CHM
     tallest_ht = minmax(current_chm)[2]
 
-    #Reforestation Standard of Alberta 2018
-    #(https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/formain15749/$FILE/reforestation-standard-alberta-may1-2018.pdf, p.53)
-    #Live crown ratio is the proportion of total stem length that is covered by living branches. It is expressed as a percentage or decimal of the total tree height. Live crown ratio is a useful indicator of the status of the tree in relation to vigor, photosynthetic leaf area, and is inversely related to stocking density. It is assumed that live crown ratio must be greater than 0.3 (30%) in order for the tree to release well
+    # Reforestation Standard of Alberta 2018
+    # (https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/formain15749/$FILE/reforestation-standard-alberta-may1-2018.pdf, p.53)
+    # Live crown ratio is the proportion of total stem length that is covered by living branches.
+    # It is expressed as a percentage or decimal of the total tree height. Live crown ratio is a
+    # useful indicator of the status of the tree in relation to vigor, photosynthetic leaf area,
+    # and is inversely related to stocking density. It is assumed that live crown ratio must be
+    # greater than 0.3 (30%) in order for the tree to release well
 
     if (Min_ws >= (0.3 * hmin)) {
         (Min_ws <- Min_ws) }else {
@@ -31,13 +35,11 @@ chm2trees <- function(in_chm, Min_ws, hmin, out_folder, rprocesses)
     }
 
     out_ttop_filename = paste0(out_folder, "/", substr(basename(in_chm), 1, nchar(basename(in_chm)) - 4), ".shp")
-
     ttop <- locate_trees(current_chm, lmf(ws = f, hmin = hmin, shape = "circular"), uniqueness = "bitmerge")
 
     x <- vect(ttop)
     writeVector(x, out_ttop_filename, overwrite = TRUE)
     #st_write(ttop,out_ttop_filename)
-
 }
 
 ##################################################################################################################
@@ -61,7 +63,6 @@ generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folde
     opt_laz_compression(ctg) <- FALSE
     opt_filter(ctg) <- "-drop_class 7"
     opt_chunk_alignment(ctg) <- c(0, 0)
-
 
     #normalized LAS with pulse info
     print("Indexing LAS Tiles...")
@@ -130,14 +131,12 @@ generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folde
         #las <- retrieve_pulses(las)
         density_raster_ground <- rasterize_density(las, res = cell_size, pkg = "terra")[[1]]
 
-
         gfw <- focalMat(density_raster_ground, radius, "circle")
         gfw[gfw > 0] = 1
         gfw[gfw == 0] = NA
 
         Ground_focal <- focal(density_raster_ground, w = gfw, fun = "sum", na.policy = "omit", na.rm = TRUE, fillvalue = NA, expand = FALSE)
         ground_focal <- crop(Ground_focal, bbox)
-
     }
 
     opt <- list(need_output_file = TRUE, autocrop = TRUE)
@@ -213,7 +212,6 @@ hh_function <- function(in_las_folder, cell_size, Min_ws, lawn_range, out_folder
 
         terra::writeRaster(chh, path1, overwrite = TRUE)
         terra::writeRaster(hh, path2, overwrite = TRUE)
-
     }
 
     MultiWriteDriver = list(
@@ -236,7 +234,6 @@ hh_function <- function(in_las_folder, cell_size, Min_ws, lawn_range, out_folder
     out <- catalog_apply(ctg, HH_raster, radius = Min_ws, cell_size = cell_size, lawn_range = lawn_range)
     # reset R mutilsession back to default
     plan("default")
-
 }
 
 #########################################################################################################################
@@ -261,8 +258,6 @@ hh_function_byraster <- function(in_raster, cell_size, Min_ws, lawn_range, out_f
 
     HH <- ifel(cond_raster < negative, 1, ifel(cond_raster > positive, -1, 0))
     writeRaster(HH, paste0(out_folder, "/HH_", filename, ".tif"), overwrite = TRUE)
-
-
 }
 
 
@@ -343,7 +338,6 @@ points2trees <- function(in_folder, is_normalized, hmin, out_folder, rprocesses,
         opt_progress(n_las) <- TRUE
         #     chm <- rasterize_canopy(n_las, cell_size, pitfree(thresholds = c(0,3,10,15,22,30,38), max_edge = c(0, 1.5)), pkg = "terra")
         chm <- rasterize_canopy(n_las, CHMcell_size, dsmtin(max_edge = (3 * CHMcell_size)), pkg = "terra") }
-
 
     print("Compute approximate tree positions ...")
 
@@ -511,7 +505,6 @@ veg_cover_percentage <- function(in_las_folder, is_normalized, out_folder, hmin,
         veg_percetage <- crop(veg_percetage, ext(chunk))
 
         x <- c(total_pcount, Veg_pcount, veg_percetage)
-
     }
 
     #
@@ -722,7 +715,6 @@ chm_by_pitfree <- function(in_las_folder, out_folder, cell_size, is_normalized, 
     chm <- rasterize_canopy(ctg, cell_size, pitfree(subcircle = (cell_size * 0.3)))
     # reset R mutilsession back to default
     plan("default")
-
 }
 
 #########################################################################################
@@ -840,8 +832,6 @@ las_info <- function(in_las_folder, rprocesses) {
     print(paste0("Total Pts: ", sum(ctg@data$Number.of.point.records)))
     print(paste0("Density: ", round(sum(ctg@data$Number.of.point.records) / st_area(ctg), 0), " pts/units²"))
     print(paste0("Total num. files: ", length(ctg@data$filename)))
-
-
 }
 
 #######################################################################################################################################

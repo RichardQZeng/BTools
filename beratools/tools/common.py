@@ -233,11 +233,6 @@ def generate_raster_footprint(in_raster, latlon=True):
     width, height = src_ds.RasterXSize, src_ds.RasterYSize
     coords_geo = []
 
-    # ensure there is nodata
-    # gdal_translate ... -a_nodata 0 ... outimage.vrt
-    # gdal_edit -a_nodata 255 somefile.tif
-
-    # gdal_translate -outsize 1024 0 vendor_image.tif myimage.tif
     options = None
     with tempfile.TemporaryDirectory() as tmp_folder:
         if BT_DEBUGGING:
@@ -396,8 +391,6 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
 
     try:
         for geom, prop in feat_tuple:
-            # prop_zip = {} if prop is None else OrderedDict(list(zip(fields, prop)))
-
             if geom:
                 feature = {
                     'geometry': mapping(geom),
@@ -494,9 +487,6 @@ def identity_polygon(line_args):
 
         if not in_fp_polygon.empty:
             identity = in_fp_polygon.overlay(in_cl_buffer, how='intersection')
-            # identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
-            # identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
-            # identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
     except Exception as e:
         print(e)
 
@@ -722,8 +712,6 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
                     buffer_poly = poly_list[i].buffer(buffer_dist)
                     merge_poly = shapely.union(merge_poly, buffer_poly)
             corridor_polygon = merge_poly
-
-
     else:
         corridor_polygon = None
 
@@ -1231,11 +1219,6 @@ def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
     reshape_std_ndarray = result_ndarray[0].data  # .reshape(-1)
     reshape_mean_ndarray = result_ndarray[1].data  # .reshape(-1)
 
-    # Re-shaping the array np.squeeze(flatten_std_result_ndarray, axis=0)
-    # reshape_std_ndarray = flatten_std_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
-    # reshape_std_ndarray = np.squeeze(flatten_std_result_ndarray, axis=0)
-    # reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
-    # reshape_mean_ndarray = np.squeeze(flatten_mean_result_ndarray, axis=0)
     return reshape_std_ndarray, reshape_mean_ndarray
 
 
@@ -1247,7 +1230,6 @@ def dyn_smooth_cost(in_raster, max_line_dist, sampling):
     euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
 
     smooth1 = float(max_line_dist) - euc_dist_array
-    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
     smooth1[smooth1 <= 0.0] = 0.0
     smooth_cost_array = smooth1 / float(max_line_dist)
 

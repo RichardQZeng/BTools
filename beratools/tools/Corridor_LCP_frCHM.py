@@ -100,14 +100,6 @@ def LCP_centerline(callback, in_line, in_chm, line_radius,
 
     save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
 
-    # save_features_to_shapefile(out_line, layer_crs, center_line_geoms, schema, feat_props)
-
-    # save corridor polygons
-    # corridor_polys = pd.concat(corridor_poly_list)
-    # out_corridor_poly_path = Path(out_line)
-    # out_corridor_poly_path = out_corridor_poly_path.with_stem(out_corridor_poly_path.stem + '_corridor_poly')
-    # corridor_polys.to_file(out_corridor_poly_path.as_posix())
-
 
 def process_single_line(line_args):
     line = line_args[0][0]
@@ -134,8 +126,6 @@ def process_single_line(line_args):
     negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)
     # lc_path = find_least_cost_path_skimage(negative_cost_clip, out_meta, seed_line)
     lc_path = LCP_skimage_mcp_connect(negative_cost_clip, out_meta, seed_line)
-    # else:
-    #     lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
 
     if lc_path:
         lc_path_coords = lc_path.coords
@@ -149,14 +139,6 @@ def process_single_line(line_args):
         return seed_line, prop, seed_line, None
 
     # get corridor raster
-    # lc_path = LineString(lc_path_coords)
-    # if seed_line.has_z:
-    #     lc_path_coords = np.delete(np.array(seed_line.coords),np.s_[2],1)
-    #     lc_path_coords=[tuple(x) for x in lc_path_coords.tolist()]
-    # else:
-    #     lc_path_coords=seed_line.coords
-    # lc_path = seed_line
-    # cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius*0.9)
     out_transform = out_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
     cell_size = (out_transform[0], -out_transform[4])
