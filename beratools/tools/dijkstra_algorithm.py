@@ -219,7 +219,7 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
                 if curr_bound < bound:
                     bound = curr_bound
                     if feedback:
-                        feedback.setProgress(1 + 100 * (1 - bound / total_manhattan)*(1 - bound / total_manhattan))
+                        feedback.setProgress(1 + 100 * (1 - bound / total_manhattan) * (1 - bound / total_manhattan))
 
         # reacn destination
         if current_node in end_row_cols:
@@ -230,7 +230,7 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
                 path.append(traverse_node)
                 costs.append(cost_so_far[traverse_node])
                 traverse_node = came_from[traverse_node]
-            
+
             # start point and end point overlaps
             if len(path) == 1:
                 path.append(start_row_col)
@@ -253,6 +253,7 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
                 came_from[nex] = current_node
 
     return result
+
 
 #########################################################
 # Numpy based algorithm
@@ -318,7 +319,7 @@ def backtrack(initial_node, desired_node, distances):
                 pt_added = True
                 break
 
-        if index >= len(potential_distances)-1 and not pt_added:
+        if index >= len(potential_distances) - 1 and not pt_added:
             print("No best path found.")
             return
 

@@ -11,6 +11,7 @@ from scipy import ndimage
 
 from common import *
 
+
 # TODO: Rolling Statistics for grid data... an alternative
 # by  Dan Patterson
 
@@ -220,5 +221,3 @@ if __name__ == '__main__':
     canopy_cost_raster(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Canopy and Cost Raster processing is done in {} seconds)'
           .format(round(time.time() - start_time, 5)))
-
-

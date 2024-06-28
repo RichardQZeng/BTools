@@ -85,7 +85,7 @@ def centerline(callback, in_line, in_cost, line_radius,
             corridor_poly_list.append(corridor_poly)
 
     out_least_cost_path = Path(out_line)
-    out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem+'_least_cost_path')
+    out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem + '_least_cost_path')
     schema['properties']['status'] = 'int'
     if not BT_DEBUGGING:
         save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
@@ -129,7 +129,7 @@ def process_single_line(line_args):
 
     # get corridor raster
     lc_path = LineString(lc_path_coords)
-    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius*0.9)
+    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius * 0.9)
     out_transform = out_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
     cell_size = (out_transform[0], -out_transform[4])

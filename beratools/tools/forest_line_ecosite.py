@@ -32,8 +32,8 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
         for line in in_file_vector:
             if line.geometry:
                 if line.geometry.type != 'MultiLineString' or \
-                   line.geometry.type == 'Polygon' or \
-                   line.geometry.type == 'MultiPolygon':
+                        line.geometry.type == 'Polygon' or \
+                        line.geometry.type == 'MultiPolygon':
                     input_lines.append([line.geometry, line.properties])
                 else:
                     print('MultiLineString found.')
@@ -199,7 +199,7 @@ def execute_multiprocessing(line_args, processes, verbose):
                     print(' "PROGRESS_LABEL Ecosite {} of {}" '.format(step, total_steps), flush=True)
 
                 print('Line processed: {}'.format(step), flush=True)
-                print(' %{} '.format(step/total_steps*100), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
 
         return feat_all
     except OperationCancelledException:

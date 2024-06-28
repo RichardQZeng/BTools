@@ -20,7 +20,7 @@ class OperationCancelledException(Exception):
 
 
 def LCP_centerline(callback, in_line, in_chm, line_radius,
-               proc_segments, out_line, processes, verbose):
+                   proc_segments, out_line, processes, verbose):
     if not compare_crs(vector_crs(in_line), raster_crs(in_chm)):
         print("Line and CHM have different spatial references, please check.")
         return
@@ -30,7 +30,7 @@ def LCP_centerline(callback, in_line, in_chm, line_radius,
     schema = None
     input_lines = []
 
-    df,found=chk_df_multipart(gpd.GeoDataFrame.from_file(in_line),'MultiLineString')
+    df, found = chk_df_multipart(gpd.GeoDataFrame.from_file(in_line), 'MultiLineString')
     if found:
         df.to_file(in_line)
     else:
@@ -95,7 +95,7 @@ def LCP_centerline(callback, in_line, in_chm, line_radius,
             corridor_poly_list.append(corridor_poly)
 
     out_least_cost_path = Path(out_line)
-    out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem+'_least_cost_path')
+    out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem + '_least_cost_path')
     schema['properties']['status'] = 'int'
 
     save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
@@ -118,23 +118,20 @@ def process_single_line(line_args):
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
 
-
-
     chm_clip, out_meta = clip_raster(in_chm_raster, seed_line, line_radius)
     in_chm = np.squeeze(chm_clip, axis=0)
-    cell_x, cell_y=out_meta['transform'][0],-out_meta['transform'][4]
+    cell_x, cell_y = out_meta['transform'][0], -out_meta['transform'][4]
     kernel = convolution.circle_kernel(cell_x, cell_y, 2.5)
     dyn_canopy_ndarray = dyn_np_cc_map(in_chm, FP_CORRIDOR_THRESHOLD, BT_NODATA)
-    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel,BT_NODATA)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
     cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
     avoidance = max(min(float(0.4), 1), 0)
     cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
-                                          cc_smooth, 0.4, 1.5)
-
+                                   cc_smooth, 0.4, 1.5)
 
     # if CL_USE_SKIMAGE_GRAPH:
-        # skimage shortest path (Cost Array elements with infinite or negative costs will simply be ignored.)
-    negative_cost_clip=np.where(np.isnan(cost_clip),-9999,cost_clip)
+    # skimage shortest path (Cost Array elements with infinite or negative costs will simply be ignored.)
+    negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)
     # lc_path = find_least_cost_path_skimage(negative_cost_clip, out_meta, seed_line)
     lc_path = LCP_skimage_mcp_connect(negative_cost_clip, out_meta, seed_line)
     # else:
@@ -150,7 +147,6 @@ def process_single_line(line_args):
         print('No least cost path detected, use input line.')
         prop['status'] = CenterlineStatus.FAILED.value
         return seed_line, prop, seed_line, None
-
 
     # get corridor raster
     # lc_path = LineString(lc_path_coords)

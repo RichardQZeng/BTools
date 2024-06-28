@@ -31,12 +31,12 @@ class PandasModel(QAbstractTableModel):
         if orientation == Qt.Horizontal:
             try:
                 return self._df.columns.tolist()[section]
-            except (IndexError, ):
+            except (IndexError,):
                 return QVariant()
         elif orientation == Qt.Vertical:
             try:
                 return self._df.index.tolist()[section]
-            except (IndexError, ):
+            except (IndexError,):
                 return QVariant()
 
     def flags(self, index):
@@ -60,10 +60,10 @@ class PandasModel(QAbstractTableModel):
         self.dataChanged.emit(index, index)
         return True
 
-    def rowCount(self, parent=QModelIndex()): 
+    def rowCount(self, parent=QModelIndex()):
         return len(self._df.index)
 
-    def columnCount(self, parent=QModelIndex()): 
+    def columnCount(self, parent=QModelIndex()):
         return len(self._df.columns)
 
     def sort(self, column, order):
@@ -89,8 +89,8 @@ class PandasModel(QAbstractTableModel):
         print("\n\t\t ...removeRows() Starting position: '%s'" % position, 'with the total rows to be removed: ', rows)
         self.beginRemoveRows(QModelIndex(), position, position + rows - 1)
         for i in range(rows):
-            self._df.drop(self._df.index[position+i], inplace=True)
-            print('removed: {}'.format(position+i))
+            self._df.drop(self._df.index[position + i], inplace=True)
+            print('removed: {}'.format(position + i))
 
         self.endRemoveRows()
         return True
@@ -101,6 +101,7 @@ class PandasModel(QAbstractTableModel):
 
     def save_csv(self, csv_file):
         self._df.to_csv(csv_file, index=False)
+
 
 class BPDialog(QDialog):
     # signals
@@ -239,7 +240,7 @@ class BPDialog(QDialog):
     def table_view_key_up(self):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
         if current_row >= 1:
-            self.table_view.selectRow(current_row-1)
+            self.table_view.selectRow(current_row - 1)
             self.signal_update_tool_widgets.emit(current_row - 1)
 
     def table_view_delete_records(self):
@@ -284,8 +285,8 @@ class BPDialog(QDialog):
 
     def table_view_key_down(self):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
-        if current_row < self.model.rowCount()-1:
-            self.table_view.selectRow(current_row+1)
+        if current_row < self.model.rowCount() - 1:
+            self.table_view.selectRow(current_row + 1)
             self.signal_update_tool_widgets.emit(current_row + 1)
 
     def read_settings(self):
@@ -307,8 +308,8 @@ class BPDialog(QDialog):
         if self.model.setChanged:
             print("is changed, saving?")
             quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-            reply = QMessageBox.question(self, 'Save Confirmation', 
-                     quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            reply = QMessageBox.question(self, 'Save Confirmation',
+                                         quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if reply == QMessageBox.Yes:
                 self.write_csv_update()
             else:
@@ -325,7 +326,7 @@ class BPDialog(QDialog):
             if self.model.setChanged:
                 print("is changed, saving?")
                 quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-                reply = QMessageBox.question(self, 'Save Confirmation', 
+                reply = QMessageBox.question(self, 'Save Confirmation',
                                              quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
                 if reply == QMessageBox.Yes:
                     self.open_csv(self.last_files.currentText())
@@ -363,10 +364,10 @@ class BPDialog(QDialog):
 
     def open_file(self, path=None):
         print(self.model.setChanged)
-        if  self.model.setChanged == True:
+        if self.model.setChanged == True:
             print("is changed, saving?")
             quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-            reply = QMessageBox.question(self, 'Save Confirmation', 
+            reply = QMessageBox.question(self, 'Save Confirmation',
                                          quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if reply == QMessageBox.Yes:
                 self.write_csv_update()
@@ -452,7 +453,7 @@ class BPDialog(QDialog):
                 cursor.movePosition(QTextCursor.NextCell)
         document.print_(printer)
 
- 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     main = BPDialog('Raster Line Attributes')

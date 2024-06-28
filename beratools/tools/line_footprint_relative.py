@@ -62,11 +62,3 @@ if __name__ == '__main__':
     print('Dynamic CC and Footprint processes finished')
     print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
     print('Total processing time (seconds): {}'.format(round(time.time() - start_time, 3)))
-
-
-
-
-
-
-
-

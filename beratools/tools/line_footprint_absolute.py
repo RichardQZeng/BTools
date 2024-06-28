@@ -70,7 +70,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
             for item in i[2]:
                 if item:
                     centerline_list.append(item)
-    
+
     results = gpd.GeoDataFrame(pd.concat(footprint_list))
     results = results.sort_values(by=['OLnFID', 'OLnSEG'])
     results = results.reset_index(drop=True)
@@ -98,7 +98,7 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         print("Centerline file saved", flush=True)
 
     print(f'%{100}')
-    print(f'Finishing footprint processing in {time.time()-start_time} seconds')
+    print(f'Finishing footprint processing in {time.time() - start_time} seconds')
 
 
 def field_name_list(fc):
@@ -207,7 +207,7 @@ def process_single_line_segment(dict_segment):
     # Create Point "destination"
     destination_point = shapely.Point([x2, y2])
     destination = [shapes for shapes in gpd.GeoDataFrame(geometry=[destination_point],
-                                                               crs=shapefile_proj).geometry]
+                                                         crs=shapefile_proj).geometry]
 
     # Buffer around line and clip cost raster and canopy raster
     # TODO: deal with NODATA
@@ -284,7 +284,6 @@ def process_single_line_segment(dict_segment):
 
 def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, corridor_th_value,
                  max_ln_width, exp_shk_cell, proc_seg, out_footprint, out_centerline, ori_total_feat):
-
     # get the list of original columns names
     field_list_col = field_name_list(line_seg)
     keep_field_name = []
@@ -332,7 +331,9 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
     # returns list of list of line attributes, arguments and line gpd
     if GROUPING_SEGMENT:
         # group line segments by line id
-        def key_func(x): return x['OLnFID']
+        def key_func(x):
+            return x['OLnFID']
+
         lines = []
 
         for key, group in itertools.groupby(list_of_segment, key_func):
@@ -351,4 +352,3 @@ if __name__ == '__main__':
     in_args, in_verbose = check_arguments()
     line_footprint(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print(f'Current time: {time.strftime("%b %Y %H:%M:%S", time.localtime())}')
-

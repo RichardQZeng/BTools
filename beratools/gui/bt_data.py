@@ -429,7 +429,7 @@ class BTData(object):
             elif param['type'] == 'vector':
                 for i in new_param["parameter_type"].keys():
                     new_param['parameter_type'][i] = 'Vector'
-            elif  param['type'] == 'Directory':
+            elif param['type'] == 'Directory':
                 new_param['parameter_type'] = {'Directory': [param['typelab']]}
 
             new_param['default_value'] = param['default']
@@ -474,4 +474,3 @@ class BTData(object):
                     tool_type = tool['tool_type']
 
         return tool_type
-

@@ -16,13 +16,14 @@ from beratools.tools.common import *
 class OperationCancelledException(Exception):
     pass
 
-try: # integrated R env
-    #check R language within env
-    current_env_path= os.environ['CONDA_PREFIX']
+
+try:  # integrated R env
+    # check R language within env
+    current_env_path = os.environ['CONDA_PREFIX']
     # if os.path.isdir(current_env_path):
-    os.environ['R_HOME'] =os.path.join(current_env_path,r"Lib\R")
+    os.environ['R_HOME'] = os.path.join(current_env_path, r"Lib\R")
     os.environ['R_USER'] = os.path.expanduser('~')
-    os.environ['R_LIBS_USER'] = os.path.join(current_env_path,r"Lib\R\library")
+    os.environ['R_LIBS_USER'] = os.path.join(current_env_path, r"Lib\R\library")
 
 except FileNotFoundError:
     print("Warning: Please install R for this process!!")
@@ -32,15 +33,16 @@ import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
+
 def lpi_lai(arg):
-    pdTotal=arg[0]
-    pdGround=arg[1]
-    out_folder=arg[2]
-    filename=arg[3]
-    scan_angle=float(arg[4])
+    pdTotal = arg[0]
+    pdGround = arg[1]
+    out_folder = arg[2]
+    filename = arg[3]
+    scan_angle = float(arg[4])
 
     ##variable for not calling R
-    cell_size =float(arg[5])
+    cell_size = float(arg[5])
     radius = float(arg[6])
     tfocal_filename = filename + "_tfocal_py.tif"
     gfocal_filename = filename + "_gfocal_py.tif"
@@ -52,8 +54,8 @@ def lpi_lai(arg):
     out_elai_fielname = filename + "_eLAI_py.tif"
     LPI_folder = os.path.join(out_folder, "LPI")
     eLAI_folder = os.path.join(out_folder, "eLAI")
-    out_lpi= os.path.join(LPI_folder, out_lpi_fielname)
-    out_elai= os.path.join(eLAI_folder, out_elai_fielname)
+    out_lpi = os.path.join(LPI_folder, out_lpi_fielname)
+    out_elai = os.path.join(eLAI_folder, out_elai_fielname)
 
     # Working out the searching radius
     # with rasterio.open(chm) as image:
@@ -65,18 +67,18 @@ def lpi_lai(arg):
     print("Calculating LPI and eLAI for {} ...".format(filename))
     with rasterio.open(pdTotal) as pd_total:
         with rasterio.open(pdGround) as pd_Ground:
-            raster_profile=pd_total.profile
-            pd_total_ndarray = pd_total.read(1,boundless=True )
-            nodata= pd_total.nodata
-            pd_total_ndarray[pd_total_ndarray==nodata]=numpy.nan
-            kernel = convolution.circle_kernel(cell_size, cell_size,radius)
-            total_focalsum=fs_raster_stdmean(pd_total_ndarray, kernel, nodata)
+            raster_profile = pd_total.profile
+            pd_total_ndarray = pd_total.read(1, boundless=True)
+            nodata = pd_total.nodata
+            pd_total_ndarray[pd_total_ndarray == nodata] = numpy.nan
+            kernel = convolution.circle_kernel(cell_size, cell_size, radius)
+            total_focalsum = fs_raster_stdmean(pd_total_ndarray, kernel, nodata)
             write_total_focalsum = rasterio.open(tfocal_filename, 'w', **raster_profile)
             write_total_focalsum.write(total_focalsum, 1)
             write_total_focalsum.close()
             del write_total_focalsum
 
-            pd_ground_ndarray = pd_Ground.read(1,boundless=True)
+            pd_ground_ndarray = pd_Ground.read(1, boundless=True)
             nodata = pd_Ground.nodata
             pd_ground_ndarray[pd_ground_ndarray == nodata] = numpy.nan
             ground_focalsum = fs_raster_stdmean(pd_ground_ndarray, kernel, nodata)
@@ -86,9 +88,9 @@ def lpi_lai(arg):
             del write_ground_focalsum
     del pd_total
 
-
     del pd_Ground
-    lpi_array = numpy.divide(pd_ground_ndarray, pd_total_ndarray, out=numpy.zeros_like(pd_ground_ndarray), where=pd_total_ndarray != 0)
+    lpi_array = numpy.divide(pd_ground_ndarray, pd_total_ndarray, out=numpy.zeros_like(pd_ground_ndarray),
+                             where=pd_total_ndarray != 0)
 
     print("Calculating LPI: {} ...".format(filename))
     write_lpi = rasterio.open(out_lpi, 'w', **raster_profile)
@@ -107,15 +109,14 @@ def lpi_lai(arg):
     del write_elai
     print("Calculating eLAI: {} ... Done".format(filename))
 
-def fs_raster_stdmean(in_ndarray, kernel, nodata):
 
+def fs_raster_stdmean(in_ndarray, kernel, nodata):
     # This function uses xrspatial whcih can handle large data but slow
     in_ndarray[in_ndarray == nodata] = numpy.nan
     result_ndarray = focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['sum'])
 
     # Flattening the array
     flatten_sum_result_ndarray = result_ndarray.data.reshape(-1)
-
 
     # Re-shaping the array
     reshape_sum_ndarray = flatten_sum_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
@@ -124,12 +125,11 @@ def fs_raster_stdmean(in_ndarray, kernel, nodata):
 
 def r_lpi_lai_with_focalR(arg):
     r = robjects.r
-    pdTotal=arg[0]
-    pdGround=arg[1]
-    out_folder=arg[2]
-    filename=arg[3]
-    scan_angle=float(arg[4])
-
+    pdTotal = arg[0]
+    pdGround = arg[1]
+    out_folder = arg[2]
+    filename = arg[3]
+    scan_angle = float(arg[4])
 
     ## output files variables
     out_lpi_fielname = filename + "_LPI_r.tif"
@@ -149,11 +149,13 @@ def r_lpi_lai_with_focalR(arg):
     # Loading the function defined in R script.
     rlpi_elai = robjects.globalenv['rlpi_elai']
     # Invoking the R function
-    rlpi_elai(pdTotal,pdGround,radius,scan_angle,out_lpi,out_elai)
+    rlpi_elai(pdTotal, pdGround, radius, scan_angle, out_lpi, out_elai)
 
     # At this stage no process for CHM
 
     print("Calculating LPI adn eLAI: {} ... Done".format(filename))
+
+
 def f_pulse_density(ctg, out_folder, rprocesses, verbose):
     r = robjects.r
     print('Calculate cell size from average point cloud density...')
@@ -165,13 +167,13 @@ def f_pulse_density(ctg, out_folder, rprocesses, verbose):
     # Loading the function defined in R script.
     pd2cellsize = robjects.globalenv['pd2cellsize']
     # Invoking the R function
-    cell_size=pd2cellsize(ctg,rprocesses)
+    cell_size = pd2cellsize(ctg, rprocesses)
 
     return (cell_size)
 
+
 def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, focal_radius, pulse_density,
               cell_size, mean_scanning_angle, out_folder, processes, verbose):
-
     r = robjects.r
     import psutil
     stats = psutil.virtual_memory()
@@ -186,18 +188,15 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     else:
         rprocesses = 8
 
-
-    cache_folder=os.path.join(out_folder,"Cache")
+    cache_folder = os.path.join(out_folder, "Cache")
     # dtm_folder=os.path.join(out_folder,"DTM")
     # dsm_folder=os.path.join(out_folder,"DSM")
     # chm_folder=os.path.join(out_folder,"CHM")
-    PD_folder=os.path.join(out_folder,"PD")
-    PD_Total_folder=os.path.join(PD_folder,"Total")
+    PD_folder = os.path.join(out_folder, "PD")
+    PD_Total_folder = os.path.join(PD_folder, "Total")
     PD_Ground_folder = os.path.join(PD_folder, "Ground")
     LPI_folder = os.path.join(out_folder, "LPI")
     eLAI_folder = os.path.join(out_folder, "eLAI")
-
-
 
     if not os.path.exists(cache_folder):
         os.makedirs(cache_folder)
@@ -213,48 +212,47 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
     if not os.path.exists(eLAI_folder):
         os.makedirs(eLAI_folder)
 
-    lascat = lidR.readLAScatalog(in_las_folder,filter= "-drop_class 7")
-    cache_folder = cache_folder.replace("\\","/")
+    lascat = lidR.readLAScatalog(in_las_folder, filter="-drop_class 7")
+    cache_folder = cache_folder.replace("\\", "/")
     # dtm_folder = dtm_folder.replace("\\", "/") + "/{*}_dtm"
     # chm_folder = chm_folder.replace("\\","/") + "/{*}_chm"
-    PD_Total_folder = PD_folder.replace("\\","/")+"/Total"
+    PD_Total_folder = PD_folder.replace("\\", "/") + "/Total"
     PD_Ground_folder = PD_folder.replace("\\", "/") + "/Ground"
     LPI_folder = LPI_folder.replace("\\", "/")
     eLAI_folder = eLAI_folder.replace("\\", "/")
 
-    if not in_polygon_file=="":
+    if not in_polygon_file == "":
         try:
             r.vect(in_polygon_file)
         except FileNotFoundError:
             print("Could not locate shapefile, all area will be process")
 
-    if cell_size<=0:
-        if pulse_density<=0:
-            cell_size=f_pulse_density(lascat,out_folder,rprocesses, verbose)
+    if cell_size <= 0:
+        if pulse_density <= 0:
+            cell_size = f_pulse_density(lascat, out_folder, rprocesses, verbose)
 
-    #assign R script file to local variable
+    # assign R script file to local variable
     Beratools_R_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Beratools_r_script.r')
     # Defining the R script and loading the instance in Python
     r['source'](Beratools_R_script)
     # Loading the function defined in R script.
-    generate_pd =robjects.globalenv['generate_pd']
+    generate_pd = robjects.globalenv['generate_pd']
     # Invoking the R function
     generate_pd(lascat, radius_fr_CHM, focal_radius, cell_size, cache_folder, cut_ht, PD_Ground_folder,
-                    PD_Total_folder,rprocesses)
-
+                PD_Total_folder, rprocesses)
 
     # At this stage no process for CHM
     #  locate the point density raster for generating eLAI and LPI
-    pd_total_filelist=[]
+    pd_total_filelist = []
     pd_ground_filelist = []
 
     # Get raster files lists
-    for root,dirs ,files in sorted(os.walk(os.path.join(out_folder,"PD\\Total"))):
+    for root, dirs, files in sorted(os.walk(os.path.join(out_folder, "PD\\Total"))):
         for file in files:
             if file.endswith("_PD_Tfocalsum.tif"):
                 pd_total_filelist.append(os.path.join(root, file))
     del root, dirs, files
-    for root,dirs ,files in sorted(os.walk(os.path.join(out_folder,"PD\\Ground"))):
+    for root, dirs, files in sorted(os.walk(os.path.join(out_folder, "PD\\Ground"))):
         for file in files:
             if file.endswith("_PD_Gfocalsum.tif"):
                 pd_ground_filelist.append(os.path.join(root, file))
@@ -327,8 +325,8 @@ def pd_raster(callback, in_polygon_file, in_las_folder, cut_ht, radius_fr_CHM, f
         # Multiprocessing eLAI and LPI raster using R package.
         try:
             total_steps = len(args_list)
-            if processes>= total_steps:
-                processes=total_steps
+            if processes >= total_steps:
+                processes = total_steps
 
             features = []
             with Pool(processes=int(processes)) as pool:
@@ -351,12 +349,12 @@ if __name__ == '__main__':
     print('Starting generating LPA and eLAI raster processing\n @ {}'
           .format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
-    r=robjects.r
+    r = robjects.r
     utils = importr('utils')
     base = importr('base')
-    utils.chooseCRANmirror(ind=12) # select the 12th mirror in the list: Canada
+    utils.chooseCRANmirror(ind=12)  # select the 12th mirror in the list: Canada
     print("Checking R packages ...")
-    CRANpacknames = ['lidR', 'rgrass', 'rlas', 'future', 'terra', 'na.tools', 'sf', 'sp']#,'fasterRaster']
+    CRANpacknames = ['lidR', 'rgrass', 'rlas', 'future', 'terra', 'na.tools', 'sf', 'sp']  # ,'fasterRaster']
     CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
     need_fasterRaster = False
     if len(CRANnames_to_install) > 0:
@@ -365,7 +363,7 @@ if __name__ == '__main__':
             need_fasterRaster = False
         else:
             CRANnames_to_install.remove('fasterRaster')
-            need_fasterRaster=True
+            need_fasterRaster = True
             if len(CRANnames_to_install) > 0:
                 utils.install_packages(StrVector(CRANnames_to_install))
 
@@ -373,8 +371,7 @@ if __name__ == '__main__':
     #     devtools=importr('devtools')
     #     devtools.install_github("adamlilith/fasterRaster", dependencies=True)
 
-
-    del CRANpacknames,CRANnames_to_install
+    del CRANpacknames, CRANnames_to_install
 
     in_args, in_verbose = check_arguments()
     # loading R packages
@@ -386,23 +383,22 @@ if __name__ == '__main__':
     lidR = importr('lidR')
     sf = importr('sf')
     sp = importr('sp')
-    future=importr('future')
+    future = importr('future')
 
     print("Checking input parameters ...")
 
-
-    aoi_shapefile=in_args.input['in_polygon_file']
-    in_las_folder=in_args.input['in_las_folder']
-    cut_ht=float(in_args.input['cut_ht'])
-    radius_fr_CHM=in_args.input['radius_fr_CHM']
-    focal_radius=float(in_args.input['focal_radius'])
-    pulse_density=int(in_args.input['pulse_density'])
-    cell_size=float(in_args.input['cell_size'])
-    mean_scanning_angle=float(in_args.input['mean_scanning_angle'])
-    out_folder=in_args.input['out_folder']
+    aoi_shapefile = in_args.input['in_polygon_file']
+    in_las_folder = in_args.input['in_las_folder']
+    cut_ht = float(in_args.input['cut_ht'])
+    radius_fr_CHM = in_args.input['radius_fr_CHM']
+    focal_radius = float(in_args.input['focal_radius'])
+    pulse_density = int(in_args.input['pulse_density'])
+    cell_size = float(in_args.input['cell_size'])
+    mean_scanning_angle = float(in_args.input['mean_scanning_angle'])
+    out_folder = in_args.input['out_folder']
 
     # if optional shapefile is empty, then do nothing, else verify shapefile
-    if not aoi_shapefile=="":
+    if not aoi_shapefile == "":
         if not os.path.exists(os.path.dirname(aoi_shapefile)):
             print("Can't locate the input polygon folder.  Please check.")
             exit()
@@ -424,16 +420,15 @@ if __name__ == '__main__':
             print("Error! Cannot locate input LAS file(s), please check!")
             exit()
 
-
-    #if doing focal radius divided from point cloud CHM
-    if radius_fr_CHM==True:
+    # if doing focal radius divided from point cloud CHM
+    if radius_fr_CHM == True:
         pass
-        #do nothing for now
+        # do nothing for now
     else:
         # check manual input for radius, check input
-        if not isinstance(focal_radius, float) or focal_radius<=0.0:
-            print( "Invalid search radius!!Default radius will be adopted (10m).")
-            in_args.input['focal_radius']=10.0
+        if not isinstance(focal_radius, float) or focal_radius <= 0.0:
+            print("Invalid search radius!!Default radius will be adopted (10m).")
+            in_args.input['focal_radius'] = 10.0
         else:
             in_args.input['focal_radius'] = focal_radius
         # check manual input for cell size and pulse density
@@ -460,9 +455,9 @@ if __name__ == '__main__':
 
     if not isinstance(mean_scanning_angle, float) and mean_scanning_angle > 0.00:
         print("Invalid sensor scanning angle.\n Default sensor scanning angle will size be adopted (30 degree).")
-        in_args.input['mean_scanning_angle'] =30.0
+        in_args.input['mean_scanning_angle'] = 30.0
     else:
-        in_args.input['mean_scanning_angle']=mean_scanning_angle
+        in_args.input['mean_scanning_angle'] = mean_scanning_angle
 
     print("Checking input parameters ... Done")
 

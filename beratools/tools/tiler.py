@@ -57,7 +57,7 @@ class Tiler:
                 }
                 tasks_list.append(cell_data)
                 step += 1
-                print('%{}'.format(step/len(self.clip_data)*100))
+                print('%{}'.format(step / len(self.clip_data) * 100))
 
         project_data['tasks'] = tasks_list
         with open(self.out_project, 'w') as project_file:
@@ -125,7 +125,7 @@ class Tiler:
         y_min = min(y)
         y_max = max(y)
 
-        center = [(x_min+x_max)/2, (y_min+y_max)/2]
+        center = [(x_min + x_max) / 2, (y_min + y_max) / 2]
 
         return coords_list, [[x_min, y_min], [x_max, y_max]], center
 
