@@ -12,6 +12,31 @@ with open("HISTORY.md") as history_file:
     history = history_file.read()
 
 requirements = [
+    "label_centerlines",
+    "laserchicken",
+    "dask",
+    "distributed",
+    "geopandas",
+    "huggingface_hub",
+    "matplotlib",
+    "pip",
+    "pyogrio",
+    "psutil",
+    "pyqt",
+    "ray-default",
+    "rioxarray",
+    "rpy2",
+    "r-essentials",
+    "r-lidr",
+    "r-rcsf",
+    "r-rlas",
+    "r-sf",
+    "r-sp",
+    "r-terra",
+    "scikit-image",
+    "sphinx-tabs",
+    "sphinx-rtd-theme",
+    "xarray-spatial"
 ]
 
 setup_requirements = []
@@ -51,6 +76,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/RichardQZeng/BTools.git",
-    version="0.9.0",
+    version="0.9.4",
     zip_safe=False,
 )

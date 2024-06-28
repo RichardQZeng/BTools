@@ -28,33 +28,20 @@
 #
 # ---------------------------------------------------------------------------
 
-# import math
 import time
-# from pathlib import Path
-# import uuid
-
-# from multiprocessing.pool import Pool
-
 from scipy import stats
-# import xarray as xr
-# from xrspatial import convolution, focal
-# import os
-# import pandas as pd
 from geopandas import GeoDataFrame
 
 # from scipy import ndimage
 from rasterio import mask
-
 from shapely import buffer
-# from shapely.geometry import LineString, Point, MultiPolygon, shape
 
-# from common import *
 import skimage
 from skimage.morphology import *
-# from skimage.graph import MCP_Geometric, MCP_Connect,MCP,MCP_Flexible
-from dijkstra_algorithm import *
+from beratools.tools.dijkstra_algorithm import *
 
 import numpy as np
+
 
 class OperationCancelledException(Exception):
     pass
@@ -73,23 +60,23 @@ def dyn_canopy_cost_raster(args):
     out_meta = args[9]
     line_id = args[10]
     Cut_Dist = args[11]
-    Side=args[12]
-    canopy_thresh_percentage= float(args[13])/100
-    line_buffer=args[14]
+    Side = args[12]
+    canopy_thresh_percentage = float(args[13]) / 100
+    line_buffer = args[14]
 
-    if Side=='Left':
-        canopy_ht_threshold=line_df.CL_CutHt *canopy_thresh_percentage
-    elif Side=='Right':
-        canopy_ht_threshold = line_df.CR_CutHt *canopy_thresh_percentage
+    if Side == 'Left':
+        canopy_ht_threshold = line_df.CL_CutHt * canopy_thresh_percentage
+    elif Side == 'Right':
+        canopy_ht_threshold = line_df.CR_CutHt * canopy_thresh_percentage
     elif Side == 'Center':
-        canopy_ht_threshold = DynCanTh *canopy_thresh_percentage
+        canopy_ht_threshold = DynCanTh * canopy_thresh_percentage
     else:
 
         canopy_ht_threshold = 0.5
 
     canopy_ht_threshold = float(canopy_ht_threshold)
-    if canopy_ht_threshold<=0:
-        canopy_ht_threshold=0.5
+    if canopy_ht_threshold <= 0:
+        canopy_ht_threshold = 0.5
     tree_radius = float(tree_radius)  # get the round up integer number for tree search radius
     max_line_dist = float(max_line_dist)
     canopy_avoid = float(canopy_avoid)
@@ -97,7 +84,7 @@ def dyn_canopy_cost_raster(args):
 
     try:
         clipped_rasterC, out_transformC = rasterio.mask.mask(raster_obj, [line_buffer], crop=True,
-                                                        filled=False)
+                                                             filled=False)
 
         in_chm = np.squeeze(clipped_rasterC, axis=0)
 
@@ -109,7 +96,7 @@ def dyn_canopy_cost_raster(args):
                          "nodata": BT_NODATA,
                          "transform": out_transformC})
 
-    # print('Loading CHM ...')
+        # print('Loading CHM ...')
         (cell_x, cell_y) = res
         band1_ndarray = in_chm
 
@@ -128,7 +115,10 @@ def dyn_canopy_cost_raster(args):
         dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                               cc_smooth, avoidance, cost_raster_exponent)
         dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = BT_NODATA_COST  # TODO was nodata, changed to BT_NODATA_COST
-        return (line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer)
+        return (
+            line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta,
+            max_line_dist, nodata, line_id, Cut_Dist, line_buffer
+        )
 
     except Exception as e:
         print("Error in dyn_canopy_cost_raster: {}".format(e))
@@ -184,8 +174,8 @@ def split_into_equal_nth_segments(df):
     return gdf
 
 
-def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
-                       canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage):
+def generate_line_args(line_seg, work_in_bufferL, work_in_bufferC, raster, tree_radius, max_line_dist,
+                       canopy_avoidance, exponent, work_in_bufferR, canopy_thresh_percentage):
     line_argsL = []
     line_argsR = []
     line_argsC = []
@@ -193,24 +183,24 @@ def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_r
     for record in range(0, len(work_in_bufferL)):
         line_bufferL = work_in_bufferL.loc[record, 'geometry']
         line_bufferC = work_in_bufferC.loc[record, 'geometry']
-        LCut=work_in_bufferL.loc[record, 'LDist_Cut']
+        LCut = work_in_bufferL.loc[record, 'LDist_Cut']
 
         clipped_rasterL, out_transformL = rasterio.mask.mask(raster, [line_bufferL], crop=True,
-                                                           nodata=BT_NODATA, filled=True)
+                                                             nodata=BT_NODATA, filled=True)
         clipped_rasterL = np.squeeze(clipped_rasterL, axis=0)
 
         clipped_rasterC, out_transformC = rasterio.mask.mask(raster, [line_bufferC], crop=True,
                                                              nodata=BT_NODATA, filled=True)
 
-        clipped_rasterC=np.squeeze(clipped_rasterC, axis=0)
+        clipped_rasterC = np.squeeze(clipped_rasterC, axis=0)
 
         # make rasterio meta for saving raster later
         out_metaL = raster.meta.copy()
         out_metaL.update({"driver": "GTiff",
-                         "height": clipped_rasterL.shape[0],
-                         "width": clipped_rasterL.shape[1],
-                         "nodata": BT_NODATA,
-                         "transform": out_transformL})
+                          "height": clipped_rasterL.shape[0],
+                          "width": clipped_rasterL.shape[1],
+                          "nodata": BT_NODATA,
+                          "transform": out_transformL})
 
         out_metaC = raster.meta.copy()
         out_metaC.update({"driver": "GTiff",
@@ -221,12 +211,14 @@ def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_r
 
         nodata = BT_NODATA
         line_argsL.append([clipped_rasterL, float(work_in_bufferL.loc[record, 'DynCanTh']), float(tree_radius),
-                          float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-                          line_seg.iloc[[record]], out_metaL, line_id,LCut,'Left',canopy_thresh_percentage,line_bufferC])
+                           float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
+                           line_seg.iloc[[record]], out_metaL, line_id, LCut, 'Left', canopy_thresh_percentage,
+                           line_bufferC])
 
         line_argsC.append([clipped_rasterC, float(work_in_bufferC.loc[record, 'DynCanTh']), float(tree_radius),
                            float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-                           line_seg.iloc[[record]], out_metaC, line_id,10,'Center',canopy_thresh_percentage,line_bufferC])
+                           line_seg.iloc[[record]], out_metaC, line_id, 10, 'Center', canopy_thresh_percentage,
+                           line_bufferC])
 
         line_id += 1
 
@@ -241,10 +233,10 @@ def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_r
         # make rasterio meta for saving raster later
         out_metaR = raster.meta.copy()
         out_metaR.update({"driver": "GTiff",
-                         "height": clipped_rasterR.shape[0],
-                         "width": clipped_rasterR.shape[1],
-                         "nodata": BT_NODATA,
-                         "transform": out_transformR})
+                          "height": clipped_rasterR.shape[0],
+                          "width": clipped_rasterR.shape[1],
+                          "nodata": BT_NODATA,
+                          "transform": out_transformR})
         line_bufferC = work_in_bufferC.loc[record, 'geometry']
         clipped_rasterC, out_transformC = rasterio.mask.mask(raster, [line_bufferC], crop=True,
                                                              nodata=BT_NODATA, filled=True)
@@ -262,14 +254,19 @@ def generate_line_args(line_seg, work_in_bufferL,work_in_bufferC, raster, tree_r
         # TODO convert nodata to BT_NODATA_COST
         line_argsR.append([clipped_rasterR, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
                            float(max_line_dist), float(canopy_avoidance), float(exponent), raster.res, nodata,
-                           line_seg.iloc[[record]], out_metaR, line_id,RCut,'Right',canopy_thresh_percentage,line_bufferC])
+                           line_seg.iloc[[record]], out_metaR, line_id, RCut, 'Right', canopy_thresh_percentage,
+                           line_bufferC])
 
-        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id +1+len(work_in_bufferL), len(work_in_bufferL)+len(work_in_bufferR)), flush=True)
-        print(' %{} '.format((line_id + 1+len(work_in_bufferL)) / (len(work_in_bufferL)+len(work_in_bufferR)) * 100), flush=True)
+        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id + 1 + len(work_in_bufferL),
+                                                                len(work_in_bufferL) + len(work_in_bufferR)),
+              flush=True)
+        print(
+            ' %{} '.format((line_id + 1 + len(work_in_bufferL)) / (len(work_in_bufferL) + len(work_in_bufferR)) * 100),
+            flush=True)
 
         line_id += 1
 
-    return line_argsL,line_argsR,line_argsC
+    return line_argsL, line_argsR, line_argsC
 
 
 def find_corridor_threshold_boundary(canopy_clip, least_cost_path, corridor_raster):
@@ -322,8 +319,8 @@ def find_corridor_threshold(raster):
     """
     corridor_threshold = -1.0
     hist, bins = np.histogram(raster.flatten(), bins=100, range=(0, 100))
-    CostStd=np.nanstd(raster.flatten())
-    half_count = np.sum(hist)/2
+    CostStd = np.nanstd(raster.flatten())
+    half_count = np.sum(hist) / 2
     sub_count = 0
 
     for count, bin_no in zip(hist, bins):
@@ -340,7 +337,7 @@ def process_single_line_relative(segment):
     in_chm = rasterio.open(segment[0])
     #
     segment[0] = in_chm
-    DynCanTh=segment[1]
+    DynCanTh = segment[1]
 
     # Segment args from mulitprocessing:
     # [clipped_chm, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
@@ -403,8 +400,9 @@ def process_single_line_relative(segment):
         multipoint_along_line = [feat.interpolate(distance) for distance in distances]
 
         # Rasterize points along line
-        rasterized_points_Alongln = features.rasterize(multipoint_along_line, out_shape=in_cost_r.shape, transform=in_transform,
-                                               fill=0, all_touched=True, default_value=1)
+        rasterized_points_Alongln = features.rasterize(multipoint_along_line, out_shape=in_cost_r.shape,
+                                                       transform=in_transform,
+                                                       fill=0, all_touched=True, default_value=1)
         points_Alongln = np.transpose(np.nonzero(rasterized_points_Alongln))
 
         # Find minimum cost paths through an N-d costs array.
@@ -442,20 +440,20 @@ def process_single_line_relative(segment):
                 save_raster_to_file(out_cost, in_meta, path_cost)
                 save_raster_to_file(corridor, in_meta, path_corridor)
                 save_raster_to_file(corridor_norm, in_meta, path_corridor_min)
-                save_raster_to_file(corridor_norm*100/df.length.iloc[0], in_meta, path_corridor_norm)
+                save_raster_to_file(corridor_norm * 100 / df.length.iloc[0], in_meta, path_corridor_norm)
             else:
                 print('Debugging: raster folder not exists.')
 
         # Set minimum as zero and save minimum file
         # corridor_th_value = find_corridor_threshold(corridor_norm)
-        corridor_th_value=(Cut_Dist/cell_size_x)
+        corridor_th_value = (Cut_Dist / cell_size_x)
         # corridor_th_value = find_corridor_threshold_boundary(in_canopy_r, feat, corridor_norm)
         if corridor_th_value < 0:  # if no threshold found, use default value
-           corridor_th_value = (FP_CORRIDOR_THRESHOLD/ cell_size_x)
+            corridor_th_value = (FP_CORRIDOR_THRESHOLD / cell_size_x)
 
         # corridor_th_value = FP_CORRIDOR_THRESHOLD
         corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-        corridor_thresh_cl = np.ma.where(corridor_norm >= (corridor_th_value+(5/cell_size_x)), 1.0, 0.0)
+        corridor_thresh_cl = np.ma.where(corridor_norm >= (corridor_th_value + (5 / cell_size_x)), 1.0, 0.0)
 
         # find contiguous corridor polygon for centerline
         corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, in_transform, df)
@@ -529,7 +527,8 @@ def multiprocessing_footprint_relative(line_args, processes):
                     print('Got result: {}'.format(result), flush=True)
                 feats.append(result)
                 step += 1
-                print(' "PROGRESS_LABEL Dynamic Segment Line Footprint {} of {}" '.format(step, total_steps), flush=True)
+                print(' "PROGRESS_LABEL Dynamic Segment Line Footprint {} of {}" '.format(step, total_steps),
+                      flush=True)
                 print(' %{} '.format(step / total_steps * 100), flush=True)
         return feats
     except OperationCancelledException:
@@ -548,14 +547,14 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         print("Please create field {} first".format('DynCanTh'))
         exit()
     if not float(canopy_thresh_percentage):
-        canopy_thresh_percentage=50
+        canopy_thresh_percentage = 50
     else:
         canopy_thresh_percentage = float(canopy_thresh_percentage)
 
-    if float(canopy_avoidance)<=0.0:
-        canopy_avoidance=0.0
-    if float(exponent)<=0.0:
-        exponent=1.0
+    if float(canopy_avoidance) <= 0.0:
+        canopy_avoidance = 0.0
+    if float(exponent) <= 0.0:
+        exponent = 1.0
     # If OLnFID column is not found, column will be created
     if 'OLnFID' not in line_seg.columns.array:
         print("Created {} column in input line data.".format('OLnFID'))
@@ -582,7 +581,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                     line_seg_split = line_seg
                 else:
                     print("Tool runs on input segment lines......")
-                    line_seg_split = split_into_Equal_Nth_segments(line_seg,250)
+                    line_seg_split = split_into_Equal_Nth_segments(line_seg, 250)
 
             print('%{}'.format(20))
 
@@ -591,22 +590,22 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
             work_in_bufferR1 = GeoDataFrame.copy(line_seg_split)
             work_in_bufferR2 = GeoDataFrame.copy(line_seg_split)
             work_in_bufferC = GeoDataFrame.copy(line_seg_split)
-            work_in_bufferL1['geometry'] = buffer(work_in_bufferL1['geometry'], distance=float(max_ln_width)+1,
-                                                 cap_style=3,single_sided=True)
+            work_in_bufferL1['geometry'] = buffer(work_in_bufferL1['geometry'], distance=float(max_ln_width) + 1,
+                                                  cap_style=3, single_sided=True)
 
             work_in_bufferL2['geometry'] = buffer(work_in_bufferL2['geometry'], distance=-1,
                                                   cap_style=3, single_sided=True)
 
-            work_in_bufferL = GeoDataFrame(pd.concat([work_in_bufferL1,work_in_bufferL2]))
-            work_in_bufferL=work_in_bufferL.dissolve(by=['OLnFID','OLnSEG'], as_index=False)
+            work_in_bufferL = GeoDataFrame(pd.concat([work_in_bufferL1, work_in_bufferL2]))
+            work_in_bufferL = work_in_bufferL.dissolve(by=['OLnFID', 'OLnSEG'], as_index=False)
 
-            work_in_bufferR1['geometry'] = buffer(work_in_bufferR1['geometry'], distance=-float(max_ln_width)-1,
-                                                 cap_style=3, single_sided=True)
+            work_in_bufferR1['geometry'] = buffer(work_in_bufferR1['geometry'], distance=-float(max_ln_width) - 1,
+                                                  cap_style=3, single_sided=True)
             work_in_bufferR2['geometry'] = buffer(work_in_bufferR2['geometry'], distance=1,
                                                   cap_style=3, single_sided=True)
 
             work_in_bufferR = GeoDataFrame(pd.concat([work_in_bufferR1, work_in_bufferR2]))
-            work_in_bufferR = work_in_bufferR.dissolve(by=['OLnFID','OLnSEG'], as_index=False)
+            work_in_bufferR = work_in_bufferR.dissolve(by=['OLnFID', 'OLnSEG'], as_index=False)
 
             work_in_bufferC['geometry'] = buffer(work_in_bufferC['geometry'], distance=float(max_ln_width),
                                                  cap_style=3, single_sided=False)
@@ -614,8 +613,12 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
             # line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
             #                                canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
 
-            line_argsL, line_argsR,line_argsC=generate_line_args_DFP_NoClip(line_seg_split, work_in_bufferL,work_in_bufferC, raster,in_chm, tree_radius, max_line_dist,
-                                           canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
+            line_argsL, line_argsR, line_argsC = generate_line_args_DFP_NoClip(line_seg_split, work_in_bufferL,
+                                                                               work_in_bufferC, raster, in_chm,
+                                                                               tree_radius, max_line_dist,
+                                                                               canopy_avoidance, exponent,
+                                                                               work_in_bufferR,
+                                                                               canopy_thresh_percentage)
 
         else:
             print("Line and canopy raster spatial references are not same, please check.")
@@ -635,9 +638,9 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         if PARALLEL_MODE == MODE_MULTIPROCESSING:
             # feat_listC = multiprocessing_footprint_relative(line_argsC, processes)
             feat_listL = multiprocessing_footprint_relative(line_argsL, processes)
-            #feat_listL = execute_multiprocessing(process_single_line_relative,'Footprint',line_argsL, processes)
+            # feat_listL = execute_multiprocessing(process_single_line_relative,'Footprint',line_argsL, processes)
             feat_listR = multiprocessing_footprint_relative(line_argsR, processes)
-            #feat_listR = execute_multiprocessing(process_single_line_relative, 'Footprint', line_argsR, processes)
+            # feat_listR = execute_multiprocessing(process_single_line_relative, 'Footprint', line_argsR, processes)
 
         elif PARALLEL_MODE == MODE_SEQUENTIAL:
             step = 1
@@ -647,7 +650,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                 feat_listL.append(process_single_line_relative(row))
                 print("Footprint (left side) for line {} is done".format(step))
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format((step/total_steps)*100))
+                print(' %{} '.format((step / total_steps) * 100))
                 step += 1
             step = 1
             total_steps = len(line_argsR)
@@ -655,12 +658,11 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
                 feat_listR.append(process_single_line_relative(row))
                 print("Footprint for (right side) line {} is done".format(step))
                 print(' "PROGRESS_LABEL Dynamic Line Footprint {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format((step/total_steps)*100))
+                print(' %{} '.format((step / total_steps) * 100))
                 step += 1
 
     print('%{}'.format(80))
     print("Task done.")
-
 
     for feat in feat_listL:
         if feat:
@@ -683,9 +685,9 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     resultsR = resultsR.reset_index(drop=True)
     #
 
-    resultsAll=GeoDataFrame(pd.concat([resultsL,resultsR]))
+    resultsAll = GeoDataFrame(pd.concat([resultsL, resultsR]))
     dissolved_results = resultsAll.dissolve(by='OLnFID', as_index=False)
-    dissolved_results['geometry']=dissolved_results['geometry'].buffer(-0.005)
+    dissolved_results['geometry'] = dissolved_results['geometry'].buffer(-0.005)
     print("Saving output ...")
     dissolved_results.to_file(out_footprint)
     print("Footprint file saved")
@@ -701,7 +703,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
     resultsCLR = resultsCLR.dissolve(by='OLnFID', as_index=False)
     resultsCLR = resultsCLR.sort_values(by=['OLnFID', 'OLnSEG'])
     resultsCLR = resultsCLR.reset_index(drop=True)
-    resultsCLR['geometry']=resultsCLR['geometry'].buffer(-0.005)
+    resultsCLR['geometry'] = resultsCLR['geometry'].buffer(-0.005)
 
     # out_centerline=False
     # save lines to file
@@ -718,7 +720,7 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
 
         # save polygons
         path = Path(out_centerline)
-        path = path.with_stem(path.stem+'_poly')
+        path = path.with_stem(path.stem + '_poly')
         poly_gpd = poly_gpd.drop(columns=['centerline'])
         poly_gpd.to_file(path)
 

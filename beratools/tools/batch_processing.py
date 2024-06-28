@@ -1,12 +1,11 @@
 import os
 import csv
-import argparse
-import pathlib
 
-from PyQt5.QtWidgets import QDialog, QGridLayout, QPushButton
-from batch_processing_dlg import *
-from beratools_main import *
-bt = BeraTools()
+from PyQt5.QtWidgets import QDialog
+from beratools.gui.batch_processing_dlg import *
+from beratools.gui.bt_data import *
+
+bt = BTData()
 
 
 # TODO: Check input file existence
@@ -22,10 +21,10 @@ def create_tool_batch_csv(project, tool_name, tasks):
         task = param_list
         in_line = Path(item['in_line'])
         in_chm = Path(item['in_chm'])
-        path_line = in_line.with_name(in_line.stem+'_output_line.shp')
+        path_line = in_line.with_name(in_line.stem + '_output_line.shp')
         path_footprint = in_line.with_name(in_line.stem + '_footprint.shp')
-        path_canopy = in_chm.with_name(in_chm.stem+'_canopy.tif')
-        path_cost = in_chm.with_name(in_chm.stem+'_cost.tif')
+        path_canopy = in_chm.with_name(in_chm.stem + '_canopy.tif')
+        path_cost = in_chm.with_name(in_chm.stem + '_cost.tif')
 
         # TODO: change to tool api
         if tool_name == 'Canopy Cost Raster':
@@ -53,7 +52,7 @@ def create_tool_batch_csv(project, tool_name, tasks):
         elif tool_name == 'Raster Line Attributes':
             task['in_line'] = path_line.as_posix()
             task['in_chm'] = in_chm.as_posix()
-            task['out_line'] = in_line.with_name(in_line.stem+'_raster_attributes.shp').as_posix()
+            task['out_line'] = in_line.with_name(in_line.stem + '_raster_attributes.shp').as_posix()
 
         all_tasks.append(task.copy())
 
@@ -97,7 +96,7 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
         for task in task_data:
             print('Starting task #{} ...'.format(step))
             print(' "PROGRESS_LABEL {} task {} of {}" '.format(batch_tool_name, step, total_steps), flush=True)
-            print(' %{} '.format(step/steps*100), flush=True)
+            print(' %{} '.format(step / steps * 100), flush=True)
             task = generate_task_params(task)
             code = execute_task(bt.get_bera_tool_api(batch_tool_name), task)
             step += 1

@@ -29,8 +29,8 @@
 # cost corridor method and individual line thresholds.
 #
 # ---------------------------------------------------------------------------
-from line_footprint_functions import *
-from canopy_threshold_relative import *
+from beratools.tools.line_footprint_functions import *
+from beratools.tools.canopy_threshold_relative import *
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -62,11 +62,3 @@ if __name__ == '__main__':
     print('Dynamic CC and Footprint processes finished')
     print('Current time: {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
     print('Total processing time (seconds): {}'.format(round(time.time() - start_time, 3)))
-
-
-
-
-
-
-
-

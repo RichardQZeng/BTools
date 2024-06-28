@@ -9,10 +9,15 @@ pip
 pyogrio
 psutil
 pyqt
+ray-default
 rioxarray
 rpy2
 r-essentials
 r-lidr
+r-rcsf
+r-rlas
+r-sf
+r-sp
 r-terra
 scikit-image
 sphinx-tabs
@@ -20,10 +25,14 @@ sphinx-rtd-theme
 xarray-spatial
 
 # recommended way to install BERA Tools
-# > conda create -n bera -c conda-forge -c appliedgrg python=3.10 mamba
+# > conda create -n bera -c conda-forge -c appliedgrg python=3.11 mamba
 # > conda activate bera
-# > conda config --add channels conda-forge --add channels appliedgrg
 # > conda config --set channel_priority strict
 # > mamba install --file requirements.txt
-# set GDAL_DATA env
-#   CONDA_ENV_PATH\Library\share\gdal
+# set environment variable
+# GDAL_DATA : CONDA_ENV_PATH\Library\share\gdal
+#
+# conda build onlu
+# backend: mamba install hatch
+# front end: pip install build
+# PyPI upload: mamba install twine

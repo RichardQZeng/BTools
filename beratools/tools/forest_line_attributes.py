@@ -1,7 +1,7 @@
 import time
 from scipy.spatial import distance
 
-from common import *
+from beratools.tools.common import *
 
 
 def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_type, verbose):

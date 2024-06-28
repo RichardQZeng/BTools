@@ -1,26 +1,30 @@
+import sys
 import os.path
-from multiprocessing.pool import Pool
-from numpy.lib.stride_tricks import as_strided
 import geopandas
-from xrspatial import convolution
 import warnings
-# to suppress panadas UserWarning: SettingWithCopyWarning:
-# A value is trying to be set on a copy of a slice from a DataFrame.
-# Try using .loc[row_indexer,col_indexer] = value instead
-warnings.simplefilter(action='ignore', category=UserWarning)
-import json
-import argparse
+
 import time
 import pandas
 import numpy
 import shapely
-from common import *
-import sys
 import math
 
-USE_MULTI_PROCESSING=True
+from multiprocessing.pool import Pool
+from numpy.lib.stride_tricks import as_strided
+
+from beratools.tools.common import *
+
+# to suppress panadas UserWarning: SettingWithCopyWarning:
+# A value is trying to be set on a copy of a slice from a DataFrame.
+# Try using .loc[row_indexer,col_indexer] = value instead
+warnings.simplefilter(action='ignore', category=UserWarning)
+
+USE_MULTI_PROCESSING = True
+
+
 class OperationCancelledException(Exception):
     pass
+
 
 # by  Dan Patterson
 
@@ -76,7 +80,8 @@ def stride(a, r_c):
     a_s = (as_strided(a, shape=shape, strides=strides)).squeeze()
     return a_s
 
-def cal_sar(a_s,cell_x,cell_y,diag):
+
+def cal_sar(a_s, cell_x, cell_y, diag):
     # Jenness, J. S. 2004.  Calculating landscape surface area from digital elevation models.
     # Wildlife Society Bulletin. 32(3):829-839
     # For SAR
@@ -140,6 +145,7 @@ def cal_sar(a_s,cell_x,cell_y,diag):
         surface_area = math.nan
         return surface_area
 
+
 def cal_tri(a_s):
     # For TRI
     # refer https://livingatlas-dcdev.opendata.arcgis.com/content/28360713391948af9303c0aeabb45afd/about
@@ -151,52 +157,53 @@ def cal_tri(a_s):
     # a moderately rugged surface
     # a highly rugged surface
     # an extremely rugged surface
-    if not numpy.isnan(a_s[1,1]):
-        result=math.sqrt(abs((numpy.nanmax(a_s))**2-(numpy.nanmin(a_s))**2))
+    if not numpy.isnan(a_s[1, 1]):
+        result = math.sqrt(abs((numpy.nanmax(a_s)) ** 2 - (numpy.nanmin(a_s)) ** 2))
     else:
-        result=math.nan
+        result = math.nan
     return result
 
-def cal_index(in_ndarray, cell_x,cell_y,type):
-    kernel=numpy.arange(3**2)
-    kernel.shape=(3,3)
+
+def cal_index(in_ndarray, cell_x, cell_y, type):
+    kernel = numpy.arange(3 ** 2)
+    kernel.shape = (3, 3)
     kernel.fill(1)
     padded_array = _pad(in_ndarray, kernel)
     a_s = stride(padded_array, kernel.shape)
-    rows,cols=a_s.shape[0],a_s.shape[1]
-    result=numpy.arange(rows*cols)
-    result.shape=(rows,cols)
-    result=result.astype('float64')
+    rows, cols = a_s.shape[0], a_s.shape[1]
+    result = numpy.arange(rows * cols)
+    result.shape = (rows, cols)
+    result = result.astype('float64')
     result.fill(numpy.nan)
-    diag=math.sqrt(cell_x**2+cell_y**2)
+    diag = math.sqrt(cell_x ** 2 + cell_y ** 2)
     plannar_area = (cell_y * cell_x) / 2  # area of one cell
 
     if type == 'SAR':
         for y in range(rows):
             for x in range(cols):
-                result[y,x]=cal_sar(a_s[y,x],cell_x,cell_y,diag)
+                result[y, x] = cal_sar(a_s[y, x], cell_x, cell_y, diag)
         total_surface_area = numpy.nansum(result)
         with numpy.errstate(divide='ignore', invalid='ignore'):
-            result_ratio= numpy.true_divide(result,plannar_area )
+            result_ratio = numpy.true_divide(result, plannar_area)
 
         return result_ratio, total_surface_area
-    elif type=='TRI':
+    elif type == 'TRI':
         for y in range(rows):
             for x in range(cols):
                 result[y, x] = cal_tri(a_s[y, x])
         return result
 
+
 def forest_metrics(callback, in_line, out_line, raster_type, in_raster, proc_segments, buffer_ln_dist,
                    cl_metrics_gap, forest_buffer_dist, processes, verbose, worklnbuffer_dfLR=None):
-
     # file_path,in_file_name=os.path.split(in_line)
-    output_path,output_file=os.path.split(out_line)
-    output_filename,file_ext=os.path.splitext((output_file))
+    output_path, output_file = os.path.split(out_line)
+    output_filename, file_ext = os.path.splitext((output_file))
     if not os.path.exists(output_path):
         print("No output file path found, pls check.")
         exit()
     else:
-        if file_ext.lower()!=".shp":
+        if file_ext.lower() != ".shp":
             print("Output file type should be shapefile, pls check.")
             exit()
 
@@ -223,8 +230,8 @@ def forest_metrics(callback, in_line, out_line, raster_type, in_raster, proc_seg
             "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
         line_seg['OLnFID'] = line_seg.index
 
-    if proc_segments== True:
-        line_seg=split_into_Equal_Nth_segments(line_seg)
+    if proc_segments == True:
+        line_seg = split_into_Equal_Nth_segments(line_seg)
 
     else:
         pass
@@ -241,14 +248,14 @@ def forest_metrics(callback, in_line, out_line, raster_type, in_raster, proc_seg
     worklnbuffer_dfC['geometry'] = shapely.buffer(workln_dfC['geometry'], distance=float(buffer_ln_dist),
                                                   cap_style=2, join_style=2, single_sided=False)
 
-
-
     print("Creating offset area for surrounding forest....")
-    workln_dfL, workln_dfR = multiprocessing_copyparallel_lineLR(workln_dfL, workln_dfR, processes, left_dis=float(buffer_ln_dist + cl_metrics_gap), right_dist=-float(buffer_ln_dist + cl_metrics_gap))
-    workln_dfR=workln_dfR.sort_values(by=['OLnFID'])
-    workln_dfL=workln_dfL.sort_values(by=['OLnFID'])
-    workln_dfL=workln_dfL.reset_index(drop=True)
-    workln_dfR=workln_dfR.reset_index(drop=True)
+    workln_dfL, workln_dfR = multiprocessing_copyparallel_lineLR(workln_dfL, workln_dfR, processes,
+                                                                 left_dis=float(buffer_ln_dist + cl_metrics_gap),
+                                                                 right_dist=-float(buffer_ln_dist + cl_metrics_gap))
+    workln_dfR = workln_dfR.sort_values(by=['OLnFID'])
+    workln_dfL = workln_dfL.sort_values(by=['OLnFID'])
+    workln_dfL = workln_dfL.reset_index(drop=True)
+    workln_dfR = workln_dfR.reset_index(drop=True)
 
     print('%{}'.format(30))
 
@@ -281,33 +288,33 @@ def forest_metrics(callback, in_line, out_line, raster_type, in_raster, proc_seg
     worklnbuffer_dfC = worklnbuffer_dfC.reset_index(drop=True)
     print("Calculating surrounding forest metrics....")
     # calculate the Height percentile for each parallel area using CHM
-    worklnbuffer_dfL,new_col_l = multiprocessing_metrics(worklnbuffer_dfL, in_raster, raster_type, processes, side='left')
+    worklnbuffer_dfL, new_col_l = multiprocessing_metrics(worklnbuffer_dfL, in_raster, raster_type, processes,
+                                                          side='left')
 
     worklnbuffer_dfL = worklnbuffer_dfL.sort_values(by=['OLnFID'])
     worklnbuffer_dfL = worklnbuffer_dfL.reset_index(drop=True)
 
-    worklnbuffer_dfR,new_col_r = multiprocessing_metrics(worklnbuffer_dfR, in_raster, raster_type, processes, side='right')
+    worklnbuffer_dfR, new_col_r = multiprocessing_metrics(worklnbuffer_dfR, in_raster, raster_type, processes,
+                                                          side='right')
 
     worklnbuffer_dfR = worklnbuffer_dfR.sort_values(by=['OLnFID'])
     worklnbuffer_dfR = worklnbuffer_dfR.reset_index(drop=True)
 
     print('%{}'.format(90))
 
-    all_new_col= numpy.append(numpy.array(new_col_c),numpy.array(new_col_l))
-    all_new_col=numpy.append(all_new_col,numpy.array(new_col_r))
+    all_new_col = numpy.append(numpy.array(new_col_c), numpy.array(new_col_l))
+    all_new_col = numpy.append(all_new_col, numpy.array(new_col_r))
 
     for index in (line_seg.index):
-        if  raster_type=='DEM':
+        if raster_type == 'DEM':
             for col in all_new_col:
                 if "C_" in col:
                     line_seg.loc[index, col] = worklnbuffer_dfC.loc[index, col]
                 elif "L_" in col:
-                    line_seg.loc[index,col] =worklnbuffer_dfL.loc[index,col]
+                    line_seg.loc[index, col] = worklnbuffer_dfL.loc[index, col]
                 elif "R_" in col:
                     line_seg.loc[index, col] = worklnbuffer_dfR.loc[index, col]
     print("Calculating forest metrics....Done")
-
-
 
     print("Saving forest metrics output.....")
     geopandas.GeoDataFrame.to_file(line_seg, out_line)
@@ -319,63 +326,67 @@ def forest_metrics(callback, in_line, out_line, raster_type, in_raster, proc_seg
 
 # TODO: inspect duplicates, split_line_npart in line_footprint_functions.py
 def split_line_nPart(line):
-    from shapely.ops import split,snap
+    from shapely.ops import split, snap
     # Work out n parts for each line (divided by 10m)
-    n=math.ceil(line.length/10)
-    if n>1:
+    n = math.ceil(line.length / 10)
+    if n > 1:
         # divided line into n-1 equal parts;
-        distances=numpy.linspace(0,line.length,n)
-        points=[line.interpolate(distance) for distance in distances]
+        distances = numpy.linspace(0, line.length, n)
+        points = [line.interpolate(distance) for distance in distances]
 
-        split_points=shapely.multipoints(points)
+        split_points = shapely.multipoints(points)
         # mline=cut_line_at_points(line,points)
         mline = split(line, split_points)
         # mline=split_line_fc(line)
     else:
-        mline=line
+        mline = line
     return mline
 
 
 def split_into_Equal_Nth_segments(df):
-    odf=df
-    crs=odf.crs
+    odf = df
+    crs = odf.crs
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = numpy.nan
-    df=odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry), axis=1))
-    df=df.explode()
+    df = odf.assign(geometry=odf.apply(lambda x: split_line_nPart(x.geometry), axis=1))
+    df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf=geopandas.GeoDataFrame(df,geometry=df.geometry,crs=crs)
+    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
     gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
-    gdf=gdf.reset_index(drop=True)
-    return  gdf
+    gdf = gdf.reset_index(drop=True)
+    return gdf
+
 
 def split_line_fc(line):
     return list(map(shapely.LineString, zip(line.coords[:-1], line.coords[1:])))
 
+
 def split_into_every_segments(df):
-    odf=df
-    crs=odf.crs
+    odf = df
+    crs = odf.crs
     if not 'OLnSEG' in odf.columns.array:
         df['OLnSEG'] = numpy.nan
     else:
         pass
-    df=odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
-    df=df.explode()
+    df = odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
+    df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
-    gdf=geopandas.GeoDataFrame(df,geometry=df.geometry,crs=crs)
-    gdf=gdf.sort_values(by=['OLnFID','OLnSEG'])
-    gdf=gdf.reset_index(drop=True)
-    return  gdf
-def multiprocessing_copyparallel_lineLR(dfL,dfR,processes, left_dis,right_dist):
+    gdf = geopandas.GeoDataFrame(df, geometry=df.geometry, crs=crs)
+    gdf = gdf.sort_values(by=['OLnFID', 'OLnSEG'])
+    gdf = gdf.reset_index(drop=True)
+    return gdf
+
+
+def multiprocessing_copyparallel_lineLR(dfL, dfR, processes, left_dis, right_dist):
     try:
 
         line_arg = []
         total_steps = len(dfL)
 
         for item in dfL.index:
-            item_list = [dfL,dfR, left_dis,right_dist, item]
+            item_list = [dfL, dfR, left_dis, right_dist, item]
             line_arg.append(item_list)
 
         featuresL = []
@@ -384,31 +395,31 @@ def multiprocessing_copyparallel_lineLR(dfL,dfR,processes, left_dis,right_dist):
         with Pool(processes=int(processes)) as pool:
             step = 0
             # execute tasks in order, process results out of order
-            for resultL,resultR in pool.imap_unordered(copyparallel_lineLR, line_arg,chunksize=chunksize):
+            for resultL, resultR in pool.imap_unordered(copyparallel_lineLR, line_arg, chunksize=chunksize):
                 if BT_DEBUGGING:
-                    print('Got result: {}{}'.format(resultL,resultR), flush=True)
+                    print('Got result: {}{}'.format(resultL, resultR), flush=True)
                 featuresL.append(resultL)
                 featuresR.append(resultR)
                 step += 1
                 print('%{}'.format(step / total_steps * 100))
-            return geopandas.GeoDataFrame(pandas.concat(featuresL)),geopandas.GeoDataFrame(pandas.concat(featuresR))
+            return geopandas.GeoDataFrame(pandas.concat(featuresL)), geopandas.GeoDataFrame(pandas.concat(featuresR))
     except OperationCancelledException:
         print("Operation cancelled")
 
-def multiprocessing_metrics(df, in_raster, raster_type, processes, side):
 
+def multiprocessing_metrics(df, in_raster, raster_type, processes, side):
     try:
         line_arg = []
         total_steps = len(df)
         if side == 'left':
             PerCol = 'L'
-        elif side=='right':
+        elif side == 'right':
             PerCol = 'R'
         else:
             PerCol = 'C'
 
         for item in df.index:
-            item_list = [df.iloc[[item]], in_raster, item, PerCol,raster_type]
+            item_list = [df.iloc[[item]], in_raster, item, PerCol, raster_type]
             line_arg.append(item_list)
         features = []
         chunksize = math.ceil(total_steps / processes)
@@ -429,7 +440,7 @@ def multiprocessing_metrics(df, in_raster, raster_type, processes, side):
                     print(Exception)
                     raise
                 del line_arg
-                df=geopandas.GeoDataFrame(pandas.concat(features))
+                df = geopandas.GeoDataFrame(pandas.concat(features))
                 new_col = []
                 for col in df.columns.array:
                     if "C_" in col:
@@ -439,7 +450,7 @@ def multiprocessing_metrics(df, in_raster, raster_type, processes, side):
                     elif "R_" in col:
                         new_col.append(col)
 
-                return df,new_col
+                return df, new_col
         else:
             for row in line_arg:
                 features.append(cal_metrics(row))
@@ -458,13 +469,14 @@ def multiprocessing_metrics(df, in_raster, raster_type, processes, side):
     except OperationCancelledException:
         print("Operation cancelled")
 
+
 def cal_metrics(line_arg):
     try:
         df = line_arg[0]
         raster = line_arg[1]
         row_index = line_arg[2]
         PerCol = line_arg[3]
-        raster_type=line_arg[4]
+        raster_type = line_arg[4]
         line_buffer = df.loc[row_index, 'geometry']
     except:
         print("Assigning variable on index:{} Error: ".format(line_arg) + sys.exc_info())
@@ -476,16 +488,16 @@ def cal_metrics(line_arg):
                                                                nodata=BT_NODATA, filled=True)
             clipped_raster = numpy.squeeze(clipped_raster, axis=0)
             cell_x, cell_y = image.res
-            cell_area=cell_x*cell_y
+            cell_area = cell_x * cell_y
             # mask all -9999 (nodata) value cells
             masked_raster = numpy.ma.masked_where(clipped_raster == BT_NODATA, clipped_raster)
-            filled_raster=numpy.ma.filled(masked_raster, numpy.nan)
+            filled_raster = numpy.ma.filled(masked_raster, numpy.nan)
 
             # Calculate the metrics
-            if raster_type=="DEM":
+            if raster_type == "DEM":
                 # Surface area ratio (SAR)
 
-                SAR,total_surface_area=cal_index(filled_raster,cell_x,cell_y,'SAR')
+                SAR, total_surface_area = cal_index(filled_raster, cell_x, cell_y, 'SAR')
                 SAR_mean = numpy.nanmean(SAR)
                 SAR_percentile90 = numpy.nanpercentile(SAR, 90, method='hazen')
                 SAR_median = numpy.nanmedian(SAR)
@@ -494,15 +506,15 @@ def cal_metrics(line_arg):
                 SAR_min = numpy.nanmin(SAR)
 
                 # General Statistics
-                total_planar_area= numpy.ma.count(masked_raster) * cell_area
-                cell_volume=masked_raster*cell_area
-                total_volume=numpy.ma.sum(cell_volume)
+                total_planar_area = numpy.ma.count(masked_raster) * cell_area
+                cell_volume = masked_raster * cell_area
+                total_volume = numpy.ma.sum(cell_volume)
                 mean = numpy.nanmean(filled_raster)
-                percentile90 = numpy.nanpercentile(filled_raster, 90,method='hazen')
+                percentile90 = numpy.nanpercentile(filled_raster, 90, method='hazen')
                 median = numpy.nanmedian(filled_raster)
-                std=numpy.nanstd(filled_raster)
-                max=numpy.nanmax(filled_raster)
-                min=numpy.nanmin(filled_raster)
+                std = numpy.nanstd(filled_raster)
+                max = numpy.nanmax(filled_raster)
+                min = numpy.nanmin(filled_raster)
 
                 # Terrain Ruggedness Index (TRI)
                 # TRI = cal_index(filled_raster, cell_x, cell_y, 'TRI')
@@ -519,7 +531,6 @@ def cal_metrics(line_arg):
     except:
         print(sys.exc_info())
     try:
-
 
         # Writing General statisic
         df.at[row_index, PerCol + '_PlArea'] = total_planar_area
@@ -551,21 +562,19 @@ def cal_metrics(line_arg):
         # df.at[row_index, PerCol + '_TRImax'] = TRI_max
         # df.at[row_index, PerCol + '_TRImin'] = TRI_min
 
-
         return df
     except:
-        print("Error writing forest metrics into table: "+sys.exc_info())
+        print("Error writing forest metrics into table: " + sys.exc_info())
 
 
 def copyparallel_lineLR(line_arg):
-
     dfL = line_arg[0]
     dfR = line_arg[1]
-    #Simplify input center lines
+    # Simplify input center lines
     lineL = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     lineR = dfL.loc[line_arg[4], 'geometry'].simplify(tolerance=0.05, preserve_topology=True)
     offset_distL = float(line_arg[2])
-    offset_distR= float(line_arg[3])
+    offset_distR = float(line_arg[3])
 
     # Older alternative method to the offset_curve() method,
     # but uses resolution instead of quad_segs and a side keyword (‘left’ or ‘right’) instead
@@ -578,16 +587,16 @@ def copyparallel_lineLR(line_arg):
     # parallel_lineR = shapely.offset_curve(geometry=lineR, distance=offset_distR,
     #                                       join_style=shapely.BufferJoinStyle.mitre)
 
-    parallel_lineL = lineL.parallel_offset(distance=offset_distL,side='left',
-                                          join_style=shapely.BufferJoinStyle.mitre)
-    parallel_lineR = lineR.parallel_offset(distance=-offset_distR,side='right',
-                                         join_style=shapely.BufferJoinStyle.mitre)
+    parallel_lineL = lineL.parallel_offset(distance=offset_distL, side='left',
+                                           join_style=shapely.BufferJoinStyle.mitre)
+    parallel_lineR = lineR.parallel_offset(distance=-offset_distR, side='right',
+                                           join_style=shapely.BufferJoinStyle.mitre)
 
     if not parallel_lineL.is_empty:
         dfL.loc[line_arg[4], 'geometry'] = parallel_lineL
     if not parallel_lineR.is_empty:
         dfR.loc[line_arg[4], 'geometry'] = parallel_lineR
-    return dfL.iloc[[line_arg[4]]],dfR.iloc[[line_arg[4]]]
+    return dfL.iloc[[line_arg[4]]], dfR.iloc[[line_arg[4]]]
 
 
 if __name__ == '__main__':

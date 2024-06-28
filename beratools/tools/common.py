@@ -59,6 +59,7 @@ from scipy import ndimage
 import xarray as xr
 from xrspatial import convolution, focal
 
+
 @unique
 class CenterlineStatus(IntEnum):
     SUCCESS = 1
@@ -232,11 +233,6 @@ def generate_raster_footprint(in_raster, latlon=True):
     width, height = src_ds.RasterXSize, src_ds.RasterYSize
     coords_geo = []
 
-    # ensure there is nodata
-    # gdal_translate ... -a_nodata 0 ... outimage.vrt
-    # gdal_edit -a_nodata 255 somefile.tif
-
-    # gdal_translate -outsize 1024 0 vendor_image.tif myimage.tif
     options = None
     with tempfile.TemporaryDirectory() as tmp_folder:
         if BT_DEBUGGING:
@@ -283,16 +279,18 @@ def remove_nan_from_array(matrix):
             if np.isnan(x[...]):
                 x[...] = BT_NODATA_COST
 
-def replace_Nodata2NaN(matrix,nodata):
+
+def replace_Nodata2NaN(matrix, nodata):
     with np.nditer(matrix, op_flags=['readwrite']) as it:
         for x in it:
-            if (x[...]==nodata):
+            if (x[...] == nodata):
                 x[...] = np.NaN
 
-def replace_Nodata2Inf(matrix,nodata):
+
+def replace_Nodata2Inf(matrix, nodata):
     with np.nditer(matrix, op_flags=['readwrite']) as it:
         for x in it:
-            if (x[...]==nodata):
+            if (x[...] == nodata):
                 x[...] = np.Inf
 
 
@@ -393,8 +391,6 @@ def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=Non
 
     try:
         for geom, prop in feat_tuple:
-            # prop_zip = {} if prop is None else OrderedDict(list(zip(fields, prop)))
-
             if geom:
                 feature = {
                     'geometry': mapping(geom),
@@ -491,9 +487,6 @@ def identity_polygon(line_args):
 
         if not in_fp_polygon.empty:
             identity = in_fp_polygon.overlay(in_cl_buffer, how='intersection')
-            # identity = identity.dropna(subset=['OLnSEG_2', 'OLnFID_2'])
-            # identity = identity.drop(columns=['OLnSEG_1', 'OLnFID_2'])
-            # identity = identity.rename(columns={'OLnFID_1': 'OLnFID', 'OLnSEG_2': 'OLnSEG'})
     except Exception as e:
         print(e)
 
@@ -708,19 +701,17 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
 
     if corridor_polygon:
         corridor_polygon = (unary_union(corridor_polygon))
-        if type(corridor_polygon)==MultiPolygon:
+        if type(corridor_polygon) == MultiPolygon:
             poly_list = shapely.get_parts(corridor_polygon)
-            merge_poly=poly_list[0]
-            for i in range(1,len(poly_list)):
-                if shapely.intersects(merge_poly,poly_list[i]):
-                    merge_poly=shapely.union(merge_poly,poly_list[i])
+            merge_poly = poly_list[0]
+            for i in range(1, len(poly_list)):
+                if shapely.intersects(merge_poly, poly_list[i]):
+                    merge_poly = shapely.union(merge_poly, poly_list[i])
                 else:
-                    buffer_dist=poly_list[i].distance(merge_poly)+0.1
-                    buffer_poly=poly_list[i].buffer(buffer_dist)
-                    merge_poly=shapely.union(merge_poly,buffer_poly)
-            corridor_polygon=merge_poly
-
-
+                    buffer_dist = poly_list[i].distance(merge_poly) + 0.1
+                    buffer_poly = poly_list[i].buffer(buffer_dist)
+                    merge_poly = shapely.union(merge_poly, buffer_poly)
+            corridor_polygon = merge_poly
     else:
         corridor_polygon = None
 
@@ -741,12 +732,11 @@ def find_centerlines(poly_gpd, line_seg, processes):
             row = poly_gpd.loc[[i]]
             poly = row.geometry.iloc[0]
             if 'OLnSEG' in line_seg.columns:
-                line_id,Seg_id = row['OLnFID'].iloc[0],row['OLnSEG'].iloc[0]
+                line_id, Seg_id = row['OLnFID'].iloc[0], row['OLnSEG'].iloc[0]
                 lc_path = line_seg.loc[(line_seg.OLnFID == line_id) & (line_seg.OLnSEG == Seg_id)]['geometry'].iloc[0]
             else:
                 line_id = row['OLnFID'].iloc[0]
                 lc_path = line_seg.loc[(line_seg.OLnFID == line_id)]['geometry'].iloc[0]
-
 
             rows_and_paths.append((row, lc_path))
     except Exception as e:
@@ -793,7 +783,7 @@ def find_single_centerline(row_and_path):
     lc_path = row_and_path[1]
 
     poly = row.geometry.iloc[0]
-    centerline,status = find_centerline(poly, lc_path)
+    centerline, status = find_centerline(poly, lc_path)
     row['centerline'] = centerline
 
     return row
@@ -1032,7 +1022,7 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
 
     try:
         # change all nan to BT_NODATA_COST for workaround
-        if len(raster_clip.shape)>2:
+        if len(raster_clip.shape) > 2:
             raster_clip = np.squeeze(raster_clip, axis=0)
         remove_nan_from_array(raster_clip)
 
@@ -1086,8 +1076,8 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
 
 def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     lc_path_new = []
-    if len(cost_clip.shape)>2:
-        cost_clip=np.squeeze(cost_clip, axis=0)
+    if len(cost_clip.shape) > 2:
+        cost_clip = np.squeeze(cost_clip, axis=0)
 
     out_transform = in_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
@@ -1242,13 +1232,13 @@ def chk_df_multipart(df, chk_shp_in_string):
         found = False
         if str.upper(chk_shp_in_string) in [x.upper() for x in df.geom_type.values]:
             found = True
-            df =df.explode()
-            if type(df)==gpd.geodataframe.GeoDataFrame:
+            df = df.explode()
+            if type(df) == gpd.geodataframe.GeoDataFrame:
                 df['OLnSEG'] = df.groupby('OLnFID').cumcount()
                 df = df.sort_values(by=['OLnFID', 'OLnSEG'])
                 df = df.reset_index(drop=True)
         else:
-                found = False
+            found = False
         return df, found
     except Exception as e:
         print(e)
@@ -1262,14 +1252,9 @@ def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
     result_ndarray = focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
 
     # Assign std and mean ndarray
-    reshape_std_ndarray = result_ndarray[0].data#.reshape(-1)
-    reshape_mean_ndarray = result_ndarray[1].data#.reshape(-1)
+    reshape_std_ndarray = result_ndarray[0].data  # .reshape(-1)
+    reshape_mean_ndarray = result_ndarray[1].data  # .reshape(-1)
 
-    # Re-shaping the array np.squeeze(flatten_std_result_ndarray, axis=0)
-    # reshape_std_ndarray = flatten_std_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
-    # reshape_std_ndarray = np.squeeze(flatten_std_result_ndarray, axis=0)
-    # reshape_mean_ndarray = flatten_mean_result_ndarray.reshape(in_ndarray.shape[0], in_ndarray.shape[1])
-    # reshape_mean_ndarray = np.squeeze(flatten_mean_result_ndarray, axis=0)
     return reshape_std_ndarray, reshape_mean_ndarray
 
 
@@ -1281,14 +1266,13 @@ def dyn_smooth_cost(in_raster, max_line_dist, sampling):
     euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
 
     smooth1 = float(max_line_dist) - euc_dist_array
-    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
     smooth1[smooth1 <= 0.0] = 0.0
     smooth_cost_array = smooth1 / float(max_line_dist)
 
     return smooth_cost_array
 
-def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
 
+def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent):
     aM1a = (cc_mean - cc_std)
     aM1b = (cc_mean + cc_std)
     aM1 = np.divide(aM1a, aM1b, where=aM1b != 0, out=np.zeros(aM1a.shape, dtype=float))
@@ -1300,13 +1284,12 @@ def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, co
     eM = np.exp(dM)
     result = np.power(eM, float(cost_raster_exponent))
 
-
     return result
 
-def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
 
+def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     canopy_ndarray = np.ma.where(in_array >= canopy_ht_threshold, 1., 0.).astype(float)
-    canopy_ndarray = np.ma.filled(canopy_ndarray,nodata)
+    canopy_ndarray = np.ma.filled(canopy_ndarray, nodata)
     # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
 
     return canopy_ndarray

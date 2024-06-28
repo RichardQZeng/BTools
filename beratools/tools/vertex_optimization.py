@@ -33,19 +33,15 @@ import time
 from pathlib import Path
 
 import uuid
-from shapely.geometry import shape, mapping, Point, LineString, \
-     MultiLineString, GeometryCollection, Polygon
+from shapely.geometry import (shape, mapping, Point, LineString,
+                              MultiLineString, GeometryCollection, Polygon)
 from shapely import STRtree
 import fiona
 import rasterio
 import rasterio.mask
 
-from dask.distributed import Client, progress, as_completed
-import ray
-import multiprocessing
-
-from common import *
-from dijkstra_algorithm import *
+from beratools.tools.common import *
+from beratools.tools.dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
@@ -61,15 +57,6 @@ class Vertex:
         self.line_radius = None
         self.vertex = {"point": [point.x, point.y], "lines": []}
         self.add_line(line, line_no, end_no, uid)
-
-    # @staticmethod
-    # def create_vertex(point, line, line_no, end_no, uid):
-    #     vertex = {"point": [point.x, point.y],
-    #               "lines": [[line, end_no, {"line_no": line_no}]]}
-    #
-    #     vertex = VertexGrouping.add_anchors_to_vertex(vertex, uid)
-    #
-    #     return vertex
 
     def add_line(self, line, line_no, end_no, uid):
         item = [line, end_no, {"line_no": line_no}]
@@ -184,8 +171,8 @@ class Vertex:
             pt_end_2 = lines[index[3]][2]
         elif len(slopes) == 3:
             # find the largest difference between angles
-            angle_diff = [abs(slopes[0]-slopes[1]), abs(slopes[0]-slopes[2]), abs(slopes[1]-slopes[2])]
-            angle_diff_norm = [2*math.pi-i if i > math.pi else i for i in angle_diff]
+            angle_diff = [abs(slopes[0] - slopes[1]), abs(slopes[0] - slopes[2]), abs(slopes[1] - slopes[2])]
+            angle_diff_norm = [2 * math.pi - i if i > math.pi else i for i in angle_diff]
             index = np.argmax(angle_diff_norm)
             pairs = [(0, 1), (0, 2), (1, 2)]
             pair = pairs[index]
@@ -195,7 +182,7 @@ class Vertex:
             pt_end_1 = lines[pair[1]][2]
 
             # the rest one index
-            remain = list({0, 1, 2}-set(pair))[0]  # the remaining index
+            remain = list({0, 1, 2} - set(pair))[0]  # the remaining index
 
             try:
                 pt_start_2 = lines[remain][2]
@@ -286,7 +273,6 @@ class Vertex:
         self.centerlines = [centerline_1, centerline_2]
         self.pt_optimized = intersection
         print(f'Processing vertex {self.point()[0]:.2f}, {self.point()[1]:.2f} done')
-
 
     def lines(self):
         return self.vertex["lines"]
