@@ -51,14 +51,10 @@ generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folde
         Total_focal <- crop(Total_focal, bbox)
     }
 
-    opt <- list(need_output_file = TRUE, autocrop = TRUE)
-    opt_chunk_alignment(ctg) <- c(0, 0)
-    ctg@output_options$
-        drivers$
-        SpatRaster$
-        param$
-        overwrite <- TRUE
-    opt_output_files(ctg) <- paste0(PD_Total_folder, "/{*}_PD_Tfocalsum")
+    opt <- list(need_output_file =TRUE, autocrop = TRUE)
+    opt_chunk_alignment(ctg) <- c(0,0)
+    ctg@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+    opt_output_files(ctg) <- paste0(PD_Total_folder,"/{*}_PD_Tfocalsum")
     opt_stop_early(ctg) <- FALSE
     catalog_apply(ctg, pd_total, radius = focal_radius, cell_size = cell_size, .options = opt)
 
@@ -94,17 +90,12 @@ generate_pd <- function(ctg, radius_fr_CHM, focal_radius, cell_size, cache_folde
         ground_focal <- crop(Ground_focal, bbox)
 
     }
-
-    opt <- list(need_output_file = TRUE, autocrop = TRUE)
-    opt_chunk_alignment(ctg2) <- c(0, 0)
-    ctg2@output_options$
-        drivers$
-        SpatRaster$
-        param$
-        overwrite <- TRUE
-    opt_output_files(ctg2) <- paste0(PD_Ground_folder, "/{*}_PD_Gfocalsum")
+    opt <- list(need_output_file =TRUE, autocrop = TRUE)
+    opt_chunk_alignment(ctg2) <- c(0,0)
+    ctg2@output_options$drivers$SpatRaster$param$overwrite <- TRUE
+    opt_output_files(ctg2) <- paste0(PD_Ground_folder,"/{*}_PD_Gfocalsum")
     opt_stop_early(ctg2) <- FALSE
-    catalog_apply(ctg2, pd_ground, radius = focal_radius, cell_size = cell_size, cut_ht = cut_ht, .options = opt)
+    catalog_apply(ctg2, pd_ground,radius=focal_radius,cell_size=cell_size,cut_ht=cut_ht,.options=opt)
     # reset R mutilsession back to default
     plan("default")
 }

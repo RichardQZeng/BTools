@@ -116,7 +116,9 @@ def dyn_canopy_cost_raster(args):
                                               cc_smooth, avoidance, cost_raster_exponent)
         dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = BT_NODATA_COST  # TODO was nodata, changed to BT_NODATA_COST
         return (
-        line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id, Cut_Dist, line_buffer)
+            line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta,
+            max_line_dist, nodata, line_id, Cut_Dist, line_buffer
+        )
 
     except Exception as e:
         print("Error in dyn_canopy_cost_raster: {}".format(e))
