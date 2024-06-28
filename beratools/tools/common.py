@@ -1399,3 +1399,11 @@ def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC,in_
         line_id += 1
 
     return line_argsL,line_argsR,line_argsC
+
+def chk_null_geometry(in_data):
+    find=False
+    if isinstance(in_data,gpd.GeoDataFrame):
+        if len(in_data[(in_data.is_empty | in_data.isna())]) >0:
+            find=True
+
+    return find
