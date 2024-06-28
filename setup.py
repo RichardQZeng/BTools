@@ -76,6 +76,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/RichardQZeng/BTools.git",
-    version="0.1",
+    version="0.9.4",
     zip_safe=False,
 )

@@ -13,7 +13,6 @@ __version__ = '0.1'
 
 name = 'gui'
 
-
 def gui_main():
     runner()
 

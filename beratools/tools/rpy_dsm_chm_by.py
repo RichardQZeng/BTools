@@ -1,5 +1,6 @@
 import os
 import time
+
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
@@ -21,6 +22,7 @@ def chm_by(callback, in_las_folder, is_normalized, out_folder, cell_size, style,
 
     # Invoking the R function
     r_chm_by_algorithm(in_las_folder, out_folder, cell_size, is_normalized, rprocesses)
+
 
 
 if __name__ == '__main__':
