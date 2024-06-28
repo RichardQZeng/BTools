@@ -9,10 +9,10 @@ import xrspatial.focal as focal
 from xrspatial import convolution
 import xarray as xr
 
-
 from multiprocessing.pool import Pool
+from beratools.tools.common import *
 
-from common import *
+
 class OperationCancelledException(Exception):
     pass
 

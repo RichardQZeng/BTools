@@ -16,7 +16,7 @@ from json.decoder import JSONDecodeError
 import multiprocessing
 from subprocess import CalledProcessError
 
-from ..tools.common import *
+from common import *
 
 running_windows = platform.system() == 'Windows'
 

@@ -24,7 +24,7 @@ from PyQt5.QtCore import pyqtSignal, Qt, QPoint
 from re import search
 
 import inspect
-from ..tools.common import *
+from common import *
 
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)

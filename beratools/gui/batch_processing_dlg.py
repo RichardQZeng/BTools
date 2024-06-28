@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QTableView, QAbstractItemView, QShortcut, QDialog, 
 from PyQt5.QtGui import QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
 from PyQt5 import QtPrintSupport
 
-from beratools.gui.bt_widgets import *
+from beratools.gui.tool_widgets import *
 
 
 class PandasModel(QAbstractTableModel):

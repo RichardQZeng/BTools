@@ -1,7 +1,7 @@
 import os
 from qtpy.QtWidgets import QApplication, QDialog
 
-from common import *
+from beratools.tools.common import *
 from beratools.gui.map_window import MapWindow
 
 

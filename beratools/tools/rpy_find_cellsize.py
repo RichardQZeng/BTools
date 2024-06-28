@@ -1,8 +1,8 @@
 import os
 import sys
 import time
-from common import *
-from r_interface import *
+from beratools.tools.common import *
+from beratools.tools.r_interface import *
 
 check_r_env()
 

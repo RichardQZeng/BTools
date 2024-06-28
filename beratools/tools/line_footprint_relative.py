@@ -29,8 +29,8 @@
 # cost corridor method and individual line thresholds.
 #
 # ---------------------------------------------------------------------------
-from line_footprint_functions import *
-from canopy_threshold_relative import *
+from beratools.tools.line_footprint_functions import *
+from beratools.tools.canopy_threshold_relative import *
 
 if __name__ == '__main__':
     start_time = time.time()

@@ -1,12 +1,10 @@
 import os
 import csv
-import argparse
-import pathlib
 
-from PyQt5.QtWidgets import QDialog, QGridLayout, QPushButton
-from batch_processing_dlg import *
-from beratools_main import *
-bt = BeraTools()
+from PyQt5.QtWidgets import QDialog
+from beratools.gui.batch_processing_dlg import *
+from beratools.gui.bt_data import *
+bt = BTData()
 
 
 # TODO: Check input file existence

@@ -1,5 +1,5 @@
 import time
-from common import *
+from beratools.tools.common import *
 
 
 def prepare_line_args(shp_line, shp_poly, n_samples, offset):

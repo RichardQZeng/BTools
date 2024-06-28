@@ -44,8 +44,8 @@ from dask.distributed import Client, progress, as_completed
 import ray
 import multiprocessing
 
-from common import *
-from dijkstra_algorithm import *
+from beratools.tools.common import *
+from beratools.tools.dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points

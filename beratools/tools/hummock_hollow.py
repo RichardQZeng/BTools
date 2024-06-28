@@ -2,8 +2,9 @@ import math
 import os
 import time
 
+from beratools.tools.common import *
 
-from common import *
+
 class OperationCancelledException(Exception):
     pass
 

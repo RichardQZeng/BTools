@@ -38,8 +38,8 @@ from PyQt5.QtGui import (
     QFont,
     QCursor)
 
-from .tool_widgets import *
-from .bt_data import *
+from tool_widgets import *
+from bt_data import *
 
 # A regular expression, to extract the % complete.
 progress_re = compile("Total complete: (\d+)%")

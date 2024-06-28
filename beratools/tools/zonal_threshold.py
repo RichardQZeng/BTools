@@ -7,10 +7,9 @@ import pandas
 import numpy
 import shapely
 
-
-from common import *
-
+from beratools.tools.common import *
 corridor_th_field = 'CorridorTh'
+
 
 class OperationCancelledException(Exception):
     pass
