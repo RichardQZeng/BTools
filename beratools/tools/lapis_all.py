@@ -3,7 +3,7 @@ from random import random
 import time
 from multiprocessing.pool import Pool
 from numpy import mean
-from tools.common import *
+from beratools.tools.common import *
 import json
 
 
