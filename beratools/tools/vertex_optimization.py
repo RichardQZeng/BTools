@@ -82,7 +82,7 @@ class Vertex:
 
         deltaX = pt_2.x - pt_1.x
         deltaY = pt_2.y - pt_1.y
-        if math.isclose(pt_1.x, pt_2.x, abs_tol=BT_EPSLON):
+        if math.isclose(pt_1.x, pt_2.x, abs_tol=BT_EPSILON):
             angle = math.pi / 2
             if deltaY > 0:
                 angle = math.pi / 2

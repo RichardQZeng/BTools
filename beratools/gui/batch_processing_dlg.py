@@ -9,6 +9,8 @@ from PyQt5.QtGui import QKeySequence, QTextDocument, QTextCursor, QTextTableForm
 from PyQt5 import QtPrintSupport
 
 from beratools.gui.tool_widgets import *
+from bt_data import *
+bt = BTData()
 
 
 class PandasModel(QAbstractTableModel):
@@ -129,7 +131,8 @@ class BPDialog(QDialog):
 
         # create form
         self.tool_name = tool_name
-        self.tool_widgets = ToolWidgets(tool_name)
+        tool_args = bt.get_bera_tool_args(self.tool_name)
+        self.tool_widgets = ToolWidgets(tool_name, tool_args, False)
 
         # self.createToolBar()
         hbox_widgets = QHBoxLayout()

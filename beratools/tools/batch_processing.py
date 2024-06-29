@@ -112,7 +112,7 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
 
 def execute_task(tool_api, task):
     # return 2 if task is cancelled
-    return bt.run_tool_bt(tool_api, task, None, False)
+    return bt.run_tool(tool_api, task, None, False)
 
 
 def generate_task_params(task):
