@@ -1,1 +1,1 @@
-C:\Users\qingyerichard.zeng\miniconda3\envs\bera\python.exe main.py
+C:\CONDA_ENV_FOR_BERA\python.exe main.py

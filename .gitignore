@@ -11,3 +11,5 @@
 *.whl
 0.5.1
 /dist
+.project
+.pydevproject
