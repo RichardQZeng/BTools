@@ -442,6 +442,14 @@ class BTData(object):
 
         return new_params
 
+    def get_bera_tool_parameters_list(self, tool_name):
+        params = self.get_bera_tool_params(tool_name)
+        param_list = {}
+        for item in params['parameters']:
+            param_list[item['flag']] = item['default_value']
+
+        return param_list
+
     def get_bera_tool_args(self, tool_name):
         params = self.get_bera_tool_params(tool_name)
         tool_args = params['parameters']

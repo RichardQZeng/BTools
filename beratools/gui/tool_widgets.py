@@ -23,12 +23,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import pyqtSignal, Qt, QPoint
 from re import search
 
-import inspect
 from common import *
-
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
 
 
 class ToolWidgets(QWidget):
@@ -126,6 +121,12 @@ class ToolWidgets(QWidget):
                     widget.hide()
 
             self.widget_list.append(widget)
+
+    def update_widgets(self, values_dict):
+        for key, value in values_dict.items():
+            for item in self.widget_list:
+                if key == item.flag:
+                    item.set_value(value)
 
     def save_tool_parameters(self):
         params = {}
