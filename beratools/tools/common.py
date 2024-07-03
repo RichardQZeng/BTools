@@ -28,7 +28,8 @@ import fiona
 import shapely
 from shapely.affinity import rotate
 from shapely.ops import unary_union, split, transform, substring, linemerge, nearest_points
-from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, MultiPoint, Polygon, MultiPolygon
+from shapely.geometry import (shape, mapping, Point, LineString, MultiLineString,
+                              MultiPoint, Polygon, MultiPolygon, box)
 
 import pandas as pd
 import geopandas as gpd
@@ -74,7 +75,7 @@ MODE_MULTIPROCESSING = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_SEQUENTIAL
 
 
 @unique
@@ -251,16 +252,20 @@ def generate_raster_footprint(in_raster, latlon=True):
 
         coords = None
         with rasterio.open(inter_img) as src:
-            msk = src.read_masks(1)
-            shapes = features.shapes(msk, mask=msk)
-            shapes = list(shapes)
-            coords = shapes[0][0]['coordinates'][0]
+            if np.isnan(src.nodata):
+                geom = box(*src.bounds)
+                coords_geo = list(geom.exterior.coords)
+            else:
+                msk = src.read_masks(1)
+                shapes = features.shapes(msk, mask=msk)
+                shapes = list(shapes)
+                coords = shapes[0][0]['coordinates'][0]
 
-            for pt in coords:
-                pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
-                coords_geo.append(pt)
+                for pt in coords:
+                    pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
+                    coords_geo.append(pt)
 
-    coords_geo.pop(-1)
+                coords_geo.pop(-1)
 
     if latlon:
         in_crs = CRS(src_ds.GetSpatialRef().ExportToWkt())
