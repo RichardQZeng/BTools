@@ -1,26 +1,25 @@
 import os
 import psutil
 
+
+# def check_r_env():
+try:  # integrated R env
+    # check R language within env
+    current_env_path = os.environ['CONDA_PREFIX']
+    # if os.path.isdir(current_env_path):
+    os.environ['R_HOME'] = os.path.join(current_env_path, r"Lib\R")
+    os.environ['R_USER'] = os.path.expanduser('~')
+    os.environ['R_LIBS_USER'] = os.path.join(current_env_path, r"Lib\R\library")
+
+except FileNotFoundError:
+    print("Warning: Please install R for this process!!")
+    exit()
+
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr, data
 from rpy2.robjects.vectors import StrVector
 
 r = robjects.r
-
-
-def check_r_env():
-    try:  # integrated R env
-        # check R language within env
-        current_env_path = os.environ['CONDA_PREFIX']
-        # if os.path.isdir(current_env_path):
-        os.environ['R_HOME'] = os.path.join(current_env_path, r"Lib\R")
-        os.environ['R_USER'] = os.path.expanduser('~')
-        os.environ['R_LIBS_USER'] = os.path.join(current_env_path, r"Lib\R\library")
-
-    except FileNotFoundError:
-        print("Warning: Please install R for this process!!")
-        exit()
-
 
 def r_processes(processes):
     stats = psutil.virtual_memory()  # returns a named tuple
@@ -62,9 +61,20 @@ def check_r_packages_installation(packages):
     print("Checking R packages....")
 
     cran_names_to_install = [x for x in packages if not robjects.packages.isinstalled(x)]
-
+    need_fasterRaster = False
     if len(cran_names_to_install) > 0:
-        utils.install_packages(StrVector(cran_names_to_install))
+        if not 'fasterRaster' in cran_names_to_install:
+            utils.install_packages(StrVector(cran_names_to_install))
+        else:
+            cran_names_to_install.remove('fasterRaster')
+            need_fasterRaster = True
+            utils.install_packages(StrVector(cran_names_to_install))
         packages_found = True
     else:
         packages_found = True
+
+    if need_fasterRaster:
+        devtools=importr('devtools')
+        devtools.install_github("adamlilith/fasterRaster", dependencies=True)
+
+    print("Checking R packages....Done")

@@ -5,8 +5,6 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
 
 def find_cell_size(callback, in_las_folder, processes, verbose):
     rprocesses = r_processes(processes)

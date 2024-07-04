@@ -4,9 +4,6 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
-
 def las_info(callback, in_las_folder, processes, verbose):
     rprocesses = r_processes(processes)
     # assign R script file to local variable

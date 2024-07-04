@@ -5,8 +5,6 @@ from multiprocessing.pool import Pool
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
 
 def chm2trees(callback, in_chm_folder, Min_ws, hmin, out_folder, processes, verbose):
     rprocesses = r_processes(processes)

@@ -2,44 +2,12 @@ import math
 import os
 import time
 
+
 from beratools.tools.common import *
-
-
-class OperationCancelledException(Exception):
-    pass
-
-
-try:  # integrated R env
-    # check R language within env
-    current_env_path = os.environ['CONDA_PREFIX']
-    # if os.path.isdir(current_env_path):
-    os.environ['R_HOME'] = os.path.join(current_env_path, r"Lib\R")
-    os.environ['R_USER'] = os.path.expanduser('~')
-    os.environ['R_LIBS_USER'] = os.path.join(current_env_path, r"Lib\R\library")
-
-except FileNotFoundError:
-    print("Warning: Please install R for this process!!")
-    exit()
-
-import rpy2.robjects as robjects
-from rpy2.robjects.packages import importr, data
-from rpy2.robjects.vectors import StrVector
-
+from beratools.tools.r_interface import *
 
 def hh_raster(callback, in_las_folder, Min_ws, lawn_range, cell_size, out_folder, processes, verbose):
-    r = robjects.r
-    import psutil
-    stats = psutil.virtual_memory()  # returns a named tuple
-    available = getattr(stats, 'available') / 1024000000
-    if 2 < processes <= 8:
-        if available <= 50:
-            rprocesses = 2
-        elif 50 < available <= 150:
-            rprocesses = 4
-        elif 150 < available <= 250:
-            rprocesses = 8
-    else:
-        rprocesses = 8
+    rprocesses = r_processes(processes)
 
     in_las_folder = in_las_folder.replace("\\", "/")
     out_folder = out_folder.replace("\\", "/")
@@ -50,9 +18,8 @@ def hh_raster(callback, in_las_folder, Min_ws, lawn_range, cell_size, out_folder
     r['source'](Beratools_R_script)
     # Loading the function defined in R script.
     r_hh_function = robjects.globalenv['hh_function']
-    # r_pd2cellsize =robjects.globalenv['pd2cellsize']
+
     # Invoking the R function
-    # cell_size=r_pd2cellsize(in_las_folder)
     r_hh_function(in_las_folder, cell_size, Min_ws, lawn_range, out_folder, rprocesses)
 
 
@@ -61,28 +28,14 @@ if __name__ == '__main__':
     print('Hummock and Hollow detection from LiDAR process.\n'
           '@ {}'.format(time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
 
-    r = robjects.r
-    utils = importr('utils')
-    base = importr('base')
-    utils.chooseCRANmirror(ind=12)  # select the 12th mirror in the list: Canada
-    print("Checking R packages ...")
-    CRANpacknames = ['lidR', 'rgrass', 'rlas', 'future',
+
+    packages = ['lidR', 'rgrass', 'rlas', 'future',
                      'terra']  # ,'comprehenr','na.tools','sf','sp']#,'devtools','gdal']#,'fasterRaster']
-    CRANnames_to_install = [x for x in CRANpacknames if not robjects.packages.isinstalled(x)]
-
-    if len(CRANnames_to_install) > 0:
-        utils.install_packages(StrVector(CRANnames_to_install))
-        packages_found = True
-    else:
-        packages_found = True
-
-    # if packages_found:
-    #    utils.update_packages(checkBuilt = True, ask=False)
-
-    del CRANpacknames, CRANnames_to_install
+    check_r_packages_installation(packages)
 
     print("Checking input parameters ...")
     in_args, in_verbose = check_arguments()
+
     in_las_folder = in_args.input["in_las_folder"]
     try:
         cell_size = float(in_args.input["cell_size"])

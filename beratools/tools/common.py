@@ -28,7 +28,8 @@ import fiona
 import shapely
 from shapely.affinity import rotate
 from shapely.ops import unary_union, split, transform, substring, linemerge, nearest_points
-from shapely.geometry import shape, mapping, Point, LineString, MultiLineString, MultiPoint, Polygon, MultiPolygon
+from shapely.geometry import (shape, mapping, Point, LineString, MultiLineString,
+                              MultiPoint, Polygon, MultiPolygon, box)
 
 import pandas as pd
 import geopandas as gpd
@@ -74,7 +75,7 @@ MODE_MULTIPROCESSING = 2
 MODE_DASK = 3
 MODE_RAY = 4
 
-PARALLEL_MODE = MODE_MULTIPROCESSING
+PARALLEL_MODE = MODE_SEQUENTIAL
 
 
 @unique

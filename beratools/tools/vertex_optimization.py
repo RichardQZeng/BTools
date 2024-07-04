@@ -45,6 +45,7 @@ from beratools.tools.dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
+HAS_COST_RASTER = False
 
 
 class Vertex:
@@ -54,6 +55,7 @@ class Vertex:
         self.centerlines = None
         self.anchors = None
         self.in_cost = None
+        self.in_chm = None
         self.line_radius = None
         self.vertex = {"point": [point.x, point.y], "lines": []}
         self.add_line(line, line_no, end_no, uid)
@@ -225,6 +227,20 @@ class Vertex:
             else:
                 return pt_start_1, pt_end_1
 
+    def cost_raster(self, seed_line):
+        chm_clip, out_meta = clip_raster(self.in_chm, seed_line, self.line_radius)
+        in_chm = np.squeeze(chm_clip, axis=0)
+        cell_x, cell_y = out_meta['transform'][0], -out_meta['transform'][4]
+        kernel = convolution.circle_kernel(cell_x, cell_y, 2.5)
+        dyn_canopy_ndarray = dyn_np_cc_map(in_chm, FP_CORRIDOR_THRESHOLD, BT_NODATA)
+        cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
+        cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
+        avoidance = max(min(float(0.4), 1), 0)
+        cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
+                                       cc_smooth, 0.4, 1.5)
+
+        return cost_clip, out_meta
+
     def optimize(self):
         try:
             self.anchors = self.generate_anchor_pairs()
@@ -248,17 +264,29 @@ class Vertex:
         try:
             if len(self.anchors) == 4:
                 seed_line = LineString(self.anchors[0:2])
-                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                if HAS_COST_RASTER:
+                    cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                else:
+                    cost_clip, out_meta = self.cost_raster(seed_line)
+
                 centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
                 seed_line = LineString(self.anchors[2:4])
-                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                if HAS_COST_RASTER:
+                    cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                else:
+                    cost_clip, out_meta = self.cost_raster(seed_line)
+
                 centerline_2 = find_lc_path(cost_clip, out_meta, seed_line)
 
                 if centerline_1 and centerline_2:
                     intersection = intersection_of_lines(centerline_1, centerline_2)
             elif len(self.anchors) == 2:
                 seed_line = LineString(self.anchors)
-                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                if HAS_COST_RASTER:
+                    cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
+                else:
+                    cost_clip, out_meta = self.cost_raster(seed_line)
+
                 centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
 
                 if centerline_1:
@@ -397,6 +425,9 @@ class VertexGrouping:
                     seg['end_visited'] = True
 
         vertex.in_cost = self.in_cost
+        if not HAS_COST_RASTER:
+            vertex.in_chm = self.in_cost
+
         vertex.line_radius = self.line_radius
         vertex.cost_footprint = self.cost_footprint
         self.vertex_grp.append(vertex)

@@ -4,9 +4,6 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
-
 def veg_cover_percentage(callback, in_las_folder, is_normalized, out_folder, hmin, hmax, cell_size, processes, verbose):
     rprocesses = r_processes(processes)
 

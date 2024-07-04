@@ -4,9 +4,6 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
-
 def percentage_aboveDBH(callback, in_las_folder, is_normalized, out_folder, DBH, cell_size, processes, verbose):
     rprocesses = r_processes(processes)
 
