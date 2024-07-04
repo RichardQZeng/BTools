@@ -226,14 +226,13 @@ def read_feature_from_shapefile(in_file):
 
 
 def generate_raster_footprint(in_raster, latlon=True):
-    inter_img = 'myimage.tif'
+    inter_img = 'image_overview.tif'
 
     #  get raster datasource
     src_ds = gdal.Open(in_raster)
     width, height = src_ds.RasterXSize, src_ds.RasterYSize
-    coords_geo = []
 
-    options = None
+    geom = None
     with tempfile.TemporaryDirectory() as tmp_folder:
         if BT_DEBUGGING:
             print('Temporary folder: {}'.format(tmp_folder))
@@ -249,28 +248,36 @@ def generate_raster_footprint(in_raster, latlon=True):
             inter_img = Path(tmp_folder).joinpath(inter_img).as_posix()
             gdal.Translate(inter_img, src_ds, options=options)
 
-        coords = None
-        with rasterio.open(inter_img) as src:
-            msk = src.read_masks(1)
-            shapes = features.shapes(msk, mask=msk)
-            shapes = list(shapes)
-            coords = shapes[0][0]['coordinates'][0]
+            shapes = gdal.Footprint(None, inter_img, format='GeoJSON')
+            geom = shape(shapes['features'][0]['geometry'])
 
-            for pt in coords:
-                pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
-                coords_geo.append(pt)
-
-    coords_geo.pop(-1)
+        # coords = None
+        # with rasterio.open(inter_img) as src:
+        #     if np.isnan(src.nodata):
+        #         geom = box(*src.bounds)
+        #         coords_geo = list(geom.exterior.coords)
+        #     else:
+        #         msk = src.read_masks(1)
+        #         shapes = features.shapes(msk, mask=msk)
+        #         shapes = list(shapes)
+        #         coords = shapes[0][0]['coordinates'][0]
+        #
+        #         for pt in coords:
+        #             pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
+        #             coords_geo.append(pt)
+        #
+        #         coords_geo.pop(-1)
 
     if latlon:
         in_crs = CRS(src_ds.GetSpatialRef().ExportToWkt())
         out_crs = CRS('EPSG:4326')
         transformer = Transformer.from_crs(in_crs, out_crs)
 
-        coords_geo = list(transformer.itransform(coords_geo))
-        coords_geo = [list(pt) for pt in coords_geo]
+        # coords_geo = list(transformer.itransform(coords_geo))
+        # coords_geo = [list(pt) for pt in coords_geo]
+        geom = transform(transformer.transform, geom)
 
-    return coords_geo if len(coords_geo) > 0 else None
+    return geom
 
 
 def remove_nan_from_array(matrix):
