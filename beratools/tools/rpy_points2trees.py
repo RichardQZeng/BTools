@@ -4,9 +4,6 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
-
 def points2trees(callback, in_las_folder, is_normalized, hmin, cell_size, do_nCHM, out_folder, processes, verbose):
     rprocesses = r_processes(processes)
 
