@@ -322,8 +322,7 @@ class VertexGrouping:
         self.sindex = None
 
         # calculate cost raster footprint
-        footprint_coords = generate_raster_footprint(self.in_cost, latlon=False)
-        self.cost_footprint = Polygon(footprint_coords)
+        self.cost_footprint = generate_raster_footprint(self.in_cost, latlon=False)
 
     @staticmethod
     def segments(line_coords):
