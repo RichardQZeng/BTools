@@ -4,9 +4,6 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
-
 def gnd_csf(callback, in_las_folder, out_folder, slope, class_threshold, cloth_resolution, rigidness, processes,
             verbose):
     # assign R script file to local variable

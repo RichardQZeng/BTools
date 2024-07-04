@@ -4,9 +4,6 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
-check_r_env()
-
-
 def chm_by(callback, in_las_folder, is_normalized, out_folder, cell_size, style, processes, verbose):
     rprocesses = r_processes(processes)
 
