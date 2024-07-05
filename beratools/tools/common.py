@@ -57,6 +57,7 @@ warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
 
+
 @unique
 class CenterlineStatus(IntEnum):
     SUCCESS = 1
@@ -1110,10 +1111,12 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
         lc_path_new = LineString(lc_path_new)
 
     return lc_path_new
+
+
 def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
     lc_path_new = []
-    if len(cost_clip.shape)>2:
-        cost_clip=np.squeeze(cost_clip, axis=0)
+    if len(cost_clip.shape) > 2:
+        cost_clip = np.squeeze(cost_clip, axis=0)
 
     out_transform = in_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
@@ -1125,10 +1128,10 @@ def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
 
     try:
 
-        init_obj1=MCP_Connect(cost_clip)
-        results=init_obj1.find_costs(source,destination)
+        init_obj1 = MCP_Connect(cost_clip)
+        results = init_obj1.find_costs(source, destination)
         # init_obj2 = MCP_Geometric(cost_clip)
-        path=[]
+        path = []
         for end in destination:
             path.append(init_obj1.traceback(end))
         for row, col in path[0]:
@@ -1147,6 +1150,7 @@ def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
         lc_path_new = LineString(lc_path_new)
 
     return lc_path_new
+
 
 def result_is_valid(result):
     if type(result) is list or type(result) is tuple:
@@ -1303,7 +1307,6 @@ def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
 
 def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm, tree_radius, max_line_dist,
                                     canopy_avoidance, exponent, canopy_thresh_percentage):
-
     line_argsC = []
 
     for record in range(0, len(work_in_buffer)):
@@ -1313,7 +1316,8 @@ def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm
             nodata = BT_NODATA
             line_argsC.append([in_chm, float(work_in_buffer.loc[record, 'DynCanTh']), float(tree_radius),
                                float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
-                               line_seg.iloc[[record]], in_chm_obj.meta.copy(), record, 10,'Center', canopy_thresh_percentage, line_bufferC])
+                               line_seg.iloc[[record]], in_chm_obj.meta.copy(), record, 10, 'Center',
+                               canopy_thresh_percentage, line_bufferC])
 
 
         except Exception as e:
@@ -1321,13 +1325,14 @@ def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm
             print(e)
 
         print(' "PROGRESS_LABEL Preparing lines {} of {}" '.format(record + 1, len(work_in_buffer)), flush=True)
-        print(' %{} '.format((record+1) / len(work_in_buffer) * 100))
+        print(' %{} '.format((record + 1) / len(work_in_buffer) * 100))
 
     return line_argsC
 
 
-def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC,in_chm_obj,in_chm, tree_radius, max_line_dist,
-                           canopy_avoidance, exponent, work_in_bufferR, canopy_thresh_percentage):
+def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC, in_chm_obj, in_chm, tree_radius,
+                                  max_line_dist,
+                                  canopy_avoidance, exponent, work_in_bufferR, canopy_thresh_percentage):
     line_argsL = []
     line_argsR = []
     line_argsC = []
@@ -1335,16 +1340,18 @@ def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC,in_
     for record in range(0, len(work_in_bufferL)):
         line_bufferL = work_in_bufferL.loc[record, 'geometry']
         line_bufferC = work_in_bufferC.loc[record, 'geometry']
-        LCut=work_in_bufferL.loc[record, 'LDist_Cut']
+        LCut = work_in_bufferL.loc[record, 'LDist_Cut']
 
         nodata = BT_NODATA
         line_argsL.append([in_chm, float(work_in_bufferL.loc[record, 'DynCanTh']), float(tree_radius),
                            float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
-                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, LCut,'Left', canopy_thresh_percentage, line_bufferL])
+                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, LCut, 'Left',
+                           canopy_thresh_percentage, line_bufferL])
 
         line_argsC.append([in_chm, float(work_in_bufferC.loc[record, 'DynCanTh']), float(tree_radius),
                            float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
-                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, 10,'Center', canopy_thresh_percentage, line_bufferC])
+                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, 10, 'Center',
+                           canopy_thresh_percentage, line_bufferC])
 
         line_id += 1
 
@@ -1380,20 +1387,25 @@ def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC,in_
         # TODO convert nodata to BT_NODATA_COST
         line_argsR.append([in_chm, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
                            float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
-                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, RCut,'Right', canopy_thresh_percentage, line_bufferR])
+                           line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, RCut, 'Right',
+                           canopy_thresh_percentage, line_bufferR])
 
-        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id +1+len(work_in_bufferL), len(work_in_bufferL)+len(work_in_bufferR)), flush=True)
-        print(' %{} '.format((line_id + 1+len(work_in_bufferL)) / (len(work_in_bufferL)+len(work_in_bufferR)) * 100), flush=True)
+        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id + 1 + len(work_in_bufferL),
+                                                                len(work_in_bufferL) + len(work_in_bufferR)),
+              flush=True)
+        print(
+            ' %{} '.format((line_id + 1 + len(work_in_bufferL)) / (len(work_in_bufferL) + len(work_in_bufferR)) * 100),
+            flush=True)
 
         line_id += 1
 
-    return line_argsL,line_argsR,line_argsC
+    return line_argsL, line_argsR, line_argsC
 
 
 def chk_null_geometry(in_data):
-    find=False
-    if isinstance(in_data,gpd.GeoDataFrame):
-        if len(in_data[(in_data.is_empty | in_data.isna())]) >0:
-            find=True
+    find = False
+    if isinstance(in_data, gpd.GeoDataFrame):
+        if len(in_data[(in_data.is_empty | in_data.isna())]) > 0:
+            find = True
 
     return find
