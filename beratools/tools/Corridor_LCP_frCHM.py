@@ -80,7 +80,7 @@ def LCP_centerline(callback, in_line, in_chm, line_radius,
     center_line_geoms = []
     corridor_poly_list = []
     result = execute_multiprocessing(process_single_line, 'Centerline',
-                                     all_lines, processes, 1, verbose)
+                                     all_lines, processes, 1, verbose=verbose)
 
     for item in result:
         geom = item[0]

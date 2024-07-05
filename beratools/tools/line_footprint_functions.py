@@ -634,15 +634,15 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
         footprint_listL = []
         footprint_listR = []
         footprint_listC = []
-        # PARALLEL_MODE = MODE_SEQUENTIAL
-        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        # PARALLEL_MODE = ParallelMode.SEQUENTIAL
+        if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
             # feat_listC = multiprocessing_footprint_relative(line_argsC, processes)
             feat_listL = multiprocessing_footprint_relative(line_argsL, processes)
             # feat_listL = execute_multiprocessing(process_single_line_relative,'Footprint',line_argsL, processes)
             feat_listR = multiprocessing_footprint_relative(line_argsR, processes)
             # feat_listR = execute_multiprocessing(process_single_line_relative, 'Footprint', line_argsR, processes)
 
-        elif PARALLEL_MODE == MODE_SEQUENTIAL:
+        elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
             step = 1
             total_steps = len(line_argsL)
             print("There are {} result to process.".format(total_steps))
