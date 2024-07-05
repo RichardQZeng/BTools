@@ -38,8 +38,6 @@ from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
 from skimage.graph import MCP_Geometric, route_through_array, MCP_Connect, MCP_Flexible
-from enum import IntEnum, unique
-
 from label_centerlines import get_centerline
 
 from multiprocessing.pool import Pool
@@ -49,17 +47,15 @@ import dask.distributed
 import ray
 import warnings
 
+from enum import IntEnum, unique
+from scipy import ndimage
+import xarray as xr
+from xrspatial import focal
+
 cfg.set({'distributed.scheduler.worker-ttl': None})
 warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
-
-from enum import IntEnum, unique
-
-from scipy import ndimage
-import xarray as xr
-from xrspatial import convolution, focal
-
 
 @unique
 class CenterlineStatus(IntEnum):
@@ -84,7 +80,7 @@ class ParallelMode(IntEnum):
     RAY = 4
 
 
-PARALLEL_MODE = ParallelMode.SEQUENTIAL
+PARALLEL_MODE = ParallelMode.MULTIPROCESSING
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -1392,6 +1388,7 @@ def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC,in_
         line_id += 1
 
     return line_argsL,line_argsR,line_argsC
+
 
 def chk_null_geometry(in_data):
     find=False

@@ -27,6 +27,7 @@
 # ---------------------------------------------------------------------------
 # System imports
 import os
+import sys
 import time
 import numpy as np
 from pathlib import Path
@@ -34,6 +35,13 @@ from pathlib import Path
 from shapely.geometry import shape, Point, LineString, MultiLineString, GeometryCollection
 from shapely import STRtree
 import fiona
+
+from inspect import getsourcefile
+
+if __name__ == '__main__':
+    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    btool_dir = current_file.parents[2]
+    sys.path.insert(0, btool_dir.as_posix())
 
 from beratools.tools.common import *
 from beratools.tools.dijkstra_algorithm import *
