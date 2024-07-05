@@ -340,7 +340,7 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     features = []
     # features = execute_multiprocessing_identity(line_args, processes)
     features = execute_multiprocessing(identity_polygon, 'Identify polygons', line_args,
-                                       processes, 1, verbose)
+                                       processes, 1, verbose=verbose)
 
     print("Prepare for filling attributes ...")
     # prepare list of result_identity, Att_seg_lines, areaAnalysis, heightAnalysis, args.input
@@ -356,7 +356,7 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     # Multiprocessing identity polygon
     # features = execute_multiprocessing_attributes(line_args, processes)
     features = execute_multiprocessing(fill_attributes, 'Filling attributes', line_args,
-                                       processes, 1, verbose)
+                                       processes, 1, verbose=verbose)
 
     # Combine into one geodataframe
     if len(features) == 0:

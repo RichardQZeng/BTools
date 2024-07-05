@@ -293,7 +293,7 @@ def multiprocessing_RofC(line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing, p
     featuresL = []
     featuresR = []
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+    if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
         with Pool(processes=int(processes)) as pool:
 
             step = 0
@@ -393,7 +393,7 @@ def multiprocessing_copyparallel_lineLRC(dfL, dfR, dfc, processes, left_dis, rig
         result = None
         step = 0
 
-        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
             with Pool(processes=int(processes)) as pool:
                 # execute tasks in order, process results out of order
                 for result in pool.imap_unordered(copyparallel_lineLRC, line_arg):
@@ -407,7 +407,7 @@ def multiprocessing_copyparallel_lineLRC(dfL, dfR, dfc, processes, left_dis, rig
 
                 return gpd.GeoDataFrame(pd.concat(featuresL)), \
                     gpd.GeoDataFrame(pd.concat(featuresR))  # ,  gpd.GeoDataFrame(pd.concat(featuresC))
-        elif PARALLEL_MODE == MODE_SEQUENTIAL:
+        elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
             for line in line_arg:
                 result = copyparallel_lineLRC(line)
                 if BT_DEBUGGING:
@@ -458,7 +458,7 @@ def multiprocessing_Percentile(df, CanPercentile, CanThrPercentage, in_CHM, proc
         features = []
         # chunksize = math.ceil(total_steps / processes)
         # PARALLEL_MODE=False
-        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
             with Pool(processes=int(processes)) as pool:
 
                 step = 0

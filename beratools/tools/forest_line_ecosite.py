@@ -72,9 +72,9 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
     step = 0
     total_steps = len(all_lines)
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+    if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
         feat_all = execute_multiprocessing(all_lines, processes, verbose)
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
+    elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
         for line in all_lines:
             line_collection = process_single_line(line)
             if line_collection:
