@@ -66,13 +66,6 @@ class CenterlineStatus(IntEnum):
     REGENERATE_FAILED = 4
 
 
-# constants
-# MODE_SEQUENTIAL = 1
-# MODE_MULTIPROCESSING = 2
-# MODE_DASK = 3
-# MODE_RAY = 4
-
-
 @unique
 class ParallelMode(IntEnum):
     SEQUENTIAL = 1
@@ -129,8 +122,6 @@ if not BT_DEBUGGING:
     gdal.SetConfigOption('CPL_LOG', 'NUL')
 
     # suppress warnings
-    import warnings
-
     warnings.filterwarnings("ignore")
 
     # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
@@ -707,7 +698,7 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
 
     if corridor_polygon:
         corridor_polygon = (unary_union(corridor_polygon))
-        if type(corridor_polygon) == MultiPolygon:
+        if type(corridor_polygon) is MultiPolygon:
             poly_list = shapely.get_parts(corridor_polygon)
             merge_poly = poly_list[0]
             for i in range(1, len(poly_list)):
@@ -751,7 +742,7 @@ def find_centerlines(poly_gpd, line_seg, processes):
     total_steps = len(rows_and_paths)
     step = 0
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+    if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
         with Pool(processes=processes) as pool:
             # execute tasks in order, process results out of order
             for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
@@ -760,7 +751,7 @@ def find_centerlines(poly_gpd, line_seg, processes):
                 print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
                 print(' %{} '.format(step / total_steps * 100))
                 print('Centerline No. {} done'.format(step))
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
+    elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
         for item in rows_and_paths:
             row_with_centerline = find_single_centerline(item)
             centerline_gpd.append(row_with_centerline)
@@ -879,7 +870,6 @@ def generate_perpendicular_line_precise(points, offset=20):
         angle_1 = line_angle(center, head)
         angle_2 = line_angle(center, tail)
         angle_diff = (angle_2 - angle_1) / 2.0
-        head_line = LineString([center, head])
         head_new = Point(center.x + offset / 2.0 * math.cos(angle_1), center.y + offset / 2.0 * math.sin(angle_1))
         if head.has_z:
             head_new = shapely.force_3d(head_new)
@@ -954,9 +944,7 @@ def regenerate_centerline(poly, input_line):
     center_line_1 = find_centerline(poly_1, pair_line_1)
     center_line_2 = find_centerline(poly_2, pair_line_2)
 
-    status_1 = center_line_1[1]
     center_line_1 = center_line_1[0]
-    status_2 = center_line_2[1]
     center_line_2 = center_line_2[0]
 
     if not center_line_1 or not center_line_2:
@@ -1137,8 +1125,6 @@ def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
         for row, col in path[0]:
             x, y = transformer.xy(row, col)
             lc_path_new.append((x, y))
-
-
     except Exception as e:
         print(e)
         return None
@@ -1243,7 +1229,7 @@ def chk_df_multipart(df, chk_shp_in_string):
         if str.upper(chk_shp_in_string) in [x.upper() for x in df.geom_type.values]:
             found = True
             df = df.explode()
-            if type(df) == gpd.geodataframe.GeoDataFrame:
+            if type(df) is gpd.geodataframe.GeoDataFrame:
                 df['OLnSEG'] = df.groupby('OLnFID').cumcount()
                 df = df.sort_values(by=['OLnFID', 'OLnSEG'])
                 df = df.reset_index(drop=True)
@@ -1272,7 +1258,6 @@ def dyn_smooth_cost(in_raster, max_line_dist, sampling):
     # print('Generating Cost Raster ...')
 
     # scipy way to do Euclidean distance transform
-    euc_dist_array = None
     euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
 
     smooth1 = float(max_line_dist) - euc_dist_array
@@ -1318,21 +1303,22 @@ def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm
                                float(max_line_dist), float(canopy_avoidance), float(exponent), in_chm_obj.res, nodata,
                                line_seg.iloc[[record]], in_chm_obj.meta.copy(), record, 10, 'Center',
                                canopy_thresh_percentage, line_bufferC])
-
-
         except Exception as e:
 
             print(e)
 
-        print(' "PROGRESS_LABEL Preparing lines {} of {}" '.format(record + 1, len(work_in_buffer)), flush=True)
-        print(' %{} '.format((record + 1) / len(work_in_buffer) * 100))
+        step = record + 1
+        total = len(work_in_buffer)
+
+        print(f' "PROGRESS_LABEL Preparing lines {step} of {total}" ', flush=True)
+        print(f' %{step / total * 100} ', flush=True)
 
     return line_argsC
 
 
-def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC, in_chm_obj, in_chm, tree_radius,
-                                  max_line_dist,
-                                  canopy_avoidance, exponent, work_in_bufferR, canopy_thresh_percentage):
+def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC, in_chm_obj,
+                                  in_chm, tree_radius, max_line_dist, canopy_avoidance,
+                                  exponent, work_in_bufferR, canopy_thresh_percentage):
     line_argsL = []
     line_argsR = []
     line_argsC = []
@@ -1390,12 +1376,10 @@ def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC, in
                            line_seg.iloc[[record]], in_chm_obj.meta.copy(), line_id, RCut, 'Right',
                            canopy_thresh_percentage, line_bufferR])
 
-        print(' "PROGRESS_LABEL Preparing... {} of {}" '.format(line_id + 1 + len(work_in_bufferL),
-                                                                len(work_in_bufferL) + len(work_in_bufferR)),
-              flush=True)
-        print(
-            ' %{} '.format((line_id + 1 + len(work_in_bufferL)) / (len(work_in_bufferL) + len(work_in_bufferR)) * 100),
-            flush=True)
+        step = line_id + 1 + len(work_in_bufferL)
+        total = len(work_in_bufferL) + len(work_in_bufferR)
+        print(f' "PROGRESS_LABEL Preparing... {step} of {total}" ', flush=True)
+        print(f' %{step / total * 100} ', flush=True)
 
         line_id += 1
 
