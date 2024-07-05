@@ -27,18 +27,13 @@
 # ---------------------------------------------------------------------------
 # System imports
 import os
-import numpy as np
-import math
 import time
+import numpy as np
 from pathlib import Path
 
-import uuid
-from shapely.geometry import (shape, mapping, Point, LineString,
-                              MultiLineString, GeometryCollection, Polygon)
+from shapely.geometry import shape, Point, LineString, MultiLineString, GeometryCollection
 from shapely import STRtree
 import fiona
-import rasterio
-import rasterio.mask
 
 from beratools.tools.common import *
 from beratools.tools.dijkstra_algorithm import *
@@ -82,20 +77,20 @@ class Vertex:
             pt_1 = pt[-1]
             pt_2 = pt[-2]
 
-        deltaX = pt_2.x - pt_1.x
-        deltaY = pt_2.y - pt_1.y
-        if math.isclose(pt_1.x, pt_2.x, abs_tol=BT_EPSILON):
-            angle = math.pi / 2
-            if deltaY > 0:
-                angle = math.pi / 2
-            elif deltaY < 0:
-                angle = -math.pi / 2
+        delta_x = pt_2.x - pt_1.x
+        delta_y = pt_2.y - pt_1.y
+        if np.isclose(pt_1.x, pt_2.x):
+            angle = np.pi / 2
+            if delta_y > 0:
+                angle = np.pi / 2
+            elif delta_y < 0:
+                angle = -np.pi / 2
         else:
-            angle = np.arctan(deltaY / deltaX)
+            angle = np.arctan(delta_y / delta_x)
 
             # arctan is in range [-pi/2, pi/2], regulate all angles to [[-pi/2, 3*pi/2]]
-            if deltaX < 0:
-                angle += math.pi  # the second or fourth quadrant
+            if delta_x < 0:
+                angle += np.pi  # the second or fourth quadrant
 
         return angle
 
@@ -174,7 +169,7 @@ class Vertex:
         elif len(slopes) == 3:
             # find the largest difference between angles
             angle_diff = [abs(slopes[0] - slopes[1]), abs(slopes[0] - slopes[2]), abs(slopes[1] - slopes[2])]
-            angle_diff_norm = [2 * math.pi - i if i > math.pi else i for i in angle_diff]
+            angle_diff_norm = [2 * np.pi - i if i > np.pi else i for i in angle_diff]
             index = np.argmax(angle_diff_norm)
             pairs = [(0, 1), (0, 2), (1, 2)]
             pair = pairs[index]
@@ -231,10 +226,12 @@ class Vertex:
         chm_clip, out_meta = clip_raster(self.in_chm, seed_line, self.line_radius)
         in_chm = np.squeeze(chm_clip, axis=0)
         cell_x, cell_y = out_meta['transform'][0], -out_meta['transform'][4]
+
         kernel = convolution.circle_kernel(cell_x, cell_y, 2.5)
         dyn_canopy_ndarray = dyn_np_cc_map(in_chm, FP_CORRIDOR_THRESHOLD, BT_NODATA)
         cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
         cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
+
         avoidance = max(min(float(0.4), 1), 0)
         cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                        cc_smooth, 0.4, 1.5)
@@ -552,7 +549,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     vg.group_vertices()
 
     vertices = execute_multiprocessing(process_single_line, 'Vertex Optimization',
-                                       vg.vertex_grp, processes, 1, verbose)
+                                       vg.vertex_grp, processes, 1, verbose=verbose)
 
     # No line generated, exit
     if len(vertices) <= 0:
@@ -608,6 +605,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
     line_path = Path(out_line)
     file_name = line_path.stem
+    file_line = line_path.as_posix()
     file_lc = line_path.with_stem(file_name + '_leastcost').as_posix()
     file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
     file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
@@ -616,7 +614,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    save_features_to_shapefile(out_line, vg.crs, all_lines, vg.in_schema, all_props)
+    save_features_to_shapefile(file_line, vg.crs, all_lines, vg.in_schema, all_props)
     save_features_to_shapefile(file_lc, vg.crs, leastcost_list, fields, properties)
     save_features_to_shapefile(file_anchors, vg.crs, anchor_list, fields, properties)
     save_features_to_shapefile(file_inter, vg.crs, inter_list, fields, properties)

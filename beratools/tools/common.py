@@ -70,21 +70,21 @@ class CenterlineStatus(IntEnum):
 
 
 # constants
-MODE_SEQUENTIAL = 1
-MODE_MULTIPROCESSING = 2
-MODE_DASK = 3
-MODE_RAY = 4
-
-PARALLEL_MODE = MODE_SEQUENTIAL
+# MODE_SEQUENTIAL = 1
+# MODE_MULTIPROCESSING = 2
+# MODE_DASK = 3
+# MODE_RAY = 4
 
 
 @unique
 class ParallelMode(IntEnum):
-    MULTIPROCESSING = 1
-    SEQUENTIAL = 2
+    SEQUENTIAL = 1
+    MULTIPROCESSING = 2
     DASK = 3
     RAY = 4
 
+
+PARALLEL_MODE = ParallelMode.SEQUENTIAL
 
 USE_SCIPY_DISTANCE = True
 USE_NUMPY_FOR_DIJKSTRA = True
@@ -232,6 +232,7 @@ def generate_raster_footprint(in_raster, latlon=True):
     #  get raster datasource
     src_ds = gdal.Open(in_raster)
     width, height = src_ds.RasterXSize, src_ds.RasterYSize
+    src_crs = src_ds.GetSpatialRef().ExportToWkt()
 
     geom = None
     with tempfile.TemporaryDirectory() as tmp_folder:
@@ -249,8 +250,9 @@ def generate_raster_footprint(in_raster, latlon=True):
             inter_img = Path(tmp_folder).joinpath(inter_img).as_posix()
             gdal.Translate(inter_img, src_ds, options=options)
 
-            shapes = gdal.Footprint(None, inter_img, format='GeoJSON')
-            geom = shape(shapes['features'][0]['geometry'])
+            shapes = gdal.Footprint(None, inter_img, dstSRS=src_crs, format='GeoJSON')
+            target_feat = shapes['features'][0]
+            geom = shape(target_feat['geometry'])
 
         # coords = None
         # with rasterio.open(inter_img) as src:
@@ -270,13 +272,12 @@ def generate_raster_footprint(in_raster, latlon=True):
         #         coords_geo.pop(-1)
 
     if latlon:
-        in_crs = CRS(src_ds.GetSpatialRef().ExportToWkt())
         out_crs = CRS('EPSG:4326')
-        transformer = Transformer.from_crs(in_crs, out_crs)
+        transformer = Transformer.from_crs(CRS(src_crs), out_crs)
 
+        geom = transform(transformer.transform, geom)
         # coords_geo = list(transformer.itransform(coords_geo))
         # coords_geo = [list(pt) for pt in coords_geo]
-        geom = transform(transformer.transform, geom)
 
     return geom
 
@@ -1164,14 +1165,15 @@ def result_is_valid(result):
     return False
 
 
-def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verbose):
+def execute_multiprocessing(in_func, app_name, in_data, processes, workers,
+                            mode=PARALLEL_MODE, verbose=False):
     out_result = []
     step = 0
     print("Using {} CPU cores".format(processes))
     total_steps = len(in_data)
 
     try:
-        if PARALLEL_MODE == MODE_MULTIPROCESSING:
+        if mode == ParallelMode.MULTIPROCESSING:
             print("Multiprocessing started...")
 
             with Pool(processes) as pool:
@@ -1185,7 +1187,7 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
             pool.close()
             pool.join()
 
-        elif PARALLEL_MODE == MODE_DASK:
+        elif mode == ParallelMode.DASK:
             dask_client = Client(threads_per_worker=1, n_workers=processes)
             print(dask_client)
             try:
@@ -1204,7 +1206,7 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
 
             dask_client.close()
 
-        elif PARALLEL_MODE == MODE_RAY:
+        elif mode == ParallelMode.RAY:
             ray.init(log_to_driver=False)
             process_single_line_ray = ray.remote(in_func)
             result_ids = [process_single_line_ray.remote(item) for item in in_data]
@@ -1220,7 +1222,7 @@ def execute_multiprocessing(in_func, app_name, in_data, processes, workers, verb
                 print_msg(app_name, step, total_steps)
             ray.shutdown()
 
-        elif PARALLEL_MODE == MODE_SEQUENTIAL:
+        elif mode == ParallelMode.SEQUENTIAL:
             for line in in_data:
                 result_item = in_func(line)
                 if result_is_valid(result_item):
