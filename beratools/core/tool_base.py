@@ -1,5 +1,4 @@
 from multiprocessing.pool import Pool
-from enum import IntEnum, unique
 import warnings
 
 from dask.distributed import Client, as_completed
@@ -10,19 +9,10 @@ import ray
 import pandas as pd
 import geopandas as gpd
 
+from beratools.core.constants import *
+
 cfg.set({'distributed.scheduler.worker-ttl': None})
 warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
-
-
-@unique
-class ParallelMode(IntEnum):
-    SEQUENTIAL = 1
-    MULTIPROCESSING = 2
-    DASK = 3
-    RAY = 4
-
-
-PARALLEL_MODE = ParallelMode.MULTIPROCESSING
 
 
 class OperationCancelledException(Exception):

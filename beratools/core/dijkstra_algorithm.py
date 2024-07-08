@@ -29,6 +29,7 @@ __revision__ = '$Format:%H$'
 from math import sqrt
 import queue
 from collections import defaultdict
+from skimage.graph import route_through_array
 from beratools.tools.common import *
 
 sqrt2 = sqrt(2)

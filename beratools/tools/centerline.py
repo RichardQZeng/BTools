@@ -1,5 +1,6 @@
 import time
 
+from beratools.core.algo_centerline import *
 from beratools.core.dijkstra_algorithm import *
 from common import *
 

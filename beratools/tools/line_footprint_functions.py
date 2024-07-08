@@ -29,17 +29,19 @@
 # ---------------------------------------------------------------------------
 
 import time
-from scipy import stats
-from geopandas import GeoDataFrame
+import numpy as np
 
-# from scipy import ndimage
+import rasterio
+from scipy import stats, ndimage
+from geopandas import GeoDataFrame
 from shapely import buffer
 
 import skimage
 from skimage.morphology import *
 from skimage.graph import MCP_Flexible
 
-import numpy as np
+from beratools.core.constants import *
+from beratools.tools.common import *
 
 
 def dyn_canopy_cost_raster(args):
@@ -126,7 +128,7 @@ def split_line_fc(line):
 
 def split_line_npart(line):
     # Work out n parts for each line (divided by LP_SEGMENT_LENGTH)
-    n = math.ceil(line.length / LP_SEGMENT_LENGTH)
+    n = int(np.ceil(line.length / LP_SEGMENT_LENGTH))
     if n > 1:
         # divided line into n-1 equal parts;
         distances = np.linspace(0, line.length, n)
@@ -341,7 +343,7 @@ def process_single_line_relative(segment):
 
     # this will change segment content, and parameters will be changed
     segment = dyn_canopy_cost_raster(segment)
-    # Segement after Clipped Canopy and Cost Raster
+    # Segment after Clipped Canopy and Cost Raster
     # line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer
 
     # this function takes single line to work the line footprint
@@ -418,27 +420,6 @@ def process_single_line_relative(segment):
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
 
-        # export intermediate raster for debugging
-        BT_DEBUGGING = False
-        if BT_DEBUGGING:
-            suffix = str(uuid.uuid4())[:8]
-            path_temp = Path(r"D:\BT_Test\ConcaveHull\test-cost")
-            if path_temp.exists():
-                path_canopy = path_temp.joinpath(suffix + '_canopy.tif')
-                path_cost = path_temp.joinpath(suffix + '_cost.tif')
-                path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
-                path_corridor_min = path_temp.joinpath(suffix + '_corridor_min.tif')
-                path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
-                out_canopy = np.ma.masked_equal(in_canopy_r, np.inf)
-                out_cost = np.ma.masked_equal(in_cost_r, np.inf)
-                save_raster_to_file(out_canopy, in_meta, path_canopy)
-                save_raster_to_file(out_cost, in_meta, path_cost)
-                save_raster_to_file(corridor, in_meta, path_corridor)
-                save_raster_to_file(corridor_norm, in_meta, path_corridor_min)
-                save_raster_to_file(corridor_norm * 100 / df.length.iloc[0], in_meta, path_corridor_norm)
-            else:
-                print('Debugging: raster folder not exists.')
-
         # Set minimum as zero and save minimum file
         # corridor_th_value = find_corridor_threshold(corridor_norm)
         corridor_th_value = (Cut_Dist / cell_size_x)
@@ -478,8 +459,7 @@ def process_single_line_relative(segment):
             # BERA proposed Binary morphology Shrink
             # fileShrink = ndimage.binary_erosion((Expanded),iterations=Exp_Shk_cell,border_value=1)
         else:
-            if BT_DEBUGGING:
-                print('No Expand And Shrink cell performed.')
+            print('No Expand And Shrink cell performed.')
 
             file_shrink = raster_class
 

@@ -16,7 +16,8 @@ from json.decoder import JSONDecodeError
 import multiprocessing
 from subprocess import CalledProcessError
 
-from common import *
+from beratools.tools.common import *
+from beratools.core.constants import *
 
 running_windows = platform.system() == 'Windows'
 
