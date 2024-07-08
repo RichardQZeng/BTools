@@ -238,6 +238,7 @@ class Vertex:
         cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
         cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
 
+        # TODO avoidance, re-use this code
         avoidance = max(min(float(0.4), 1), 0)
         cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                        cc_smooth, 0.4, 1.5)
