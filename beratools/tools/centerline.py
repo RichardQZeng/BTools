@@ -62,8 +62,8 @@ def centerline(callback, in_line, in_cost, line_radius,
     feat_props = []
     center_line_geoms = []
     corridor_poly_list = []
-    result = execute_multiprocessing(process_single_line, 'Centerline',
-                                     all_lines, processes, 1, verbose=verbose)
+    result = execute_multiprocessing(process_single_line, all_lines, 'Centerline',
+                                     processes, 1, verbose=verbose)
 
     for item in result:
         geom = item[0]

@@ -47,6 +47,8 @@ from scipy import ndimage
 import xarray as xr
 from xrspatial import focal
 
+from beratools.core.tool_base import *
+
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
 
@@ -647,9 +649,9 @@ def find_centerline(poly, input_line):
     return centerline, CenterlineStatus.SUCCESS
 
 
-def find_route(array, start, end, fully_connected, geometric):
-    route_list, cost_list = route_through_array(array, start, end, fully_connected, geometric)
-    return route_list, cost_list
+# def find_route(array, start, end, fully_connected, geometric):
+#     route_list, cost_list = route_through_array(array, start, end, fully_connected, geometric)
+#     return route_list, cost_list
 
 
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
@@ -712,24 +714,24 @@ def find_centerlines(poly_gpd, line_seg, processes):
     total_steps = len(rows_and_paths)
     step = 0
 
-    if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
-        with Pool(processes=processes) as pool:
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
-                centerline_gpd.append(result)
-                step += 1
-                print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100))
-                print('Centerline No. {} done'.format(step))
-    elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
-        for item in rows_and_paths:
-            row_with_centerline = find_single_centerline(item)
-            centerline_gpd.append(row_with_centerline)
-            step += 1
-            print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-            print(' %{} '.format(step / total_steps * 100))
-            print('Centerline No. {} done'.format(step))
-
+    # if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
+    #     with Pool(processes=processes) as pool:
+    #         # execute tasks in order, process results out of order
+    #         for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
+    #             centerline_gpd.append(result)
+    #             step += 1
+    #             print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+    #             print(' %{} '.format(step / total_steps * 100))
+    #             print('Centerline No. {} done'.format(step))
+    # elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
+    #     for item in rows_and_paths:
+    #         row_with_centerline = find_single_centerline(item)
+    #         centerline_gpd.append(row_with_centerline)
+    #         step += 1
+    #         print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
+    #         print(' %{} '.format(step / total_steps * 100))
+    #         print('Centerline No. {} done'.format(step))
+    execute_multiprocessing(find_single_centerline, rows_and_paths, 'find_centerlines', processes, 1)
     return pd.concat(centerline_gpd)
 
 

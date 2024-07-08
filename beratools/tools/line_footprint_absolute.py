@@ -57,8 +57,8 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
     if GROUPING_SEGMENT:
         process_single_line = process_single_line_whole
 
-    feat_list = execute_multiprocessing(process_single_line, 'Line footprint',
-                                        line_args, processes, 1, verbose=verbose)
+    feat_list = execute_multiprocessing(process_single_line, line_args, 'Line footprint',
+                                        processes, 1, verbose=verbose)
 
     print('Generating shapefile ...', flush=True)
 

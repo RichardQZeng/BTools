@@ -33,14 +33,14 @@ from inspect import getsourcefile
 
 from shapely.geometry import GeometryCollection
 from shapely import STRtree
-
-from beratools.core.tool_base import *
+from xrspatial import convolution
 
 if __name__ == '__main__':
     current_file = Path(getsourcefile(lambda: 0)).resolve()
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
 
+from beratools.core.tool_base import *
 from beratools.tools.common import *
 from beratools.core.dijkstra_algorithm import *
 
@@ -554,8 +554,8 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     vg = VertexGrouping(callback, in_line, in_cost, line_radius, out_line)
     vg.group_vertices()
 
-    vertices = execute_multiprocessing(process_single_line, 'Vertex Optimization',
-                                       vg.vertex_grp, processes, 1, verbose=verbose)
+    vertices = execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
+                                       processes, 1, verbose=verbose)
 
     # No line generated, exit
     if len(vertices) <= 0:

@@ -55,7 +55,7 @@ def print_msg(app_name, step, total_steps):
     print(f' %{step / total_steps * 100} ', flush=True)
 
 
-def execute_multiprocessing(in_func, app_name, in_data, processes, workers,
+def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
                             mode=PARALLEL_MODE, verbose=False):
     out_result = []
     step = 0
