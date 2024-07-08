@@ -303,7 +303,7 @@ pd2cellsize <- function(in_las_folder, rprocesses) {
     set_lidr_threads(rprocesses)
 
 
-    print("Calculate raster output's average cell size from point density...")
+    print("Calculate output's raster average cell size from point density...")
     if (is(in_las_folder, "LAS") || is(in_las_folder, "LAScatalog"))
     { ctg <- in_las_folder }
     else { ctg <- readLAScatalog(in_las_folder, filter = '-drop_class 7') }
@@ -850,13 +850,14 @@ laz2las <- function(in_las_folder, out_folder, rprocesses) {
         las <- readLAS(chunk)
 
         if (is.empty(las)) return(NULL)
+        las <- filter_poi(las, buffer == 0)
         return(las) }
 
     #read Laz file and drop any noise from the point cloud
     ctg <- readLAScatalog(in_las_folder)
     opt_output_files(ctg) <- opt_output_files(ctg) <- paste0(out_folder, "/las/{*}")
     opt_laz_compression(ctg) <- FALSE
-    print("Saving liDAR (laz) data into las...")
+    print("Saving zipped lidar data into *.las format...")
     opt_progress(ctg) <- TRUE
     catalog_apply(ctg, mywriteLAS)
     # reset R mutilsession back to default
