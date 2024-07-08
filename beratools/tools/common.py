@@ -37,7 +37,7 @@ from osgeo import ogr, gdal
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
-from skimage.graph import MCP_Geometric, route_through_array, MCP_Connect, MCP_Flexible
+from skimage.graph import MCP_Geometric, route_through_array, MCP_Connect
 from label_centerlines import get_centerline
 
 from multiprocessing.pool import Pool
@@ -683,7 +683,6 @@ def find_centerline(poly, input_line):
 
 
 def find_route(array, start, end, fully_connected, geometric):
-    from skimage.graph import route_through_array
     route_list, cost_list = route_through_array(array, start, end, fully_connected, geometric)
     return route_list, cost_list
 
@@ -1075,39 +1074,6 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
             print('Debugging: raster folder not exists.')
 
     return corridor_thresh_cl
-
-
-def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
-    lc_path_new = []
-    if len(cost_clip.shape) > 2:
-        cost_clip = np.squeeze(cost_clip, axis=0)
-
-    out_transform = in_meta['transform']
-    transformer = rasterio.transform.AffineTransformer(out_transform)
-
-    x1, y1 = list(seed_line.coords)[0][:2]
-    x2, y2 = list(seed_line.coords)[-1][:2]
-    row1, col1 = transformer.rowcol(x1, y1)
-    row2, col2 = transformer.rowcol(x2, y2)
-
-    try:
-        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
-    except Exception as e:
-        print(e)
-        return None
-
-    if path_new[0]:
-        for row, col in path_new[0]:
-            x, y = transformer.xy(row, col)
-            lc_path_new.append((x, y))
-
-    if len(lc_path_new) < 2:
-        print('No least cost path detected, pass.')
-        return None
-    else:
-        lc_path_new = LineString(lc_path_new)
-
-    return lc_path_new
 
 
 def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):

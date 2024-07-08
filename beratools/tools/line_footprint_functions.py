@@ -37,6 +37,7 @@ from shapely import buffer
 
 import skimage
 from skimage.morphology import *
+from skimage.graph import MCP_Flexible
 
 import numpy as np
 
