@@ -34,6 +34,7 @@ import collections
 from common import *
 
 sqrt2 = sqrt(2)
+USE_NUMPY_FOR_DIJKSTRA = True
 
 
 class MinCostPathHelper:

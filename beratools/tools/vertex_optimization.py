@@ -26,15 +26,12 @@
 #
 # ---------------------------------------------------------------------------
 # System imports
-import os
 import sys
 import time
-import numpy as np
 from pathlib import Path
 
-from shapely.geometry import shape, Point, LineString, MultiLineString, GeometryCollection
+from shapely.geometry import GeometryCollection
 from shapely import STRtree
-import fiona
 
 from inspect import getsourcefile
 
@@ -44,7 +41,7 @@ if __name__ == '__main__':
     sys.path.insert(0, btool_dir.as_posix())
 
 from beratools.tools.common import *
-from beratools.tools.dijkstra_algorithm import *
+from beratools.core.dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points

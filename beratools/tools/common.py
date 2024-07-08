@@ -83,9 +83,6 @@ class ParallelMode(IntEnum):
 
 PARALLEL_MODE = ParallelMode.MULTIPROCESSING
 
-USE_SCIPY_DISTANCE = True
-USE_NUMPY_FOR_DIJKSTRA = True
-
 NADDatum = ['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
 
 BT_NODATA = -9999
