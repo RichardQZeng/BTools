@@ -40,11 +40,6 @@ from pyogrio import set_gdal_config_options
 from skimage.graph import MCP_Geometric, route_through_array, MCP_Connect
 from label_centerlines import get_centerline
 
-from multiprocessing.pool import Pool
-from dask.distributed import Client, as_completed
-from dask import config as cfg
-import dask.distributed
-import ray
 import warnings
 
 from enum import IntEnum, unique
@@ -52,8 +47,6 @@ from scipy import ndimage
 import xarray as xr
 from xrspatial import focal
 
-cfg.set({'distributed.scheduler.worker-ttl': None})
-warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
 
@@ -65,16 +58,6 @@ class CenterlineStatus(IntEnum):
     REGENERATE_SUCCESS = 3
     REGENERATE_FAILED = 4
 
-
-@unique
-class ParallelMode(IntEnum):
-    SEQUENTIAL = 1
-    MULTIPROCESSING = 2
-    DASK = 3
-    RAY = 4
-
-
-PARALLEL_MODE = ParallelMode.MULTIPROCESSING
 
 NADDatum = ['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
 
@@ -123,15 +106,6 @@ if not BT_DEBUGGING:
 
     # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
     warnings.simplefilter(action='ignore', category=UserWarning)
-
-
-class OperationCancelledException(Exception):
-    pass
-
-
-def print_msg(app_name, step, total_steps):
-    print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
-    print(f' %{step / total_steps * 100} ', flush=True)
 
 
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
@@ -1099,91 +1073,6 @@ def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
         lc_path_new = LineString(lc_path_new)
 
     return lc_path_new
-
-
-def result_is_valid(result):
-    if type(result) is list or type(result) is tuple:
-        if len(result) > 0:
-            return True
-    elif type(result) is pd.DataFrame or type(result) is gpd.GeoDataFrame:
-        if not result.empty:
-            return True
-    elif result:
-        return True
-
-    return False
-
-
-def execute_multiprocessing(in_func, app_name, in_data, processes, workers,
-                            mode=PARALLEL_MODE, verbose=False):
-    out_result = []
-    step = 0
-    print("Using {} CPU cores".format(processes))
-    total_steps = len(in_data)
-
-    try:
-        if mode == ParallelMode.MULTIPROCESSING:
-            print("Multiprocessing started...")
-
-            with Pool(processes) as pool:
-                for result in pool.imap_unordered(in_func, in_data):
-                    if result_is_valid(result):
-                        out_result.append(result)
-
-                    step += 1
-                    print_msg(app_name, step, total_steps)
-
-            pool.close()
-            pool.join()
-
-        elif mode == ParallelMode.DASK:
-            dask_client = Client(threads_per_worker=1, n_workers=processes)
-            print(dask_client)
-            try:
-                print('start processing')
-                result = dask_client.map(in_func, in_data)
-                seq = as_completed(result)
-
-                for i in seq:
-                    if result_is_valid(result):
-                        out_result.append(i.result())
-
-                    step += 1
-                    print_msg(app_name, step, total_steps)
-            except Exception as e:
-                dask_client.close()
-
-            dask_client.close()
-
-        elif mode == ParallelMode.RAY:
-            ray.init(log_to_driver=False)
-            process_single_line_ray = ray.remote(in_func)
-            result_ids = [process_single_line_ray.remote(item) for item in in_data]
-
-            while len(result_ids):
-                done_id, result_ids = ray.wait(result_ids)
-                result_item = ray.get(done_id[0])
-
-                if result_is_valid(result_item):
-                    out_result.append(result_item)
-
-                step += 1
-                print_msg(app_name, step, total_steps)
-            ray.shutdown()
-
-        elif mode == ParallelMode.SEQUENTIAL:
-            for line in in_data:
-                result_item = in_func(line)
-                if result_is_valid(result_item):
-                    out_result.append(result_item)
-
-                step += 1
-                print_msg(app_name, step, total_steps)
-    except OperationCancelledException:
-        print("Operation cancelled")
-        return None
-
-    return out_result
 
 
 def chk_df_multipart(df, chk_shp_in_string):

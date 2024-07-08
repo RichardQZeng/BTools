@@ -29,11 +29,12 @@
 import sys
 import time
 from pathlib import Path
+from inspect import getsourcefile
 
 from shapely.geometry import GeometryCollection
 from shapely import STRtree
 
-from inspect import getsourcefile
+from beratools.core.tool_base import *
 
 if __name__ == '__main__':
     current_file = Path(getsourcefile(lambda: 0)).resolve()

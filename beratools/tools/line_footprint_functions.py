@@ -42,10 +42,6 @@ from skimage.graph import MCP_Flexible
 import numpy as np
 
 
-class OperationCancelledException(Exception):
-    pass
-
-
 def dyn_canopy_cost_raster(args):
     raster_obj = args[0]
     DynCanTh = args[1]
