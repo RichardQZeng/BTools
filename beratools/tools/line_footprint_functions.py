@@ -35,6 +35,7 @@ import rasterio
 from scipy import stats, ndimage
 from geopandas import GeoDataFrame
 from shapely import buffer
+from xrspatial import convolution
 
 import skimage
 from skimage.morphology import *
