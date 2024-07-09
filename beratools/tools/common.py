@@ -40,7 +40,7 @@ from skimage.graph import MCP_Geometric, MCP_Connect
 
 from scipy import ndimage
 import xarray as xr
-from xrspatial import focal
+from xrspatial import focal, convolution
 
 from beratools.core.tool_base import *
 
@@ -753,6 +753,24 @@ def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
     # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
 
     return canopy_ndarray
+
+
+def cost_raster(in_raster, meta):
+    # raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
+    # in_raster = np.squeeze(in_raster, axis=0)
+    cell_x, cell_y = meta['transform'][0], -meta['transform'][4]
+
+    kernel = convolution.circle_kernel(cell_x, cell_y, 2.5)
+    dyn_canopy_ndarray = dyn_np_cc_map(in_raster, FP_CORRIDOR_THRESHOLD, BT_NODATA)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
+
+    # TODO avoidance, re-use this code
+    avoidance = max(min(float(0.4), 1), 0)
+    cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
+                                   cc_smooth, 0.4, 1.5)
+
+    return cost_clip
 
 
 def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm, tree_radius, max_line_dist,

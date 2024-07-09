@@ -40,7 +40,7 @@ def snap_end_to_end(in_line, line_reference):
     if type(in_line) is MultiLineString:
         in_line = linemerge(in_line)
         if type(in_line) is MultiLineString:
-            print(f'MultiLineString found {in_line.centroid}, pass.')
+            print(f'algo_centerline: MultiLineString found {in_line.centroid}, pass.')
             return None
 
     pts = list(in_line.coords)

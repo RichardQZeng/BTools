@@ -2,16 +2,13 @@ import time
 
 from beratools.core.algo_centerline import *
 from beratools.core.dijkstra_algorithm import *
+from beratools.core.constants import *
 from common import *
 
 
-class OperationCancelledException(Exception):
-    pass
-
-
-def centerline(callback, in_line, in_cost, line_radius,
+def centerline(callback, in_line, in_raster, line_radius,
                proc_segments, out_line, processes, verbose):
-    if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
+    if not compare_crs(vector_crs(in_line), raster_crs(in_raster)):
         print("Line and CHM have different spatial references, please check.")
         return
 
@@ -54,7 +51,7 @@ def centerline(callback, in_line, in_cost, line_radius,
     all_lines = []
     i = 0
     for line in input_lines:
-        all_lines.append((line, line_radius, in_cost, i))
+        all_lines.append((line, line_radius, in_raster, i))
         i += 1
 
     print('{} lines to be processed.'.format(len(all_lines)))
@@ -103,6 +100,10 @@ def process_single_line(line_args):
     line_radius = float(line_radius)
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
+    cost_clip = np.squeeze(cost_clip, axis=0)
+
+    if not HAS_COST_RASTER:
+        cost_clip = cost_raster(cost_clip, out_meta)
 
     try:
         if CL_USE_SKIMAGE_GRAPH:
