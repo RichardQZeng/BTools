@@ -104,11 +104,15 @@ def process_single_line(line_args):
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
 
-    if CL_USE_SKIMAGE_GRAPH:
-        # skimage shortest path
-        lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
-    else:
-        lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
+    try:
+        if CL_USE_SKIMAGE_GRAPH:
+            # skimage shortest path
+            lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+        else:
+            lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
+    except Exception as e:
+        print(e)
+        return
 
     if lc_path:
         lc_path_coords = lc_path.coords

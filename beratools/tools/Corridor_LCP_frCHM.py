@@ -110,7 +110,6 @@ def process_single_line(line_args):
     # if CL_USE_SKIMAGE_GRAPH:
     # skimage shortest path (Cost Array elements with infinite or negative costs will simply be ignored.)
     negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)
-    # lc_path = find_least_cost_path_skimage(negative_cost_clip, out_meta, seed_line)
     lc_path = LCP_skimage_mcp_connect(negative_cost_clip, out_meta, seed_line)
 
     if lc_path:

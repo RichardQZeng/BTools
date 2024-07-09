@@ -362,7 +362,8 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
         matrix, contains_negative = MinCostPathHelper.block2matrix(image_data, ras_nodata)
 
     if contains_negative:
-        raise Exception('ERROR: Raster has negative values.')
+        print('ERROR: Raster has negative values.')
+        return default_return
 
     transformer = rasterio.transform.AffineTransformer(in_meta['transform'])
 
