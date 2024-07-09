@@ -326,9 +326,9 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_cost",
-                            "parameter": "Cost Raster",
-                            "description": "Input raster image used to calculate the least cost path.",
+                            "variable": "in_chm",
+                            "parameter": "CHM Raster",
+                            "description": "Input CHM raster used to calculate the least cost path.",
                             "type": "raster",
                             "typelab": "TIF",
                             "default": "",
