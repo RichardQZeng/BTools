@@ -81,7 +81,7 @@ def centerline(callback, in_line, in_raster, line_radius,
     if not BT_DEBUGGING:
         save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, feat_props, schema)
 
-    save_features_to_shapefile(out_line, layer_crs, center_line_geoms, feat_props, schema)
+    save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, center_line_geoms, feat_props, schema)
 
     # save corridor polygons
     corridor_polys = pd.concat(corridor_poly_list)
