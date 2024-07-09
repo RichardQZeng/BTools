@@ -35,6 +35,7 @@ import rasterio
 from scipy import stats, ndimage
 from geopandas import GeoDataFrame
 from shapely import buffer
+from rasterio import features
 from xrspatial import convolution
 
 import skimage
@@ -42,6 +43,7 @@ from skimage.morphology import *
 from skimage.graph import MCP_Flexible
 
 from beratools.core.constants import *
+from beratools.core.algo_centerline import *
 from beratools.tools.common import *
 
 
@@ -266,41 +268,41 @@ def generate_line_args(line_seg, work_in_bufferL, work_in_bufferC, raster, tree_
 
     return line_argsL, line_argsR, line_argsC
 
-
-def find_corridor_threshold_boundary(canopy_clip, least_cost_path, corridor_raster):
-    threshold = -1
-    thresholds = [-1] * 10
-
-    # morphological filters to get polygons from canopy raster
-    canopy_bin = np.where(np.isclose(canopy_clip, 1.0), True, False)
-    clean_holes = remove_small_holes(canopy_bin)
-    clean_obj = remove_small_objects(clean_holes)
-
-    polys = features.shapes(skimage.img_as_ubyte(clean_obj), mask=clean_obj)
-    polys = [shape(poly).segmentize(FP_SEGMENTIZE_LENGTH) for poly, _ in polys]
-
-    # perpendicular segments intersections with polygons
-    size = corridor_raster.shape
-    pts = []
-    for poly in polys:
-        pts.extend(list(poly.exterior.coords))
-
-    index_0 = []
-    index_1 = []
-    for pt in pts:
-        if int(pt[0]) < size[1] and int(pt[1]) < size[0]:
-            index_0.append(int(pt[0]))
-            index_1.append(int(pt[1]))
-
-    try:
-        thresholds = corridor_raster[index_1, index_0]
-    except Exception as e:
-        print(e)
-
-    # trimmed mean of values at intersections
-    threshold = stats.trim_mean(thresholds, 0.3)
-
-    return threshold
+#
+# def find_corridor_threshold_boundary(canopy_clip, least_cost_path, corridor_raster):
+#     threshold = -1
+#     thresholds = [-1] * 10
+#
+#     # morphological filters to get polygons from canopy raster
+#     canopy_bin = np.where(np.isclose(canopy_clip, 1.0), True, False)
+#     clean_holes = remove_small_holes(canopy_bin)
+#     clean_obj = remove_small_objects(clean_holes)
+#
+#     polys = features.shapes(skimage.img_as_ubyte(clean_obj), mask=clean_obj)
+#     polys = [shape(poly).segmentize(FP_SEGMENTIZE_LENGTH) for poly, _ in polys]
+#
+#     # perpendicular segments intersections with polygons
+#     size = corridor_raster.shape
+#     pts = []
+#     for poly in polys:
+#         pts.extend(list(poly.exterior.coords))
+#
+#     index_0 = []
+#     index_1 = []
+#     for pt in pts:
+#         if int(pt[0]) < size[1] and int(pt[1]) < size[0]:
+#             index_0.append(int(pt[0]))
+#             index_1.append(int(pt[1]))
+#
+#     try:
+#         thresholds = corridor_raster[index_1, index_0]
+#     except Exception as e:
+#         print(e)
+#
+#     # trimmed mean of values at intersections
+#     threshold = stats.trim_mean(thresholds, 0.3)
+#
+#     return threshold
 
 
 def find_corridor_threshold(raster):
@@ -424,7 +426,6 @@ def process_single_line_relative(segment):
         # Set minimum as zero and save minimum file
         # corridor_th_value = find_corridor_threshold(corridor_norm)
         corridor_th_value = (Cut_Dist / cell_size_x)
-        # corridor_th_value = find_corridor_threshold_boundary(in_canopy_r, feat, corridor_norm)
         if corridor_th_value < 0:  # if no threshold found, use default value
             corridor_th_value = (FP_CORRIDOR_THRESHOLD / cell_size_x)
 
@@ -586,8 +587,10 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
             work_in_bufferC['geometry'] = buffer(work_in_bufferC['geometry'], distance=float(max_ln_width),
                                                  cap_style=3, single_sided=False)
             print("Prepare arguments for Dynamic FP ...")
-            # line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
-            #                                canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
+            # line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC,
+            #                                                       raster, tree_radius, max_line_dist,
+            #                                                       canopy_avoidance, exponent, work_in_bufferR,
+            #                                                       canopy_thresh_percentage)
 
             line_argsL, line_argsR, line_argsC = generate_line_args_DFP_NoClip(line_seg_split, work_in_bufferL,
                                                                                work_in_bufferC, raster, in_chm,

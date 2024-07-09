@@ -2,12 +2,13 @@ import numpy as np
 from rasterio import features
 import shapely
 from shapely.geometry import shape
-from shapely.ops import unary_union, substring, linemerge, nearest_points
+from shapely.ops import unary_union, substring, linemerge, nearest_points, split
 from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, LineString, MultiLineString
 from label_centerlines import get_centerline
 
 from beratools.core.tool_base import *
 from beratools.core.constants import *
+from beratools.tools.common import generate_perpendicular_line_precise
 
 
 def centerline_is_valid(centerline, input_line):
@@ -253,7 +254,8 @@ def find_centerlines(poly_gpd, line_seg, processes):
     #         print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
     #         print(' %{} '.format(step / total_steps * 100))
     #         print('Centerline No. {} done'.format(step))
-    execute_multiprocessing(find_single_centerline, rows_and_paths, 'find_centerlines', processes, 1)
+    centerline_gpd = execute_multiprocessing(find_single_centerline, rows_and_paths,
+                                             'find_centerlines', processes, 1)
     return pd.concat(centerline_gpd)
 
 

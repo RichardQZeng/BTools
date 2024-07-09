@@ -1,10 +1,8 @@
 import time
+from xrspatial import convolution
 
-from common import *
-
-
-class OperationCancelledException(Exception):
-    pass
+from beratools.tools.common import *
+from beratools.core.algo_centerline import *
 
 
 def LCP_centerline(callback, in_line, in_chm, line_radius,
@@ -135,7 +133,6 @@ def process_single_line(line_args):
     x2, y2 = lc_path_coords[-1]
     source = [transformer.rowcol(x1, y1)]
     destination = [transformer.rowcol(x2, y2)]
-    # skimage graph.MCP (Cost Array elements with infinite or negative costs will simply be ignored.)
     corridor_thresh_cl = corridor_raster(negative_cost_clip, out_meta, source, destination,
                                          cell_size, FP_CORRIDOR_THRESHOLD)
 
