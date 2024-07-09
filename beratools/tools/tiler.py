@@ -162,7 +162,6 @@ class Tiler:
             map_window.add_polygons_to_map('base', footprint, 'green')
             map_window.set_view(center, 10)
             # bounds = [[56.143426823080134, 111.1130415762259], [56.26141944093645, 110.63627702636289]]
-            # map_window.fit_bounds(bounds)
             flag = map_window.exec()
 
             if flag != QDialog.Accepted:
@@ -177,14 +176,13 @@ class Tiler:
                 'geometry': 'Polygon'
             }
             driver = 'ESRI Shapefile'
-            out_line_file = fiona.open(out_cells_file, 'w', driver, schema, self.in_crs)
-            for item in self.clip_data:
-                feature = {
-                    'geometry': mapping(item['geometry'])
-                }
-                out_line_file.write(feature)
+            with fiona.open(out_cells_file, 'w', driver, schema, self.in_crs) as out_line_file:
+                for item in self.clip_data:
+                    feature = {
+                        'geometry': mapping(item['geometry'])
+                    }
+                    out_line_file.write(feature)
 
-            del out_line_file
             return
 
 

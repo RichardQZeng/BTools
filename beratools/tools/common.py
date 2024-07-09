@@ -259,7 +259,7 @@ def check_arguments():
     return args, verbose
 
 
-def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=None):
+def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=None):
     """
 
     Parameters

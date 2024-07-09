@@ -82,9 +82,9 @@ def centerline(callback, in_line, in_cost, line_radius,
     out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem + '_least_cost_path')
     schema['properties']['status'] = 'int'
     if not BT_DEBUGGING:
-        save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
+        save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, feat_props, schema)
 
-    save_features_to_shapefile(out_line, layer_crs, center_line_geoms, schema, feat_props)
+    save_features_to_shapefile(out_line, layer_crs, center_line_geoms, feat_props, schema)
 
     # save corridor polygons
     corridor_polys = pd.concat(corridor_poly_list)
