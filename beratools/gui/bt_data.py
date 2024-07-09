@@ -9,12 +9,14 @@
 
 import os
 from os import path
+from pathlib import Path
 
 import platform
 import json
 from json.decoder import JSONDecodeError
 import multiprocessing
 from subprocess import CalledProcessError
+from collections import OrderedDict
 
 from beratools.tools.common import *
 from beratools.core.constants import *
@@ -86,9 +88,10 @@ class BTData(object):
 
     def add_tool_history(self, tool, params):
         if 'tool_history' not in self.settings:
-            self.settings['tool_history'] = {}
+            self.settings['tool_history'] = OrderedDict()
 
         self.settings['tool_history'][tool] = params
+        self.settings['tool_history'].move_to_end(tool, last=False)
 
     def save_tool_info(self):
         if self.recent_tool:
@@ -249,7 +252,7 @@ class BTData(object):
         if json_file.exists():
             with open(json_file) as open_file:
                 try:
-                    saved_parameters = json.load(open_file)
+                    saved_parameters = json.load(open_file, object_pairs_hook=OrderedDict)
                 except json.decoder.JSONDecodeError:
                     pass
 

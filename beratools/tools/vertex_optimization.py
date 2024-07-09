@@ -31,9 +31,13 @@ import time
 from pathlib import Path
 from inspect import getsourcefile
 
-from shapely.geometry import GeometryCollection
+import fiona
+from shapely.geometry import shape, Point, LineString, MultiLineString, GeometryCollection
 from shapely import STRtree
 from xrspatial import convolution
+
+from inspect import getsourcefile
+
 
 if __name__ == '__main__':
     current_file = Path(getsourcefile(lambda: 0)).resolve()
@@ -548,11 +552,11 @@ def process_single_line(vertex):
     return vertex
 
 
-def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose):
-    if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
+def vertex_optimization(callback, in_line, in_chm, line_radius, out_line, processes, verbose):
+    if not compare_crs(vector_crs(in_line), raster_crs(in_chm)):
         return
 
-    vg = VertexGrouping(callback, in_line, in_cost, line_radius, out_line)
+    vg = VertexGrouping(callback, in_line, in_chm, line_radius, out_line)
     vg.group_vertices()
 
     vertices = execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
