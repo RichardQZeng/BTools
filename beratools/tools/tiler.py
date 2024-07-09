@@ -1,6 +1,7 @@
 import os
 from qtpy.QtWidgets import QApplication, QDialog
 
+from shapely.geometry import Polygon
 from beratools.tools.common import *
 from beratools.gui.map_window import MapWindow
 
