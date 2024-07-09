@@ -1,4 +1,5 @@
 import time
+from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString
 from beratools.tools.common import *
 
 
@@ -243,8 +244,8 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     offset = float(offset)
     line_args = prepare_line_args(in_line, in_footprint, n_samples, offset)
 
-    out_lines = execute_multiprocessing(process_single_line, 'Fixed footprint',
-                                        line_args, processes, 1, verbose=verbose)
+    out_lines = execute_multiprocessing(process_single_line, line_args, 'Fixed footprint',
+                                        processes, 1, verbose=verbose)
     line_attr = pd.concat(out_lines)
 
     # create fixed width footprint

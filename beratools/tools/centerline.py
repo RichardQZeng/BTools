@@ -1,13 +1,7 @@
 import time
-from pathlib import Path
-import numpy as np
-import pandas as pd
 
-import rasterio
-import fiona
-from shapely.geometry import shape, LineString, MultiLineString
-
-from dijkstra_algorithm import *
+from beratools.core.algo_centerline import *
+from beratools.core.dijkstra_algorithm import *
 from common import *
 
 
@@ -69,8 +63,8 @@ def centerline(callback, in_line, in_cost, line_radius,
     feat_props = []
     center_line_geoms = []
     corridor_poly_list = []
-    result = execute_multiprocessing(process_single_line, 'Centerline',
-                                     all_lines, processes, 1, verbose=verbose)
+    result = execute_multiprocessing(process_single_line, all_lines, 'Centerline',
+                                     processes, 1, verbose=verbose)
 
     for item in result:
         geom = item[0]
@@ -88,9 +82,9 @@ def centerline(callback, in_line, in_cost, line_radius,
     out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem + '_least_cost_path')
     schema['properties']['status'] = 'int'
     if not BT_DEBUGGING:
-        save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, schema, feat_props)
+        save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, feat_props, schema)
 
-    save_features_to_shapefile(out_line, layer_crs, center_line_geoms, schema, feat_props)
+    save_features_to_shapefile(out_line, layer_crs, center_line_geoms, feat_props, schema)
 
     # save corridor polygons
     corridor_polys = pd.concat(corridor_poly_list)
@@ -110,11 +104,15 @@ def process_single_line(line_args):
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
 
-    if CL_USE_SKIMAGE_GRAPH:
-        # skimage shortest path
-        lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
-    else:
-        lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
+    try:
+        if CL_USE_SKIMAGE_GRAPH:
+            # skimage shortest path
+            lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+        else:
+            lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
+    except Exception as e:
+        print(e)
+        return
 
     if lc_path:
         lc_path_coords = lc_path.coords

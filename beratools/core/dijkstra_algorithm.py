@@ -26,14 +26,14 @@ __copyright__ = '(C) 2023 by AppliedGRG'
 # This will get replaced with a git SHA1 when you do a git archive
 __revision__ = '$Format:%H$'
 
-import numpy as np
-from skimage.graph import route_through_array
 from math import sqrt
 import queue
-import collections
-from common import *
+from collections import defaultdict
+from skimage.graph import route_through_array
+from beratools.tools.common import *
 
 sqrt2 = sqrt(2)
+USE_NUMPY_FOR_DIJKSTRA = True
 
 
 class MinCostPathHelper:
@@ -151,7 +151,7 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
     result = []
     grid = Grid(block)
 
-    end_dict = collections.defaultdict(list)
+    end_dict = defaultdict(list)
     for end_tuple in end_tuples:
         end_dict[end_tuple[0]].append(end_tuple)
     end_row_cols = set(end_dict.keys())
@@ -362,7 +362,8 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
         matrix, contains_negative = MinCostPathHelper.block2matrix(image_data, ras_nodata)
 
     if contains_negative:
-        raise Exception('ERROR: Raster has negative values.')
+        print('ERROR: Raster has negative values.')
+        return default_return
 
     transformer = rasterio.transform.AffineTransformer(in_meta['transform'])
 
@@ -424,3 +425,36 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
         lc_path = LineString(path_points)
 
     return lc_path
+
+
+def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
+    lc_path_new = []
+    if len(cost_clip.shape) > 2:
+        cost_clip = np.squeeze(cost_clip, axis=0)
+
+    out_transform = in_meta['transform']
+    transformer = rasterio.transform.AffineTransformer(out_transform)
+
+    x1, y1 = list(seed_line.coords)[0][:2]
+    x2, y2 = list(seed_line.coords)[-1][:2]
+    row1, col1 = transformer.rowcol(x1, y1)
+    row2, col2 = transformer.rowcol(x2, y2)
+
+    try:
+        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
+    except Exception as e:
+        print(e)
+        return None
+
+    if path_new[0]:
+        for row, col in path_new[0]:
+            x, y = transformer.xy(row, col)
+            lc_path_new.append((x, y))
+
+    if len(lc_path_new) < 2:
+        print('No least cost path detected, pass.')
+        return None
+    else:
+        lc_path_new = LineString(lc_path_new)
+
+    return lc_path_new

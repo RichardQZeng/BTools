@@ -17,19 +17,18 @@ from itertools import zip_longest, compress
 
 import json
 import shlex
-import uuid
 import argparse
+import warnings
 import numpy as np
 
 import rasterio
-from rasterio import features, mask
+from rasterio import mask
 
 import fiona
 import shapely
 from shapely.affinity import rotate
-from shapely.ops import unary_union, split, transform, substring, linemerge, nearest_points
-from shapely.geometry import (shape, mapping, Point, LineString, MultiLineString,
-                              MultiPoint, Polygon, MultiPolygon, box)
+from shapely.ops import split, transform
+from shapely.geometry import shape, mapping, Point, LineString, box
 
 import pandas as pd
 import geopandas as gpd
@@ -37,80 +36,16 @@ from osgeo import ogr, gdal
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
 
-from skimage.graph import MCP_Geometric, route_through_array, MCP_Connect, MCP_Flexible
-from label_centerlines import get_centerline
+from skimage.graph import MCP_Geometric, MCP_Connect
 
-from multiprocessing.pool import Pool
-from dask.distributed import Client, as_completed
-from dask import config as cfg
-import dask.distributed
-import ray
-import warnings
-
-from enum import IntEnum, unique
 from scipy import ndimage
 import xarray as xr
 from xrspatial import focal
 
-cfg.set({'distributed.scheduler.worker-ttl': None})
-warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
+from beratools.core.tool_base import *
+
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
-
-
-@unique
-class CenterlineStatus(IntEnum):
-    SUCCESS = 1
-    FAILED = 2
-    REGENERATE_SUCCESS = 3
-    REGENERATE_FAILED = 4
-
-
-@unique
-class ParallelMode(IntEnum):
-    SEQUENTIAL = 1
-    MULTIPROCESSING = 2
-    DASK = 3
-    RAY = 4
-
-
-PARALLEL_MODE = ParallelMode.MULTIPROCESSING
-
-USE_SCIPY_DISTANCE = True
-USE_NUMPY_FOR_DIJKSTRA = True
-
-NADDatum = ['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
-
-BT_NODATA = -9999
-BT_NODATA_COST = np.inf
-BT_DEBUGGING = False
-BT_MAXIMUM_CPU_CORES = 60  # multiprocessing has limit of 64, consider pathos
-BT_BUFFER_RATIO = 0.0  # overlapping ratio of raster when clipping lines
-BT_LABEL_MIN_WIDTH = 130
-BT_SHOW_ADVANCED_OPTIONS = False
-BT_EPSILON = sys.float_info.epsilon  # np.finfo(float).eps
-BT_UID = 'BT_UID'
-
-GROUPING_SEGMENT = True
-LP_SEGMENT_LENGTH = 500
-
-# centerline
-CL_USE_SKIMAGE_GRAPH = False
-CL_BUFFER_CLIP = 5.0
-CL_BUFFER_CENTROID = 3.0
-CL_SNAP_TOLERANCE = 15.0
-CL_SEGMENTIZE_LENGTH = 1.0
-CL_SIMPLIFY_LENGTH = 0.5
-CL_SMOOTH_SIGMA = 0.8
-CL_DELETE_HOLES = True
-CL_SIMPLIFY_POLYGON = True
-CL_CLEANUP_POLYGON_BY_AREA = 1.0
-CL_POLYGON_BUFFER = 1e-6
-
-FP_CORRIDOR_THRESHOLD = 2.5
-FP_SEGMENTIZE_LENGTH = 2.0
-FP_FIXED_WIDTH_DEFAULT = 5.0
-FP_PERP_LINE_OFFSET = 30.0
 
 # restore .shx for shapefile for using GDAL or pyogrio
 gdal.SetConfigOption('SHAPE_RESTORE_SHX', 'YES')
@@ -126,15 +61,6 @@ if not BT_DEBUGGING:
 
     # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
     warnings.simplefilter(action='ignore', category=UserWarning)
-
-
-class OperationCancelledException(Exception):
-    pass
-
-
-def print_msg(app_name, step, total_steps):
-    print(f' "PROGRESS_LABEL {app_name} {step} of {total_steps}" ', flush=True)
-    print(f' %{step / total_steps * 100} ', flush=True)
 
 
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
@@ -333,7 +259,7 @@ def check_arguments():
     return args, verbose
 
 
-def save_features_to_shapefile(out_file, crs, geoms, schema=None, properties=None):
+def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=None):
     """
 
     Parameters
@@ -595,197 +521,6 @@ def cut(line, distance, lines):
     return lines
 
 
-def find_centerline(poly, input_line):
-    """
-    Parameters
-    ----------
-    poly : Polygon
-    input_line : LineString
-        Least cost path or seed line
-
-    Returns
-    -------
-
-    """
-    default_return = input_line, CenterlineStatus.FAILED
-    if not poly:
-        print('find_centerline: No polygon found')
-        return default_return
-
-    poly = shapely.segmentize(poly, max_segment_length=CL_SEGMENTIZE_LENGTH)
-
-    poly = poly.buffer(CL_POLYGON_BUFFER)  # buffer polygon to reduce MultiPolygons
-    if type(poly) is MultiPolygon:
-        print('MultiPolygon encountered, skip.')
-        return default_return
-
-    exterior_pts = list(poly.exterior.coords)
-
-    if CL_DELETE_HOLES:
-        poly = Polygon(exterior_pts)
-    if CL_SIMPLIFY_POLYGON:
-        poly = poly.simplify(CL_SIMPLIFY_LENGTH)
-
-    try:
-        centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
-                                    simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
-    except Exception as e:
-        print('Exception in get_centerline.')
-        return default_return
-
-    if type(centerline) is MultiLineString:
-        if len(centerline.geoms) > 1:
-            print(" Multiple centerline segments detected, no further processing.")
-            return centerline, CenterlineStatus.SUCCESS  # TODO: inspect
-        elif len(centerline.geoms) == 1:
-            centerline = centerline.geoms[0]
-        else:
-            return default_return
-
-    cl_coords = list(centerline.coords)
-
-    # trim centerline at two ends
-    head_buffer = Point(cl_coords[0]).buffer(CL_BUFFER_CLIP)
-    centerline = centerline.difference(head_buffer)
-
-    end_buffer = Point(cl_coords[-1]).buffer(CL_BUFFER_CLIP)
-    centerline = centerline.difference(end_buffer)
-
-    if not centerline:
-        print('No centerline detected, use input line instead.')
-        return default_return
-    try:
-        if centerline.is_empty:
-            print('Empty centerline detected, use input line instead.')
-            return default_return
-    except Exception as e:
-        print(e)
-
-    centerline = snap_end_to_end(centerline, input_line)
-
-    # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
-    if not centerline_is_valid(centerline, input_line):
-        try:
-            print(f'Regenerating line ...')
-            centerline = regenerate_centerline(poly, input_line)
-            return centerline, CenterlineStatus.REGENERATE_SUCCESS
-        except Exception as e:
-            print('find_centerline:  Exception occurred. \n {}'.format(e))
-            return input_line, CenterlineStatus.REGENERATE_FAILED
-
-    return centerline, CenterlineStatus.SUCCESS
-
-
-def find_route(array, start, end, fully_connected, geometric):
-    from skimage.graph import route_through_array
-    route_list, cost_list = route_through_array(array, start, end, fully_connected, geometric)
-    return route_list, cost_list
-
-
-def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
-    # Threshold corridor raster used for generating centerline
-    corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
-    corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
-    poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
-    corridor_polygon = []
-
-    try:
-        for poly, value in poly_generator:
-            if shape(poly).area > 1:
-                corridor_polygon.append(shape(poly))
-    except Exception as e:
-        print(e)
-
-    if corridor_polygon:
-        corridor_polygon = (unary_union(corridor_polygon))
-        if type(corridor_polygon) is MultiPolygon:
-            poly_list = shapely.get_parts(corridor_polygon)
-            merge_poly = poly_list[0]
-            for i in range(1, len(poly_list)):
-                if shapely.intersects(merge_poly, poly_list[i]):
-                    merge_poly = shapely.union(merge_poly, poly_list[i])
-                else:
-                    buffer_dist = poly_list[i].distance(merge_poly) + 0.1
-                    buffer_poly = poly_list[i].buffer(buffer_dist)
-                    merge_poly = shapely.union(merge_poly, buffer_poly)
-            corridor_polygon = merge_poly
-    else:
-        corridor_polygon = None
-
-    # create GeoDataFrame for centerline
-    corridor_poly_gpd = gpd.GeoDataFrame.copy(line_gpd)
-    corridor_poly_gpd.geometry = [corridor_polygon]
-
-    return corridor_poly_gpd
-
-
-def find_centerlines(poly_gpd, line_seg, processes):
-    centerline = None
-    centerline_gpd = []
-    rows_and_paths = []
-
-    try:
-        for i in poly_gpd.index:
-            row = poly_gpd.loc[[i]]
-            poly = row.geometry.iloc[0]
-            if 'OLnSEG' in line_seg.columns:
-                line_id, Seg_id = row['OLnFID'].iloc[0], row['OLnSEG'].iloc[0]
-                lc_path = line_seg.loc[(line_seg.OLnFID == line_id) & (line_seg.OLnSEG == Seg_id)]['geometry'].iloc[0]
-            else:
-                line_id = row['OLnFID'].iloc[0]
-                lc_path = line_seg.loc[(line_seg.OLnFID == line_id)]['geometry'].iloc[0]
-
-            rows_and_paths.append((row, lc_path))
-    except Exception as e:
-        print(e)
-
-    total_steps = len(rows_and_paths)
-    step = 0
-
-    if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
-        with Pool(processes=processes) as pool:
-            # execute tasks in order, process results out of order
-            for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
-                centerline_gpd.append(result)
-                step += 1
-                print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-                print(' %{} '.format(step / total_steps * 100))
-                print('Centerline No. {} done'.format(step))
-    elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
-        for item in rows_and_paths:
-            row_with_centerline = find_single_centerline(item)
-            centerline_gpd.append(row_with_centerline)
-            step += 1
-            print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-            print(' %{} '.format(step / total_steps * 100))
-            print('Centerline No. {} done'.format(step))
-
-    return pd.concat(centerline_gpd)
-
-
-def find_single_centerline(row_and_path):
-    """
-
-    Parameters
-    ----------
-    row_and_path:
-        list of row (polygon and props) and least cost path
-        first is geopandas row, second is input line, (least cost path)
-
-    Returns
-    -------
-
-    """
-    row = row_and_path[0]
-    lc_path = row_and_path[1]
-
-    poly = row.geometry.iloc[0]
-    centerline, status = find_centerline(poly, lc_path)
-    row['centerline'] = centerline
-
-    return row
-
-
 def line_angle(point_1, point_2):
     """
     Calculates the angle of the line
@@ -799,31 +534,6 @@ def line_angle(point_1, point_2):
 
     angle = math.atan2(delta_y, delta_x)
     return angle
-
-
-def centerline_is_valid(centerline, input_line):
-    """
-    Check if centerline is valid
-    Parameters
-    ----------
-    centerline :
-    input_line : shapely LineString
-        This can be input seed line or least cost path. Only two end points are used.
-
-    Returns
-    -------
-
-    """
-    if not centerline:
-        return False
-
-    # centerline length less the half of least cost path
-    if (centerline.length < input_line.length / 2 or
-            centerline.distance(Point(input_line.coords[0])) > BT_EPSILON or
-            centerline.distance(Point(input_line.coords[-1])) > BT_EPSILON):
-        return False
-
-    return True
 
 
 def generate_perpendicular_line_precise(points, offset=20):
@@ -884,116 +594,6 @@ def generate_perpendicular_line_precise(points, offset=20):
     return perp_line
 
 
-def regenerate_centerline(poly, input_line):
-    """
-    Regenerates centerline when initial
-    ----------
-    poly : line is not valid
-    Parameters
-    input_line : shapely LineString
-        This can be input seed line or least cost path. Only two end points will be used
-
-    Returns
-    -------
-
-    """
-    line_1 = substring(input_line, start_dist=0.0, end_dist=input_line.length / 2)
-    line_2 = substring(input_line, start_dist=input_line.length / 2, end_dist=input_line.length)
-
-    pts = shapely.force_2d([Point(list(input_line.coords)[0]),
-                            Point(list(line_1.coords)[-1]),
-                            Point(list(input_line.coords)[-1])])
-    perp = generate_perpendicular_line_precise(pts)
-
-    # MultiPolygon is rare, but need to be dealt with
-    # remove polygon of area less than CL_CLEANUP_POLYGON_BY_AREA
-    poly = poly.buffer(CL_POLYGON_BUFFER)
-    if type(poly) is MultiPolygon:
-        poly_geoms = list(poly.geoms)
-        poly_valid = [True] * len(poly_geoms)
-        for i, item in enumerate(poly_geoms):
-            if item.area < CL_CLEANUP_POLYGON_BY_AREA:
-                poly_valid[i] = False
-
-        poly_geoms = list(compress(poly_geoms, poly_valid))
-        if len(poly_geoms) != 1:  # still multi polygon
-            print('regenerate_centerline: Multi or none polygon found, pass.')
-
-        poly = Polygon(poly_geoms[0])
-
-    poly_exterior = Polygon(poly.buffer(CL_POLYGON_BUFFER).exterior)
-    poly_split = split(poly_exterior, perp)
-
-    if len(poly_split.geoms) < 2:
-        print('regenerate_centerline: polygon split failed, pass.')
-        return None
-
-    poly_1 = poly_split.geoms[0]
-    poly_2 = poly_split.geoms[1]
-
-    # find polygon and line pairs
-    pair_line_1 = line_1
-    pair_line_2 = line_2
-    if not poly_1.intersects(line_1):
-        pair_line_1 = line_2
-        pair_line_2 = line_1
-    elif poly_1.intersection(line_1).length < line_1.length / 3:
-        pair_line_1 = line_2
-        pair_line_2 = line_1
-
-    center_line_1 = find_centerline(poly_1, pair_line_1)
-    center_line_2 = find_centerline(poly_2, pair_line_2)
-
-    center_line_1 = center_line_1[0]
-    center_line_2 = center_line_2[0]
-
-    if not center_line_1 or not center_line_2:
-        print('Regenerate line: centerline is None')
-        return None
-
-    try:
-        if center_line_1.is_empty or center_line_2.is_empty:
-            print('Regenerate line: centerline is empty')
-            return None
-    except Exception as e:
-        print(e)
-
-    print(f'Centerline is regenerated.')
-    return linemerge(MultiLineString([center_line_1, center_line_2]))
-
-
-def snap_end_to_end(in_line, line_reference):
-    if type(in_line) is MultiLineString:
-        in_line = linemerge(in_line)
-        if type(in_line) is MultiLineString:
-            print(f'MultiLineString found {in_line.centroid}, pass.')
-            return None
-
-    pts = list(in_line.coords)
-    if len(pts) < 2:
-        print('snap_end_to_end: input line invalid.')
-        return in_line
-
-    line_start = Point(pts[0])
-    line_end = Point(pts[-1])
-    ref_ends = MultiPoint([line_reference.coords[0], line_reference.coords[-1]])
-
-    _, snap_start = nearest_points(line_start, ref_ends)
-    _, snap_end = nearest_points(line_end, ref_ends)
-
-    if in_line.has_z:
-        snap_start = shapely.force_3d(snap_start)
-        snap_end = shapely.force_3d(snap_end)
-    else:
-        snap_start = shapely.force_2d(snap_start)
-        snap_end = shapely.force_2d(snap_end)
-
-    pts[0] = snap_start.coords[0]
-    pts[-1] = snap_end.coords[0]
-
-    return LineString(pts)
-
-
 def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corridor_threshold):
     """
     Calculate corridor raster
@@ -1048,57 +648,7 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
         print('corridor_raster: Exception occurred.')
         return None
 
-    # export intermediate raster for debugging
-    if BT_DEBUGGING:
-        suffix = str(uuid.uuid4())[:8]
-        path_temp = Path(r'C:\BERATools\Surmont_New_AOI\test_selected_lines\temp_files')
-        if path_temp.exists():
-            path_cost = path_temp.joinpath(suffix + '_cost.tif')
-            path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
-            path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
-            path_corridor_cl = path_temp.joinpath(suffix + '_corridor_cl_poly.tif')
-            out_cost = np.ma.masked_equal(raster_clip, np.inf)
-            save_raster_to_file(out_cost, out_meta, path_cost)
-            save_raster_to_file(corridor, out_meta, path_corridor)
-            save_raster_to_file(corridor_norm, out_meta, path_corridor_norm)
-            save_raster_to_file(corridor_thresh_cl, out_meta, path_corridor_cl)
-        else:
-            print('Debugging: raster folder not exists.')
-
     return corridor_thresh_cl
-
-
-def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
-    lc_path_new = []
-    if len(cost_clip.shape) > 2:
-        cost_clip = np.squeeze(cost_clip, axis=0)
-
-    out_transform = in_meta['transform']
-    transformer = rasterio.transform.AffineTransformer(out_transform)
-
-    x1, y1 = list(seed_line.coords)[0][:2]
-    x2, y2 = list(seed_line.coords)[-1][:2]
-    row1, col1 = transformer.rowcol(x1, y1)
-    row2, col2 = transformer.rowcol(x2, y2)
-
-    try:
-        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
-    except Exception as e:
-        print(e)
-        return None
-
-    if path_new[0]:
-        for row, col in path_new[0]:
-            x, y = transformer.xy(row, col)
-            lc_path_new.append((x, y))
-
-    if len(lc_path_new) < 2:
-        print('No least cost path detected, pass.')
-        return None
-    else:
-        lc_path_new = LineString(lc_path_new)
-
-    return lc_path_new
 
 
 def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
@@ -1136,91 +686,6 @@ def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
         lc_path_new = LineString(lc_path_new)
 
     return lc_path_new
-
-
-def result_is_valid(result):
-    if type(result) is list or type(result) is tuple:
-        if len(result) > 0:
-            return True
-    elif type(result) is pd.DataFrame or type(result) is gpd.GeoDataFrame:
-        if not result.empty:
-            return True
-    elif result:
-        return True
-
-    return False
-
-
-def execute_multiprocessing(in_func, app_name, in_data, processes, workers,
-                            mode=PARALLEL_MODE, verbose=False):
-    out_result = []
-    step = 0
-    print("Using {} CPU cores".format(processes))
-    total_steps = len(in_data)
-
-    try:
-        if mode == ParallelMode.MULTIPROCESSING:
-            print("Multiprocessing started...")
-
-            with Pool(processes) as pool:
-                for result in pool.imap_unordered(in_func, in_data):
-                    if result_is_valid(result):
-                        out_result.append(result)
-
-                    step += 1
-                    print_msg(app_name, step, total_steps)
-
-            pool.close()
-            pool.join()
-
-        elif mode == ParallelMode.DASK:
-            dask_client = Client(threads_per_worker=1, n_workers=processes)
-            print(dask_client)
-            try:
-                print('start processing')
-                result = dask_client.map(in_func, in_data)
-                seq = as_completed(result)
-
-                for i in seq:
-                    if result_is_valid(result):
-                        out_result.append(i.result())
-
-                    step += 1
-                    print_msg(app_name, step, total_steps)
-            except Exception as e:
-                dask_client.close()
-
-            dask_client.close()
-
-        elif mode == ParallelMode.RAY:
-            ray.init(log_to_driver=False)
-            process_single_line_ray = ray.remote(in_func)
-            result_ids = [process_single_line_ray.remote(item) for item in in_data]
-
-            while len(result_ids):
-                done_id, result_ids = ray.wait(result_ids)
-                result_item = ray.get(done_id[0])
-
-                if result_is_valid(result_item):
-                    out_result.append(result_item)
-
-                step += 1
-                print_msg(app_name, step, total_steps)
-            ray.shutdown()
-
-        elif mode == ParallelMode.SEQUENTIAL:
-            for line in in_data:
-                result_item = in_func(line)
-                if result_is_valid(result_item):
-                    out_result.append(result_item)
-
-                step += 1
-                print_msg(app_name, step, total_steps)
-    except OperationCancelledException:
-        print("Operation cancelled")
-        return None
-
-    return out_result
 
 
 def chk_df_multipart(df, chk_shp_in_string):

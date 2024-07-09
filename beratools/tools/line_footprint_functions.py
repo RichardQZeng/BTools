@@ -29,22 +29,22 @@
 # ---------------------------------------------------------------------------
 
 import time
-from scipy import stats
-from geopandas import GeoDataFrame
+import numpy as np
 
-# from scipy import ndimage
-from rasterio import mask
+import rasterio
+from scipy import stats, ndimage
+from geopandas import GeoDataFrame
 from shapely import buffer
+from rasterio import features
+from xrspatial import convolution
 
 import skimage
 from skimage.morphology import *
-from beratools.tools.dijkstra_algorithm import *
+from skimage.graph import MCP_Flexible
 
-import numpy as np
-
-
-class OperationCancelledException(Exception):
-    pass
+from beratools.core.constants import *
+from beratools.core.algo_centerline import *
+from beratools.tools.common import *
 
 
 def dyn_canopy_cost_raster(args):
@@ -131,7 +131,7 @@ def split_line_fc(line):
 
 def split_line_npart(line):
     # Work out n parts for each line (divided by LP_SEGMENT_LENGTH)
-    n = math.ceil(line.length / LP_SEGMENT_LENGTH)
+    n = int(np.ceil(line.length / LP_SEGMENT_LENGTH))
     if n > 1:
         # divided line into n-1 equal parts;
         distances = np.linspace(0, line.length, n)
@@ -268,41 +268,41 @@ def generate_line_args(line_seg, work_in_bufferL, work_in_bufferC, raster, tree_
 
     return line_argsL, line_argsR, line_argsC
 
-
-def find_corridor_threshold_boundary(canopy_clip, least_cost_path, corridor_raster):
-    threshold = -1
-    thresholds = [-1] * 10
-
-    # morphological filters to get polygons from canopy raster
-    canopy_bin = np.where(np.isclose(canopy_clip, 1.0), True, False)
-    clean_holes = remove_small_holes(canopy_bin)
-    clean_obj = remove_small_objects(clean_holes)
-
-    polys = features.shapes(skimage.img_as_ubyte(clean_obj), mask=clean_obj)
-    polys = [shape(poly).segmentize(FP_SEGMENTIZE_LENGTH) for poly, _ in polys]
-
-    # perpendicular segments intersections with polygons
-    size = corridor_raster.shape
-    pts = []
-    for poly in polys:
-        pts.extend(list(poly.exterior.coords))
-
-    index_0 = []
-    index_1 = []
-    for pt in pts:
-        if int(pt[0]) < size[1] and int(pt[1]) < size[0]:
-            index_0.append(int(pt[0]))
-            index_1.append(int(pt[1]))
-
-    try:
-        thresholds = corridor_raster[index_1, index_0]
-    except Exception as e:
-        print(e)
-
-    # trimmed mean of values at intersections
-    threshold = stats.trim_mean(thresholds, 0.3)
-
-    return threshold
+#
+# def find_corridor_threshold_boundary(canopy_clip, least_cost_path, corridor_raster):
+#     threshold = -1
+#     thresholds = [-1] * 10
+#
+#     # morphological filters to get polygons from canopy raster
+#     canopy_bin = np.where(np.isclose(canopy_clip, 1.0), True, False)
+#     clean_holes = remove_small_holes(canopy_bin)
+#     clean_obj = remove_small_objects(clean_holes)
+#
+#     polys = features.shapes(skimage.img_as_ubyte(clean_obj), mask=clean_obj)
+#     polys = [shape(poly).segmentize(FP_SEGMENTIZE_LENGTH) for poly, _ in polys]
+#
+#     # perpendicular segments intersections with polygons
+#     size = corridor_raster.shape
+#     pts = []
+#     for poly in polys:
+#         pts.extend(list(poly.exterior.coords))
+#
+#     index_0 = []
+#     index_1 = []
+#     for pt in pts:
+#         if int(pt[0]) < size[1] and int(pt[1]) < size[0]:
+#             index_0.append(int(pt[0]))
+#             index_1.append(int(pt[1]))
+#
+#     try:
+#         thresholds = corridor_raster[index_1, index_0]
+#     except Exception as e:
+#         print(e)
+#
+#     # trimmed mean of values at intersections
+#     threshold = stats.trim_mean(thresholds, 0.3)
+#
+#     return threshold
 
 
 def find_corridor_threshold(raster):
@@ -346,7 +346,7 @@ def process_single_line_relative(segment):
 
     # this will change segment content, and parameters will be changed
     segment = dyn_canopy_cost_raster(segment)
-    # Segement after Clipped Canopy and Cost Raster
+    # Segment after Clipped Canopy and Cost Raster
     # line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer
 
     # this function takes single line to work the line footprint
@@ -423,31 +423,9 @@ def process_single_line_relative(segment):
         # normalize corridor raster by deducting corr_min
         corridor_norm = corridor - corr_min
 
-        # export intermediate raster for debugging
-        BT_DEBUGGING = False
-        if BT_DEBUGGING:
-            suffix = str(uuid.uuid4())[:8]
-            path_temp = Path(r"D:\BT_Test\ConcaveHull\test-cost")
-            if path_temp.exists():
-                path_canopy = path_temp.joinpath(suffix + '_canopy.tif')
-                path_cost = path_temp.joinpath(suffix + '_cost.tif')
-                path_corridor = path_temp.joinpath(suffix + '_corridor.tif')
-                path_corridor_min = path_temp.joinpath(suffix + '_corridor_min.tif')
-                path_corridor_norm = path_temp.joinpath(suffix + '_corridor_norm.tif')
-                out_canopy = np.ma.masked_equal(in_canopy_r, np.inf)
-                out_cost = np.ma.masked_equal(in_cost_r, np.inf)
-                save_raster_to_file(out_canopy, in_meta, path_canopy)
-                save_raster_to_file(out_cost, in_meta, path_cost)
-                save_raster_to_file(corridor, in_meta, path_corridor)
-                save_raster_to_file(corridor_norm, in_meta, path_corridor_min)
-                save_raster_to_file(corridor_norm * 100 / df.length.iloc[0], in_meta, path_corridor_norm)
-            else:
-                print('Debugging: raster folder not exists.')
-
         # Set minimum as zero and save minimum file
         # corridor_th_value = find_corridor_threshold(corridor_norm)
         corridor_th_value = (Cut_Dist / cell_size_x)
-        # corridor_th_value = find_corridor_threshold_boundary(in_canopy_r, feat, corridor_norm)
         if corridor_th_value < 0:  # if no threshold found, use default value
             corridor_th_value = (FP_CORRIDOR_THRESHOLD / cell_size_x)
 
@@ -483,8 +461,7 @@ def process_single_line_relative(segment):
             # BERA proposed Binary morphology Shrink
             # fileShrink = ndimage.binary_erosion((Expanded),iterations=Exp_Shk_cell,border_value=1)
         else:
-            if BT_DEBUGGING:
-                print('No Expand And Shrink cell performed.')
+            print('No Expand And Shrink cell performed.')
 
             file_shrink = raster_class
 
@@ -610,8 +587,10 @@ def main_line_footprint_relative(callback, in_line, in_chm, max_ln_width, exp_sh
             work_in_bufferC['geometry'] = buffer(work_in_bufferC['geometry'], distance=float(max_ln_width),
                                                  cap_style=3, single_sided=False)
             print("Prepare arguments for Dynamic FP ...")
-            # line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC, raster, tree_radius, max_line_dist,
-            #                                canopy_avoidance, exponent, work_in_bufferR,canopy_thresh_percentage)
+            # line_argsL, line_argsR,line_argsC= generate_line_args(line_seg_split, work_in_bufferL,work_in_bufferC,
+            #                                                       raster, tree_radius, max_line_dist,
+            #                                                       canopy_avoidance, exponent, work_in_bufferR,
+            #                                                       canopy_thresh_percentage)
 
             line_argsL, line_argsR, line_argsC = generate_line_args_DFP_NoClip(line_seg_split, work_in_bufferL,
                                                                                work_in_bufferC, raster, in_chm,

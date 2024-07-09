@@ -6,6 +6,7 @@ import time
 from beratools.tools.common import *
 from beratools.tools.r_interface import *
 
+
 def hh_raster(callback, in_las_folder, Min_ws, lawn_range, cell_size, out_folder, processes, verbose):
     rprocesses = r_processes(processes)
 

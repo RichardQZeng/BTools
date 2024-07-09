@@ -26,11 +26,10 @@
 #
 # ---------------------------------------------------------------------------
 # System imports
-import os
 import sys
 import time
-import numpy as np
 from pathlib import Path
+from inspect import getsourcefile
 
 import fiona
 from shapely.geometry import shape, Point, LineString, MultiLineString, GeometryCollection
@@ -39,13 +38,15 @@ from xrspatial import convolution
 
 from inspect import getsourcefile
 
+
 if __name__ == '__main__':
     current_file = Path(getsourcefile(lambda: 0)).resolve()
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
 
+from beratools.core.tool_base import *
 from beratools.tools.common import *
-from beratools.tools.dijkstra_algorithm import *
+from beratools.core.dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
@@ -241,6 +242,7 @@ class Vertex:
         cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
         cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
 
+        # TODO avoidance, re-use this code
         avoidance = max(min(float(0.4), 1), 0)
         cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                        cc_smooth, 0.4, 1.5)
@@ -557,8 +559,8 @@ def vertex_optimization(callback, in_line, in_chm, line_radius, out_line, proces
     vg = VertexGrouping(callback, in_line, in_chm, line_radius, out_line)
     vg.group_vertices()
 
-    vertices = execute_multiprocessing(process_single_line, 'Vertex Optimization',
-                                       vg.vertex_grp, processes, 1, verbose=verbose)
+    vertices = execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
+                                       processes, 1, verbose=verbose)
 
     # No line generated, exit
     if len(vertices) <= 0:
@@ -623,10 +625,10 @@ def vertex_optimization(callback, in_line, in_chm, line_radius, out_line, proces
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    save_features_to_shapefile(file_line, vg.crs, all_lines, vg.in_schema, all_props)
-    save_features_to_shapefile(file_lc, vg.crs, leastcost_list, fields, properties)
-    save_features_to_shapefile(file_anchors, vg.crs, anchor_list, fields, properties)
-    save_features_to_shapefile(file_inter, vg.crs, inter_list, fields, properties)
+    save_features_to_shapefile(file_line, vg.crs, all_lines, all_props, vg.in_schema)
+    save_features_to_shapefile(file_lc, vg.crs, leastcost_list, properties, fields)
+    save_features_to_shapefile(file_anchors, vg.crs, anchor_list, properties, fields)
+    save_features_to_shapefile(file_inter, vg.crs, inter_list, properties, fields)
 
 
 if __name__ == '__main__':
