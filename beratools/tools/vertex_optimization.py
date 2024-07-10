@@ -256,15 +256,13 @@ class Vertex:
                 seed_line = LineString(self.anchors[0:2])
 
                 raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-                in_raster = np.squeeze(raster_clip, axis=0)
                 if not HAS_COST_RASTER:
-                    raster_clip = cost_raster(in_raster, out_meta)
+                    raster_clip = cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
                 seed_line = LineString(self.anchors[2:4])
 
                 raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-                raster_clip = np.squeeze(raster_clip, axis=0)
                 if not HAS_COST_RASTER:
                     raster_clip = cost_raster(raster_clip, out_meta)
 
@@ -276,7 +274,6 @@ class Vertex:
                 seed_line = LineString(self.anchors)
 
                 raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-                raster_clip = np.squeeze(raster_clip, axis=0)
                 if not HAS_COST_RASTER:
                     raster_clip = cost_raster(raster_clip, out_meta)
 

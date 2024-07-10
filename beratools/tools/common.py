@@ -756,6 +756,9 @@ def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
 
 
 def cost_raster(in_raster, meta):
+    if len(in_raster.shape) > 2:
+        in_raster = np.squeeze(in_raster, axis=0)
+
     # raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
     # in_raster = np.squeeze(in_raster, axis=0)
     cell_x, cell_y = meta['transform'][0], -meta['transform'][4]
