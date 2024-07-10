@@ -1,5 +1,14 @@
 import time
 
+import sys
+from pathlib import Path
+from inspect import getsourcefile
+
+if __name__ == "__main__":
+    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    btool_dir = current_file.parents[2]
+    sys.path.insert(0, btool_dir.as_posix())
+
 from beratools.core.algo_centerline import *
 from beratools.core.dijkstra_algorithm import *
 from beratools.core.constants import *
@@ -100,7 +109,6 @@ def process_single_line(line_args):
     line_radius = float(line_radius)
 
     cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
-    cost_clip = np.squeeze(cost_clip, axis=0)
 
     if not HAS_COST_RASTER:
         cost_clip = cost_raster(cost_clip, out_meta)
