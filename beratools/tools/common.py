@@ -773,6 +773,8 @@ def cost_raster(in_raster, meta):
     cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                    cc_smooth, 0.4, 1.5)
 
+    cost_clip[np.isnan(in_raster)] = np.nan
+
     return cost_clip
 
 
