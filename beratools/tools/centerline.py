@@ -71,7 +71,7 @@ def process_single_line(line_args):
     prop['status'] = status.value
 
     print(" Searching centerline: line {} ".format(line_id), flush=True)
-    return lc_path, prop, center_line, corridor_poly_gpd
+    return center_line, lc_path, prop, corridor_poly_gpd
 
 
 def centerline(callback, in_line, in_raster, line_radius,
@@ -124,7 +124,7 @@ def centerline(callback, in_line, in_raster, line_radius,
 
     print('{} lines to be processed.'.format(len(all_lines)))
 
-    feat_geoms = []
+    lc_path_geoms = []
     feat_props = []
     center_line_geoms = []
     corridor_poly_list = []
@@ -132,24 +132,23 @@ def centerline(callback, in_line, in_raster, line_radius,
                                      processes, 1, verbose=verbose)
 
     for item in result:
-        geom = item[0]
-        prop = item[1]
-        center_line = item[2]
+        center_line = item[0]
+        lc_path = item[1]
+        prop = item[2]
         corridor_poly = item[3]
 
-        if geom and prop:
-            feat_geoms.append(geom)
+        if lc_path and prop:
+            lc_path_geoms.append(lc_path)
             feat_props.append(prop)
             center_line_geoms.append(center_line)
             corridor_poly_list.append(corridor_poly)
 
     out_centerline_path = Path(out_line)
-    out_least_cost_path = out_centerline_path.with_stem(out_centerline_path.stem + '_least_cost_path')
     schema['properties']['status'] = 'int'
-    if not BT_DEBUGGING:
-        save_features_to_shapefile(out_centerline_path.as_posix(), layer_crs, feat_geoms, feat_props, schema)
+    save_features_to_shapefile(out_centerline_path.as_posix(), layer_crs, center_line_geoms, feat_props, schema)
 
-    save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, center_line_geoms, feat_props, schema)
+    out_least_cost_path = out_centerline_path.with_stem(out_centerline_path.stem + '_least_cost_path')
+    save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, lc_path_geoms, feat_props, schema)
 
     # save corridor polygons
     corridor_polys = pd.concat(corridor_poly_list)
