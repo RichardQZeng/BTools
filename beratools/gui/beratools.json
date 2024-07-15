@@ -326,9 +326,9 @@
                             "optional": false
                         },
                         {
-                            "variable": "in_chm",
-                            "parameter": "CHM Raster",
-                            "description": "Input CHM raster used to calculate the least cost path.",
+                            "variable": "in_raster",
+                            "parameter": "CHM/Cost Raster",
+                            "description": "Input CHM/Cost raster used to calculate the least cost path.",
                             "type": "raster",
                             "typelab": "TIF",
                             "default": "",
@@ -358,12 +358,12 @@
                     ]
                 },
                 {
-                    "name": "LCP from CHM",
-                    "info": "Finding Least Cost path from Corridor between vertices of the input lines using CHM.",
+                    "name": "Least Cost Path from CHM",
+                    "info": "Finding Least Cost path from Corridor between line vertices using CHM.",
                     "multiprocessing": true,
                     "batch_processing": true,
                     "tool_type": "python",
-                    "tool_api": "Corridor_LCP_frCHM",
+                    "tool_api": "least_cost_path_from_chm",
                     "paramFile": "\\Scripts\\FLM_CL_params.txt",
                     "image": "../Images/FLM_IO_CenterLine.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/Centerline.html",
@@ -443,8 +443,8 @@
                             "optional": false
                         },
                         {
-							"variable": "in_cost",
-                            "parameter": "Cost Raster",
+							"variable": "in_raster",
+                            "parameter": "CHM/Cost Raster",
                             "description": "Input raster image used to calculate the least cost path.",
                             "type": "raster",
                             "typelab": "TIF",
@@ -1581,7 +1581,7 @@
                     "info": "Compute percentage of returns above DBH from Lidar data.",
                     "batch_processing": false,
                     "tool_type": "python",
-                    "tool_api": "rpy_PercentaboveDBH",
+                    "tool_api": "rpy_percent_above_dbh",
                     "paramFile": "\\Scripts\\RPY_PercentaboveDBH_params.txt",
                     "image": "",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/xxx.html",
@@ -2200,12 +2200,12 @@
                     ]
                 },
                 {
-                    "name": "LiDAR to LPI raster and eLAI raster",
+                    "name": "LiDAR to LPI and eLAI rasters",
                     "info": "Generate LiDAR penetration index (LPI) raster and effective leaf area index (eLAI) raster based on Beer's Law from classified point cloud.",
                     "multiprocessing": true,
                     "batch_processing": false,
                     "tool_type": "python",
-                    "tool_api": "rpy_LPI_eLAI_lasCat",
+                    "tool_api": "rpy_lpi_elai_lascat",
                     "paramFile": "\\Scripts\\FLM_ZT_params.txt",
                     "image": "../Images/FLM_IO_ZT.gif",
                     "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Auxiliary/ZonalThreshold.html",

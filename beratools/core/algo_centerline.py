@@ -4,7 +4,8 @@ import shapely
 from shapely.geometry import shape
 from shapely.ops import unary_union, substring, linemerge, nearest_points, split
 from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, LineString, MultiLineString
-from label_centerlines import get_centerline
+from beratools.third_party.label_centerlines import get_centerline
+# from label_centerlines import get_centerline
 
 from beratools.core.tool_base import *
 from beratools.core.constants import *
@@ -40,7 +41,7 @@ def snap_end_to_end(in_line, line_reference):
     if type(in_line) is MultiLineString:
         in_line = linemerge(in_line)
         if type(in_line) is MultiLineString:
-            print(f'MultiLineString found {in_line.centroid}, pass.')
+            print(f'algo_centerline: MultiLineString found {in_line.centroid}, pass.')
             return None
 
     pts = list(in_line.coords)
@@ -99,11 +100,16 @@ def find_centerline(poly, input_line):
     if CL_SIMPLIFY_POLYGON:
         poly = poly.simplify(CL_SIMPLIFY_LENGTH)
 
+    line_coords = list(input_line.coords)
+    src_geom = Point(line_coords[0]).buffer(CL_BUFFER_CLIP*3).intersection(poly)
+    dst_geom = Point(line_coords[-1]).buffer(CL_BUFFER_CLIP*3).intersection(poly)
+
     try:
         centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
-                                    simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1)
+                                    simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1,
+                                    src_geom=src_geom, dst_geom=dst_geom)
     except Exception as e:
-        print('Exception in get_centerline.')
+        print(e)
         return default_return
 
     if type(centerline) is MultiLineString:

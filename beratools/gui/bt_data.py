@@ -15,7 +15,6 @@ import platform
 import json
 from json.decoder import JSONDecodeError
 import multiprocessing
-from subprocess import CalledProcessError
 from collections import OrderedDict
 
 from beratools.tools.common import *
@@ -168,6 +167,7 @@ class BTData(object):
             if callback is None:
                 callback = self.default_callback
 
+            # TODO work_dir should be checked
             work_dir = os.getcwd()
             os.chdir(self.exe_path)
         except Exception as err:
@@ -209,38 +209,24 @@ class BTData(object):
         """ 
         Retrieves the help description for BERA Tools.
         """
-        work_dir = None
         try:
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
-
             about_text = 'BERA Tools provide a series of tools developed by AppliedGRG lab.\n\n'
             about_text += self.ascii_art
-
             return about_text
-
-        except (OSError, ValueError, CalledProcessError) as err:
+        except (OSError, ValueError) as err:
             return err
-        finally:
-            os.chdir(work_dir)
 
     def license(self):
         """ 
         Retrieves the license information for BERA Tools.
         """
-
-        work_dir = os.getcwd()
-        os.chdir(self.exe_path)
-
         try:
             with open(os.path.join(self.exe_path, r'..\..\LICENSE.txt'), 'r') as f:
                 ret = f.read()
 
             return ret
-        except (OSError, ValueError, CalledProcessError) as err:
+        except (OSError, ValueError) as err:
             return err
-        finally:
-            os.chdir(work_dir)
 
     def load_saved_tool_info(self):
         data_path = Path(self.setting_file).parent
