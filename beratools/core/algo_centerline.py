@@ -101,8 +101,12 @@ def find_centerline(poly, input_line):
         poly = poly.simplify(CL_SIMPLIFY_LENGTH)
 
     line_coords = list(input_line.coords)
+
+    # TODO add more code to filter voronoi vertices
     src_geom = Point(line_coords[0]).buffer(CL_BUFFER_CLIP*3).intersection(poly)
     dst_geom = Point(line_coords[-1]).buffer(CL_BUFFER_CLIP*3).intersection(poly)
+    src_geom = None
+    dst_geom = None
 
     try:
         centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
@@ -110,6 +114,9 @@ def find_centerline(poly, input_line):
                                     src_geom=src_geom, dst_geom=dst_geom)
     except Exception as e:
         print(e)
+        return default_return
+
+    if not centerline:
         return default_return
 
     if type(centerline) is MultiLineString:
@@ -197,7 +204,7 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
     return corridor_poly_gpd
 
 
-def find_single_centerline(row_and_path):
+def process_single_centerline(row_and_path):
     """
 
     Parameters
@@ -246,7 +253,7 @@ def find_centerlines(poly_gpd, line_seg, processes):
     # if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
     #     with Pool(processes=processes) as pool:
     #         # execute tasks in order, process results out of order
-    #         for result in pool.imap_unordered(find_single_centerline, rows_and_paths):
+    #         for result in pool.imap_unordered(process_single_centerline, rows_and_paths):
     #             centerline_gpd.append(result)
     #             step += 1
     #             print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
@@ -254,13 +261,13 @@ def find_centerlines(poly_gpd, line_seg, processes):
     #             print('Centerline No. {} done'.format(step))
     # elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
     #     for item in rows_and_paths:
-    #         row_with_centerline = find_single_centerline(item)
+    #         row_with_centerline = process_single_centerline(item)
     #         centerline_gpd.append(row_with_centerline)
     #         step += 1
     #         print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
     #         print(' %{} '.format(step / total_steps * 100))
     #         print('Centerline No. {} done'.format(step))
-    centerline_gpd = execute_multiprocessing(find_single_centerline, rows_and_paths,
+    centerline_gpd = execute_multiprocessing(process_single_centerline, rows_and_paths,
                                              'find_centerlines', processes, 1)
     return pd.concat(centerline_gpd)
 

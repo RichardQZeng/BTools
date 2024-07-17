@@ -15,16 +15,55 @@ from beratools.core.constants import *
 from common import *
 
 
+# TODO duplicate with the same-name function in algo_centerline
+# TODO after testing new ideas, merge back to there
+def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
+    # Threshold corridor raster used for generating centerline
+    corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
+    corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
+    poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
+    corridor_polygon = []
+
+    try:
+        for poly, value in poly_generator:
+            if shape(poly).area > 1:
+                corridor_polygon.append(shape(poly))
+    except Exception as e:
+        print(e)
+
+    if corridor_polygon:
+        corridor_polygon = (unary_union(corridor_polygon))
+        if type(corridor_polygon) is MultiPolygon:
+            poly_list = shapely.get_parts(corridor_polygon)
+            merge_poly = poly_list[0]
+            for i in range(1, len(poly_list)):
+                if shapely.intersects(merge_poly, poly_list[i]):
+                    merge_poly = shapely.union(merge_poly, poly_list[i])
+                else:
+                    buffer_dist = poly_list[i].distance(merge_poly) + 0.1
+                    buffer_poly = poly_list[i].buffer(buffer_dist)
+                    merge_poly = shapely.union(merge_poly, buffer_poly)
+            corridor_polygon = merge_poly
+    else:
+        corridor_polygon = None
+
+    # create GeoDataFrame for centerline
+    corridor_poly_gpd = gpd.GeoDataFrame.copy(line_gpd)
+    corridor_poly_gpd.geometry = [corridor_polygon]
+
+    return corridor_poly_gpd
+
+
 def process_single_line(line_args):
     line = line_args[0][0]
     prop = line_args[0][1]
     line_radius = line_args[1]
-    in_cost_raster = line_args[2]
+    in_raster = line_args[2]
     line_id = line_args[3]
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
 
-    cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
+    cost_clip, out_meta = clip_raster(in_raster, seed_line, line_radius)
 
     if not HAS_COST_RASTER:
         cost_clip = cost_raster(cost_clip, out_meta)
@@ -52,7 +91,10 @@ def process_single_line(line_args):
 
     # get corridor raster
     lc_path = LineString(lc_path_coords)
-    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius * 0.9)
+    cost_clip, out_meta = clip_raster(in_raster, lc_path, line_radius * 0.9)
+    if not HAS_COST_RASTER:
+        cost_clip = cost_raster(cost_clip, out_meta)
+
     out_transform = out_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
     cell_size = (out_transform[0], -out_transform[4])

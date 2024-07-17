@@ -202,7 +202,8 @@ def process_single_line_segment(dict_segment):
 
     # Create Point "origin"
     origin_point = shapely.Point([x1, y1])
-    origin = [shapes for shapes in gpd.GeoDataFrame(geometry=[origin_point], crs=shapefile_proj).geometry]
+    origin = [shapes for shapes in gpd.GeoDataFrame(geometry=[origin_point],
+                                                    crs=shapefile_proj).geometry]
 
     # Create Point "destination"
     destination_point = shapely.Point([x2, y2])
