@@ -166,8 +166,8 @@ def process_single_line_whole(line):
 def process_single_line_segment(dict_segment):
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
-    in_canopy_r = dict_segment['in_canopy_r']
-    in_cost_r = dict_segment['in_cost_r']
+    in_canopy = dict_segment['in_canopy']
+    in_cost = dict_segment['in_cost']
     corridor_th_value = dict_segment['corridor_th_value']
     line_gpd = dict_segment['line_gpd']
 
@@ -212,46 +212,54 @@ def process_single_line_segment(dict_segment):
 
     # Buffer around line and clip cost raster and canopy raster
     # TODO: deal with NODATA
-    clip_in_cost_r, out_meta = clip_raster(in_cost_r, feat, max_ln_width)
+    clip_in_cost, out_meta = clip_raster(in_cost, feat, max_ln_width)
     out_transform = out_meta['transform']
     cell_size_x = out_transform[0]
     cell_size_y = -out_transform[4]
 
-    clip_in_canopy_r, out_meta = clip_raster(in_canopy_r, feat, max_ln_width)
+    if not HAS_COST_RASTER:
+        clip_in_cost, _ = cost_raster(clip_in_cost, out_meta)
+
+    clip_in_canopy, out_meta = clip_raster(in_canopy, feat, max_ln_width)
     if not out_meta['nodata']:
         out_meta['nodata'] = BT_NODATA
 
     # Work out the corridor from both end of the centerline
     try:
-        clip_canopy_r = np.squeeze(clip_in_canopy_r, axis=0)
+        clip_canopy = np.squeeze(clip_in_canopy, axis=0)
         transformer = rasterio.transform.AffineTransformer(out_transform)
         source = [transformer.rowcol(x1, y1)]
         destination = [transformer.rowcol(x2, y2)]
 
-        corridor_thresh = corridor_raster(clip_in_cost_r, out_meta, source, destination,
+        corridor_thresh = corridor_raster(clip_in_cost, out_meta, source, destination,
                                           (cell_size_x, cell_size_y), corridor_th_value)
 
-        # Process: Stamp CC and Max Line Width
-        temp1 = (corridor_thresh + clip_canopy_r)
-        raster_class = np.ma.where(temp1 == 0, 1, 0).data
+        def morph_raster(corridor_raster, canopy_raster, exp_shk_cell, cell_size_x):
+            # Process: Stamp CC and Max Line Width
+            temp1 = (corridor_thresh + clip_canopy)
+            raster_class = np.ma.where(temp1 == 0, 1, 0).data
 
-        if exp_shk_cell > 0 and cell_size_x < 1:
-            # Process: Expand
-            # FLM original Expand equivalent
-            cell_size = int(exp_shk_cell * 2 + 1)
-            expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
+            if exp_shk_cell > 0 and cell_size_x < 1:
+                # Process: Expand
+                # FLM original Expand equivalent
+                cell_size = int(exp_shk_cell * 2 + 1)
+                expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
 
-            # Process: Shrink
-            # FLM original Shrink equivalent
-            file_shrink = ndimage.grey_erosion(expanded, size=(cell_size, cell_size))
+                # Process: Shrink
+                # FLM original Shrink equivalent
+                file_shrink = ndimage.grey_erosion(expanded, size=(cell_size, cell_size))
 
-        else:
-            if BT_DEBUGGING:
-                print('No Expand And Shrink cell performed.')
-            file_shrink = raster_class
+            else:
+                if BT_DEBUGGING:
+                    print('No Expand And Shrink cell performed.')
+                file_shrink = raster_class
 
-        # Process: Boundary Clean
-        clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode='nearest')
+            # Process: Boundary Clean
+            clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode='nearest')
+
+            return clean_raster
+
+        clean_raster = morph_raster(corridor_thresh, in_canopy, exp_shk_cell, cell_size_x)
 
         # creat mask for non-polygon area
         msk = np.where(clean_raster == 1, True, False)
@@ -283,7 +291,7 @@ def process_single_line_segment(dict_segment):
         return None
 
 
-def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, corridor_th_value,
+def line_prepare(callback, line_seg, in_canopy, in_cost, corridor_th_field, corridor_th_value,
                  max_ln_width, exp_shk_cell, proc_seg, out_footprint, out_centerline, ori_total_feat):
     # get the list of original columns names
     field_list_col = field_name_list(line_seg)
@@ -317,8 +325,8 @@ def line_prepare(callback, line_seg, in_canopy_r, in_cost_r, corridor_th_field, 
 
     # Add tools arguments into GeoDataFrame record
     for record in list_of_segment:
-        record['in_canopy_r'] = in_canopy_r
-        record['in_cost_r'] = in_cost_r
+        record['in_canopy'] = in_canopy
+        record['in_cost'] = in_cost
         record['corridor_th_field'] = corridor_th_field
         record['corridor_th_value'] = record['CorridorTh']
         record['max_ln_width'] = max_ln_width

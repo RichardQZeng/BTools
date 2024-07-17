@@ -257,14 +257,14 @@ class Vertex:
 
                 raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
                 if not HAS_COST_RASTER:
-                    raster_clip = cost_raster(raster_clip, out_meta)
+                    raster_clip, _ = cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
                 seed_line = LineString(self.anchors[2:4])
 
                 raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
                 if not HAS_COST_RASTER:
-                    raster_clip = cost_raster(raster_clip, out_meta)
+                    raster_clip, _ = cost_raster(raster_clip, out_meta)
 
                 centerline_2 = find_lc_path(raster_clip, out_meta, seed_line)
 
@@ -275,7 +275,7 @@ class Vertex:
 
                 raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
                 if not HAS_COST_RASTER:
-                    raster_clip = cost_raster(raster_clip, out_meta)
+                    raster_clip, _ = cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 

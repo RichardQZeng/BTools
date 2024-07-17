@@ -66,7 +66,7 @@ def process_single_line(line_args):
     cost_clip, out_meta = clip_raster(in_raster, seed_line, line_radius)
 
     if not HAS_COST_RASTER:
-        cost_clip = cost_raster(cost_clip, out_meta)
+        cost_clip, _ = cost_raster(cost_clip, out_meta)
 
     try:
         if CL_USE_SKIMAGE_GRAPH:
@@ -93,7 +93,7 @@ def process_single_line(line_args):
     lc_path = LineString(lc_path_coords)
     cost_clip, out_meta = clip_raster(in_raster, lc_path, line_radius * 0.9)
     if not HAS_COST_RASTER:
-        cost_clip = cost_raster(cost_clip, out_meta)
+        cost_clip, _ = cost_raster(cost_clip, out_meta)
 
     out_transform = out_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)

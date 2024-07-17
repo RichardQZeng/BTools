@@ -774,8 +774,9 @@ def cost_raster(in_raster, meta):
                                    cc_smooth, 0.4, 1.5)
 
     cost_clip[np.isnan(in_raster)] = np.nan
+    dyn_canopy_ndarray[np.isnan(in_raster)] = np.nan
 
-    return cost_clip
+    return cost_clip, dyn_canopy_ndarray
 
 
 def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm, tree_radius, max_line_dist,
