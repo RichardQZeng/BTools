@@ -399,8 +399,7 @@ class VertexGrouping:
 
         # add more vertices to the new group
         for i in search:
-            # seg = self.segment_all[i]
-            seg = self.sindex.geometries.take(i)
+            seg = self.segment_all[i]
             if line_no == seg['line_no']:
                 continue
 
