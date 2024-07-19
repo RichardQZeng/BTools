@@ -212,26 +212,26 @@ def process_single_line_segment(dict_segment):
 
     # Buffer around line and clip cost raster and canopy raster
     # TODO: deal with NODATA
-    clip_in_cost, out_meta = clip_raster(in_cost, feat, max_ln_width)
+    clip_cost, out_meta = clip_raster(in_cost, feat, max_ln_width)
     out_transform = out_meta['transform']
     cell_size_x = out_transform[0]
     cell_size_y = -out_transform[4]
 
     if not HAS_COST_RASTER:
-        clip_in_cost, _ = cost_raster(clip_in_cost, out_meta)
-
-    clip_in_canopy, out_meta = clip_raster(in_canopy, feat, max_ln_width)
-    if not out_meta['nodata']:
-        out_meta['nodata'] = BT_NODATA
+        clip_cost, clip_canopy = cost_raster(clip_cost, out_meta)
+    else:
+        clip_canopy, out_meta = clip_raster(in_canopy, feat, max_ln_width)
 
     # Work out the corridor from both end of the centerline
     try:
-        clip_canopy = np.squeeze(clip_in_canopy, axis=0)
+        if len(clip_canopy.shape) > 2:
+            clip_canopy = np.squeeze(clip_canopy, axis=0)
+
         transformer = rasterio.transform.AffineTransformer(out_transform)
         source = [transformer.rowcol(x1, y1)]
         destination = [transformer.rowcol(x2, y2)]
 
-        corridor_thresh = corridor_raster(clip_in_cost, out_meta, source, destination,
+        corridor_thresh = corridor_raster(clip_cost, out_meta, source, destination,
                                           (cell_size_x, cell_size_y), corridor_th_value)
 
         def morph_raster(corridor_raster, canopy_raster, exp_shk_cell, cell_size_x):
