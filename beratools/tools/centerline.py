@@ -9,10 +9,13 @@ if __name__ == "__main__":
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
 
+from beratools import *
 from beratools.core.algo_centerline import *
 from beratools.core.dijkstra_algorithm import *
 from beratools.core.constants import *
 from common import *
+
+log = setup_logger('', r'D:\Temp\logging\centerline.log')
 
 
 # TODO duplicate with the same-name function in algo_centerline
