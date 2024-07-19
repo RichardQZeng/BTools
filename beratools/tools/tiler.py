@@ -1,7 +1,8 @@
 import os
 from qtpy.QtWidgets import QApplication, QDialog
 
-from common import *
+from shapely.geometry import Polygon
+from beratools.tools.common import *
 from beratools.gui.map_window import MapWindow
 
 
@@ -57,7 +58,7 @@ class Tiler:
                 }
                 tasks_list.append(cell_data)
                 step += 1
-                print('%{}'.format(step/len(self.clip_data)*100))
+                print('%{}'.format(step / len(self.clip_data) * 100))
 
         project_data['tasks'] = tasks_list
         with open(self.out_project, 'w') as project_file:
@@ -125,7 +126,7 @@ class Tiler:
         y_min = min(y)
         y_max = max(y)
 
-        center = [(x_min+x_max)/2, (y_min+y_max)/2]
+        center = [(x_min + x_max) / 2, (y_min + y_max) / 2]
 
         return coords_list, [[x_min, y_min], [x_max, y_max]], center
 
@@ -161,7 +162,6 @@ class Tiler:
             map_window.add_polygons_to_map('base', footprint, 'green')
             map_window.set_view(center, 10)
             # bounds = [[56.143426823080134, 111.1130415762259], [56.26141944093645, 110.63627702636289]]
-            # map_window.fit_bounds(bounds)
             flag = map_window.exec()
 
             if flag != QDialog.Accepted:
@@ -176,14 +176,13 @@ class Tiler:
                 'geometry': 'Polygon'
             }
             driver = 'ESRI Shapefile'
-            out_line_file = fiona.open(out_cells_file, 'w', driver, schema, self.in_crs)
-            for item in self.clip_data:
-                feature = {
-                    'geometry': mapping(item['geometry'])
-                }
-                out_line_file.write(feature)
+            with fiona.open(out_cells_file, 'w', driver, schema, self.in_crs) as out_line_file:
+                for item in self.clip_data:
+                    feature = {
+                        'geometry': mapping(item['geometry'])
+                    }
+                    out_line_file.write(feature)
 
-            del out_line_file
             return
 
 

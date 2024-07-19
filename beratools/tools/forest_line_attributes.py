@@ -1,7 +1,7 @@
 import time
 from scipy.spatial import distance
 
-from common import *
+from beratools.tools.common import *
 
 
 def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_type, verbose):
@@ -339,8 +339,8 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
     # multiprocessing of identity polygons
     features = []
     # features = execute_multiprocessing_identity(line_args, processes)
-    features = execute_multiprocessing(identity_polygon, 'Identify polygons', line_args,
-                                       processes, 1, verbose)
+    features = execute_multiprocessing(identity_polygon, line_args, 'Identify polygons',
+                                       processes, 1, verbose=verbose)
 
     print("Prepare for filling attributes ...")
     # prepare list of result_identity, Att_seg_lines, areaAnalysis, heightAnalysis, args.input
@@ -355,8 +355,8 @@ def forest_line_attributes(callback, in_line, in_footprint, in_chm, sampling_typ
 
     # Multiprocessing identity polygon
     # features = execute_multiprocessing_attributes(line_args, processes)
-    features = execute_multiprocessing(fill_attributes, 'Filling attributes', line_args,
-                                       processes, 1, verbose)
+    features = execute_multiprocessing(fill_attributes, line_args, 'Filling attributes',
+                                       processes, 1, verbose=verbose)
 
     # Combine into one geodataframe
     if len(features) == 0:

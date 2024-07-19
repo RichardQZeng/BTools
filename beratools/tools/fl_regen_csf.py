@@ -18,6 +18,8 @@ from common import *
 
 class OperationCancelledException(Exception):
     pass
+
+
 def regen_csf(line_args):
     # (result_identity,attr_seg_lines, area_analysis, change_analysis, in_change,in_tree_shp)
     attr_seg_line = line_args[0]
@@ -26,8 +28,7 @@ def regen_csf(line_args):
     area_analysis = line_args[2]
     change_analysis = line_args[3]
     in_change = line_args[4]
-    in_tree=line_args[5]
-
+    in_tree = line_args[5]
 
     has_footprint = True
     if type(result_identity) is geopandas.geodataframe.GeoDataFrame:
@@ -46,15 +47,14 @@ def regen_csf(line_args):
 
     if "AvgWidth" in attr_seg_line.columns.array:
         max_ln_width = math.ceil(attr_seg_line["AvgWidth"])
-        if not max_ln_width>=1.0:
+        if not max_ln_width >= 1.0:
             max_ln_width = 0.5
     else:
         if has_footprint:
-            #estimate width= (Perimeter -Sqrt(Perimeter^2-16*Area))/4
-            #for long and skinny: estimate width = 2*Area / Perimeter
-            P=float(result_identity.geometry.length)
-            A=float(result_identity.geometry.area)
-            # max_ln_width = math.ceil(((P-math.sqrt(math.pow(P,2)-(16*A)))/4)/2)
+            # estimate width= (Perimeter -Sqrt(Perimeter^2-16*Area))/4
+            # for long and skinny: estimate width = 2*Area / Perimeter
+            P = float(result_identity.geometry.length)
+            A = float(result_identity.geometry.area)
             max_ln_width = math.ceil((2 * A) / P)
             if not max_ln_width >= 1.0:
                 max_ln_width = 0.5
@@ -67,11 +67,10 @@ def regen_csf(line_args):
         fp = result_identity.iloc[0].geometry
         line_feat = attr_seg_line.iloc[0].geometry
 
-
         # if the selected seg do not have identity footprint geometry
         if shapely.is_empty(fp):
             # use the buffer from the segment line
-            line_buffer = shapely.buffer(line_feat, float(max_ln_width)/4)
+            line_buffer = shapely.buffer(line_feat, float(max_ln_width) / 4)
         else:
             # if identity footprint has geometry, use as a buffer area
             line_buffer = fp
@@ -90,24 +89,23 @@ def regen_csf(line_args):
 
             # Calculate the summary statistics from the clipped change
             change_mean = numpy.nanmean(clean_change)
-        #count trees within FP area
+        # count trees within FP area
         trees_counts = len(in_tree[in_tree.within(line_buffer)])
-        trees_density=trees_counts/line_buffer.area
+        trees_density = trees_counts / line_buffer.area
         if trees_density >= 0.6:
             reg_class = "Advanced"
         elif 0.2 < trees_density < 0.6:
             reg_class = "Regenerating"
-        else: # 0-60 trees counts
-            if change_mean>0.06:
-                reg_class="Regenerating"
+        else:  # 0-60 trees counts
+            if change_mean > 0.06:
+                reg_class = "Regenerating"
             else:
-                reg_class="Arrested"
+                reg_class = "Arrested"
 
     elif change_analysis and not has_footprint:  # with change raster but no footprint
 
         line_feat = attr_seg_line.geometry.iloc[0]
         line_buffer = shapely.buffer(line_feat, float(max_ln_width))
-
 
         with rasterio.open(in_change) as in_change_file:
             cell_size_x = in_change_file.transform[0]
@@ -136,10 +134,7 @@ def regen_csf(line_args):
                 reg_class = "Regenerating"
             else:
                 reg_class = "Arrested"
-
-
     elif not change_analysis or not has_footprint:  # Either no change_analysis or no footprint
-
         line_feat = attr_seg_line.geometry.iloc[0]
 
         # if the selected seg do not have identity footprint geometry
@@ -155,15 +150,14 @@ def regen_csf(line_args):
         else:
             reg_class = "Not Available"
 
-        change_mean=numpy.nan
-
+        change_mean = numpy.nan
     elif not change_analysis and not has_footprint:  # no change raster and no footprint
         reg_class = "Not Available"
         change_mean = numpy.nan
-        trees_counts=numpy.nan
-        trees_density=numpy.nan
+        trees_counts = numpy.nan
+        trees_density = numpy.nan
 
-    attr_seg_line["AveChanges"]=change_mean
+    attr_seg_line["AveChanges"] = change_mean
     attr_seg_line["Num_trees"] = trees_counts
     attr_seg_line["trees_density"] = trees_density
     attr_seg_line["Reg_Class"] = reg_class
@@ -172,7 +166,6 @@ def regen_csf(line_args):
 
 def identity_polygon(line_args):
     line = line_args[0]
-    # in_cl_buffer = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
     in_touched_fp = line_args[1][['geometry', 'OLnFID', 'OLnSEG']]
     in_search_polygon = line_args[2]
     if 'OLnSEG' not in in_search_polygon.columns.array:
@@ -240,7 +233,8 @@ def execute_multiprocessing_csf(line_args, processes):
     return features
 
 
-def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_segments, out_line,processes, verbose):
+def fl_restration_csf(callback, in_line, in_footprint, in_trees, in_change, proc_segments, out_line, processes,
+                      verbose):
     # assign Tool arguments
     BT_DEBUGGING = False
     in_cl = in_line
@@ -253,25 +247,22 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
         in_line_shp = pyogrio.read_dataframe(in_line)
         in_tree_shp = pyogrio.read_dataframe(in_trees)
         in_fp_shp = pyogrio.read_dataframe(in_footprint)
-        # in_line_shp = geopandas.read_file(in_line,engine="pyogrio")
-        # in_tree_shp = geopandas.read_file(in_trees,engine="pyogrio")
-        # in_fp_shp = geopandas.read_file(in_footprint,engine="pyogrio")
     except SystemError:
-       print("Invalid input feature, please check!")
-       exit()
+        print("Invalid input feature, please check!")
+        exit()
 
-    #Check datum, at this stage only check input data against NAD 83 datum
+    # Check datum, at this stage only check input data against NAD 83 datum
     print("Checking datum....")
     sameDatum = False
-    for shp in [in_line_shp,in_tree_shp,in_fp_shp]:
+    for shp in [in_line_shp, in_tree_shp, in_fp_shp]:
         if shp.crs.datum.name in NADDatum:
-            sameDatum=True
+            sameDatum = True
         else:
-            sameDatum=False
+            sameDatum = False
     try:
-        #Check projection zone among input data with NAD 83 datum
+        # Check projection zone among input data with NAD 83 datum
         if sameDatum:
-            if in_line_shp.crs.utm_zone != in_tree_shp.crs.utm_zone !=in_fp_shp.crs.utm_zone:
+            if in_line_shp.crs.utm_zone != in_tree_shp.crs.utm_zone != in_fp_shp.crs.utm_zone:
                 print("Input shapefiles are on different project Zone, please check.")
                 exit()
         else:
@@ -289,13 +280,12 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
 
     in_fields = list(in_line_shp.columns)
 
-
-
     # check coordinate systems between line and raster features
     try:
         # Check projection zone among input raster with input vector data
         with rasterio.open(in_change) as in_raster:
-            if not in_raster.crs.to_epsg() in [in_fp_shp.crs.to_epsg(),in_line_shp.crs.to_epsg(),in_tree_shp.crs.to_epsg(),2956]:
+            if not in_raster.crs.to_epsg() in [in_fp_shp.crs.to_epsg(), in_line_shp.crs.to_epsg(),
+                                               in_tree_shp.crs.to_epsg(), 2956]:
                 print("Line and raster spatial references are different , please check.")
                 exit()
             else:
@@ -312,10 +302,8 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
     if len(in_fp_shp) == 0:
         print('No footprints provided, buffer of the input lines will be used instead')
         area_analysis = False
-        # AOI_trees = in_tree_shp[in_tree_shp.within(in_line_shp.buffer(50))]
     else:
         area_analysis = True
-        # AOI_trees = in_tree_shp[in_tree_shp.within(in_fp_shp)]
 
     print("Preparing line segments...")
 
@@ -327,7 +315,7 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
         print(
             "Cannot find {} column in input line data.\n '{}' column will be create".format('OLnFID', 'OLnFID'))
         in_line_shp['OLnFID'] = in_line_shp.index
-    if proc_segments == True:
+    if proc_segments:
         attr_seg_lines = line_split2(in_line_shp, 10)
     else:
         # copy original line input to another Geodataframe
@@ -353,10 +341,12 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
         line = attr_seg_lines.iloc[[i]]
         line_buffer = line.copy()
         if proc_segments:
-            line_buffer['geometry'] = line.simplify(tolerance=1, preserve_topology=True).buffer(10, cap_style=shapely.BufferCapStyle.flat)
+            line_buffer['geometry'] = line.simplify(tolerance=1, preserve_topology=True).buffer(10,
+                                                                                                cap_style=shapely.BufferCapStyle.flat)
         else:
-            line_buffer['geometry'] = line.buffer(10,cap_style=shapely.BufferCapStyle.flat)
-        fp_touched = in_fp_shp.iloc[footprint_sindex.query(line_buffer.iloc[0].geometry,predicate="overlaps",sort=True)]
+            line_buffer['geometry'] = line.buffer(10, cap_style=shapely.BufferCapStyle.flat)
+        fp_touched = in_fp_shp.iloc[
+            footprint_sindex.query(line_buffer.iloc[0].geometry, predicate="overlaps", sort=True)]
         if not "OLnFID" in fp_touched.columns.array:
             fp_touched["OLnFID"] = int(line["OLnFID"])
         if not "OLnSEG" in fp_touched.columns.array:
@@ -364,7 +354,7 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
                 fp_touched["OLnSEG"] = int(line["OLnSEG"])
             else:
                 fp_touched["OLnSEG"] = 0
-        fp_intersected=fp_touched.dissolve()
+        fp_intersected = fp_touched.dissolve()
         fp_intersected.geometry = fp_intersected.geometry.clip(line_buffer)
         fp_intersected['geometry'] = fp_intersected.geometry.map(lambda x: unary_union(x))
         list_item = [line, fp_touched, fp_intersected]
@@ -376,18 +366,19 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
     if not BT_DEBUGGING:
         features = execute_multiprocessing_identity(line_args, processes)
     else:
-    # Debug use
-        for index in range(0,len(line_args)):
-            result=(identity_polygon(line_args[index]))
-            if not len(result)==0:
+        # Debug use
+        for index in range(0, len(line_args)):
+            result = (identity_polygon(line_args[index]))
+            if not len(result) == 0:
                 features.append(result)
 
     print("Prepare for classify ...")
+
     # prepare list of result_identity, Att_seg_lines, areaAnalysis, heightAnalysis, args.input
-    AOI_trees=in_tree_shp
+    AOI_trees = in_tree_shp
     line_args = []
     for index in range(0, len(features)):
-        list_item = [features[index][0], features[index][1], area_analysis, change_analysis, in_change,AOI_trees]
+        list_item = [features[index][0], features[index][1], area_analysis, change_analysis, in_change, AOI_trees]
         line_args.append(list_item)
 
         # Linear attributes
@@ -396,14 +387,14 @@ def fl_restration_csf(callback, in_line, in_footprint,in_trees, in_change, proc_
 
     # Multiprocessing regeneration classifying
     features = []
-    BT_DEBUGGING=True
+    BT_DEBUGGING = True
     if not BT_DEBUGGING:
         features = execute_multiprocessing_csf(line_args, processes)
     else:
-    # Debug use
-        for index in range(0,len(line_args)-1):
-            result=(regen_csf(line_args[index]))
-            if not len(result)==0:
+        # Debug use
+        for index in range(0, len(line_args) - 1):
+            result = (regen_csf(line_args[index]))
+            if not len(result) == 0:
                 features.append(result)
                 print(result)
 

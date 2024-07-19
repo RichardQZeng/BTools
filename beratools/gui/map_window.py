@@ -1,5 +1,6 @@
 import os
 import sys
+
 os.environ['QT_API'] = 'pyqt5'
 from qtpy.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QWidget, QTreeWidget, QTreeWidgetItem,
                             QPushButton, QGroupBox, QDialog, QDialogButtonBox)
@@ -71,6 +72,7 @@ class MapWindow(QDialog):
         # this works too. addLayer has to be called first
         # self.map.runJavaScript("var stylePoly = {fillColor:'red',color: 'blue',weight:2,fillOpacity:0.8};", 0)
         # self.map.runJavaScript(f'{self.multipolygon.jsName}.setStyle(stylePoly);', 0)
+
     def add_polylines_to_map(self, polylines, color):
         style = {'color': color}
         lines = L.polyline(polylines, style)

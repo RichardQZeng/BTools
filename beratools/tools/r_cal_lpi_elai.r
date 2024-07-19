@@ -1,7 +1,7 @@
 #create a 'rlpi_elai' function
-    library(terra)
+library(terra)
 
-    rlpi_elai <- function(pdTotal,pdGround,radius,scan_angle,out_lpi,out_elai){
+rlpi_elai <- function(pdTotal, pdGround, radius, scan_angle, out_lpi, out_elai) {
 
     total_focal <- rast(pdTotal)
     ground_focal <- rast(pdGround)
@@ -15,11 +15,11 @@
     #lpi
     lpi[is.infinite(lpi)] = NA
 
-    elai = -cos(((scan_angle / 2.0)/180)*pi)/0.5 * log(lpi)
+    elai = -cos(((scan_angle / 2.0) / 180) * pi) / 0.5 * log(lpi)
     elai[is.infinite(elai)] = NA
-    elai[elai==0 | elai==-0 ] = 0
+    elai[elai == 0 | elai == -0] = 0
 
-    writeRaster(lpi,out_lpi,overwrite=TRUE)
-    writeRaster(elai,out_elai,overwrite=TRUE)
+    writeRaster(lpi, out_lpi, overwrite = TRUE)
+    writeRaster(elai, out_elai, overwrite = TRUE)
 
-    }
+}

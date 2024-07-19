@@ -10,7 +10,7 @@ from shapely.ops import split
 from shapely import STRtree
 import ray
 
-from common import *
+from beratools.tools.common import *
 
 
 class OperationCancelledException(Exception):
@@ -32,8 +32,8 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
         for line in in_file_vector:
             if line.geometry:
                 if line.geometry.type != 'MultiLineString' or \
-                   line.geometry.type == 'Polygon' or \
-                   line.geometry.type == 'MultiPolygon':
+                        line.geometry.type == 'Polygon' or \
+                        line.geometry.type == 'MultiPolygon':
                     input_lines.append([line.geometry, line.properties])
                 else:
                     print('MultiLineString found.')
@@ -72,9 +72,9 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
     step = 0
     total_steps = len(all_lines)
 
-    if PARALLEL_MODE == MODE_MULTIPROCESSING:
+    if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
         feat_all = execute_multiprocessing(all_lines, processes, verbose)
-    elif PARALLEL_MODE == MODE_SEQUENTIAL:
+    elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
         for line in all_lines:
             line_collection = process_single_line(line)
             if line_collection:
@@ -199,7 +199,7 @@ def execute_multiprocessing(line_args, processes, verbose):
                     print(' "PROGRESS_LABEL Ecosite {} of {}" '.format(step, total_steps), flush=True)
 
                 print('Line processed: {}'.format(step), flush=True)
-                print(' %{} '.format(step/total_steps*100), flush=True)
+                print(' %{} '.format(step / total_steps * 100), flush=True)
 
         return feat_all
     except OperationCancelledException:

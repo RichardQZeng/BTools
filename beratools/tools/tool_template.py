@@ -1,9 +1,9 @@
 from random import random
-from time import sleep
+import time
 from multiprocessing.pool import Pool
 from numpy import mean
-import json
-import argparse
+
+from common import *
 
 
 class OperationCancelledException(Exception):
@@ -22,7 +22,7 @@ def worker(task_data):
     print(f'Task {len(task_data)} with {value} executed', flush=True)
 
     # block for a moment
-    sleep(value * 10)
+    time.sleep(value * 10)
 
     # return the generated value
     return value
@@ -41,7 +41,7 @@ def execute_multiprocessing():
                 print(f'Got result: {result}', flush=True)
                 step += 1
                 print(step)
-                print('%{}'.format(step/total_steps*100))
+                print('%{}'.format(step / total_steps * 100))
 
     except OperationCancelledException:
         print("Operation cancelled")
@@ -52,4 +52,3 @@ if __name__ == '__main__':
     start_time = time.time()
     tool_name(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))
-

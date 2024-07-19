@@ -1,5 +1,6 @@
 import time
-from common import *
+from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString
+from beratools.tools.common import *
 
 
 def prepare_line_args(shp_line, shp_poly, n_samples, offset):
@@ -243,8 +244,8 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     offset = float(offset)
     line_args = prepare_line_args(in_line, in_footprint, n_samples, offset)
 
-    out_lines = execute_multiprocessing(process_single_line, 'Fixed footprint',
-                                        line_args, processes, 1, verbose)
+    out_lines = execute_multiprocessing(process_single_line, line_args, 'Fixed footprint',
+                                        processes, 1, verbose=verbose)
     line_attr = pd.concat(out_lines)
 
     # create fixed width footprint
@@ -260,7 +261,7 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     perp_lines_gdf = perp_lines_gdf.set_geometry('perp_lines')
     perp_lines_gdf = perp_lines_gdf.drop(columns=['geometry'])
     perp_lines_gdf.crs = buffer_gdf.crs
-    perp_lines_path = Path(out_footprint).with_stem(Path(out_footprint).stem+'_perp_lines')
+    perp_lines_path = Path(out_footprint).with_stem(Path(out_footprint).stem + '_perp_lines')
     perp_lines_gdf.to_file(perp_lines_path)
 
     geojson_path = Path(out_footprint).with_suffix('.geojson')
@@ -279,4 +280,3 @@ if __name__ == '__main__':
     start_time = time.time()
     line_footprint_fixed(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))
-

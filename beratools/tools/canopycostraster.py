@@ -11,6 +11,7 @@ from scipy import ndimage
 
 from common import *
 
+
 # TODO: Rolling Statistics for grid data... an alternative
 # by  Dan Patterson
 
@@ -141,7 +142,6 @@ def smooth_cost(in_raster, search_dist, sampling):
         euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
 
     smooth1 = float(search_dist) - euc_dist_array
-    # cond_smooth1 = np.where(smooth1 > 0, smooth1, 0.0)
     smooth1[smooth1 <= 0.0] = 0.0
     smooth_cost_array = smooth1 / float(search_dist)
 
@@ -220,5 +220,3 @@ if __name__ == '__main__':
     canopy_cost_raster(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Canopy and Cost Raster processing is done in {} seconds)'
           .format(round(time.time() - start_time, 5)))
-
-

@@ -26,26 +26,28 @@
 #
 # ---------------------------------------------------------------------------
 # System imports
-import os
-import numpy as np
-import math
+import sys
 import time
 from pathlib import Path
+from inspect import getsourcefile
 
-import uuid
-from shapely.geometry import shape, mapping, Point, LineString, \
-     MultiLineString, GeometryCollection, Polygon
-from shapely import STRtree
 import fiona
-import rasterio
-import rasterio.mask
+from shapely.geometry import shape, Point, MultiPoint, LineString, MultiLineString, GeometryCollection
+from shapely import STRtree
+from xrspatial import convolution
 
-from dask.distributed import Client, progress, as_completed
-import ray
-import multiprocessing
+from inspect import getsourcefile
 
-from common import *
-from dijkstra_algorithm import *
+
+if __name__ == '__main__':
+    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    btool_dir = current_file.parents[2]
+    sys.path.insert(0, btool_dir.as_posix())
+
+from beratools.core.constants import *
+from beratools.core.tool_base import *
+from beratools.tools.common import *
+from beratools.core.dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
 SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
@@ -57,19 +59,10 @@ class Vertex:
         self.pt_optimized = None
         self.centerlines = None
         self.anchors = None
-        self.in_cost = None
+        self.in_raster = None
         self.line_radius = None
         self.vertex = {"point": [point.x, point.y], "lines": []}
         self.add_line(line, line_no, end_no, uid)
-
-    # @staticmethod
-    # def create_vertex(point, line, line_no, end_no, uid):
-    #     vertex = {"point": [point.x, point.y],
-    #               "lines": [[line, end_no, {"line_no": line_no}]]}
-    #
-    #     vertex = VertexGrouping.add_anchors_to_vertex(vertex, uid)
-    #
-    #     return vertex
 
     def add_line(self, line, line_no, end_no, uid):
         item = [line, end_no, {"line_no": line_no}]
@@ -93,20 +86,20 @@ class Vertex:
             pt_1 = pt[-1]
             pt_2 = pt[-2]
 
-        deltaX = pt_2.x - pt_1.x
-        deltaY = pt_2.y - pt_1.y
-        if math.isclose(pt_1.x, pt_2.x, abs_tol=BT_EPSLON):
-            angle = math.pi / 2
-            if deltaY > 0:
-                angle = math.pi / 2
-            elif deltaY < 0:
-                angle = -math.pi / 2
+        delta_x = pt_2.x - pt_1.x
+        delta_y = pt_2.y - pt_1.y
+        if np.isclose(pt_1.x, pt_2.x):
+            angle = np.pi / 2
+            if delta_y > 0:
+                angle = np.pi / 2
+            elif delta_y < 0:
+                angle = -np.pi / 2
         else:
-            angle = np.arctan(deltaY / deltaX)
+            angle = np.arctan(delta_y / delta_x)
 
             # arctan is in range [-pi/2, pi/2], regulate all angles to [[-pi/2, 3*pi/2]]
-            if deltaX < 0:
-                angle += math.pi  # the second or fourth quadrant
+            if delta_x < 0:
+                angle += np.pi  # the second or fourth quadrant
 
         return angle
 
@@ -184,8 +177,8 @@ class Vertex:
             pt_end_2 = lines[index[3]][2]
         elif len(slopes) == 3:
             # find the largest difference between angles
-            angle_diff = [abs(slopes[0]-slopes[1]), abs(slopes[0]-slopes[2]), abs(slopes[1]-slopes[2])]
-            angle_diff_norm = [2*math.pi-i if i > math.pi else i for i in angle_diff]
+            angle_diff = [abs(slopes[0] - slopes[1]), abs(slopes[0] - slopes[2]), abs(slopes[1] - slopes[2])]
+            angle_diff_norm = [2 * np.pi - i if i > np.pi else i for i in angle_diff]
             index = np.argmax(angle_diff_norm)
             pairs = [(0, 1), (0, 2), (1, 2)]
             pair = pairs[index]
@@ -195,7 +188,7 @@ class Vertex:
             pt_end_1 = lines[pair[1]][2]
 
             # the rest one index
-            remain = list({0, 1, 2}-set(pair))[0]  # the remaining index
+            remain = list({0, 1, 2} - set(pair))[0]  # the remaining index
 
             try:
                 pt_start_2 = lines[remain][2]
@@ -261,18 +254,30 @@ class Vertex:
         try:
             if len(self.anchors) == 4:
                 seed_line = LineString(self.anchors[0:2])
-                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
-                centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
+
+                raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
+                if not HAS_COST_RASTER:
+                    raster_clip = cost_raster(raster_clip, out_meta)
+
+                centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
                 seed_line = LineString(self.anchors[2:4])
-                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
-                centerline_2 = find_lc_path(cost_clip, out_meta, seed_line)
+
+                raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
+                if not HAS_COST_RASTER:
+                    raster_clip = cost_raster(raster_clip, out_meta)
+
+                centerline_2 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1 and centerline_2:
                     intersection = intersection_of_lines(centerline_1, centerline_2)
             elif len(self.anchors) == 2:
                 seed_line = LineString(self.anchors)
-                cost_clip, out_meta = clip_raster(self.in_cost, seed_line, self.line_radius)
-                centerline_1 = find_lc_path(cost_clip, out_meta, seed_line)
+
+                raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
+                if not HAS_COST_RASTER:
+                    raster_clip = cost_raster(raster_clip, out_meta)
+
+                centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1:
                     intersection = closest_point_to_line(self.point(), centerline_1)
@@ -287,7 +292,6 @@ class Vertex:
         self.pt_optimized = intersection
         print(f'Processing vertex {self.point()[0]:.2f}, {self.point()[1]:.2f} done')
 
-
     def lines(self):
         return self.vertex["lines"]
 
@@ -296,9 +300,9 @@ class Vertex:
 
 
 class VertexGrouping:
-    def __init__(self, callback, in_line, in_cost, line_radius, out_line):
+    def __init__(self, callback, in_line, in_raster, line_radius, out_line):
         self.in_line = in_line
-        self.in_cost = in_cost
+        self.in_raster = in_raster
         self.line_radius = float(line_radius)
         self.out_line = out_line
         self.segment_all = []
@@ -308,8 +312,7 @@ class VertexGrouping:
         self.sindex = None
 
         # calculate cost raster footprint
-        footprint_coords = generate_raster_footprint(self.in_cost, latlon=False)
-        self.cost_footprint = Polygon(footprint_coords)
+        self.cost_footprint = generate_raster_footprint(self.in_raster, latlon=False)
 
     @staticmethod
     def segments(line_coords):
@@ -411,7 +414,10 @@ class VertexGrouping:
                     vertex.add_line(seg['line'], seg['line_no'], -1, uid)
                     seg['end_visited'] = True
 
-        vertex.in_cost = self.in_cost
+        vertex.in_raster = self.in_raster
+        if not HAS_COST_RASTER:
+            vertex.in_raster = self.in_raster
+
         vertex.line_radius = self.line_radius
         vertex.cost_footprint = self.cost_footprint
         self.vertex_grp.append(vertex)
@@ -528,15 +534,15 @@ def process_single_line(vertex):
     return vertex
 
 
-def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, processes, verbose):
-    if not compare_crs(vector_crs(in_line), raster_crs(in_cost)):
+def vertex_optimization(callback, in_line, in_raster, line_radius, out_line, processes, verbose):
+    if not compare_crs(vector_crs(in_line), raster_crs(in_raster)):
         return
 
-    vg = VertexGrouping(callback, in_line, in_cost, line_radius, out_line)
+    vg = VertexGrouping(callback, in_line, in_raster, line_radius, out_line)
     vg.group_vertices()
 
-    vertices = execute_multiprocessing(process_single_line, 'Vertex Optimization',
-                                       vg.vertex_grp, processes, 1, verbose)
+    vertices = execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
+                                       processes, 1, verbose=verbose)
 
     # No line generated, exit
     if len(vertices) <= 0:
@@ -592,6 +598,7 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
 
     line_path = Path(out_line)
     file_name = line_path.stem
+    file_line = line_path.as_posix()
     file_lc = line_path.with_stem(file_name + '_leastcost').as_posix()
     file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
     file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
@@ -600,10 +607,10 @@ def vertex_optimization(callback, in_line, in_cost, line_radius, out_line, proce
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    save_features_to_shapefile(out_line, vg.crs, all_lines, vg.in_schema, all_props)
-    save_features_to_shapefile(file_lc, vg.crs, leastcost_list, fields, properties)
-    save_features_to_shapefile(file_anchors, vg.crs, anchor_list, fields, properties)
-    save_features_to_shapefile(file_inter, vg.crs, inter_list, fields, properties)
+    save_features_to_shapefile(file_line, vg.crs, all_lines, all_props, vg.in_schema)
+    save_features_to_shapefile(file_lc, vg.crs, leastcost_list, properties, fields)
+    save_features_to_shapefile(file_anchors, vg.crs, anchor_list, properties, fields)
+    save_features_to_shapefile(file_inter, vg.crs, inter_list, properties, fields)
 
 
 if __name__ == '__main__':
