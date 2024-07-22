@@ -53,14 +53,9 @@ set_gdal_config_options({'SHAPE_RESTORE_SHX': 'YES'})
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
-    # gdal warning
-    gdal.SetConfigOption('CPL_LOG', 'NUL')
-
-    # suppress warnings
-    warnings.filterwarnings("ignore")
-
-    # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
-    warnings.simplefilter(action='ignore', category=UserWarning)
+    gdal.SetConfigOption('CPL_LOG', 'NUL')  # gdal warning
+    warnings.filterwarnings("ignore")  # suppress warnings
+    warnings.simplefilter(action='ignore', category=UserWarning  # suppress Pandas UserWarning
 
 
 # TODO: apply nodata to outside of geom and original nodata
