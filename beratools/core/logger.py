@@ -20,6 +20,17 @@ class Logger(object):
         self.file_level = logging.INFO
 
     def print(self, msg, flush=True):
+        """
+        This is for including print in logging
+        Parameters
+        ----------
+        msg :
+        flush :
+
+        Returns
+        -------
+
+        """
         self.logger.info(msg)
         if flush:
             for handler in self.logger.handlers:

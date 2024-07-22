@@ -66,13 +66,15 @@ class BTData(object):
         self.sorted_tools = []
         self.upper_toolboxes = []
         self.lower_toolboxes = []
+        self.toolbox_list = []
         self.get_bera_tools()
         self.get_bera_tool_list()
         self.get_bera_toolboxes()
-        self.toolbox_list = self.get_bera_toolboxes()
         self.sort_toolboxes()
 
-        self.setting_file = Path(self.exe_path).joinpath(r'.data\saved_tool_parameters.json')
+        self.setting_file = None
+        self.get_data_folder()
+        self.get_setting_file()
         self.gui_setting_file = Path(self.exe_path).joinpath(r'gui.json')
 
         self.load_saved_tool_info()
@@ -143,9 +145,14 @@ class BTData(object):
             self.data_folder.mkdir()
 
     def get_logger_file_name(self, name):
-        logger_file_name = self.user_folder.joinpath(name).with_suffix('.log')
+        if not name:
+            name = 'beratools'
 
+        logger_file_name = self.user_folder.joinpath(name).with_suffix('.log')
         return logger_file_name.as_posix()
+
+    def get_setting_file(self):
+        self.setting_file = self.data_folder.joinpath('saved_tool_parameters.json')
 
     def get_verbose_mode(self):
         return self.verbose
@@ -356,7 +363,8 @@ class BTData(object):
         for toolbox in self.bera_tools['toolbox']:
             tb = toolbox['category']
             toolboxes.append(tb)
-        return toolboxes
+
+        self.toolbox_list = toolboxes
 
     def get_bera_tool_params(self, tool_name):
         new_params = {'parameters': []}
