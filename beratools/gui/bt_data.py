@@ -46,11 +46,14 @@ class BTData(object):
         self.exe_path = path.dirname(path.abspath(__file__))
 
         self.work_dir = ""
+        self.user_folder = Path('')
+        self.data_folder = Path('')
         self.verbose = False
         self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
         self.max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
+        self.get_user_folder()
 
         # set maximum available cpu core for tools
         self.max_cpu_cores = min(BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
@@ -129,12 +132,20 @@ class BTData(object):
     def get_working_dir(self):
         return self.work_dir
 
-    def get_data_folder(self):
-        data_folder = Path(self.setting_file).parent
-        if not data_folder.exists():
-            data_folder.mkdir()
+    def get_user_folder(self):
+        self.user_folder = Path.home().joinpath('.beratools')
+        if not self.user_folder.exists():
+            self.user_folder.mkdir()
 
-        return data_folder.as_posix()
+    def get_data_folder(self):
+        self.data_folder = self.user_folder.joinpath('.data')
+        if not self.data_folder.exists():
+            self.data_folder.mkdir()
+
+    def get_logger_file_name(self, name):
+        logger_file_name = self.user_folder.joinpath(name).with_suffix('.log')
+
+        return logger_file_name.as_posix()
 
     def get_verbose_mode(self):
         return self.verbose

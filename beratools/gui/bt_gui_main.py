@@ -660,8 +660,8 @@ class MainWindow(QMainWindow):
         line = bytes(line).decode("utf8")
 
         # process line output
-        sys.stdout.flush()
         self.custom_callback(line)
+        sys.stdout.flush()
 
     def handle_state(self, state):
         states = {

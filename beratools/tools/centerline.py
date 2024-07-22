@@ -9,52 +9,15 @@ if __name__ == "__main__":
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
 
-from beratools import *
+from beratools.core.logger import Logger
 from beratools.core.algo_centerline import *
 from beratools.core.dijkstra_algorithm import *
 from beratools.core.constants import *
 from common import *
 
-log = setup_logger('', r'D:\Temp\logging\centerline.log')
-
-
-# TODO duplicate with the same-name function in algo_centerline
-# TODO after testing new ideas, merge back to there
-def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
-    # Threshold corridor raster used for generating centerline
-    corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
-    corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
-    poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
-    corridor_polygon = []
-
-    try:
-        for poly, value in poly_generator:
-            if shape(poly).area > 1:
-                corridor_polygon.append(shape(poly))
-    except Exception as e:
-        print(e)
-
-    if corridor_polygon:
-        corridor_polygon = (unary_union(corridor_polygon))
-        if type(corridor_polygon) is MultiPolygon:
-            poly_list = shapely.get_parts(corridor_polygon)
-            merge_poly = poly_list[0]
-            for i in range(1, len(poly_list)):
-                if shapely.intersects(merge_poly, poly_list[i]):
-                    merge_poly = shapely.union(merge_poly, poly_list[i])
-                else:
-                    buffer_dist = poly_list[i].distance(merge_poly) + 0.1
-                    buffer_poly = poly_list[i].buffer(buffer_dist)
-                    merge_poly = shapely.union(merge_poly, buffer_poly)
-            corridor_polygon = merge_poly
-    else:
-        corridor_polygon = None
-
-    # create GeoDataFrame for centerline
-    corridor_poly_gpd = gpd.GeoDataFrame.copy(line_gpd)
-    corridor_poly_gpd.geometry = [corridor_polygon]
-
-    return corridor_poly_gpd
+log = Logger('centerline')
+log.setup_logger()
+print = log.print
 
 
 def process_single_line(line_args):
