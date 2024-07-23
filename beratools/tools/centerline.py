@@ -1,3 +1,4 @@
+import logging
 import time
 
 import sys
@@ -9,25 +10,29 @@ if __name__ == "__main__":
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
 
+from beratools.core.logger import Logger
 from beratools.core.algo_centerline import *
 from beratools.core.dijkstra_algorithm import *
 from beratools.core.constants import *
 from common import *
+
+log = Logger('centerline', file_level=logging.INFO)
+print = log.print
 
 
 def process_single_line(line_args):
     line = line_args[0][0]
     prop = line_args[0][1]
     line_radius = line_args[1]
-    in_cost_raster = line_args[2]
+    in_raster = line_args[2]
     line_id = line_args[3]
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
 
-    cost_clip, out_meta = clip_raster(in_cost_raster, seed_line, line_radius)
+    cost_clip, out_meta = clip_raster(in_raster, seed_line, line_radius)
 
     if not HAS_COST_RASTER:
-        cost_clip = cost_raster(cost_clip, out_meta)
+        cost_clip, _ = cost_raster(cost_clip, out_meta)
 
     try:
         if CL_USE_SKIMAGE_GRAPH:
@@ -52,7 +57,10 @@ def process_single_line(line_args):
 
     # get corridor raster
     lc_path = LineString(lc_path_coords)
-    cost_clip, out_meta = clip_raster(in_cost_raster, lc_path, line_radius * 0.9)
+    cost_clip, out_meta = clip_raster(in_raster, lc_path, line_radius * 0.9)
+    if not HAS_COST_RASTER:
+        cost_clip, _ = cost_raster(cost_clip, out_meta)
+
     out_transform = out_meta['transform']
     transformer = rasterio.transform.AffineTransformer(out_transform)
     cell_size = (out_transform[0], -out_transform[4])

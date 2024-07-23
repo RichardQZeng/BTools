@@ -53,16 +53,12 @@ set_gdal_config_options({'SHAPE_RESTORE_SHX': 'YES'})
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
-    # gdal warning
-    gdal.SetConfigOption('CPL_LOG', 'NUL')
-
-    # suppress warnings
-    warnings.filterwarnings("ignore")
-
-    # to suppress Pandas UserWarning: Geometry column does not contain geometry when splitting lines
-    warnings.simplefilter(action='ignore', category=UserWarning)
+    gdal.SetConfigOption('CPL_LOG', 'NUL')  # gdal warning
+    warnings.filterwarnings("ignore")  # suppress warnings
+    warnings.simplefilter(action='ignore', category=UserWarning)  # suppress Pandas UserWarning
 
 
+# TODO: apply nodata to outside of geom and original nodata
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
     out_meta = None
     with (rasterio.open(in_raster_file)) as raster_file:
@@ -76,6 +72,10 @@ def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras
         out_image: np.ndarray
         out_image, out_transform = mask.mask(raster_file, clip_geo_buffer,
                                              crop=True, nodata=ras_nodata, filled=True)
+
+        if out_meta['nodata']:
+            out_image[out_image == out_meta['nodata']] = BT_NODATA
+            ras_nodata = BT_NODATA
 
     height, width = out_image.shape[1:]
     out_meta.update({"driver": "GTiff",
@@ -748,6 +748,7 @@ def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, co
 
 
 def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
+    canopy_ht_threshold = 0.8
     canopy_ndarray = np.ma.where(in_array >= canopy_ht_threshold, 1., 0.).astype(float)
     canopy_ndarray = np.ma.filled(canopy_ndarray, nodata)
     # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
@@ -773,9 +774,11 @@ def cost_raster(in_raster, meta):
     cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                    cc_smooth, 0.4, 1.5)
 
-    cost_clip[np.isnan(in_raster)] = np.nan
+    # TODO use nan or BT_DATA?
+    cost_clip[in_raster == BT_NODATA] = np.nan
+    dyn_canopy_ndarray[in_raster == BT_NODATA] = np.nan
 
-    return cost_clip
+    return cost_clip, dyn_canopy_ndarray
 
 
 def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm, tree_radius, max_line_dist,
