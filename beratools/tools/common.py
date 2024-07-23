@@ -55,7 +55,7 @@ set_gdal_config_options({'SHAPE_RESTORE_SHX': 'YES'})
 if not BT_DEBUGGING:
     gdal.SetConfigOption('CPL_LOG', 'NUL')  # gdal warning
     warnings.filterwarnings("ignore")  # suppress warnings
-    warnings.simplefilter(action='ignore', category=UserWarning  # suppress Pandas UserWarning
+    warnings.simplefilter(action='ignore', category=UserWarning)  # suppress Pandas UserWarning
 
 
 # TODO: apply nodata to outside of geom and original nodata

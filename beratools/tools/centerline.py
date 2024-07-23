@@ -1,3 +1,4 @@
+import logging
 import time
 
 import sys
@@ -15,8 +16,7 @@ from beratools.core.dijkstra_algorithm import *
 from beratools.core.constants import *
 from common import *
 
-log = Logger('centerline')
-log.setup_logger()
+log = Logger('centerline', file_level=logging.INFO)
 print = log.print
 
 

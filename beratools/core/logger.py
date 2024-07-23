@@ -13,11 +13,16 @@ class NoParsingFilter(logging.Filter):
 
 
 class Logger(object):
-    def __init__(self, name):
+    def __init__(self, name, console_level=logging.INFO, file_level=logging.INFO):
         self.logger = logging.getLogger(name)
         self.name = name
-        self.console_level = logging.INFO
-        self.file_level = logging.INFO
+        self.console_level = console_level
+        self.file_level = file_level
+
+        self.setup_logger()
+
+    def get_logger(self):
+        return self.logger
 
     def print(self, msg, flush=True):
         """
