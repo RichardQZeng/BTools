@@ -10,6 +10,7 @@
 import os
 from os import path
 from pathlib import Path
+from inspect import getsourcefile
 
 import platform
 import json
@@ -53,6 +54,7 @@ class BTData(object):
         self.max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
+        self.get_working_dir()
         self.get_user_folder()
 
         # set maximum available cpu core for tools
@@ -127,12 +129,10 @@ class BTData(object):
             with open(self.setting_file, 'w') as write_settings_file:
                 json.dump(self.settings, write_settings_file, indent=4)
 
-    def set_working_dir(self, path_str):
-        self.work_dir = path.normpath(path_str)
-        self.save_setting('working_directory', self.work_dir)
-
     def get_working_dir(self):
-        return self.work_dir
+        current_file = Path(getsourcefile(lambda: 0)).resolve()
+        btool_dir = current_file.parents[1]
+        self.work_dir = btool_dir
 
     def get_user_folder(self):
         self.user_folder = Path.home().joinpath('.beratools')
@@ -184,15 +184,9 @@ class BTData(object):
         try:
             if callback is None:
                 callback = self.default_callback
-
-            # TODO work_dir should be checked
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
         except Exception as err:
             callback(str(err))
             return 1
-        finally:
-            os.chdir(work_dir)
 
         # Call script using new process to make GUI responsive
         try:
@@ -208,14 +202,13 @@ class BTData(object):
             tool_args = None
 
             if tool_type == 'python':
-                tool_args = [Path(work_dir).joinpath(f'beratools/tools/{tool_api}.py').as_posix(),
+                tool_args = [self.work_dir.joinpath(f'tools/{tool_api}.py').as_posix(),
                              '-i', args_string, '-p', str(self.get_max_procs()),
                              '-v', str(self.verbose)]
             elif tool_type == 'executable':
                 print(globals().get(tool_api))
                 tool_args = globals()[tool_api](args_string)
-                work_dir = os.getcwd()
-                lapis_path = Path(work_dir).parent.joinpath('./third_party/Lapis_0_8')
+                lapis_path = self.work_dir.joinpath('./third_party/Lapis_0_8')
                 os.chdir(lapis_path.as_posix())
         except Exception as err:
             callback(str(err))
@@ -266,8 +259,9 @@ class BTData(object):
         if 'gui_parameters' in self.settings.keys():
             gui_settings = self.settings['gui_parameters']
 
-            if 'working_directory' in gui_settings.keys():
-                self.work_dir = str(gui_settings['working_directory'])
+            # TODO remove working dir
+            # if 'working_directory' in gui_settings.keys():
+            #     self.work_dir = str(gui_settings['working_directory'])
             if 'verbose_mode' in gui_settings.keys():
                 self.verbose = str(gui_settings['verbose_mode'])
             else:
