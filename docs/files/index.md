@@ -2,10 +2,6 @@
 
 ![](../../Images/BERALogo.png)
 
-::: {.toctree maxdepth="2" hidden=""}
-installation.md tools.md programming_guide.md bibliography.md
-:::
-
 BERA Tools is a series of script tools for facilitating the
 high-resolution mapping and studying of forest lines (petroleum
 exploration corridors in forested areas) via processing canopy height
