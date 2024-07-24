@@ -13,17 +13,12 @@ with open("HISTORY.md") as history_file:
 
 requirements = [
     "label_centerlines",
-    "laserchicken",
-    "dask",
-    "distributed",
     "geopandas",
-    "huggingface_hub",
     "matplotlib",
     "pip",
     "pyogrio",
     "psutil",
     "pyqt",
-    "ray-default",
     "rioxarray",
     "rpy2",
     "r-essentials",
@@ -34,8 +29,6 @@ requirements = [
     "r-sp",
     "r-terra",
     "scikit-image",
-    "sphinx-tabs",
-    "sphinx-rtd-theme",
     "xarray-spatial"
 ]
 

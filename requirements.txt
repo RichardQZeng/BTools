@@ -1,15 +1,11 @@
 appliedgrg::label_centerlines
 appliedgrg::laserchicken
-dask
-distributed
 geopandas
-huggingface_hub
 matplotlib
 pip
 pyogrio
 psutil
 pyqt
-ray-default
 rioxarray
 rpy2
 r-essentials
@@ -20,8 +16,6 @@ r-sf
 r-sp
 r-terra
 scikit-image
-sphinx-tabs
-sphinx-rtd-theme
 xarray-spatial
 
 # recommended way to install BERA Tools
