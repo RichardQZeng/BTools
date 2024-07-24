@@ -17,6 +17,7 @@ from beratools.core.constants import *
 from common import *
 
 log = Logger('centerline', file_level=logging.INFO)
+logger = log.get_logger()
 print = log.print
 
 

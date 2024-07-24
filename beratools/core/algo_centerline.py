@@ -4,8 +4,8 @@ import shapely
 from shapely.geometry import shape
 from shapely.ops import unary_union, substring, linemerge, nearest_points, split
 from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, LineString, MultiLineString
-from beratools.third_party.label_centerlines import get_centerline
-# from label_centerlines import get_centerline
+# from beratools.third_party.label_centerlines import get_centerline
+from label_centerlines import get_centerline
 
 from beratools.core.tool_base import *
 from beratools.core.constants import *
