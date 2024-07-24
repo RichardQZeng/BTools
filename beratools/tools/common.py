@@ -58,7 +58,6 @@ if not BT_DEBUGGING:
     warnings.simplefilter(action='ignore', category=UserWarning)  # suppress Pandas UserWarning
 
 
-# TODO: apply nodata to outside of geom and original nodata
 def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
     out_meta = None
     with (rasterio.open(in_raster_file)) as raster_file:
