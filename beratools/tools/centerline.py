@@ -30,11 +30,14 @@ def process_single_line(line_args):
     seed_line = shape(line)  # LineString
     line_radius = float(line_radius)
 
+    default_return = (seed_line, seed_line, prop, None)
+
     cost_clip, out_meta = clip_raster(in_raster, seed_line, line_radius)
 
     if not HAS_COST_RASTER:
         cost_clip, _ = cost_raster(cost_clip, out_meta)
 
+    lc_path = line
     try:
         if CL_USE_SKIMAGE_GRAPH:
             # skimage shortest path
@@ -43,7 +46,7 @@ def process_single_line(line_args):
             lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
     except Exception as e:
         print(e)
-        return
+        return default_return
 
     if lc_path:
         lc_path_coords = lc_path.coords
@@ -54,7 +57,7 @@ def process_single_line(line_args):
     if len(lc_path_coords) < 2:
         print('No least cost path detected, use input line.')
         prop['status'] = CenterlineStatus.FAILED.value
-        return seed_line, prop, seed_line, None
+        return default_return
 
     # get corridor raster
     lc_path = LineString(lc_path_coords)

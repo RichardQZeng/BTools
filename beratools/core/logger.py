@@ -69,7 +69,7 @@ class Logger(object):
         # Add stdout handler, with level INFO
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(self.console_level)
-        formatter = logging.Formatter("%(levelname)-8s %(message)s")
+        formatter = logging.Formatter("%(message)s")
         console_handler.setFormatter(formatter)
         logging.getLogger().addHandler(console_handler)
 

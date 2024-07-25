@@ -347,7 +347,7 @@ class MainWindow(QMainWindow):
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
         self.title = 'BERA Tools'
         self.setWindowTitle(self.title)
-        self.working_dir = bt.get_working_dir()
+        self.working_dir = bt.work_dir
         self.tool_api = None
         self.tool_name = 'Centerline'
         self.recent_tool = bt.recent_tool
@@ -597,8 +597,6 @@ class MainWindow(QMainWindow):
         self.tool_widget.load_default_args()
 
     def start_process(self):
-        bt.set_working_dir(self.working_dir)
-
         args = self.tool_widget.get_widgets_arguments()
         if not args:
             print('Please check the parameters.')
