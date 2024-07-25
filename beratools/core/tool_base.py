@@ -1,4 +1,5 @@
 from multiprocessing.pool import Pool
+import concurrent.futures
 import warnings
 
 import pandas as pd
@@ -75,6 +76,17 @@ def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
 
                 step += 1
                 print_msg(app_name, step, total_steps)
+        elif mode == ParallelMode.CONCURRENT:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
+                futures = [executor.submit(in_func, line) for line in in_data]
+                for future in concurrent.futures.as_completed(futures):
+                    result_item = future.result()
+                    if result_is_valid(result_item):
+                        out_result.append(result_item)
+
+                    step += 1
+                    print_msg(app_name, step, total_steps)
+
         # ! important !
         # comment temporarily, man enable later if need to use dask or ray
         # elif mode == ParallelMode.DASK:

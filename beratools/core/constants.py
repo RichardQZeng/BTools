@@ -76,10 +76,11 @@ class CenterlineStatus(IntEnum):
 class ParallelMode(IntEnum):
     SEQUENTIAL = 1
     MULTIPROCESSING = 2
-    DASK = 3
-    RAY = 4
+    CONCURRENT = 3
+    DASK = 4
+    RAY = 5
 
 
-PARALLEL_MODE = ParallelMode.MULTIPROCESSING
+PARALLEL_MODE = ParallelMode.CONCURRENT
 
 
