@@ -8,7 +8,6 @@ dependencies:
   - python=3.9
   - appliedgrg::label_centerlines
   - geopandas
-  - matplotlib
   - pip
   # - pip:
     # works for regular pip packages
