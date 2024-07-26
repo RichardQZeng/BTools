@@ -1,4 +1,5 @@
 from multiprocessing.pool import Pool
+import multiprocessing
 import concurrent.futures
 import warnings
 
@@ -56,9 +57,11 @@ def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
 
     try:
         if mode == ParallelMode.MULTIPROCESSING:
+            multiprocessing.set_start_method('spawn')
             print("Multiprocessing started...")
 
             with Pool(processes) as pool:
+                print(multiprocessing.active_children())
                 for result in pool.imap_unordered(in_func, in_data):
                     if result_is_valid(result):
                         out_result.append(result)
