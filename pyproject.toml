@@ -32,6 +32,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "dask",
     "label_centerlines",
     "geopandas",
     "pip",
