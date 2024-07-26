@@ -1,4 +1,4 @@
-{% set name = "BTools" %}
+{% set name = "BERATools" %}
 {% set version = "0.9.6" %}
 
 package:

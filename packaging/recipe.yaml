@@ -1,7 +1,7 @@
 schema_version: 1
 
 context:
-  name: BTools
+  name: BERATools
   version: 0.9.6
 
 package:
