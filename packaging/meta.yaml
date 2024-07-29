@@ -25,7 +25,7 @@ requirements:
   run:
     - python >=3.9
     - dask
-    - label_centerlines
+    - bera_centerlines
     - geopandas
     - pip
     - pyogrio

@@ -8,7 +8,7 @@ dependencies:
   - python=3.9
   - dask
   - distributed
-  - appliedgrg::label_centerlines
+  - appliedgrg::bera_centerlines
   - geopandas
   - pip
   # - pip:

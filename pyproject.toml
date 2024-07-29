@@ -33,7 +33,7 @@ classifiers = [
 dependencies = [
     "dask",
     "distributed",
-    "label_centerlines",
+    "bera_centerlines",
     "geopandas",
     "pip",
     "pyogrio>=0.9.0",
