@@ -3,13 +3,6 @@
 BERA Tools is developed using Python libraries. To use BERA Tools, you
 need to install the proper Python environment first.
 
-::: note
-::: title
-Note
-:::
-
-BERA Tools no longer supports Arcpy
-:::
 
 ## Anaconda
 
@@ -18,8 +11,6 @@ Anaconda installation
 ### env
 
 First
-
-![](Images/installation_settings.png){.align-center}
 
 ### Install Shapely
 
@@ -33,18 +24,16 @@ editor to check the configuration is correct.
 @echo off
 set scriptName=beratools.py
 ```
+## Build PyPI Package
 
-## ArcGIS Pro Upgrades
 
-::: warning
-::: title
-Warning
-:::
+## Build Conda Package
 
-warnig
-:::
 
-Error might show up related to `numpy`:
+## Install from Source Code
+python -m pip install .
+
+This will use pyproject.toml
 
 ``` console
 RuntimeError: module compiled against API version 0xe but this version of numpy is 0xd

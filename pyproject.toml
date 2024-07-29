@@ -4,7 +4,6 @@ build-backend = "hatchling.build"
 
 [project]
 name = "BERATools"
-#version = "0.9.0"
 dynamic = ["version"]
 description = "An advanced forest line feature analysis platform"
 requires-python = ">=3.9"
@@ -33,12 +32,13 @@ classifiers = [
 
 dependencies = [
     "dask",
+    "distributed",
     "label_centerlines",
     "geopandas",
     "pip",
     "pyogrio>=0.9.0",
     "psutil",
-    "pyqt",
+    "PyQt5",
     "rioxarray",
     "rpy2",
     "scikit-image>=0.24.0",
@@ -52,7 +52,7 @@ BERATools = "beratools.gui:gui_main"
 Homepage = "https://github.com/RichardQZeng/BTools"
 
 [tool.hatch.version]
-path = "beratools/__about__.py"
+path = "beratools/__init__.py"
 
 [tool.hatch.build.targets.sdist]
 include = [

@@ -1,4 +1,5 @@
 dask
+distributed
 label_centerlines
 geopandas
 pip

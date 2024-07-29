@@ -8,14 +8,14 @@ import geopandas as gpd
 
 from beratools.core.constants import *
 
-# from dask.distributed import Client, as_completed
-# from dask import config as cfg
-# import dask.distributed
+from dask.distributed import Client, as_completed
+from dask import config as cfg
+import dask.distributed
 # import ray
 
 # settings for dask
-# cfg.set({'distributed.scheduler.worker-ttl': None})
-# warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
+cfg.set({'distributed.scheduler.worker-ttl': None})
+warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
 
 
 class OperationCancelledException(Exception):
@@ -89,27 +89,27 @@ def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
 
                     step += 1
                     print_msg(app_name, step, total_steps)
+        elif mode == ParallelMode.DASK:
+            dask_client = Client(threads_per_worker=1, n_workers=processes)
+            print(dask_client)
+            try:
+                print('start processing')
+                result = dask_client.map(in_func, in_data)
+                seq = as_completed(result)
+
+                for i in seq:
+                    if result_is_valid(result):
+                        out_result.append(i.result())
+
+                    step += 1
+                    print_msg(app_name, step, total_steps)
+            except Exception as e:
+                dask_client.close()
+
+            dask_client.close()
 
         # ! important !
-        # comment temporarily, man enable later if need to use dask or ray
-        # elif mode == ParallelMode.DASK:
-        #     dask_client = Client(threads_per_worker=1, n_workers=processes)
-        #     print(dask_client)
-        #     try:
-        #         print('start processing')
-        #         result = dask_client.map(in_func, in_data)
-        #         seq = as_completed(result)
-        #
-        #         for i in seq:
-        #             if result_is_valid(result):
-        #                 out_result.append(i.result())
-        #
-        #             step += 1
-        #             print_msg(app_name, step, total_steps)
-        #     except Exception as e:
-        #         dask_client.close()
-        #
-        #     dask_client.close()
+        # comment temporarily, man enable later if need to use ray
         # elif mode == ParallelMode.RAY:
         #     ray.init(log_to_driver=False)
         #     process_single_line_ray = ray.remote(in_func)
