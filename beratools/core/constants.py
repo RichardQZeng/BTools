@@ -78,9 +78,9 @@ class ParallelMode(IntEnum):
     MULTIPROCESSING = 2
     CONCURRENT = 3
     DASK = 4
-    RAY = 5
+    # RAY = 5
 
 
-PARALLEL_MODE = ParallelMode.CONCURRENT
+PARALLEL_MODE = ParallelMode.MULTIPROCESSING
 
 
