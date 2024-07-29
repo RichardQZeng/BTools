@@ -2,7 +2,7 @@ schema_version: 1
 
 context:
   name: BERATools
-  version: 0.9.6
+  version: 0.2.0
 
 package:
   name: ${{ name|lower }}
@@ -10,7 +10,7 @@ package:
 
 source:
   url: https://github.com/RichardQZeng/BTools/archive/${{ version }}.tar.gz
-  sha256: 92c242fd57ded51f7ad3b203e4e8e6dc939df8eb9be66c36a8958492fbc68c35
+  sha256: a58f593d4b33d46e198e5a22aeb07a7fac4ea28f92731d1b799ee44ebbc3b75b
 
 build:
   number: 0
