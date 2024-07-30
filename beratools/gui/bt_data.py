@@ -49,7 +49,7 @@ class BTData(object):
         self.work_dir = ""
         self.user_folder = Path('')
         self.data_folder = Path('')
-        self.verbose = False
+        self.verbose = True
         self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
         self.max_procs = -1
         self.recent_tool = None
@@ -154,12 +154,12 @@ class BTData(object):
     def get_setting_file(self):
         self.setting_file = self.data_folder.joinpath('saved_tool_parameters.json')
 
-    def get_verbose_mode(self):
-        return self.verbose
-
-    def set_verbose_mode(self, val=True):
-        self.verbose = val
-        self.save_setting('verbose_mode', val)
+    # def get_verbose_mode(self):
+    #     return self.verbose
+    #
+    # def set_verbose_mode(self, val=True):
+    #     self.verbose = val
+    #     self.save_setting('verbose_mode', val)
 
     def set_max_procs(self, val=-1):
         """ 
@@ -174,7 +174,7 @@ class BTData(object):
     def get_max_cpu_cores(self):
         return self.max_cpu_cores
 
-    def run_tool(self, tool_api, args, callback=None, verbose=True):
+    def run_tool(self, tool_api, args, callback=None):
         """
         Runs a tool and specifies tool arguments.
         Returns 0 if completes without error.
@@ -259,13 +259,13 @@ class BTData(object):
         if 'gui_parameters' in self.settings.keys():
             gui_settings = self.settings['gui_parameters']
 
-            # TODO remove working dir
+            # TODO remove working dir and verbose
             # if 'working_directory' in gui_settings.keys():
             #     self.work_dir = str(gui_settings['working_directory'])
-            if 'verbose_mode' in gui_settings.keys():
-                self.verbose = str(gui_settings['verbose_mode'])
-            else:
-                self.verbose = False
+            # if 'verbose_mode' in gui_settings.keys():
+            #     self.verbose = str(gui_settings['verbose_mode'])
+            # else:
+            #     self.verbose = False
 
             if 'max_procs' in gui_settings.keys():
                 self.max_procs = gui_settings['max_procs']
