@@ -7,9 +7,7 @@ package:
 
 source:
   url: https://github.com/RichardQZeng/BTools/archive/{{ version }}.tar.gz
-  sha256: a58f593d4b33d46e198e5a22aeb07a7fac4ea28f92731d1b799ee44ebbc3b75b
-
-
+  sha256: 973df933fc0e85895aa6579a81f75adf63e2c126fcaa50324f802c56d713af29
 
 build:
   entry_points:
