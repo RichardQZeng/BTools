@@ -6,19 +6,17 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - appliedgrg::label_centerlines
   - dask
   - distributed
+  - appliedgrg::bera_centerlines
   - geopandas
-  - huggingface_hub
-  - matplotlib
   - pip
   # - pip:
     # works for regular pip packages
     # - pyqtlet2
     # and for wheels
     # - http://URL_TO_THE_WHEEL.whl
-  - pyogrio
+  - pyogrio>=0.9.0
   # - pytorch::torchvision
   - pyqt
   - psutil
@@ -26,10 +24,11 @@ dependencies:
   - rpy2
   - r-essentials
   - r-lidr
+  - r-rcsf
+  - r-rlas
+  - r-sf
+  - r-sp
   - r-terra
-  - scikit-image
-  - sphinx
-  - sphinx-tabs
-  - sphinx-rtd-theme
+  - scikit-image>=0.24.0
   - xarray-spatial
 variables:

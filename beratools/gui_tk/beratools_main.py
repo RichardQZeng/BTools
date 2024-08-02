@@ -52,7 +52,7 @@ class BeraTools(object):
         self.exe_path = path.dirname(path.abspath(__file__))
 
         self.work_dir = ""
-        self.verbose = False
+        self.verbose = True
         self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
         self.__compress_rasters = False
         self.__max_procs = -1

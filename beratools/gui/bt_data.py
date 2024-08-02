@@ -10,6 +10,7 @@
 import os
 from os import path
 from pathlib import Path
+from inspect import getsourcefile
 
 import platform
 import json
@@ -46,11 +47,15 @@ class BTData(object):
         self.exe_path = path.dirname(path.abspath(__file__))
 
         self.work_dir = ""
-        self.verbose = False
+        self.user_folder = Path('')
+        self.data_folder = Path('')
+        self.verbose = True
         self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
         self.max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
+        self.get_working_dir()
+        self.get_user_folder()
 
         # set maximum available cpu core for tools
         self.max_cpu_cores = min(BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
@@ -63,13 +68,15 @@ class BTData(object):
         self.sorted_tools = []
         self.upper_toolboxes = []
         self.lower_toolboxes = []
+        self.toolbox_list = []
         self.get_bera_tools()
         self.get_bera_tool_list()
         self.get_bera_toolboxes()
-        self.toolbox_list = self.get_bera_toolboxes()
         self.sort_toolboxes()
 
-        self.setting_file = Path(self.exe_path).joinpath(r'.data\saved_tool_parameters.json')
+        self.setting_file = None
+        self.get_data_folder()
+        self.get_setting_file()
         self.gui_setting_file = Path(self.exe_path).joinpath(r'gui.json')
 
         self.load_saved_tool_info()
@@ -122,26 +129,37 @@ class BTData(object):
             with open(self.setting_file, 'w') as write_settings_file:
                 json.dump(self.settings, write_settings_file, indent=4)
 
-    def set_working_dir(self, path_str):
-        self.work_dir = path.normpath(path_str)
-        self.save_setting('working_directory', self.work_dir)
-
     def get_working_dir(self):
-        return self.work_dir
+        current_file = Path(getsourcefile(lambda: 0)).resolve()
+        btool_dir = current_file.parents[1]
+        self.work_dir = btool_dir
+
+    def get_user_folder(self):
+        self.user_folder = Path.home().joinpath('.beratools')
+        if not self.user_folder.exists():
+            self.user_folder.mkdir()
 
     def get_data_folder(self):
-        data_folder = Path(self.setting_file).parent
-        if not data_folder.exists():
-            data_folder.mkdir()
+        self.data_folder = self.user_folder.joinpath('.data')
+        if not self.data_folder.exists():
+            self.data_folder.mkdir()
 
-        return data_folder.as_posix()
+    def get_logger_file_name(self, name):
+        if not name:
+            name = 'beratools'
 
-    def get_verbose_mode(self):
-        return self.verbose
+        logger_file_name = self.user_folder.joinpath(name).with_suffix('.log')
+        return logger_file_name.as_posix()
 
-    def set_verbose_mode(self, val=True):
-        self.verbose = val
-        self.save_setting('verbose_mode', val)
+    def get_setting_file(self):
+        self.setting_file = self.data_folder.joinpath('saved_tool_parameters.json')
+
+    # def get_verbose_mode(self):
+    #     return self.verbose
+    #
+    # def set_verbose_mode(self, val=True):
+    #     self.verbose = val
+    #     self.save_setting('verbose_mode', val)
 
     def set_max_procs(self, val=-1):
         """ 
@@ -156,7 +174,7 @@ class BTData(object):
     def get_max_cpu_cores(self):
         return self.max_cpu_cores
 
-    def run_tool(self, tool_api, args, callback=None, verbose=True):
+    def run_tool(self, tool_api, args, callback=None):
         """
         Runs a tool and specifies tool arguments.
         Returns 0 if completes without error.
@@ -166,15 +184,9 @@ class BTData(object):
         try:
             if callback is None:
                 callback = self.default_callback
-
-            # TODO work_dir should be checked
-            work_dir = os.getcwd()
-            os.chdir(self.exe_path)
         except Exception as err:
             callback(str(err))
             return 1
-        finally:
-            os.chdir(work_dir)
 
         # Call script using new process to make GUI responsive
         try:
@@ -190,14 +202,13 @@ class BTData(object):
             tool_args = None
 
             if tool_type == 'python':
-                tool_args = [Path(work_dir).joinpath(f'beratools/tools/{tool_api}.py').as_posix(),
+                tool_args = [self.work_dir.joinpath(f'tools/{tool_api}.py').as_posix(),
                              '-i', args_string, '-p', str(self.get_max_procs()),
                              '-v', str(self.verbose)]
             elif tool_type == 'executable':
                 print(globals().get(tool_api))
                 tool_args = globals()[tool_api](args_string)
-                work_dir = os.getcwd()
-                lapis_path = Path(work_dir).parent.joinpath('./third_party/Lapis_0_8')
+                lapis_path = self.work_dir.joinpath('./third_party/Lapis_0_8')
                 os.chdir(lapis_path.as_posix())
         except Exception as err:
             callback(str(err))
@@ -248,12 +259,13 @@ class BTData(object):
         if 'gui_parameters' in self.settings.keys():
             gui_settings = self.settings['gui_parameters']
 
-            if 'working_directory' in gui_settings.keys():
-                self.work_dir = str(gui_settings['working_directory'])
-            if 'verbose_mode' in gui_settings.keys():
-                self.verbose = str(gui_settings['verbose_mode'])
-            else:
-                self.verbose = False
+            # TODO remove working dir and verbose
+            # if 'working_directory' in gui_settings.keys():
+            #     self.work_dir = str(gui_settings['working_directory'])
+            # if 'verbose_mode' in gui_settings.keys():
+            #     self.verbose = str(gui_settings['verbose_mode'])
+            # else:
+            #     self.verbose = False
 
             if 'max_procs' in gui_settings.keys():
                 self.max_procs = gui_settings['max_procs']
@@ -345,7 +357,8 @@ class BTData(object):
         for toolbox in self.bera_tools['toolbox']:
             tb = toolbox['category']
             toolboxes.append(tb)
-        return toolboxes
+
+        self.toolbox_list = toolboxes
 
     def get_bera_tool_params(self, tool_name):
         new_params = {'parameters': []}

@@ -1,0 +1,63 @@
+{% set name = "BERATools" %}
+{% set version = "0.2.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://github.com/RichardQZeng/BTools/archive/{{ version }}.tar.gz
+  sha256: 973df933fc0e85895aa6579a81f75adf63e2c126fcaa50324f802c56d713af29
+
+build:
+  entry_points:
+    - BERATools = beratools.gui:gui_main
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  number: 0
+
+requirements:
+  host:
+    - python >=3.9
+    - hatchling
+    - pip
+  run:
+    - python >=3.9
+    - dask
+    - bera_centerlines
+    - geopandas
+    - pip
+    - pyogrio
+    - psutil
+    - pyqt
+    - rioxarray
+    - rpy2
+    - r-essentials
+    - r-lidr
+    - r-rcsf
+    - r-rlas
+    - r-sf
+    - r-sp
+    - r-terra
+    - scikit-image
+    - xarray-spatial
+
+test:
+  imports:
+    - beratools
+  commands:
+    - pip check
+    - BERATools --help
+  requires:
+    - pip
+
+about:
+  home: https://github.com/RichardQZeng/BTools.git
+  summary: An advanced forest line feature analysis platform
+  license: MIT
+  license_file:
+    - LICENSE
+
+extra:
+  recipe-maintainers:
+    - richard

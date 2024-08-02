@@ -64,7 +64,9 @@ def forest_line_ecosite(callback, in_line, in_ecosite, out_line, processes, verb
         index_query = tree.query(line_geom)
         geoms_intersected = []
         for i in index_query:
-            geoms_intersected.append({'geom': feats[i][0], 'prop': feats[i][1]})  # polygon has property
+            # geoms_intersected.append({'geom': feats[i][0], 'prop': feats[i][1]})  # polygon has property
+            geoms_intersected.append({"geom": tree.geometries.take(i), "prop": feats[i][1]})
+            
         all_lines.append(({'geom': line_geom, 'prop': line_prop}, geoms_intersected, id))
         id += 1
 
