@@ -583,26 +583,27 @@ def cal_percentileRing(line_arg):
     Dyn_Canopy_Threshold = 0.05
     try:
 
-        with rasterio.open(in_CHM) as raster:
-            clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
-                                                               nodata=BT_NODATA, filled=True)
-            clipped_raster = np.squeeze(clipped_raster, axis=0)
+        #with rasterio.open(in_CHM) as raster:
+        # clipped_raster, out_transform = rasterio.mask.mask(raster, [line_buffer], crop=True,
+        #                                                    nodata=BT_NODATA, filled=True)
+        clipped_raster, out_meta = clip_raster(in_CHM, line_buffer, 0)
+        clipped_raster = np.squeeze(clipped_raster, axis=0)
 
-            # mask all -9999 (nodata) value cells
-            masked_raster = np.ma.masked_where(clipped_raster == BT_NODATA, clipped_raster)
-            filled_raster = np.ma.filled(masked_raster, np.nan)
+        # mask all -9999 (nodata) value cells
+        masked_raster = np.ma.masked_where(clipped_raster == BT_NODATA, clipped_raster)
+        filled_raster = np.ma.filled(masked_raster, np.nan)
 
-            # Calculate the percentile
-            # masked_mean = np.ma.mean(masked_raster)
-            percentile = np.nanpercentile(filled_raster, 50)  # CanPercentile)#,method='hazen')
+        # Calculate the percentile
+        # masked_mean = np.ma.mean(masked_raster)
+        percentile = np.nanpercentile(filled_raster, 50)  # CanPercentile)#,method='hazen')
 
-            if percentile > 1:  # (percentile+median)>0.0:
-                Dyn_Canopy_Threshold = percentile * (0.3)
-            else:
-                Dyn_Canopy_Threshold = 1
+        if percentile > 1:  # (percentile+median)>0.0:
+            Dyn_Canopy_Threshold = percentile * (0.3)
+        else:
+            Dyn_Canopy_Threshold = 1
 
-            del clipped_raster, out_transform
-        del raster
+        del clipped_raster, out_meta
+        #del raster
     # return the generated value
     except Exception as e:
         print(e)
