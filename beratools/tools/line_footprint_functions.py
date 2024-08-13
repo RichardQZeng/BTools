@@ -48,7 +48,8 @@ from beratools.tools.common import *
 
 
 def dyn_canopy_cost_raster(args):
-    raster_obj = args[0]
+    # raster_obj = args[0]
+    in_chm_raster=args[0]
     DynCanTh = args[1]
     tree_radius = args[2]
     max_line_dist = args[3]
@@ -83,45 +84,47 @@ def dyn_canopy_cost_raster(args):
     cost_raster_exponent = float(exponent)
 
     try:
-        clipped_rasterC, out_transformC = rasterio.mask.mask(raster_obj, [line_buffer], crop=True,
-                                                             filled=False)
+
+        clipped_rasterC, out_meta = clip_raster(in_chm_raster, line_buffer, 0)
+
+        #clipped_rasterC, out_transformC = rasterio.mask.mask(raster_obj, [line_buffer], crop=True,
+        #                                                     filled=False)
 
         in_chm = np.squeeze(clipped_rasterC, axis=0)
 
-        # make rasterio meta for saving raster later
-        out_meta = raster_obj.meta.copy()
-        out_meta.update({"driver": "GTiff",
-                         "height": in_chm.shape[0],
-                         "width": in_chm.shape[1],
-                         "nodata": BT_NODATA,
-                         "transform": out_transformC})
+        # # make rasterio meta for saving raster later
+        # out_meta = raster_obj.meta.copy()
+        # out_meta.update({"driver": "GTiff",
+        #                  "height": in_chm.shape[0],
+        #                  "width": in_chm.shape[1],
+        #                  "nodata": BT_NODATA,
+        #                  "transform": out_transformC})
 
         # print('Loading CHM ...')
-        (cell_x, cell_y) = res
-        band1_ndarray = in_chm
+        cell_x, cell_y = out_meta['transform'][0], -out_meta['transform'][4]
 
         # print('Preparing Kernel window ...')
         kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
 
         # Generate Canopy Raster and return the Canopy array
-        dyn_canopy_ndarray = dyn_np_cc_map(band1_ndarray, canopy_ht_threshold, nodata)
+        dyn_canopy_ndarray = dyn_np_cc_map(in_chm, canopy_ht_threshold, BT_NODATA)
 
         # Calculating focal statistic from canopy raster
-        cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, nodata)
+        cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
 
         # Smoothing raster
         cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
         avoidance = max(min(float(canopy_avoid), 1), 0)
-        dyn_cost_ndarray = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
+        cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
                                               cc_smooth, avoidance, cost_raster_exponent)
-        dyn_cost_ndarray[np.isnan(dyn_cost_ndarray)] = BT_NODATA_COST  # TODO was nodata, changed to BT_NODATA_COST
+        negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)  # TODO was nodata, changed to BT_NODATA_COST
         return (
-            line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta,
+            line_df, dyn_canopy_ndarray, negative_cost_clip, out_meta,
             max_line_dist, nodata, line_id, Cut_Dist, line_buffer
         )
 
     except Exception as e:
-        print("Error in dyn_canopy_cost_raster: {}".format(e))
+        print("Error in createing (dynamic) cost raster @ {}: {}".format(line_id,e))
         return None
 
 
@@ -334,10 +337,10 @@ def find_corridor_threshold(raster):
 
 
 def process_single_line_relative(segment):
-    in_chm = rasterio.open(segment[0])
-    #
-    segment[0] = in_chm
-    DynCanTh = segment[1]
+    # in_chm = rasterio.open(segment[0])
+
+    # segment[0] = in_chm
+    #DynCanTh = segment[1]
 
     # Segment args from mulitprocessing:
     # [clipped_chm, float(work_in_bufferR.loc[record, 'DynCanTh']), float(tree_radius),
@@ -346,8 +349,10 @@ def process_single_line_relative(segment):
 
     # this will change segment content, and parameters will be changed
     segment = dyn_canopy_cost_raster(segment)
-    # Segment after Clipped Canopy and Cost Raster
-    # line_df, dyn_canopy_ndarray, dyn_cost_ndarray, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer
+    if segment is None:
+        return None
+    # Segement after Clipped Canopy and Cost Raster
+    # line_df, dyn_canopy_ndarray, negative_cost_clip, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer
 
     # this function takes single line to work the line footprint
     # (regardless it process the whole line or individual segment)
@@ -392,13 +397,16 @@ def process_single_line_relative(segment):
         # when nan is present in clip_cost_r, find_costs cause access violation
         # no message/exception will be caught
         # change all nan to BT_NODATA_COST for workaround
+        if len(in_cost_r.shape) > 2:
+            in_cost_r = np.squeeze(in_cost_r, axis=0)
         remove_nan_from_array(in_cost_r)
+        in_cost_r[in_cost_r==no_data]=np.inf
 
         # generate 1m interval points along line
         distance_delta = 1
         distances = np.arange(0, feat.length, distance_delta)
         multipoint_along_line = [feat.interpolate(distance) for distance in distances]
-
+        multipoint_along_line.append(Point(segment_list[-1]))
         # Rasterize points along line
         rasterized_points_Alongln = features.rasterize(multipoint_along_line, out_shape=in_cost_r.shape,
                                                        transform=in_transform,
@@ -413,6 +421,7 @@ def process_single_line_relative(segment):
         # corridor = source_cost_acc + dest_cost_acc
         corridor = flex_cost_alongLn  # +flex_cost_dest #cum_cost_tosource+cum_cost_todestination
         corridor = np.ma.masked_invalid(corridor)
+
 
         # Calculate minimum value of corridor raster
         if not np.ma.min(corridor) is None:
@@ -502,7 +511,8 @@ def multiprocessing_footprint_relative(line_args, processes):
             for result in pool.imap_unordered(process_single_line_relative, line_args):
                 if BT_DEBUGGING:
                     print('Got result: {}'.format(result), flush=True)
-                feats.append(result)
+                if result != None:
+                    feats.append(result)
                 step += 1
                 print(' "PROGRESS_LABEL Dynamic Segment Line Footprint {} of {}" '.format(step, total_steps),
                       flush=True)

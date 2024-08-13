@@ -1,20 +1,22 @@
 from multiprocessing.pool import Pool
+import multiprocessing
 import concurrent.futures
 import warnings
+from tqdm.auto import tqdm
 
 import pandas as pd
 import geopandas as gpd
 
 from beratools.core.constants import *
 
-# from dask.distributed import Client, as_completed
-# from dask import config as cfg
-# import dask.distributed
+from dask.distributed import Client, as_completed
+from dask import config as cfg
+import dask.distributed
 # import ray
 
 # settings for dask
-# cfg.set({'distributed.scheduler.worker-ttl': None})
-# warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
+cfg.set({'distributed.scheduler.worker-ttl': None})
+warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
 
 
 class OperationCancelledException(Exception):
@@ -59,54 +61,71 @@ def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
             print("Multiprocessing started...")
 
             with Pool(processes) as pool:
-                for result in pool.imap_unordered(in_func, in_data):
-                    if result_is_valid(result):
-                        out_result.append(result)
+                # print(multiprocessing.active_children())
+                with tqdm(total=total_steps, disable=verbose) as pbar:
+                    for result in pool.imap_unordered(in_func, in_data):
+                        if result_is_valid(result):
+                            out_result.append(result)
 
-                    step += 1
-                    print_msg(app_name, step, total_steps)
+                        step += 1
+                        if verbose:
+                            print_msg(app_name, step, total_steps)
+                        else:
+                            pbar.update()
 
             pool.close()
             pool.join()
         elif mode == ParallelMode.SEQUENTIAL:
-            for line in in_data:
-                result_item = in_func(line)
-                if result_is_valid(result_item):
-                    out_result.append(result_item)
-
-                step += 1
-                print_msg(app_name, step, total_steps)
-        elif mode == ParallelMode.CONCURRENT:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
-                futures = [executor.submit(in_func, line) for line in in_data]
-                for future in concurrent.futures.as_completed(futures):
-                    result_item = future.result()
+            with tqdm(total=total_steps, disable=verbose) as pbar:
+                for line in in_data:
+                    result_item = in_func(line)
                     if result_is_valid(result_item):
                         out_result.append(result_item)
 
                     step += 1
-                    print_msg(app_name, step, total_steps)
+                    if verbose:
+                        print_msg(app_name, step, total_steps)
+                    else:
+                        pbar.update()
+        elif mode == ParallelMode.CONCURRENT:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
+                futures = [executor.submit(in_func, line) for line in in_data]
+                with tqdm(total=total_steps, disable=verbose) as pbar:
+                    for future in concurrent.futures.as_completed(futures):
+                        result_item = future.result()
+                        if result_is_valid(result_item):
+                            out_result.append(result_item)
+
+                        step += 1
+                        if verbose:
+                            print_msg(app_name, step, total_steps)
+                        else:
+                            pbar.update()
+        elif mode == ParallelMode.DASK:
+            dask_client = Client(threads_per_worker=1, n_workers=processes)
+            print(dask_client)
+            try:
+                print('start processing')
+                result = dask_client.map(in_func, in_data)
+                seq = as_completed(result)
+
+                with tqdm(total=total_steps, disable=verbose) as pbar:
+                    for i in seq:
+                        if result_is_valid(result):
+                            out_result.append(i.result())
+
+                        step += 1
+                        if verbose:
+                            print_msg(app_name, step, total_steps)
+                        else:
+                            pbar.update()
+            except Exception as e:
+                dask_client.close()
+
+            dask_client.close()
 
         # ! important !
-        # comment temporarily, man enable later if need to use dask or ray
-        # elif mode == ParallelMode.DASK:
-        #     dask_client = Client(threads_per_worker=1, n_workers=processes)
-        #     print(dask_client)
-        #     try:
-        #         print('start processing')
-        #         result = dask_client.map(in_func, in_data)
-        #         seq = as_completed(result)
-        #
-        #         for i in seq:
-        #             if result_is_valid(result):
-        #                 out_result.append(i.result())
-        #
-        #             step += 1
-        #             print_msg(app_name, step, total_steps)
-        #     except Exception as e:
-        #         dask_client.close()
-        #
-        #     dask_client.close()
+        # comment temporarily, man enable later if need to use ray
         # elif mode == ParallelMode.RAY:
         #     ray.init(log_to_driver=False)
         #     process_single_line_ray = ray.remote(in_func)

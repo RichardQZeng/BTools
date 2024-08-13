@@ -1,5 +1,5 @@
-{% set name = "BTools" %}
-{% set version = "0.9.5" %}
+{% set name = "BERATools" %}
+{% set version = "0.2.0" %}
 
 package:
   name: {{ name|lower }}
@@ -7,12 +7,11 @@ package:
 
 source:
   url: https://github.com/RichardQZeng/BTools/archive/{{ version }}.tar.gz
-  sha256: 68329862dbc8308e801c9ce0ed6779e6300131ca8e7910454c7d6d6f6e857af4
+  sha256: 973df933fc0e85895aa6579a81f75adf63e2c126fcaa50324f802c56d713af29
 
 build:
   entry_points:
     - BERATools = beratools.gui:gui_main
-    - BERATools=beratools.gui:gui_main
   noarch: python
   script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
   number: 0
@@ -24,18 +23,13 @@ requirements:
     - pip
   run:
     - python >=3.9
-    - label_centerlines
-    - laserchicken
-    - dask-core
-    - distributed
+    - dask
+    - bera_centerlines
     - geopandas
-    - huggingface_hub
-    - matplotlib-base
     - pip
     - pyogrio
     - psutil
     - pyqt
-    - ray-default
     - rioxarray
     - rpy2
     - r-essentials
@@ -46,8 +40,6 @@ requirements:
     - r-sp
     - r-terra
     - scikit-image
-    - sphinx-tabs
-    - sphinx_rtd_theme
     - xarray-spatial
 
 test:
@@ -55,7 +47,6 @@ test:
     - beratools
   commands:
     - pip check
-    - BERATools --help
     - BERATools --help
   requires:
     - pip
@@ -66,8 +57,6 @@ about:
   license: MIT
   license_file:
     - LICENSE
-    - beratools/third_party/pyqtlet2/web/modules/leaflet_draw_414/LICENSE
-    - beratools/third_party/pyqtlet2/web/modules/leaflet_rotatedMarker_020/LICENSE
 
 extra:
   recipe-maintainers:

@@ -1,6 +1,8 @@
-appliedgrg::label_centerlines
+beratools
+dask
+distributed
+appliedgrg::bera_centerlines
 geopandas
-matplotlib
 pip
 pyogrio>=0.9.0
 psutil

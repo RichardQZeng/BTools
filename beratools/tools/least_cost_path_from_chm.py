@@ -1,6 +1,18 @@
 import time
 from xrspatial import convolution
 
+import logging
+import time
+
+import sys
+from pathlib import Path
+from inspect import getsourcefile
+
+if __name__ == "__main__":
+    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    btool_dir = current_file.parents[2]
+    sys.path.insert(0, btool_dir.as_posix())
+
 from beratools.tools.common import *
 from beratools.core.algo_centerline import *
 
@@ -65,6 +77,9 @@ def LCP_centerline(callback, in_line, in_chm, line_radius,
     feat_props = []
     center_line_geoms = []
     corridor_poly_list = []
+    if i<processes:
+        processes=i
+
     result = execute_multiprocessing(process_single_line, all_lines, 'Centerline',
                                      processes, 1, verbose=verbose)
 
@@ -99,15 +114,13 @@ def process_single_line(line_args):
     chm_clip, out_meta = clip_raster(in_chm_raster, seed_line, line_radius)
     in_chm = np.squeeze(chm_clip, axis=0)
     cell_x, cell_y = out_meta['transform'][0], -out_meta['transform'][4]
-    kernel = convolution.circle_kernel(cell_x, cell_y, 2.5)
-    dyn_canopy_ndarray = dyn_np_cc_map(in_chm, FP_CORRIDOR_THRESHOLD, BT_NODATA)
-    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
-    avoidance = max(min(float(0.4), 1), 0)
+    kernel = convolution.circle_kernel(cell_x, cell_y, 2)
+    dyn_canopy_ndarray = dyn_np_cc_map(in_chm, FP_CANOPY_THRESHOLD, BT_NODATA)
+    cc_std, cc_mean= dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 10, [cell_x, cell_y])
     cost_clip = dyn_np_cost_raster(dyn_canopy_ndarray, cc_mean, cc_std,
-                                   cc_smooth, 0.4, 1.5)
+                                   cc_smooth, 0.1, 2)
 
-    # if CL_USE_SKIMAGE_GRAPH:
     # skimage shortest path (Cost Array elements with infinite or negative costs will simply be ignored.)
     negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)
     lc_path = LCP_skimage_mcp_connect(negative_cost_clip, out_meta, seed_line)

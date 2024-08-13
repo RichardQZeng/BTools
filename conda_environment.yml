@@ -6,9 +6,10 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - appliedgrg::label_centerlines
+  - dask
+  - distributed
+  - appliedgrg::bera_centerlines
   - geopandas
-  - matplotlib
   - pip
   # - pip:
     # works for regular pip packages
