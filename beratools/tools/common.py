@@ -58,30 +58,35 @@ if not BT_DEBUGGING:
     warnings.simplefilter(action='ignore', category=UserWarning)  # suppress Pandas UserWarning
 
 
-def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, ras_nodata=BT_NODATA):
+def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, default_nodata=BT_NODATA):
     out_meta = None
     with (rasterio.open(in_raster_file)) as raster_file:
         out_meta = raster_file.meta
-        if out_meta['nodata']:
-            ras_nodata = out_meta['nodata']
-        else:
-            out_meta['nodata'] = ras_nodata
+        ras_nodata=out_meta['nodata']
 
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
         out_image, out_transform = mask.mask(raster_file, clip_geo_buffer,
                                              crop=True, nodata=ras_nodata, filled=True)
+        if np.isnan(ras_nodata):
+            out_image[np.isnan(out_image)]=default_nodata
 
-        if out_meta['nodata']:
-            out_image[out_image == out_meta['nodata']] = BT_NODATA
-            ras_nodata = BT_NODATA
+        elif np.isinf(ras_nodata):
+            out_image[np.isinf(out_image)] = default_nodata
+        else:
+            out_image[out_image==ras_nodata] = default_nodata
 
-    height, width = out_image.shape[1:]
-    out_meta.update({"driver": "GTiff",
-                     "height": height,
-                     "width": width,
-                     "transform": out_transform,
-                     "nodata": ras_nodata})
+        out_image = np.ma.masked_where(out_image==default_nodata,out_image)
+        out_image.fill_value=default_nodata
+        ras_nodata = default_nodata
+
+        height, width = out_image.shape[1:]
+
+        out_meta.update({"driver": "GTiff",
+                         "height": height,
+                         "width": width,
+                         "transform": out_transform,
+                         "nodata": ras_nodata})
 
     if out_raster_file:
         with rasterio.open(out_raster_file, "w", **out_meta) as dest:
@@ -705,25 +710,25 @@ def chk_df_multipart(df, chk_shp_in_string):
         return df, False
 
 
-def dyn_fs_raster_stdmean(in_ndarray, kernel, nodata):
+def dyn_fs_raster_stdmean(canopy_ndarray, kernel, nodata):
     # This function uses xrspatial which can handle large data but slow
-    # print("Calculating Canopy Closure's Focal Statistic-Stand Deviation Raster ...")
-    in_ndarray[in_ndarray == nodata] = np.nan
-    result_ndarray = focal.focal_stats(xr.DataArray(in_ndarray), kernel, stats_funcs=['std', 'mean'])
+    mask=canopy_ndarray.mask
+    in_ndarray=np.ma.where(mask==True,np.NaN,canopy_ndarray)
+    result_ndarray = focal.focal_stats(xr.DataArray(in_ndarray.data), kernel, stats_funcs=['std', 'mean'])
 
-    # Assign std and mean ndarray
-    reshape_std_ndarray = result_ndarray[0].data  # .reshape(-1)
-    reshape_mean_ndarray = result_ndarray[1].data  # .reshape(-1)
+    # Assign std and mean ndarray (return array contain NaN value)
+    reshape_std_ndarray = result_ndarray[0].data
+    reshape_mean_ndarray = result_ndarray[1].data
 
     return reshape_std_ndarray, reshape_mean_ndarray
 
 
-def dyn_smooth_cost(in_raster, max_line_dist, sampling):
-    # print('Generating Cost Raster ...')
-
+def dyn_smooth_cost(canopy_ndarray, max_line_dist, sampling):
+    mask = canopy_ndarray.mask
+    in_ndarray = np.ma.where(mask == True, np.NaN, canopy_ndarray)
     # scipy way to do Euclidean distance transform
-    euc_dist_array = ndimage.distance_transform_edt(np.logical_not(in_raster), sampling=sampling)
-
+    euc_dist_array = ndimage.distance_transform_edt(np.logical_not(np.isnan(in_ndarray.data)), sampling=sampling)
+    euc_dist_array[mask==True]=np.NaN
     smooth1 = float(max_line_dist) - euc_dist_array
     smooth1[smooth1 <= 0.0] = 0.0
     smooth_cost_array = smooth1 / float(max_line_dist)
@@ -739,17 +744,18 @@ def dyn_np_cost_raster(canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, co
     aaM = (cc_mean + cc_std)
     bM = np.where(aaM <= 0, 0, aM)
     cM = bM * (1 - avoidance) + (cc_smooth * avoidance)
-    dM = np.where(canopy_ndarray == 1, 1, cM)
+    dM = np.where(canopy_ndarray.data == 1, 1, cM)
     eM = np.exp(dM)
     result = np.power(eM, float(cost_raster_exponent))
 
     return result
 
 
-def dyn_np_cc_map(in_array, canopy_ht_threshold, nodata):
-    canopy_ht_threshold = 0.8
-    canopy_ndarray = np.ma.where(in_array >= canopy_ht_threshold, 1., 0.).astype(float)
-    canopy_ndarray = np.ma.filled(canopy_ndarray, nodata)
+def dyn_np_cc_map(in_chm, canopy_ht_threshold, nodata):
+
+    canopy_ndarray = np.ma.where(in_chm >= canopy_ht_threshold, 1., 0.).astype(float)
+    canopy_ndarray.fill_value=nodata
+    # canopy_ndarray = np.ma.filled(canopy_ndarray, nodata)
     # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
 
     return canopy_ndarray

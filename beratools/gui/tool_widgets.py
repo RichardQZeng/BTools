@@ -175,6 +175,9 @@ class FileSelector(QWidget):
 
         self.setLayout(self.layout)
 
+        # text changed
+        self.in_file.textChanged.connect(self.set_value)
+
     def select_file(self):
         try:
             dialog = QFileDialog(self)
