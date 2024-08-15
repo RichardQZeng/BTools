@@ -21,9 +21,7 @@ import argparse
 import warnings
 import numpy as np
 
-import rasterio
-from rasterio import mask
-
+from osgeo import ogr, gdal
 import fiona
 import shapely
 from shapely.affinity import rotate
@@ -32,9 +30,11 @@ from shapely.geometry import shape, mapping, Point, LineString, box
 
 import pandas as pd
 import geopandas as gpd
-from osgeo import ogr, gdal
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
+
+import rasterio
+from rasterio import mask
 
 from skimage.graph import MCP_Geometric, MCP_Connect
 
