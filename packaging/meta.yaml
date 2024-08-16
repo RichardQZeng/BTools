@@ -30,6 +30,7 @@ requirements:
     - pyogrio
     - psutil
     - pyqt
+    - pyqtlet2
     - rioxarray
     - rpy2
     - r-essentials
