@@ -263,7 +263,8 @@ def check_arguments():
     return args, verbose
 
 
-def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=None):
+def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
+                          driver='ESRI Shapefile', layer=None):
     """
 
     Parameters
@@ -273,6 +274,8 @@ def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=Non
     geoms : shapely geometry objects
     schema :
     properties :
+    driver:
+    layer:
 
     Returns
     -------
@@ -301,11 +304,11 @@ def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=Non
 
         properties = None
 
-    driver = 'ESRI Shapefile'
+    # driver = 'ESRI Shapefile'
     print('Writing to shapefile {}'.format(out_file))
 
     try:
-        out_line_file = fiona.open(out_file, 'w', driver, schema, crs)
+        out_line_file = fiona.open(out_file, 'w', driver, schema, crs, layer=layer)
     except Exception as e:
         print(e)
         out_line_file.close()

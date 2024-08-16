@@ -607,10 +607,10 @@ def vertex_optimization(callback, in_line, in_raster, line_radius, out_line, pro
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    save_features_to_shapefile(file_line, vg.crs, all_lines, all_props, vg.in_schema)
-    save_features_to_shapefile(file_lc, vg.crs, leastcost_list, properties, fields)
-    save_features_to_shapefile(file_anchors, vg.crs, anchor_list, properties, fields)
-    save_features_to_shapefile(file_inter, vg.crs, inter_list, properties, fields)
+    save_features_to_file(file_line, vg.crs, all_lines, all_props, vg.in_schema)
+    save_features_to_file(file_lc, vg.crs, leastcost_list, properties, fields)
+    save_features_to_file(file_anchors, vg.crs, anchor_list, properties, fields)
+    save_features_to_file(file_inter, vg.crs, inter_list, properties, fields)
 
 
 if __name__ == '__main__':
