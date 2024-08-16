@@ -19,6 +19,7 @@ dependencies:
   - pyogrio>=0.9.0
   # - pytorch::torchvision
   - pyqt
+  - pyqtlet2
   - psutil
   - rioxarray
   - rpy2

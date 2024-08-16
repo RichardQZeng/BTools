@@ -5,7 +5,7 @@ os.environ['QT_API'] = 'pyqt5'
 from qtpy.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QWidget, QTreeWidget, QTreeWidgetItem,
                             QPushButton, QGroupBox, QDialog, QDialogButtonBox)
 from qtpy.QtCore import (Qt, Signal)
-from beratools.third_party.pyqtlet2 import L, MapWidget
+from pyqtlet2 import L, MapWidget
 
 
 class MapWindow(QDialog):

@@ -157,16 +157,18 @@ def centerline(callback, in_line, in_raster, line_radius,
 
     out_centerline_path = Path(out_line)
     schema['properties']['status'] = 'int'
-    save_features_to_shapefile(out_centerline_path.as_posix(), layer_crs, center_line_geoms, feat_props, schema)
+    save_features_to_file(out_centerline_path.as_posix(), layer_crs, center_line_geoms, feat_props, schema)
 
-    out_least_cost_path = out_centerline_path.with_stem(out_centerline_path.stem + '_least_cost_path')
-    save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, lc_path_geoms, feat_props, schema)
+    driver = 'GPKG'
+    layer = 'least_cost_path'
+    out_aux_gpkg = out_centerline_path.with_stem(out_centerline_path.stem + '_aux').with_suffix('.gpkg')
+    save_features_to_file(out_aux_gpkg.as_posix(), layer_crs, lc_path_geoms, feat_props,
+                          schema, driver=driver, layer=layer)
 
     # save corridor polygons
     corridor_polys = pd.concat(corridor_poly_list)
-    out_corridor_poly_path = Path(out_line)
-    out_corridor_poly_path = out_corridor_poly_path.with_stem(out_corridor_poly_path.stem + '_corridor_poly')
-    corridor_polys.to_file(out_corridor_poly_path.as_posix())
+    layer = 'corridor_polygon'
+    corridor_polys.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
 
 if __name__ == '__main__':

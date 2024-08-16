@@ -21,9 +21,7 @@ import argparse
 import warnings
 import numpy as np
 
-import rasterio
-from rasterio import mask
-
+from osgeo import ogr, gdal
 import fiona
 import shapely
 from shapely.affinity import rotate
@@ -32,9 +30,11 @@ from shapely.geometry import shape, mapping, Point, LineString, box
 
 import pandas as pd
 import geopandas as gpd
-from osgeo import ogr, gdal
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
+
+import rasterio
+from rasterio import mask
 
 from skimage.graph import MCP_Geometric, MCP_Connect
 
@@ -263,7 +263,8 @@ def check_arguments():
     return args, verbose
 
 
-def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=None):
+def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
+                          driver='ESRI Shapefile', layer=None):
     """
 
     Parameters
@@ -273,6 +274,8 @@ def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=Non
     geoms : shapely geometry objects
     schema :
     properties :
+    driver:
+    layer:
 
     Returns
     -------
@@ -301,11 +304,11 @@ def save_features_to_shapefile(out_file, crs, geoms, properties=None, schema=Non
 
         properties = None
 
-    driver = 'ESRI Shapefile'
+    # driver = 'ESRI Shapefile'
     print('Writing to shapefile {}'.format(out_file))
 
     try:
-        out_line_file = fiona.open(out_file, 'w', driver, schema, crs)
+        out_line_file = fiona.open(out_file, 'w', driver, schema, crs, layer=layer)
     except Exception as e:
         print(e)
         out_line_file.close()

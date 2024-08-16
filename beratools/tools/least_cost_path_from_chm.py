@@ -99,7 +99,7 @@ def LCP_centerline(callback, in_line, in_chm, line_radius,
     out_least_cost_path = out_least_cost_path.with_stem(out_least_cost_path.stem + '_least_cost_path')
     schema['properties']['status'] = 'int'
 
-    save_features_to_shapefile(out_least_cost_path.as_posix(), layer_crs, feat_geoms, feat_props, schema)
+    save_features_to_file(out_least_cost_path.as_posix(), layer_crs, feat_geoms, feat_props, schema)
 
 
 def process_single_line(line_args):
