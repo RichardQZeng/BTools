@@ -599,18 +599,20 @@ def vertex_optimization(callback, in_line, in_raster, line_radius, out_line, pro
     line_path = Path(out_line)
     file_name = line_path.stem
     file_line = line_path.as_posix()
-    file_lc = line_path.with_stem(file_name + '_leastcost').as_posix()
-    file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
-    file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
+    file_aux = line_path.with_stem(file_name + '_aux').with_suffix('.gpkg').as_posix()
+    # file_lc = line_path.with_stem(file_name + '_leastcost').as_posix()
+    # file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
+    # file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
 
     fields = []
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
     save_features_to_file(file_line, vg.crs, all_lines, all_props, vg.in_schema)
-    save_features_to_file(file_lc, vg.crs, leastcost_list, properties, fields)
-    save_features_to_file(file_anchors, vg.crs, anchor_list, properties, fields)
-    save_features_to_file(file_inter, vg.crs, inter_list, properties, fields)
+
+    save_features_to_file(file_aux, vg.crs, leastcost_list, properties, fields, driver='GPKG', layer='leastcost')
+    save_features_to_file(file_aux, vg.crs, anchor_list, properties, fields, driver='GPKG', layer='anchors')
+    save_features_to_file(file_aux, vg.crs, inter_list, properties, fields, driver='GPKG', layer='intersections')
 
 
 if __name__ == '__main__':
