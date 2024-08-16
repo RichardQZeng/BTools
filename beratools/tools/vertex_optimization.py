@@ -600,9 +600,6 @@ def vertex_optimization(callback, in_line, in_raster, line_radius, out_line, pro
     file_name = line_path.stem
     file_line = line_path.as_posix()
     file_aux = line_path.with_stem(file_name + '_aux').with_suffix('.gpkg').as_posix()
-    # file_lc = line_path.with_stem(file_name + '_leastcost').as_posix()
-    # file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
-    # file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
 
     fields = []
     properties = []
