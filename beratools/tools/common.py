@@ -305,7 +305,7 @@ def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
         properties = None
 
     # driver = 'ESRI Shapefile'
-    print('Writing to shapefile {}'.format(out_file))
+    print('Writing to file {}'.format(out_file))
 
     try:
         out_line_file = fiona.open(out_file, 'w', driver, schema, crs, layer=layer)
