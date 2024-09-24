@@ -1470,7 +1470,7 @@ def main_runner():
     signal.signal(signal.SIGINT, lambda x, y: print('terminal ^C') or handler(None))
     btr.bind_all('<Control-c>', handler)
 
-    ico = Image.open(r'img\BERALogo.png')
+    ico = Image.open(r'img/BERALogo.png')
     photo = ImageTk.PhotoImage(ico)
     btr.root().wm_iconphoto(False, photo)
     btr.root().eval('tk::PlaceWindow . center')
