@@ -336,6 +336,16 @@
                             "optional": false
                         },
                         {
+                            "variable": "search_distance",
+                            "parameter": "Vertex searching distance (m)",
+                            "description": "Bigger value will let tool enlarge searching area for better vertex location.",
+                            "type": "number",
+                            "typelab": "number",
+                            "default": 30,
+                            "output": false,
+                            "optional": false
+                        },
+                        {
                             "variable": "line_radius",
                             "parameter": "Line Processing Radius",
                             "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",

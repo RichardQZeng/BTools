@@ -63,6 +63,8 @@ def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, def
     with (rasterio.open(in_raster_file)) as raster_file:
         out_meta = raster_file.meta
         ras_nodata=out_meta['nodata']
+        if ras_nodata is None:
+            ras_nodata = default_nodata
 
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
@@ -305,7 +307,7 @@ def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
         properties = None
 
     # driver = 'ESRI Shapefile'
-    print('Writing to file {}'.format(out_file))
+    print('Writing to file {}'.format(out_file), flush=True)
 
     try:
         out_line_file = fiona.open(out_file, 'w', driver, schema, crs, layer=layer)

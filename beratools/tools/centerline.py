@@ -100,7 +100,13 @@ def centerline(callback, in_line, in_raster, line_radius,
     with fiona.open(in_line) as open_line_file:
         layer_crs = open_line_file.crs
         schema = open_line_file.meta['schema']
+
+        if 'BT_UID' not in schema['properties']:
+            schema['properties']['BT_UID'] = 'int'
+
+        uid = 0
         for line in open_line_file:
+            line.properties['BT_UID'] = uid
             if line.geometry:
                 if line.geometry['type'] != 'MultiLineString':
                     input_lines.append([line.geometry, line.properties])
@@ -113,6 +119,8 @@ def centerline(callback, in_line, in_raster, line_radius,
                             input_lines.append([line_part, line.properties])
             else:
                 print(f'Line {line.id} has empty geometry.')
+
+            uid += 1
 
     if proc_segments:
         # split line segments at vertices

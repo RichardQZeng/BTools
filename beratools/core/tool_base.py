@@ -53,12 +53,12 @@ def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
                             mode=PARALLEL_MODE, verbose=False):
     out_result = []
     step = 0
-    print("Using {} CPU cores".format(processes))
+    print("Using {} CPU cores".format(processes), flush=True)
     total_steps = len(in_data)
 
     try:
         if mode == ParallelMode.MULTIPROCESSING:
-            print("Multiprocessing started...")
+            print("Multiprocessing started...", flush=True)
 
             with Pool(processes) as pool:
                 # print(multiprocessing.active_children())
