@@ -22,6 +22,8 @@ import warnings
 import numpy as np
 
 from osgeo import ogr, gdal
+import osgeo
+from osgeo.osr import SpatialReference
 import fiona
 import shapely
 from shapely.affinity import rotate
@@ -42,6 +44,14 @@ from scipy import ndimage
 import xarray as xr
 from xrspatial import focal, convolution
 
+from numpy.lib.stride_tricks import as_strided,sliding_window_view
+
+from pathlib import Path
+from inspect import getsourcefile
+if __name__ == "__main__":
+    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    btool_dir = current_file.parents[2]
+    sys.path.insert(0, btool_dir.as_posix())
 from beratools.core.tool_base import *
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
@@ -249,6 +259,7 @@ def extract_string_from_printout(str_print, str_extract):
 
 def check_arguments():
     # Get tool arguments
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
     parser.add_argument('-p', '--processes')
@@ -337,21 +348,73 @@ def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
 
 
 def vector_crs(in_vector):
+    osr_crs = SpatialReference()
+    from pyproj.enums import WktVersion
     vec_crs = None
-    with ogr.Open(in_vector) as vector_file:
-        if vector_file:
-            vec_crs = vector_file.GetLayer().GetSpatialRef()
+    # open input vector data as Geodataframe
+    gpd_vector=gpd.GeoDataFrame.from_file(in_vector)
+    try:
+        if gpd_vector.crs != None:
+            vec_crs=gpd_vector.crs
+            if osgeo.version_info.major < 3:
+                osr_crs.ImportFromWkt(vec_crs.to_wkt(WktVersion.WKT1_GDAL))
+            else:
+                osr_crs.ImportFromEPSG(vec_crs.to_epsg())
+            return osr_crs
+        else:
+            print('No Coordinate Reference System (CRS) find in the input feature, please check!')
+            exit()
+    except Exception as e:
+        print(e)
+        exit()
 
-    return vec_crs
+    # with ogr.Open(in_vector) as vector_file:
+    #     if vector_file:
+    #         vec_crs = vector_file.GetLayer().GetSpatialRef()
 
+    # return vec_crs
+
+def df_crs(in_df):
+    vec_crs = None
+    osr_crs = SpatialReference()
+    from pyproj.enums import WktVersion
+    try:
+        if in_df.crs != None:
+            vec_crs=in_df.crs
+            if osgeo.version_info.major < 3:
+                osr_crs.ImportFromWkt(vec_crs.to_wkt(WktVersion.WKT1_GDAL))
+            else:
+                osr_crs.ImportFromEPSG(vec_crs.to_epsg())
+            return osr_crs
+        else:
+            print('No Coordinate Reference System (CRS) find in the input feature, please check!')
+            exit()
+    except Exception as e:
+        print(e)
+        exit()
 
 def raster_crs(in_raster):
     ras_crs = None
-    with gdal.Open(in_raster) as raster_file:
-        if raster_file:
-            ras_crs = raster_file.GetSpatialRef()
+    osr_crs = SpatialReference()
+    with rasterio.open(in_raster) as raster_file:
+    # with gdal.Open(in_raster) as raster_file:
+        from pyproj.enums import WktVersion
+        try:
+            if raster_file.crs != None:
+                vec_crs = raster_file.crs
+                if osgeo.version_info.major < 3:
+                    osr_crs.ImportFromWkt(vec_crs.to_wkt(WktVersion.WKT1_GDAL))
+                else:
+                    osr_crs.ImportFromEPSG(vec_crs.to_epsg())
+                return osr_crs
+            else:
+                print('No Coordinate Reference System (CRS) find in the input feature, please check!')
+                exit()
+        except Exception as e:
+            print(e)
+            exit()
 
-    return ras_crs
+
 
 
 def compare_crs(crs_org, crs_dst):
@@ -377,8 +440,14 @@ def compare_crs(crs_org, crs_dst):
                 crs_dst_proj = crs_dst_norm.coordinate_operation.name
 
             if crs_org_proj == crs_dst_proj:
-                print('Checked: Input files Spatial Reference are the same, continue.')
-                return True
+                if crs_org_norm.name==crs_dst_norm.name:
+                    print('Checked: Input files Spatial Reference are the same, continue.')
+                    return True
+                else:
+                    print('Checked: Data are on the same projected Zone but using different Spatial Reference. \n Consider to reproject all data onto same spatial reference system.\n Process Stop.')
+                    exit()
+            else:
+                return False
 
     return False
 
@@ -712,7 +781,7 @@ def chk_df_multipart(df, chk_shp_in_string):
         return df, found
     except Exception as e:
         print(e)
-        return df, False
+        return df, True
 
 
 def dyn_fs_raster_stdmean(canopy_ndarray, kernel, nodata):
@@ -894,3 +963,9 @@ def chk_null_geometry(in_data):
             find = True
 
     return find
+
+def read_data2gpd(in_data):
+    print("Reading data.......")
+    out_gpd_obj = gpd.GeoDataFrame.from_file(in_data)
+    return out_gpd_obj
+
