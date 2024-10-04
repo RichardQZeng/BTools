@@ -393,6 +393,8 @@ class DataInput(QWidget):
 
         if "Integer" in self.parameter_type:
             self.data_input = QSpinBox()
+            # TODO: add number range to json file
+            self.data_input.setRange(0, 1024)
         elif "Float" in self.parameter_type or "Double" in self.parameter_type:
             self.data_input = QDoubleSpinBox()
 

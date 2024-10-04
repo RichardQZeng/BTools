@@ -20,6 +20,12 @@ r-terra
 scikit-image>=0.24.0
 xarray-spatial
 
+pyyaml
+pytorch
+tqdm
+transformers
+
+
 # recommended way to install BERA Tools
 # > conda create -n bera -c conda-forge -c appliedgrg python=3.11 mamba
 # > conda activate bera
