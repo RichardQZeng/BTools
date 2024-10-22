@@ -50,16 +50,17 @@ from beratools.tools.common import *
 from beratools.core.dijkstra_algorithm import *
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
-SEGMENT_LENGTH = 20  # Distance (meter) from intersection to anchor points
+# SEGMENT_LENGTH = 30  # Distance (meter) from intersection to anchor points
 
 
 class Vertex:
-    def __init__(self, point, line, line_no, end_no, uid):
+    def __init__(self, point, line, line_no, end_no, uid, search_distance):
         self.cost_footprint = None
         self.pt_optimized = None
         self.centerlines = None
         self.anchors = None
         self.in_raster = None
+        self.search_distance = search_distance
         self.line_radius = None
         self.vertex = {"point": [point.x, point.y], "lines": []}
         self.add_line(line, line_no, end_no, uid)
@@ -136,15 +137,15 @@ class Vertex:
             print('Points are close, return')
             return None
 
-        X = pt_1.x + (pt_2.x - pt_1.x) * SEGMENT_LENGTH / dist_pt
-        Y = pt_1.y + (pt_2.y - pt_1.y) * SEGMENT_LENGTH / dist_pt
+        X = pt_1.x + (pt_2.x - pt_1.x) * self.search_distance / dist_pt
+        Y = pt_1.y + (pt_2.y - pt_1.y) * self.search_distance / dist_pt
         line.insert(-1, [X, Y])  # add anchor point to list (the third element)
 
         return line
 
     def generate_anchor_pairs(self):
         """
-        Extend line following outward direction to length of SEGMENT_LENGTH
+        Extend line following outward direction to length of search_distance
         Use the end point as anchor point.
             vertex: input intersection with all related lines
             return: one or two pairs of anchors according to numbers of lines intersected.
@@ -300,10 +301,11 @@ class Vertex:
 
 
 class VertexGrouping:
-    def __init__(self, callback, in_line, in_raster, line_radius, out_line):
+    def __init__(self, callback, in_line, in_raster, search_distance, line_radius, out_line):
         self.in_line = in_line
         self.in_raster = in_raster
         self.line_radius = float(line_radius)
+        self.search_distance = float(search_distance)
         self.out_line = out_line
         self.segment_all = []
         self.in_schema = None  # input shapefile schema
@@ -394,7 +396,7 @@ class VertexGrouping:
 
         """
         # all end points not added will be stay with this vertex
-        vertex = Vertex(point, line, line_no, end_no, uid)
+        vertex = Vertex(point, line, line_no, end_no, uid, self.search_distance)
         search = self.sindex.query(point.buffer(CL_POLYGON_BUFFER))
 
         # add more vertices to the new group
@@ -534,11 +536,11 @@ def process_single_line(vertex):
     return vertex
 
 
-def vertex_optimization(callback, in_line, in_raster, line_radius, out_line, processes, verbose):
+def vertex_optimization(callback, in_line, in_raster, search_distance, line_radius, out_line, processes, verbose):
     if not compare_crs(vector_crs(in_line), raster_crs(in_raster)):
         return
 
-    vg = VertexGrouping(callback, in_line, in_raster, line_radius, out_line)
+    vg = VertexGrouping(callback, in_line, in_raster, search_distance, line_radius, out_line)
     vg.group_vertices()
 
     vertices = execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
@@ -599,18 +601,17 @@ def vertex_optimization(callback, in_line, in_raster, line_radius, out_line, pro
     line_path = Path(out_line)
     file_name = line_path.stem
     file_line = line_path.as_posix()
-    file_lc = line_path.with_stem(file_name + '_leastcost').as_posix()
-    file_anchors = line_path.with_stem(file_name + "_anchors").as_posix()
-    file_inter = line_path.with_stem(file_name + "_intersections").as_posix()
+    file_aux = line_path.with_stem(file_name + '_aux').with_suffix('.gpkg').as_posix()
 
     fields = []
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    save_features_to_shapefile(file_line, vg.crs, all_lines, all_props, vg.in_schema)
-    save_features_to_shapefile(file_lc, vg.crs, leastcost_list, properties, fields)
-    save_features_to_shapefile(file_anchors, vg.crs, anchor_list, properties, fields)
-    save_features_to_shapefile(file_inter, vg.crs, inter_list, properties, fields)
+    save_features_to_file(file_line, vg.crs, all_lines, all_props, vg.in_schema)
+
+    save_features_to_file(file_aux, vg.crs, leastcost_list, properties, fields, driver='GPKG', layer='leastcost')
+    save_features_to_file(file_aux, vg.crs, anchor_list, properties, fields, driver='GPKG', layer='anchors')
+    save_features_to_file(file_aux, vg.crs, inter_list, properties, fields, driver='GPKG', layer='intersections')
 
 
 if __name__ == '__main__':

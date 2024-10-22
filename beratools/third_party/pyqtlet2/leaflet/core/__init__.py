@@ -1,2 +1,0 @@
-from .evented import Evented
-

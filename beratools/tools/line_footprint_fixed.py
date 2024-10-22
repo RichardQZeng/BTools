@@ -102,7 +102,7 @@ def process_single_line(line_arg):
     offset = line_arg[3]
     line_id = line_arg[4]
 
-    widths, line, perp_lines = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
+    widths, line, perp_lines, perp_lines_original = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
 
     # Calculate the 75th percentile width
     # filter zeros in width array
@@ -128,6 +128,7 @@ def process_single_line(line_arg):
     row['geometry'] = line
     try:
         row['perp_lines'] = perp_lines
+        row['perp_lines_original'] = perp_lines_original
     except Exception as e:
         print(e)
 
@@ -197,6 +198,7 @@ def calculate_average_width(line, polygon, offset, n_samples):
     sample_points_pairs = list(zip(sample_points[:-2], sample_points[1:-1], sample_points[2:]))
     widths = np.zeros(len(sample_points_pairs))
     perp_lines = []
+    perp_lines_original = []
 
     # remove polygon holes
     poly_list = []
@@ -211,6 +213,7 @@ def calculate_average_width(line, polygon, offset, n_samples):
 
     for i, points in enumerate(sample_points_pairs):
         perp_line = generate_perpendicular_line_precise(points, offset=offset)
+        perp_lines_original.append(perp_line)
 
         polygon_intersect = polygon_no_holes.iloc[polygon_no_holes.sindex.query(perp_line)]
         intersections = polygon_intersect.intersection(perp_line)
@@ -235,7 +238,7 @@ def calculate_average_width(line, polygon, offset, n_samples):
         except Exception as e:
             print(e)
 
-    return widths, line, MultiLineString(perp_lines)
+    return widths, line, MultiLineString(perp_lines), MultiLineString(perp_lines_original)
 
 
 def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max_width,
@@ -253,24 +256,42 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
 
     # Save the lines with attributes and polygons to a new shapefile
     perp_lines_gdf = buffer_gdf.copy(deep=True)
+    perp_lines_origianl_gdf = buffer_gdf.copy(deep=True)
+
+    # save fixed width footprint
     buffer_gdf = buffer_gdf.drop(columns=['perp_lines'])
+    buffer_gdf = buffer_gdf.drop(columns=['perp_lines_original'])
     buffer_gdf.crs = perp_lines_gdf.crs
     buffer_gdf.to_file(out_footprint)
 
     # perpendicular lines
+    layer = 'perp_lines'
+    out_footprint = Path(out_footprint)
+    out_aux_gpkg = out_footprint.with_stem(out_footprint.stem + '_aux').with_suffix('.gpkg')
     perp_lines_gdf = perp_lines_gdf.set_geometry('perp_lines')
+    perp_lines_gdf = perp_lines_gdf.drop(columns=['perp_lines_original'])
     perp_lines_gdf = perp_lines_gdf.drop(columns=['geometry'])
     perp_lines_gdf.crs = buffer_gdf.crs
-    perp_lines_path = Path(out_footprint).with_stem(Path(out_footprint).stem + '_perp_lines')
-    perp_lines_gdf.to_file(perp_lines_path)
+    # perp_lines_path = Path(out_footprint).with_stem(Path(out_footprint).stem + '_perp_lines')
+    perp_lines_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    geojson_path = Path(out_footprint).with_suffix('.geojson')
-    buffer_gpd_4326 = buffer_gdf.to_crs('EPSG:4326')
-    buffer_gpd_4326.to_file(geojson_path.as_posix(), driver='GeoJSON')
+    layer = 'perp_lines_origianl'
+    perp_lines_origianl_gdf = perp_lines_origianl_gdf.set_geometry('perp_lines_original')
+    perp_lines_origianl_gdf = perp_lines_origianl_gdf.drop(columns=['perp_lines'])
+    perp_lines_origianl_gdf = perp_lines_origianl_gdf.drop(columns=['geometry'])
+    perp_lines_origianl_gdf.crs = buffer_gdf.crs
+    # perp_lines_path = Path(out_footprint).with_stem(Path(out_footprint).stem + '_perp_lines')
+    perp_lines_origianl_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    gdf_simplified_path = Path(in_line).with_stem(Path(in_line).stem + "_simplified")
+    # geojson_path = Path(out_footprint).with_suffix('.geojson')
+    # buffer_gpd_4326 = buffer_gdf.to_crs('EPSG:4326')
+    # buffer_gpd_4326.to_file(geojson_path.as_posix(), driver='GeoJSON')
+
+    # gdf_simplified_path = Path(in_line).with_stem(Path(in_line).stem + "_simplified")
+    # line_attr.to_file(gdf_simplified_path)
+    layer = 'centerline_simplified'
     line_attr = line_attr.drop(columns='perp_lines')
-    line_attr.to_file(gdf_simplified_path)
+    line_attr.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
     callback('Fixed width footprint tool finished.')
 
