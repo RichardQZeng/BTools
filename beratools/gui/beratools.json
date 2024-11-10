@@ -2368,6 +2368,65 @@
                     ]
                 }
             ]
+        },
+        {
+            "category": "Assessment",
+            "description":"Assessment workflows to automate complex works using BREA Tools.",
+            "tools": [
+                {
+                    "name": "Regeneration Assessment",
+                    "info": "Regeneration Assessment to assess the seismic line regeneration status",
+                    "multiprocessing": true,
+                    "batch_processing": false,
+                    "tool_type": "python",
+                    "tool_api": "regeneration_assessment",
+                    "paramFile": "\\Scripts\\FLM_CO_params.txt",
+                    "image": "../Images/FLM_IO_CO.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/workflows/tiler.html",
+                    "parameters":[
+                        {
+                            "variable": "in_chm",
+                            "parameter": "CHM raster",
+                            "description": "Input CHM.",
+                            "type": "raster",
+                            "typelab": "TIF",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "canopy_fp",
+                            "parameter": "Canopy Footprint Shapefile",
+                            "description": "Canopy footprint polygons.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "ground_fp",
+                            "parameter": "Ground Footprint Shapefile",
+                            "description": "Ground footprint polygons.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_dir",
+                            "parameter": "Output Directory",
+                            "description": "Output directory.",
+                            "type": "Directory",
+                            "typelab": "",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

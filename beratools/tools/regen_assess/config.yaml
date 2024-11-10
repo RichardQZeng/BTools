@@ -1,0 +1,64 @@
+datasets:
+  ecosite_raster: "I:/BERATools/Workshop/Helpers/vegetation_types_Surmont.gpkg"
+  canopy_footprint: "I:/BERATools/Workshop/Input/footprint_rel.shp"
+  centerline: '/media/irro/All/RecoveryStatus/DATA/raw/FLM/FLM2023/FLM_v17/DCL_v17.shp'
+  ground_footprint: "I:/BERATools/Workshop/Input/footprint_fixed.shp"
+  segmented_ground_footprint: "I:/BERATools/Workshop/Input/footprint_fixed.shp"
+  recovery_ass: "I:/BERATools/Workshop/Output/Intermediate/FFP_frm_v17.shp"
+
+lidar_data:
+  chm: "I:/BERATools/Workshop/Input/Scenario_Paper_CHM2022.tif"
+
+#datasets:
+#  ecosite_raster: '/media/irro/All/RecoveryStatus/DATA/products/ecosite_bera/vegetation_types_Surmont.gpkg'
+#  canopy_footprint: '/media/irro/All/BlueberryFN/DATA/Drone/PA2_W2_West-South_Sikanni_Road/FLM_output/PA2-W2(West)-SouthSikanniRoad-SiteAandB_FLM.gpkg'
+#  centerline: '/media/irro/All/BlueberryFN/DATA/Drone/PA2_W2_West-South_Sikanni_Road/FLM_output/PA2-W2(West)-SouthSikanniRoad-SiteAandB_FLM.gpkg'
+#  ground_footprint: '/media/irro/All/BlueberryFN/DATA/Drone/PA2_W2_West-South_Sikanni_Road/FLM_output/PA2-W2(West)-SouthSikanniRoad-SiteAandB_FLM_segmented_200m2.gpkg'
+#  segmented_ground_footprint: "/media/irro/All/BlueberryFN/DATA/Drone/PA2_W2_West-South_Sikanni_Road/FLM_output/PA2-W2(West)-SouthSikanniRoad-SiteAandB_FLM_segmented_200m2.gpkg"
+#  recovery_ass: "/media/irro/All/BlueberryFN/DATA/Drone/PA2_W2_West-South_Sikanni_Road/FLM_output/PA2-W2(West)-SouthSikanniRoad-SiteAandB_FLM_ass.shp"
+
+#lidar_data:
+##  chm: '/media/irro/All/BlueberryFN/DATA/Drone/PA2_W2_West-South_Sikanni_Road/LiDAR_derivatives/PA2-W2(West)-SouthSikanniRoad-SiteA_chm.tif'
+#  chm: '/media/irro/All/BlueberryFN/DATA/Drone/PA2_W2_West-South_Sikanni_Road/LiDAR_derivatives/Sikanni_Road_CHM.vrt'
+
+parameters:
+  n_samples: 10
+  offset: 5.0
+  max_width: false
+  processes: 4
+  verbose: false
+  target_area: 100
+
+recovery_parameters:
+  n_segments: 5                  # 0 if we want full assessment, > 0 if we want it for X segments (test)
+  buffer_size: 50                  # for adjacency
+
+height_thresholds:
+  Low_density_treed_wetland: 60
+  Treed_wetland: 65
+  Transitional: 80
+  Mesic_upland: 80
+  Dry_upland: 60
+
+scenarios:
+  B:
+    Arrested:
+      cover_range: [0, 70]  # Less than 70% cover
+    Advanced_regeneration:
+      cover_range: [70, 100]  # Greater than 70% cover
+
+  C:
+    Arrested:
+      cover_range: [0, 30]  # Less than 30% cover
+    Regenerating:
+      cover_range: [30, 70]  # Between 30% and 70% cover
+    Advanced_regeneration:
+      cover_range: [70, 100]  # Greater than 70% cover
+
+  D:
+    Arrested:
+      cover_range: [ 0, 0.3 ]  # Less than 30% of the coverage ratio
+    Regenerating:
+      cover_range: [ 0.3, 0.7 ]  # Between 30% and 70% of the coverage ratio
+    Advanced_regeneration:
+      cover_range: [ 0.7, 1 ]  # Greater than 70% of the coverage ratio
