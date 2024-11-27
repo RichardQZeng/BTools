@@ -75,8 +75,8 @@ class Vertex:
     def get_angle(line, end_index):
         """
         Calculate the angle of the first or last segment
-        line: ArcPy Polyline
-        end_index: 0 or -1 of the the line vertices. Consider the multipart.
+        line: LineString
+        end_index: 0 or -1 of the line vertices. Consider the multipart.
         """
         pt = points_in_line(line)
 
@@ -395,7 +395,7 @@ class VertexGrouping:
         -------
 
         """
-        # all end points not added will be stay with this vertex
+        # all end points not added will stay with this vertex
         vertex = Vertex(point, line, line_no, end_no, uid, self.search_distance)
         search = self.sindex.query(point.buffer(CL_POLYGON_BUFFER))
 

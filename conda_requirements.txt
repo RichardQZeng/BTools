@@ -2,12 +2,12 @@ beratools
 dask
 distributed
 appliedgrg::bera_centerlines
+appliedgrg::pyqtlet2
 geopandas
 pip
 pyogrio>=0.9.0
 psutil
 pyqt
-pyqtlet2
 rioxarray
 rpy2
 r-essentials
