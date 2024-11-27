@@ -72,7 +72,7 @@ class Vertex:
             self.vertex["lines"].append(item)
 
     @staticmethod
-    def get_angle(line, end_index):
+    def get_angle(line, vertex_index):
         """
         Calculate the angle of the first or last segment
         line: LineString
@@ -80,10 +80,10 @@ class Vertex:
         """
         pts = points_in_line(line)
 
-        if end_index == 0:
+        if vertex_index == 0:
             pt_1 = pts[0]
             pt_2 = pts[1]
-        elif end_index == -1:
+        elif vertex_index == -1:
             pt_1 = pts[-1]
             pt_2 = pts[-2]
 
