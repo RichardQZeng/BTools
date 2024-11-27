@@ -78,14 +78,14 @@ class Vertex:
         line: LineString
         end_index: 0 or -1 of the line vertices. Consider the multipart.
         """
-        pt = points_in_line(line)
+        pts = points_in_line(line)
 
         if end_index == 0:
-            pt_1 = pt[0]
-            pt_2 = pt[1]
+            pt_1 = pts[0]
+            pt_2 = pts[1]
         elif end_index == -1:
-            pt_1 = pt[-1]
-            pt_2 = pt[-2]
+            pt_1 = pts[-1]
+            pt_2 = pts[-2]
 
         delta_x = pt_2.x - pt_1.x
         delta_y = pt_2.y - pt_1.y
