@@ -178,7 +178,7 @@ def centerline(callback, in_line, in_raster, line_radius,
     layer = 'corridor_polygon'
     corridor_polys.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-
+# TODO: fix geometries when job done
 if __name__ == '__main__':
     in_args, in_verbose = check_arguments()
     start_time = time.time()
