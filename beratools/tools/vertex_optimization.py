@@ -71,6 +71,7 @@ class Vertex:
         if item:
             self.vertex["lines"].append(item)
 
+    # TODO: use np.arctan2 instead of np.arctan
     @staticmethod
     def get_angle(line, vertex_index):
         """
