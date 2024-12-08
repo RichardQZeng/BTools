@@ -1,4 +1,7 @@
 import time
+from itertools import chain
+
+import shapely.ops
 from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString
 from beratools.tools.common import *
 
@@ -60,7 +63,15 @@ def generate_sample_points(line, n_samples=10):
         List of shapely Point objects.
     """
     # return [line.interpolate(i / n_samples, normalized=True) for i in range(n_samples)]
-    return [Point(item) for item in list(line.coords)]
+    # TODO: determine line type
+    try:
+        pts = line.coords
+    except Exception as e:
+        line = shapely.ops.linemerge(line)
+        tuple_coord = mapping(line)['coordinates']
+        pts = list(chain(*tuple_coord))
+
+    return [Point(item) for item in pts]
 
 
 def generate_perpendicular_line(point, line, offset=FP_PERP_LINE_OFFSET):

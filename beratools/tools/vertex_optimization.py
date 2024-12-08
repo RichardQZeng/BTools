@@ -71,21 +71,22 @@ class Vertex:
         if item:
             self.vertex["lines"].append(item)
 
+    # TODO: use np.arctan2 instead of np.arctan
     @staticmethod
-    def get_angle(line, end_index):
+    def get_angle(line, vertex_index):
         """
         Calculate the angle of the first or last segment
-        line: ArcPy Polyline
-        end_index: 0 or -1 of the the line vertices. Consider the multipart.
+        line: LineString
+        end_index: 0 or -1 of the line vertices. Consider the multipart.
         """
-        pt = points_in_line(line)
+        pts = points_in_line(line)
 
-        if end_index == 0:
-            pt_1 = pt[0]
-            pt_2 = pt[1]
-        elif end_index == -1:
-            pt_1 = pt[-1]
-            pt_2 = pt[-2]
+        if vertex_index == 0:
+            pt_1 = pts[0]
+            pt_2 = pts[1]
+        elif vertex_index == -1:
+            pt_1 = pts[-1]
+            pt_2 = pts[-2]
 
         delta_x = pt_2.x - pt_1.x
         delta_y = pt_2.y - pt_1.y
@@ -395,7 +396,7 @@ class VertexGrouping:
         -------
 
         """
-        # all end points not added will be stay with this vertex
+        # all end points not added will stay with this vertex
         vertex = Vertex(point, line, line_no, end_no, uid, self.search_distance)
         search = self.sindex.query(point.buffer(CL_POLYGON_BUFFER))
 
