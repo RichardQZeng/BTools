@@ -16,7 +16,6 @@ class MergeLines:
 
         self.create_graph()
 
-
     def create_graph(self):
         self.line_segs = list(self.multi_line.geoms)
         self.line_segs = [line for line in self.line_segs if line.length > 1e-3]  # TODO: check empty line and null geoms
@@ -29,12 +28,12 @@ class MergeLines:
         self.G.addEdge(0, 1)
 
         self.node_poly = [Point(self.end[0][0]).buffer(1),  Point(self.end[0][1]).buffer(1)]
-        
+
         for i, line in enumerate(self.end[1:]):
             node_exists = False
             pt = Point(line[0])
             pt_buffer = pt.buffer(1)
-            
+
             for node in self.G.iterNodes():
                 if self.node_poly[node].contains(pt):
                     node_exists = True
@@ -42,7 +41,7 @@ class MergeLines:
             if not node_exists:
                 node_start = self.G.addNode()
                 self.node_poly.append(pt_buffer)
-            
+
             node_exists = False
             pt = Point(line[1])
             pt_buffer = pt.buffer(1)
@@ -80,7 +79,7 @@ class MergeLines:
             lines = self.merge_single_line(component)
 
         return lines
-    
+
     def find_path_for_component(self, component):
         neighbors = list(self.G.iterNeighbors(component[0]))
         path = [component[0]]
@@ -94,7 +93,6 @@ class MergeLines:
 
         neighbors = list(self.G.iterNeighbors(right))
         while len(neighbors) > 1:
-            # print(neighbors)
             if neighbors[0] not in path:
                 path.append(neighbors[0])
                 right = neighbors[0]
@@ -126,16 +124,13 @@ class MergeLines:
                 path.insert(0, neighbors[0])
 
         return path
-    
+
     def merge_single_line(self, component):
         path = self.find_path_for_component(component)
 
-        print(path)
+        print('Merge lines')
         pairs = list(pairwise(path))
-        # print(pairs)
-
         line_list = [self.G.edgeId(i[0], i[1]) for i in pairs]
-        # print(line_list)
 
         vertices = []
 
@@ -155,7 +150,7 @@ class MergeLines:
         merged_line = LineString(vertices)
 
         return [merged_line]
-    
+
     def merge_all_lines(self):
         components = self.get_components()
         lines = []
@@ -164,7 +159,7 @@ class MergeLines:
             if line:
                 lines.extend(self.get_merged_line_for_component(c))
             else:  # TODO: check line
-                print(line)
+                print(f"merge_all_lines: failed to merge line: {self.multi_line}")
 
         if len(lines) > 1:
             return MultiLineString(lines)

@@ -10,7 +10,7 @@ from typing import Union
 import geopandas as gpd
 
 from dataclasses import dataclass, field
-from mergelines import MergeLines
+from .mergelines import MergeLines
 
 @unique
 class VertexClass(IntEnum):
@@ -226,9 +226,9 @@ class VertexNode:
                         )
 
 class LineGrouping:
-    def __init__(self, in_line_file, in_poly_file):
+    def __init__(self, in_line, in_poly=None):
         # remove empty and null geometry
-        self.lines = gpd.read_file(in_line_file)
+        self.lines = in_line.copy(deep=True)
         self.lines = self.lines[~self.lines.geometry.isna() & ~self.lines.geometry.is_empty]
         self.lines.reset_index(inplace=True, drop=True)
 
@@ -236,18 +236,20 @@ class LineGrouping:
 
         self.G = nk.Graph(len(self.lines))
         self.merged_vertex_list = []
-        self.has_groub_attr = False
+        self.has_group_attr = False
         self.need_regrouping = False
         self.groups = [None] * len(self.lines)
+        self.merged = None  # merged lines
 
         self.vertex_list = []
         self.vertex_of_concern = []
         self.v_index = None  # sindex of all vertices for vertex_list
 
-        self.polys = gpd.read_file(in_poly_file)
-        self.merged = None  # merged lines
+        self.polys = in_poly.copy(deep=True)
 
-        # invalid geoms in final goem list
+        # invalid geoms in final geom list
+        self.valid_lines = None
+        self.valid_polys = None
         self.invalid_lines = None
         self.invalid_polygons = None
 
@@ -255,7 +257,7 @@ class LineGrouping:
         # check if data has group column
         if GROUP_ATTRIBUTE in self.lines.keys():
             self.groups = self.lines[GROUP_ATTRIBUTE]
-            self.has_groub_attr = True
+            self.has_group_attr = True
             if self.groups.hasnans:
                 self.need_regrouping = True
 
@@ -294,14 +296,13 @@ class LineGrouping:
 
         for i in self.merged_vertex_list:
             if i.line_connected:
-                # print(i.line_connected)
                 for edge in i.line_connected:
                     self.G.addEdge(edge[0], edge[1])
 
     def group_lines(self):
         cc = nk.components.ConnectedComponents(self.G)
         cc.run()
-        print("number of components ", cc.numberOfComponents())
+        # print("number of components ", cc.numberOfComponents())
 
         group = 0
         for i in range(cc.numberOfComponents()):
@@ -332,7 +333,7 @@ class LineGrouping:
             idx = sindex_poly.query(i.vertex, predicate="within")
             if len(idx) == 0:
                 continue
-        
+
             if i.vertex_class == VertexClass.SINGLE_WAY:
                 if len(idx) > 1:
                     print('Too many polygons')
@@ -342,7 +343,7 @@ class LineGrouping:
                 single_line = i.line_list[0]
                 poly = self.polys.loc[*idx].geometry
                 split_poly = split(poly, single_line.end_transect())
-                
+
                 if len(split_poly.geoms) != 2:
                     continue
 
@@ -354,17 +355,17 @@ class LineGrouping:
 
                 if none_poly:
                     continue
-                
+
                 # only two polygons in split_poly
                 if split_poly.geoms[0].area > split_poly.geoms[1].area:
                     poly = split_poly.geoms[0]
                 else:
                     poly = split_poly.geoms[1]
-                    
+
                 self.polys.at[idx[0], "geometry"] = poly 
 
                 continue
-            
+
             # other classes
             poly_trim_list = []
             primary_lines = []
@@ -376,7 +377,7 @@ class LineGrouping:
             for j in i.line_not_connected:  # only one connected line is available
                 trim = PolygonTrimming(line_index = j, 
                                        line_cleanup = i.get_line(j))
-                
+
                 poly_trim_list.append(trim)
 
             polys = self.polys.loc[idx].geometry
@@ -406,7 +407,7 @@ class LineGrouping:
 
     def run_grouping(self):
         self.create_vertex_list()
-        if not self.has_groub_attr:
+        if not self.has_group_attr:
             self.group_lines()
 
         self.find_vertex_for_poly_trimming()
@@ -433,37 +434,39 @@ class LineGrouping:
                 merged_line = worker.merge_all_lines()
                 if merged_line:
                     self.merged.at[i.Index, "geometry"] = merged_line
-    
+
     def check_geom_validity(self):
         """
         Check MultiLineString and MultiPolygon in line and polygon dataframe
         Save multis to sperate layers for user to double check
         """
         #  remove null geometry
-        self.lines = self.lines = self.lines[
-            ~self.lines.geometry.isna() & ~self.lines.geometry.is_empty
+        # TODO make sure lines and polygons match in pairs
+        # they should have same amount and saptial coverage
+        self.valid_lines = self.merged[
+            ~self.merged.geometry.isna() & ~self.merged.geometry.is_empty
         ]
-
-        self.polys = self.polys = self.polys[
+        self.valid_polys = self.polys[
             ~self.polys.geometry.isna() & ~self.polys.geometry.is_empty
         ]
 
         # save MultiLineStrinng annd MultiPolygon
-        self.invalid_lines = self.lines[
-            self.lines.geometry.geom_type == "MultiLineString"
-        ]
-        self.invalid_polygons = self.polygons[
-            self.polygons.geometry.geom_type == "MultiPolygon"
-        ]
+        self.invalid_lines = self.merged[(self.merged.geometry.geom_type == "MultiLineString")]
+        self.invalid_polygons = self.polys[(self.polys.geometry.geom_type == "MultiPolygon")]
 
     def save_file(self, out_file):
-        self.lines.to_file(out_file, layer="merged_lines")
-        self.polys.to_file(out_file, layer="clean_footprint")
+        self.check_geom_validity()
 
-        if self.invalid_lines:
+        if not self.invalid_lines.empty:
+            self.valid_lines.to_file(out_file, layer="merged_lines")
+
+        if not self.invalid_lines.empty:
+            self.valid_polys.to_file(out_file, layer="clean_footprint")
+
+        if not self.invalid_lines.empty:
             self.invalid_lines.to_file(out_file, layer="invalid_lines")
 
-        if self.invalid_polygons:
+        if not self.invalid_polygons.empty:
             self.invalid_polygons.to_file(out_file, layer="invalid_polygons")
 
 @dataclass
@@ -477,7 +480,7 @@ class PolygonTrimming():
     line_cleanup: LineString = field(default=None)
     
     def trim(self):
-        # TODO: chech why there is such cases
+        # TODO: check why there is such cases
         if self.poly_cleanup is None:
             print('No polygon to trim.')
             return
