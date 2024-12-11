@@ -1,8 +1,6 @@
 appliedgrg::beratools
 dask
 distributed
-appliedgrg::bera_centerlines
-appliedgrg::pyqtlet2
 fiona
 geopandas
 pip
@@ -23,6 +21,7 @@ tqdm
 xarray-spatial
 
 # recommended way to install BERA Tools
+# > conda config --remove channels defaults  # remove default commercial channels
 # > conda create -n bera -c conda-forge -c appliedgrg python=3.11 mamba
 # > conda activate bera
 # > conda config --set channel_priority strict
