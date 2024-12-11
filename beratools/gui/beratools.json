@@ -811,7 +811,7 @@
                             "description": "The length of the perpendicular line",
                             "type": "number",
                             "typelab": "float",
-                            "default": 10.0,
+                            "default": 30.0,
                             "output": false,
                             "optional": true
                         },

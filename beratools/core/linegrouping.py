@@ -25,7 +25,7 @@ ANGLE_TOLERANCE = np.pi / 10
 TURN_ANGLE_TOLERANCE = np.pi * 0.5  # (little bigger than right angle)
 GROUP_ATTRIBUTE = "group"
 TRIM_THRESHOLD = 0.05
-TRANSECT_LENGTH = 10
+TRANSECT_LENGTH = 20
 CONCERN_CLASSES = (
     VertexClass.FOUR_WAY_ONE_PRIMARY_LINE,
     VertexClass.THREE_WAY_ONE_PRIMARY_LINE,
@@ -77,22 +77,22 @@ class SingleLine():
 
     def get_angle_for_line(self):
         return get_angle(self.sim_line, self.vertex_index)
-    
+
     def end_transect(self):
-        coords = self.line.coords
+        coords = self.sim_line.coords
         end_seg = None
         if self.vertex_index == 0:
             end_seg = LineString([coords[0], coords[1]])
         elif self.vertex_index == -1:
             end_seg = LineString([coords[-1], coords[-2]])
 
-        l_left = end_seg.offset_curve(10)        
-        l_right = end_seg.offset_curve(-10)
+        l_left = end_seg.offset_curve(TRANSECT_LENGTH)
+        l_right = end_seg.offset_curve(-TRANSECT_LENGTH)
 
         return LineString(
             [l_left.coords[0], l_right.coords[0]]
         )
-    
+
     def update_line(self, line):
         self.line = line
 
@@ -111,7 +111,7 @@ class VertexNode:
             self.add_line(SingleLine(line_id, line, sim_line, vertex_index, group))
 
     def set_vertex(self, line, vertex_index):
-        """ Set vertex coord """
+        """ Set vertex coordinates """
         self.vertex = force_2d(get_point(line, vertex_index))
     
     def add_line(self, line_class):
@@ -226,32 +226,32 @@ class VertexNode:
                         )
 
 class LineGrouping:
-    def __init__(self, in_line, in_poly=None):
+    def __init__(self, in_line):
         # remove empty and null geometry
-        self.lines = in_line.copy(deep=True)
+        self.lines = in_line.copy()
         self.lines = self.lines[~self.lines.geometry.isna() & ~self.lines.geometry.is_empty]
         self.lines.reset_index(inplace=True, drop=True)
 
-        self.sim_geom = self.lines.simplify(10)
+        self.sim_geom = self.lines.simplify(1)
 
         self.G = nk.Graph(len(self.lines))
         self.merged_vertex_list = []
         self.has_group_attr = False
         self.need_regrouping = False
         self.groups = [None] * len(self.lines)
-        self.merged = None  # merged lines
+        self.merged_lines_trimmed = None  # merged trimmed lines
 
         self.vertex_list = []
         self.vertex_of_concern = []
         self.v_index = None  # sindex of all vertices for vertex_list
 
-        self.polys = in_poly.copy(deep=True)
+        self.polys = None
 
         # invalid geoms in final geom list
         self.valid_lines = None
         self.valid_polys = None
         self.invalid_lines = None
-        self.invalid_polygons = None
+        self.invalid_polys = None
 
     def create_vertex_list(self):
         # check if data has group column
@@ -334,6 +334,16 @@ class LineGrouping:
             if len(idx) == 0:
                 continue
 
+            idx_not_available = False
+            for num in idx:
+                if num not in self.polys.index:
+                    print('no index')
+                    idx_not_available = True
+                    break
+
+            if idx_not_available:
+                continue
+
             if i.vertex_class == VertexClass.SINGLE_WAY:
                 if len(idx) > 1:
                     print('Too many polygons')
@@ -380,14 +390,19 @@ class LineGrouping:
 
                 poly_trim_list.append(trim)
 
-            polys = self.polys.loc[idx].geometry
+            try:
+                polys = self.polys.loc[idx].geometry
+            except Exception as e:
+                print(e)
+                continue
+
             poly_primary = []
             for j, p in polys.items():
                 if p.contains(primary_lines[0]) or p.contains(primary_lines[1]):
                     poly_primary.append(p)
                 else:
                     for trim in poly_trim_list:
-                        # TODO: sometimes contains can not torlerance tiny error: 1e-11
+                        # TODO: sometimes contains can not tolerance tiny error: 1e-11
                         # buffer polygon by 1 meter to make sure contains works
                         if p.buffer(1).contains(trim.line_cleanup):
                             trim.poly_cleanup = p
@@ -405,6 +420,9 @@ class LineGrouping:
                 # update VertexNode's line
                 self.update_line_in_vertex_node(p.line_index, p.line_cleanup)
 
+    def get_merged_lines_original(self):
+        return self.lines.dissolve(by=GROUP_ATTRIBUTE)
+
     def run_grouping(self):
         self.create_vertex_list()
         if not self.has_group_attr:
@@ -420,20 +438,30 @@ class LineGrouping:
         """
         pass
 
-    def run_cleanup(self):    
+    def run_cleanup(self, in_polys): 
+        self.polys = in_polys.copy()
         self.line_and_poly_cleanup()
+        self.run_line_merge_trimmed()
+        self.check_geom_validity()
 
-    def run_line_merge(self):
-        self.merged = self.lines.dissolve(by=GROUP_ATTRIBUTE)
-        self.merged.geometry = self.merged.line_merge()
+    @staticmethod
+    def run_line_merge(in_line_gdf):
+        out_line_gdf = in_line_gdf.dissolve(by=GROUP_ATTRIBUTE)
+        out_line_gdf.geometry = out_line_gdf.line_merge()
         num = 0
-        for i in self.merged.itertuples():
+        for i in out_line_gdf.itertuples():
             num += 1
             if i.geometry.geom_type == "MultiLineString":
                 worker = MergeLines(i.geometry)
                 merged_line = worker.merge_all_lines()
                 if merged_line:
-                    self.merged.at[i.Index, "geometry"] = merged_line
+                    out_line_gdf.at[i.Index, "geometry"] = merged_line
+
+        out_line_gdf.reset_index(inplace=True, drop=True)
+        return out_line_gdf
+
+    def run_line_merge_trimmed(self):
+        self.merged_lines_trimmed = self.run_line_merge(self.lines)
 
     def check_geom_validity(self):
         """
@@ -442,32 +470,39 @@ class LineGrouping:
         """
         #  remove null geometry
         # TODO make sure lines and polygons match in pairs
-        # they should have same amount and saptial coverage
-        self.valid_lines = self.merged[
-            ~self.merged.geometry.isna() & ~self.merged.geometry.is_empty
-        ]
+        # they should have same amount and spatial coverage
         self.valid_polys = self.polys[
             ~self.polys.geometry.isna() & ~self.polys.geometry.is_empty
         ]
 
-        # save MultiLineStrinng annd MultiPolygon
-        self.invalid_lines = self.merged[(self.merged.geometry.geom_type == "MultiLineString")]
-        self.invalid_polygons = self.polys[(self.polys.geometry.geom_type == "MultiPolygon")]
+        # save MultiLineString and MultiPolygon
+        self.invalid_polys = self.polys[(self.polys.geometry.geom_type == "MultiPolygon")]
+
+        # check lines
+        self.valid_lines = self.merged_lines_trimmed[
+            ~self.merged_lines_trimmed.geometry.isna() & ~self.merged_lines_trimmed.geometry.is_empty
+        ]
+        self.valid_lines.reset_index(inplace=True, drop=True)
+
+        self.invalid_lines = self.merged_lines_trimmed[
+            (self.merged_lines_trimmed.geometry.geom_type == "MultiLineString")
+        ]
+        self.invalid_lines.reset_index(inplace=True, drop=True)
 
     def save_file(self, out_file):
-        self.check_geom_validity()
+        self.run_line_merge_trimmed()
 
-        if not self.invalid_lines.empty:
+        if not self.valid_lines.empty:
             self.valid_lines.to_file(out_file, layer="merged_lines")
 
-        if not self.invalid_lines.empty:
+        if not self.valid_polys.empty:
             self.valid_polys.to_file(out_file, layer="clean_footprint")
 
         if not self.invalid_lines.empty:
             self.invalid_lines.to_file(out_file, layer="invalid_lines")
 
-        if not self.invalid_polygons.empty:
-            self.invalid_polygons.to_file(out_file, layer="invalid_polygons")
+        if not self.invalid_polys.empty:
+            self.invalid_polys.to_file(out_file, layer="invalid_polygons")
 
 @dataclass
 class PolygonTrimming():

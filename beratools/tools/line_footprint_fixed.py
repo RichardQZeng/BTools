@@ -10,6 +10,10 @@ if __name__ == "__main__":
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
 
+from math import isclose
+import numpy as np
+import pandas as pd
+import geopandas as gpd
 import shapely.ops
 from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString
 from beratools.tools.common import *
@@ -38,8 +42,7 @@ def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):
     spatial_index = poly_gdf.sindex
     line_args = []
 
-    i = 0
-    for i, row in line_gdf.iterrows():
+    for row in line_gdf.itertuples():
         line = row.geometry
 
         # Skip rows where geometry is None
@@ -47,8 +50,13 @@ def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):
             print(row)
             continue
 
-        inter_poly = poly_gdf.iloc[spatial_index.query(line)]
-        line_args.append([line_gdf.iloc[[i]], inter_poly, n_samples, offset, i])
+        inter_poly = poly_gdf.loc[spatial_index.query(line)]
+        try: 
+            line_args.append(
+                [line_gdf.loc[[row.Index]], inter_poly, n_samples, offset, row.Index]
+            )
+        except Exception as e:
+            print(e)
 
     return line_args
 
@@ -82,36 +90,39 @@ def generate_sample_points(line, n_samples=10):
     return [Point(item) for item in pts]
 
 
-def generate_perpendicular_line(point, line, offset=FP_PERP_LINE_OFFSET):
-    """
-    Generate a perpendicular line to the input line at the given point.
+# def generate_perpendicular_line(point, line, offset=FP_PERP_LINE_OFFSET):
+#     """
+#     THIS IS NOT
+#     generate_perpendicular_line_precise IS USED INSTEAD
 
-    Parameters
-    ----------
-    point : shapely.geometry.Point
-        The point on the line where the perpendicular should be generated.
-    line : shapely.geometry.LineString
-        The line to which the perpendicular line will be generated.
-    offset : float, optional
-        The length of the perpendicular line.
+#     Generate a perpendicular line to the input line at the given point.
 
-    Returns
-    -------
-    shapely.geometry.LineString
-        The generated perpendicular line.
-    """
-    # Compute the angle of the line
-    p1, p2 = line.coords[0], line.coords[-1]  # Modify this line
-    angle = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
+#     Parameters
+#     ----------
+#     point : shapely.geometry.Point
+#         The point on the line where the perpendicular should be generated.
+#     line : shapely.geometry.LineString
+#         The line to which the perpendicular line will be generated.
+#     offset : float, optional
+#         The length of the perpendicular line.
 
-    # Compute the angle of the perpendicular line
-    angle_perp = angle + np.pi / 2.0  # Perpendicular angle
+#     Returns
+#     -------
+#     shapely.geometry.LineString
+#         The generated perpendicular line.
+#     """
+#     # Compute the angle of the line
+#     p1, p2 = line.coords[0], line.coords[-1]  # Modify this line
+#     angle = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
 
-    # Generate the perpendicular line
-    perp_line = LineString([(point.x - offset * np.cos(angle_perp), point.y - offset * np.sin(angle_perp)),
-                            (point.x + offset * np.cos(angle_perp), point.y + offset * np.sin(angle_perp))])
+#     # Compute the angle of the perpendicular line
+#     angle_perp = angle + np.pi / 2.0  # Perpendicular angle
 
-    return perp_line
+#     # Generate the perpendicular line
+#     perp_line = LineString([(point.x - offset * np.cos(angle_perp), point.y - offset * np.sin(angle_perp)),
+#                             (point.x + offset * np.cos(angle_perp), point.y + offset * np.sin(angle_perp))])
+
+#     return perp_line
 
 
 def process_single_line(line_arg):
@@ -125,7 +136,7 @@ def process_single_line(line_arg):
 
     # Calculate the 75th percentile width
     # filter zeros in width array
-    arr_filter = [False if math.isclose(i, 0.0) else True for i in widths]
+    arr_filter = [False if isclose(i, 0.0) else True for i in widths]
     widths = widths[arr_filter]
 
     q3_width = FP_FIXED_WIDTH_DEFAULT
@@ -267,7 +278,11 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     line_gdf = gpd.read_file(in_line)
     poly_gdf = gpd.read_file(in_footprint)
 
-    line_args = prepare_line_args(line_gdf, poly_gdf, n_samples, offset)
+    lg = LineGrouping(line_gdf)
+    lg.run_grouping()
+    merged_line_gdf = LineGrouping.run_line_merge(line_gdf)
+
+    line_args = prepare_line_args(merged_line_gdf, poly_gdf, n_samples, offset)
     out_lines = execute_multiprocessing(process_single_line, line_args, 'Fixed footprint',
                                         processes, 1, verbose=verbose)
     line_attr = pd.concat(out_lines)
@@ -283,12 +298,13 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     buffer_gdf = buffer_gdf.drop(columns=['perp_lines'])
     buffer_gdf = buffer_gdf.drop(columns=['perp_lines_original'])
     buffer_gdf.crs = perp_lines_gdf.crs
+    buffer_gdf.reset_index(inplace=True, drop=True)
+
+    # save original merged lines
+    merged_line_gdf.to_file(out_footprint, layer="merged_lines_original")
 
     # trim lines and footprints
-    lg = LineGrouping(line_gdf, buffer_gdf)
-    lg.run_grouping()
-    lg.run_cleanup()
-    lg.run_line_merge()
+    lg.run_cleanup(buffer_gdf)
     lg.save_file(out_footprint)
 
     # perpendicular lines
