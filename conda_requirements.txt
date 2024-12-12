@@ -1,7 +1,11 @@
-appliedgrg::beratools
+# appliedgrg::beratools
+appliedgrg::bera_centerlines
+appliedgrg::pyqtlet2
 dask
+dask-expr
 distributed
 fiona
+gdal=3.9.3
 geopandas
 pip
 pyogrio>=0.9.0
@@ -21,11 +25,16 @@ tqdm
 xarray-spatial
 
 # recommended way to install BERA Tools
-# > conda config --remove channels defaults  # remove default commercial channels
-# > conda create -n bera -c conda-forge -c appliedgrg python=3.11 mamba
+# > conda create -n bera -c conda-forge -c appliedgrg python=3.11 mamba --override-channels
 # > conda activate bera
 # > conda config --set channel_priority strict
 # > mamba install --file conda_requirements.txt
+#
+# check channels in use
+# > conda config --get channels
+# Example output:
+#   --add channels 'conda-forge'   # lowest priority
+#   --add channels 'appliedgrg'   # highest priority
 #
 # set environment variable
 # GDAL_DATA : CONDA_ENV_PATH\Library\share\gdal
@@ -33,6 +42,7 @@ xarray-spatial
 # update BERATools.bat accordingly
 # > conda activate bera
 # > BERATools.bat
+#
 ################################################
 # pip build only
 # backend: mamba install hatch
