@@ -16,3 +16,8 @@
 BERATools.bat
 /output
 .env
+
+# pixi environments
+.pixi
+*.egg-info
+pixi.lock
