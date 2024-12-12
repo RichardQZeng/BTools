@@ -1,25 +1,22 @@
 # run: conda env create -f conda_environment.yml
 # see also https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file
-name: bera39
+name: bera
 channels:
+  - nodefaults
   - appliedgrg
   - conda-forge
 dependencies:
-  - python=3.9
-  - dask
-  - distributed
+  - python=3.11
   - appliedgrg::bera_centerlines
+  - appliedgrg::pyqtlet2
+  - dask
+  - dask-expr
+  - distributed
+  - fiona
+  - gdal=3.9.3
   - geopandas
-  - pip
-  # - pip:
-    # works for regular pip packages
-    # - pyqtlet2
-    # and for wheels
-    # - http://URL_TO_THE_WHEEL.whl
   - pyogrio>=0.9.0
-  # - pytorch::torchvision
   - pyqt
-  - pyqtlet2
   - psutil
   - rioxarray
   - rpy2
@@ -31,5 +28,12 @@ dependencies:
   - r-sp
   - r-terra
   - scikit-image>=0.24.0
+  - tqdm
   - xarray-spatial
+  - pip
+  # - pip:
+    # works for pypi packages
+    # - pyqtlet2
+    # works for wheels
+    # - http://URL_TO_THE_WHEEL.whl
 variables:
