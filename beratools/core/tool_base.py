@@ -17,7 +17,7 @@ import dask.distributed
 # settings for dask
 cfg.set({'distributed.scheduler.worker-ttl': None})
 warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
-
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 class OperationCancelledException(Exception):
     pass
