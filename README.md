@@ -1,9 +1,24 @@
-- HTML documentation is generated from .rst files with Sphinx
+# BERA Tools
 
-$ sphinx-build -b html ./sphinx/rst OutDir/sphinx/html
-Or use the target doc in the cmake build system
-$ make doc
+BERA Tools is successor of [Forest Line Mapper](https://github.com/appliedgrg/flm). It is a toolset for enhanced delineation and attribution of linear disturbances in forests.
 
-Sphinx setup:
-Please follow the http://sphinx-doc.org/latest/install.html guide.
+<!--![Banner](docs/files/images/BERALogo.png)-->
 
+## [Installation](https://beratools.readthedocs.io/en/latest/installation.html)
+
+BERA Tools is built upon open-souce Python libraries. Anaconda is used to manage runtime environments.
+
+## [User Guide](http://beratools.beraproject.org/)
+
+Check the user guide for more information.
+
+## [Technical Documentation](https://beratools.readthedocs.io/en/latest/)
+
+BERA Tools provides a series of tools for forest lines processing. Please refer to the technical documentation for programming APIs and algorithms details.
+
+## Credits
+
+This tool is part of the [**Boreal Ecosystem Recovery and Assessment (BERA)**](http://www.beraproject.org/) Project, and is being actively developed by the [**Applied Geospatial Research Group**](https://www.appliedgrg.ca/).
+
+![Logos](docs/files/images/BERALogo.png)
+*Copyright (C) 2024  Applied Geospatial Research Group*
