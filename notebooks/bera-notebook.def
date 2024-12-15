@@ -1,0 +1,5 @@
+Bootstrap: docker
+From: jupyter/minimal-notebook
+
+%post
+    mamba install appliedgrg::bera_centerlines appliedgrg::pyqtlet2 dask dask-expr distributed fiona gdal=3.9.3 geopandas pip pyogrio>=0.9.0 psutil pyqt rioxarray rpy2 r-essentials r-lidr r-rcsf r-rlas r-sf r-sp r-terra scikit-image>=0.24.0 tqdm xarray-spatial
