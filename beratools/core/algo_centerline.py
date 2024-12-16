@@ -170,6 +170,9 @@ def find_centerline(poly, input_line):
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
     # Threshold corridor raster used for generating centerline
     corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
+    if corridor_thresh_cl.dtype == np.int64:
+        corridor_thresh_cl = corridor_thresh_cl.astype(np.int32)
+
     corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
     poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
     corridor_polygon = []
