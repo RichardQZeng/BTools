@@ -191,5 +191,5 @@ def centerline(
 if __name__ == '__main__':
     in_args, in_verbose = check_arguments()
     start_time = time.time()
-    centerline(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    centerline(**in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))
