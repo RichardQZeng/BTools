@@ -263,6 +263,8 @@ def process_single_line_segment(dict_segment):
 
         # creat mask for non-polygon area
         msk = np.where(clean_raster == 1, True, False)
+        if clean_raster.dtype == np.int64:
+            clean_raster = clean_raster.astype(np.int32)
 
         # Process: ndarray to shapely Polygon
         out_polygon = features.shapes(clean_raster, mask=msk, transform=out_transform)
