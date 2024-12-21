@@ -9,9 +9,14 @@
 /beratools/gui/__pycache__
 *.pyc
 *.whl
-0.5.1
 /dist
 .project
 .pydevproject
 BERATools.bat
 /output
+.env
+
+# pixi environments
+.pixi
+*.egg-info
+pixi.lock

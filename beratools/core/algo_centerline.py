@@ -113,7 +113,7 @@ def find_centerline(poly, input_line):
                                     simplification=0.05, smooth_sigma=CL_SMOOTH_SIGMA, max_paths=1,
                                     src_geom=src_geom, dst_geom=dst_geom)
     except Exception as e:
-        print(e)
+        print(f'find_centerline: {e}')
         return default_return
 
     if not centerline:
@@ -145,7 +145,7 @@ def find_centerline(poly, input_line):
             print('Empty centerline detected, use input line instead.')
             return default_return
     except Exception as e:
-        print(e)
+        print(f'find_centerline: {e}')
 
     centerline = snap_end_to_end(centerline, input_line)
 
@@ -156,7 +156,7 @@ def find_centerline(poly, input_line):
             centerline = regenerate_centerline(poly, input_line)
             return centerline, CenterlineStatus.REGENERATE_SUCCESS
         except Exception as e:
-            print('find_centerline:  Exception occurred. \n {}'.format(e))
+            print('find_centerline: {e}')
             return input_line, CenterlineStatus.REGENERATE_FAILED
 
     return centerline, CenterlineStatus.SUCCESS
@@ -170,6 +170,9 @@ def find_centerline(poly, input_line):
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
     # Threshold corridor raster used for generating centerline
     corridor_thresh_cl = np.ma.where(corridor_thresh == 0.0, 1, 0).data
+    if corridor_thresh_cl.dtype == np.int64:
+        corridor_thresh_cl = corridor_thresh_cl.astype(np.int32)
+
     corridor_mask = np.where(1 == corridor_thresh_cl, True, False)
     poly_generator = features.shapes(corridor_thresh_cl, mask=corridor_mask, transform=in_transform)
     corridor_polygon = []
@@ -179,7 +182,7 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
             if shape(poly).area > 1:
                 corridor_polygon.append(shape(poly))
     except Exception as e:
-        print(e)
+        print(f"find_corridor_polygon: {e}")
 
     if corridor_polygon:
         corridor_polygon = (unary_union(corridor_polygon))
@@ -245,7 +248,7 @@ def find_centerlines(poly_gpd, line_seg, processes):
 
             rows_and_paths.append((row, lc_path))
     except Exception as e:
-        print(e)
+        print(f"find_centerlines: {e}")
 
     total_steps = len(rows_and_paths)
     step = 0
@@ -344,8 +347,7 @@ def regenerate_centerline(poly, input_line):
             print('Regenerate line: centerline is empty')
             return None
     except Exception as e:
-        print(e)
+        print(f"regenerate_centerline: {e}")
 
     print(f'Centerline is regenerated.')
     return linemerge(MultiLineString([center_line_1, center_line_2]))
-

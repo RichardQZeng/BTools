@@ -1,14 +1,31 @@
 import time
+from itertools import chain
+
+import sys
+from pathlib import Path
+from inspect import getsourcefile
+
+if __name__ == "__main__":
+    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    btool_dir = current_file.parents[2]
+    sys.path.insert(0, btool_dir.as_posix())
+
+from math import isclose
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import shapely.ops
 from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString
 from beratools.tools.common import *
+from beratools.core.linegrouping import LineGrouping
 
 
-def prepare_line_args(shp_line, shp_poly, n_samples, offset):
+def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):
     """
     Parameters
     ----------
-    shp_line
-    shp_poly
+    line_gdf
+    poly_gdf
     n_samples
     offset
 
@@ -22,13 +39,10 @@ def prepare_line_args(shp_line, shp_poly, n_samples, offset):
         i :  line ID
 
     """
-    line_gdf = gpd.read_file(shp_line)
-    poly_gdf = gpd.read_file(shp_poly)
     spatial_index = poly_gdf.sindex
     line_args = []
 
-    i = 0
-    for i, row in line_gdf.iterrows():
+    for row in line_gdf.itertuples():
         line = row.geometry
 
         # Skip rows where geometry is None
@@ -36,8 +50,13 @@ def prepare_line_args(shp_line, shp_poly, n_samples, offset):
             print(row)
             continue
 
-        inter_poly = poly_gdf.iloc[spatial_index.query(line)]
-        line_args.append([line_gdf.iloc[[i]], inter_poly, n_samples, offset, i])
+        inter_poly = poly_gdf.loc[spatial_index.query(line)]
+        try: 
+            line_args.append(
+                [line_gdf.loc[[row.Index]], inter_poly, n_samples, offset, row.Index]
+            )
+        except Exception as e:
+            print(e)
 
     return line_args
 
@@ -60,39 +79,50 @@ def generate_sample_points(line, n_samples=10):
         List of shapely Point objects.
     """
     # return [line.interpolate(i / n_samples, normalized=True) for i in range(n_samples)]
-    return [Point(item) for item in list(line.coords)]
+    # TODO: determine line type
+    try:
+        pts = line.coords
+    except Exception as e:
+        line = shapely.ops.linemerge(line)
+        tuple_coord = mapping(line)['coordinates']
+        pts = list(chain(*tuple_coord))
+
+    return [Point(item) for item in pts]
 
 
-def generate_perpendicular_line(point, line, offset=FP_PERP_LINE_OFFSET):
-    """
-    Generate a perpendicular line to the input line at the given point.
+# def generate_perpendicular_line(point, line, offset=FP_PERP_LINE_OFFSET):
+#     """
+#     THIS IS NOT
+#     generate_perpendicular_line_precise IS USED INSTEAD
 
-    Parameters
-    ----------
-    point : shapely.geometry.Point
-        The point on the line where the perpendicular should be generated.
-    line : shapely.geometry.LineString
-        The line to which the perpendicular line will be generated.
-    offset : float, optional
-        The length of the perpendicular line.
+#     Generate a perpendicular line to the input line at the given point.
 
-    Returns
-    -------
-    shapely.geometry.LineString
-        The generated perpendicular line.
-    """
-    # Compute the angle of the line
-    p1, p2 = line.coords[0], line.coords[-1]  # Modify this line
-    angle = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
+#     Parameters
+#     ----------
+#     point : shapely.geometry.Point
+#         The point on the line where the perpendicular should be generated.
+#     line : shapely.geometry.LineString
+#         The line to which the perpendicular line will be generated.
+#     offset : float, optional
+#         The length of the perpendicular line.
 
-    # Compute the angle of the perpendicular line
-    angle_perp = angle + np.pi / 2.0  # Perpendicular angle
+#     Returns
+#     -------
+#     shapely.geometry.LineString
+#         The generated perpendicular line.
+#     """
+#     # Compute the angle of the line
+#     p1, p2 = line.coords[0], line.coords[-1]  # Modify this line
+#     angle = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
 
-    # Generate the perpendicular line
-    perp_line = LineString([(point.x - offset * np.cos(angle_perp), point.y - offset * np.sin(angle_perp)),
-                            (point.x + offset * np.cos(angle_perp), point.y + offset * np.sin(angle_perp))])
+#     # Compute the angle of the perpendicular line
+#     angle_perp = angle + np.pi / 2.0  # Perpendicular angle
 
-    return perp_line
+#     # Generate the perpendicular line
+#     perp_line = LineString([(point.x - offset * np.cos(angle_perp), point.y - offset * np.sin(angle_perp)),
+#                             (point.x + offset * np.cos(angle_perp), point.y + offset * np.sin(angle_perp))])
+
+#     return perp_line
 
 
 def process_single_line(line_arg):
@@ -106,7 +136,7 @@ def process_single_line(line_arg):
 
     # Calculate the 75th percentile width
     # filter zeros in width array
-    arr_filter = [False if math.isclose(i, 0.0) else True for i in widths]
+    arr_filter = [False if isclose(i, 0.0) else True for i in widths]
     widths = widths[arr_filter]
 
     q3_width = FP_FIXED_WIDTH_DEFAULT
@@ -137,7 +167,7 @@ def process_single_line(line_arg):
     return row
 
 
-def generate_fixed_width_footprint(line_gdf, shp_footprint, max_width=False):
+def generate_fixed_width_footprint(line_gdf, max_width=False):
     """
     Creates a buffer around each line in the GeoDataFrame using its 'max_width' attribute and
     saves the resulting polygons in a new shapefile.
@@ -245,16 +275,22 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
                          out_footprint, processes, verbose):
     n_samples = int(n_samples)
     offset = float(offset)
-    line_args = prepare_line_args(in_line, in_footprint, n_samples, offset)
+    line_gdf = gpd.read_file(in_line)
+    poly_gdf = gpd.read_file(in_footprint)
 
+    lg = LineGrouping(line_gdf)
+    lg.run_grouping()
+    merged_line_gdf = LineGrouping.run_line_merge(line_gdf)
+
+    line_args = prepare_line_args(merged_line_gdf, poly_gdf, n_samples, offset)
     out_lines = execute_multiprocessing(process_single_line, line_args, 'Fixed footprint',
                                         processes, 1, verbose=verbose)
     line_attr = pd.concat(out_lines)
 
     # create fixed width footprint
-    buffer_gdf = generate_fixed_width_footprint(line_attr, in_footprint, max_width=max_width)
+    buffer_gdf = generate_fixed_width_footprint(line_attr, max_width=max_width)
 
-    # Save the lines with attributes and polygons to a new shapefile
+    # Save the lines with attributes and polygons to a new file
     perp_lines_gdf = buffer_gdf.copy(deep=True)
     perp_lines_origianl_gdf = buffer_gdf.copy(deep=True)
 
@@ -262,7 +298,14 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     buffer_gdf = buffer_gdf.drop(columns=['perp_lines'])
     buffer_gdf = buffer_gdf.drop(columns=['perp_lines_original'])
     buffer_gdf.crs = perp_lines_gdf.crs
-    buffer_gdf.to_file(out_footprint)
+    buffer_gdf.reset_index(inplace=True, drop=True)
+
+    # save original merged lines
+    merged_line_gdf.to_file(out_footprint, layer="merged_lines_original")
+
+    # trim lines and footprints
+    lg.run_cleanup(buffer_gdf)
+    lg.save_file(out_footprint)
 
     # perpendicular lines
     layer = 'perp_lines'
@@ -272,23 +315,15 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     perp_lines_gdf = perp_lines_gdf.drop(columns=['perp_lines_original'])
     perp_lines_gdf = perp_lines_gdf.drop(columns=['geometry'])
     perp_lines_gdf.crs = buffer_gdf.crs
-    # perp_lines_path = Path(out_footprint).with_stem(Path(out_footprint).stem + '_perp_lines')
     perp_lines_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    layer = 'perp_lines_origianl'
+    layer = 'perp_lines_original'
     perp_lines_origianl_gdf = perp_lines_origianl_gdf.set_geometry('perp_lines_original')
     perp_lines_origianl_gdf = perp_lines_origianl_gdf.drop(columns=['perp_lines'])
     perp_lines_origianl_gdf = perp_lines_origianl_gdf.drop(columns=['geometry'])
     perp_lines_origianl_gdf.crs = buffer_gdf.crs
-    # perp_lines_path = Path(out_footprint).with_stem(Path(out_footprint).stem + '_perp_lines')
     perp_lines_origianl_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    # geojson_path = Path(out_footprint).with_suffix('.geojson')
-    # buffer_gpd_4326 = buffer_gdf.to_crs('EPSG:4326')
-    # buffer_gpd_4326.to_file(geojson_path.as_posix(), driver='GeoJSON')
-
-    # gdf_simplified_path = Path(in_line).with_stem(Path(in_line).stem + "_simplified")
-    # line_attr.to_file(gdf_simplified_path)
     layer = 'centerline_simplified'
     line_attr = line_attr.drop(columns='perp_lines')
     line_attr.to_file(out_aux_gpkg.as_posix(), layer=layer)

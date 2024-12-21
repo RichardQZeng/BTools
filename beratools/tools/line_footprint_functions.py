@@ -479,6 +479,8 @@ def process_single_line_relative(segment):
 
         # creat mask for non-polygon area
         mask = np.where(clean_raster == 1, True, False)
+        if clean_raster.dtype == np.int64:
+            clean_raster = clean_raster.astype(np.int32)
 
         # Process: ndarray to shapely Polygon
         out_polygon = features.shapes(clean_raster, mask=mask, transform=in_transform)

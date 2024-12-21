@@ -117,7 +117,7 @@ class FileSelector(tk.Frame):
                 elif 'Lidar' in self.file_type:
                     file_types = [("LiDAR files", ('*.las', '*.zlidar', '*.laz', '*.zip'))]
                 elif 'Vector' in self.file_type:
-                    file_types = [("Shapefiles", "*.shp")]
+                    file_types = [("Shapefiles", "*.shp"), ("GeoPackage", "*.gpkg")]
                 elif 'Text' in self.file_type:
                     file_types = [("Text files", "*.txt"), ("all files", "*.*")]
                 elif 'Csv' in self.file_type:

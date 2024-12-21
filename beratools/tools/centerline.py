@@ -86,8 +86,16 @@ def process_single_line(line_args):
     return center_line, lc_path, prop, corridor_poly_gpd
 
 
-def centerline(callback, in_line, in_raster, line_radius,
-               proc_segments, out_line, processes, verbose):
+def centerline(
+    in_line,
+    in_raster,
+    line_radius,
+    proc_segments,
+    out_line,
+    processes,
+    verbose,
+    callback=print,
+):
     if not compare_crs(vector_crs(in_line), raster_crs(in_raster)):
         print("Line and CHM have different spatial references, please check.")
         return
@@ -179,8 +187,9 @@ def centerline(callback, in_line, in_raster, line_radius,
     corridor_polys.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
 
+# TODO: fix geometries when job done
 if __name__ == '__main__':
     in_args, in_verbose = check_arguments()
     start_time = time.time()
-    centerline(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
+    centerline(**in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))

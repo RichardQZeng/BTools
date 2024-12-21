@@ -431,6 +431,39 @@
                     ]
                 },
                 {
+                    "name": "Line Grouping",
+                    "info": "Group lines into groups by connection and direction.",
+                    "multiprocessing": true,
+                    "batch_processing": true,
+                    "tool_type": "python",
+                    "tool_api": "line_grouping",
+                    "paramFile": "\\Scripts\\FLM_VO_params.txt",
+                    "image": "../Images/BT_LineGrouping.gif",
+                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/LineGroupinng.html",
+                    "parameters": [
+                        {
+                            "variable": "in_line",
+                            "parameter": "Forest Lines Feature Class",
+                            "description": "Input polyline shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": false,
+                            "optional": false
+                        },
+                        {
+                            "variable": "out_line",
+                            "parameter": "Output Center-Line",
+                            "description": "Output grouped lines shapefile.",
+                            "type": "vector",
+                            "typelab": "SHP",
+                            "default": "",
+                            "output": true,
+                            "optional": false
+                        }
+                    ]
+                },
+                {
                     "name": "Least Cost Path from CHM",
                     "info": "Finding Least Cost path from Corridor between line vertices using CHM.",
                     "multiprocessing": true,
@@ -841,7 +874,7 @@
                             "description": "The length of the perpendicular line",
                             "type": "number",
                             "typelab": "float",
-                            "default": 10.0,
+                            "default": 30.0,
                             "output": false,
                             "optional": true
                         },
