@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 import pandas as pd
 import geopandas as gpd
 
-from beratools.core.constants import *
+from beratools.core.constants import PARALLEL_MODE, ParallelMode
 
 from dask.distributed import Client, as_completed
 from dask import config as cfg

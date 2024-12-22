@@ -52,7 +52,9 @@ if __name__ == "__main__":
     current_file = Path(getsourcefile(lambda: 0)).resolve()
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
+
 from beratools.core.tool_base import *
+from beratools.core.constants import *
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -413,8 +415,6 @@ def raster_crs(in_raster):
         except Exception as e:
             print(e)
             exit()
-
-
 
 
 def compare_crs(crs_org, crs_dst):
@@ -968,4 +968,3 @@ def read_data2gpd(in_data):
     print("Reading data.......")
     out_gpd_obj = gpd.GeoDataFrame.from_file(in_data)
     return out_gpd_obj
-
