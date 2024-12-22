@@ -22,3 +22,4 @@ BERATools.bat
 pixi.lock
 notebooks/params_hpc.yml
 notebooks/params_win.yml
+notebooks/full_workflow.slurm
