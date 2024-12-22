@@ -1,3 +1,5 @@
+# usage: python full_workflow.py 10 win
+
 import os
 
 import sys
@@ -24,11 +26,15 @@ processes = 18
 verbose = False
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 2:
         processes = int(sys.argv[1])
         print(f'CPU cores: {processes}')
+        platform_str = sys.argv[2]
 
-    with open(current_folder.joinpath('params_win.yml')) as in_params:
+    yml_file = current_folder.joinpath("params_" + platform_str).with_suffix(".yml")
+    print(f"Config file: {yml_file}")
+
+    with open(yml_file) as in_params:
         params = yaml.safe_load(in_params)
 
     # ### centerline
@@ -51,7 +57,7 @@ if __name__ == '__main__':
     main_line_footprint_relative(
         callback=print, **args_line_footprint_relative, processes=processes, verbose=verbose
     )
-    
+
     # ground footprint
     args_line_footprint_fixed = params["args_line_footprint_fixed"]
     print(args_line_footprint_fixed)
