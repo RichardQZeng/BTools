@@ -20,3 +20,5 @@ BERATools.bat
 .pixi
 *.egg-info
 pixi.lock
+notebooks/params_hpc.yml
+notebooks/params_win.yml
