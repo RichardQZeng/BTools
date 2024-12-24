@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import shapely
 from beratools.tools.common import *
+from beratools.core.tool_base import execute_multiprocessing
 import sys
 import math
 
@@ -358,62 +359,75 @@ def multiprocessing_RofC(
     in_argsL, in_argsR, total_steps = prepare_multiprocessing_rofc(
         line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing
     )
-    
+
     featuresL = []
     featuresR = []
+    featuresL = execute_multiprocessing(
+        rate_of_change, in_argsL, "Change In Buffer Area", processes, 1, verbose=False
+    )
+    gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
 
-    if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
-        with Pool(processes=int(processes)) as pool:
-            step = 0
-            # execute tasks in order, process results out of order
-            try:
-                for resultL in pool.imap_unordered(rate_of_change, in_argsL):
-                    if BT_DEBUGGING:
-                        print("Got result: {}".format(resultL), flush=True)
-                    featuresL.append(resultL)
-                    step += 1
-                    print(
-                        ' "PROGRESS_LABEL Calculate Rate of Change In Buffer Area {} of {}" '.format(
-                            step, total_steps
-                        ),
-                        flush=True,
-                    )
-                    print("%{}".format(step / total_steps * 100), flush=True)
-            except Exception:
-                print(Exception)
-                raise
+    featuresR = execute_multiprocessing(
+        rate_of_change, in_argsR, "Change In Buffer Area", processes, 1, verbose=False
+    )
+    gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
 
-            gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
-        with Pool(processes=int(processes)) as pool:
-            try:
-                for resultR in pool.imap_unordered(rate_of_change, in_argsR):
-                    if BT_DEBUGGING:
-                        print("Got result: {}".format(resultR), flush=True)
-                    featuresR.append(resultR)
-                    step += 1
-                    print(
-                        ' "PROGRESS_LABEL Calculate Rate of Change Area {} of {}" '.format(
-                            step + len(in_argsL), total_steps
-                        ),
-                        flush=True,
-                    )
-                    print(
-                        "%{}".format((step + len(in_argsL)) / total_steps * 100),
-                        flush=True,
-                    )
-            except Exception:
-                print(Exception)
-                raise
-            gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
-    else:
-        for rowL in in_argsL:
-            featuresL.append(rate_of_change(rowL))
+    # featuresL = []
+    # featuresR = []
 
-        for rowR in in_argsR:
-            featuresR.append(rate_of_change(rowR))
+    # if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
+    #     with Pool(processes=int(processes)) as pool:
+    #         step = 0
+    #         # execute tasks in order, process results out of order
+    #         try:
+    #             for resultL in pool.imap_unordered(rate_of_change, in_argsL):
+    #                 if BT_DEBUGGING:
+    #                     print("Got result: {}".format(resultL), flush=True)
+    #                 featuresL.append(resultL)
+    #                 step += 1
+    #                 print(
+    #                     ' "PROGRESS_LABEL Calculate Rate of Change In Buffer Area {} of {}" '.format(
+    #                         step, total_steps
+    #                     ),
+    #                     flush=True,
+    #                 )
+    #                 print("%{}".format(step / total_steps * 100), flush=True)
+    #         except Exception:
+    #             print(Exception)
+    #             raise
 
-        gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
-        gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
+    #         gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
+
+    #     with Pool(processes=int(processes)) as pool:
+    #         try:
+    #             for resultR in pool.imap_unordered(rate_of_change, in_argsR):
+    #                 if BT_DEBUGGING:
+    #                     print("Got result: {}".format(resultR), flush=True)
+    #                 featuresR.append(resultR)
+    #                 step += 1
+    #                 print(
+    #                     ' "PROGRESS_LABEL Calculate Rate of Change Area {} of {}" '.format(
+    #                         step + len(in_argsL), total_steps
+    #                     ),
+    #                     flush=True,
+    #                 )
+    #                 print(
+    #                     "%{}".format((step + len(in_argsL)) / total_steps * 100),
+    #                     flush=True,
+    #                 )
+    #         except Exception:
+    #             print(Exception)
+    #             raise
+    #         gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
+    # else:
+    #     for rowL in in_argsL:
+    #         featuresL.append(rate_of_change(rowL))
+
+    #     for rowR in in_argsR:
+    #         featuresR.append(rate_of_change(rowR))
+
+    #     gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
+    #     gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
 
     for index in line_seg.index:
         lnfid = line_seg.OLnFID.iloc[index]
