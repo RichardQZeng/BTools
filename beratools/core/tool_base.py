@@ -35,7 +35,12 @@ def result_is_valid(result):
     if type(result) is list or type(result) is tuple:
         if len(result) > 0:
             return True
-    elif type(result) is pd.DataFrame or type(result) is gpd.GeoDataFrame:
+    elif (
+        type(result) is pd.DataFrame
+        or type(result) is gpd.GeoDataFrame
+        or type(result) is pd.Series
+        or type(result) is gpd.GeoSeries
+    ):
         if not result.empty:
             return True
     elif result:
