@@ -372,63 +372,6 @@ def multiprocessing_RofC(
     )
     gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
 
-    # featuresL = []
-    # featuresR = []
-
-    # if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
-    #     with Pool(processes=int(processes)) as pool:
-    #         step = 0
-    #         # execute tasks in order, process results out of order
-    #         try:
-    #             for resultL in pool.imap_unordered(rate_of_change, in_argsL):
-    #                 if BT_DEBUGGING:
-    #                     print("Got result: {}".format(resultL), flush=True)
-    #                 featuresL.append(resultL)
-    #                 step += 1
-    #                 print(
-    #                     ' "PROGRESS_LABEL Calculate Rate of Change In Buffer Area {} of {}" '.format(
-    #                         step, total_steps
-    #                     ),
-    #                     flush=True,
-    #                 )
-    #                 print("%{}".format(step / total_steps * 100), flush=True)
-    #         except Exception:
-    #             print(Exception)
-    #             raise
-
-    #         gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
-
-    #     with Pool(processes=int(processes)) as pool:
-    #         try:
-    #             for resultR in pool.imap_unordered(rate_of_change, in_argsR):
-    #                 if BT_DEBUGGING:
-    #                     print("Got result: {}".format(resultR), flush=True)
-    #                 featuresR.append(resultR)
-    #                 step += 1
-    #                 print(
-    #                     ' "PROGRESS_LABEL Calculate Rate of Change Area {} of {}" '.format(
-    #                         step + len(in_argsL), total_steps
-    #                     ),
-    #                     flush=True,
-    #                 )
-    #                 print(
-    #                     "%{}".format((step + len(in_argsL)) / total_steps * 100),
-    #                     flush=True,
-    #                 )
-    #         except Exception:
-    #             print(Exception)
-    #             raise
-    #         gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
-    # else:
-    #     for rowL in in_argsL:
-    #         featuresL.append(rate_of_change(rowL))
-
-    #     for rowR in in_argsR:
-    #         featuresR.append(rate_of_change(rowR))
-
-    #     gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
-    #     gpdR = gpd.GeoDataFrame(pd.concat(featuresR, axis=1).T)
-
     for index in line_seg.index:
         lnfid = line_seg.OLnFID.iloc[index]
         Olnseg = line_seg.OLnSEG.iloc[index]
@@ -534,41 +477,6 @@ def multiprocessing_copyparallel_lineLRC(
         return (gpd.GeoDataFrame(pd.concat(featuresL)), 
                gpd.GeoDataFrame(pd.concat(featuresR)))
 
-    #     featuresL = []
-    #     featuresR = []
-    #     result = None
-    #     step = 0
-
-    #     if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
-    #         with Pool(processes=int(processes)) as pool:
-    #             # execute tasks in order, process results out of order
-    #             for result in pool.imap_unordered(copyparallel_lineLRC, line_arg):
-    #                 if BT_DEBUGGING:
-    #                     print(f"Got result: {result}", flush=True)
-    #                 if result:
-    #                     featuresL.append(result[0])  # resultL
-    #                     featuresR.append(result[1])  # resultR
-    #                 step += 1
-    #                 print(f" %{step / total_steps * 100} ")
-
-    #             return gpd.GeoDataFrame(pd.concat(featuresL)), gpd.GeoDataFrame(
-    #                 pd.concat(featuresR)
-    #             )  # ,  gpd.GeoDataFrame(pd.concat(featuresC))
-    #     elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
-    #         for line in line_arg:
-    #             result = copyparallel_lineLRC(line)
-    #             if BT_DEBUGGING:
-    #                 print(f"Got result: {result}", flush=True)
-    #             if result:
-    #                 featuresL.append(result[0])  # resultL
-    #                 featuresR.append(result[1])  # resultR
-    #             step += 1
-    #             print(f" %{step / total_steps * 100} ")
-
-    #         return gpd.GeoDataFrame(pd.concat(featuresL)), gpd.GeoDataFrame(
-    #             pd.concat(featuresR)
-    #         )  # , gpd.GeoDataFrame(pd.concat(featuresC))
-
     except OperationCancelledException:
         print("Operation cancelled")
 
@@ -595,46 +503,6 @@ def multiprocessing_percentile(
             cal_percentile, line_arg, "Calculate Percentile", processes, workers=1
         )
         return gpd.GeoDataFrame(pd.concat(features))
-
-        # if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
-        #     with Pool(processes=int(processes)) as pool:
-        #         step = 0
-        #         # execute tasks in order, process results out of order
-        #         try:
-        #             for result in pool.imap_unordered(cal_percentile, line_arg):
-        #                 if BT_DEBUGGING:
-        #                     print("Got result: {}".format(result), flush=True)
-        #                 features.append(result)
-        #                 step += 1
-        #                 print(
-        #                     ' "PROGRESS_LABEL Calculate Percentile In Buffer Area {} of {}" '.format(
-        #                         step, total_steps
-        #                     ),
-        #                     flush=True,
-        #                 )
-        #                 print("%{}".format(step / total_steps * 100), flush=True)
-        #         except Exception:
-        #             print(Exception)
-        #             raise
-        #         del line_arg
-
-        #     return gpd.GeoDataFrame(pd.concat(features))
-        # else:
-        #     verbose = False
-        #     total_steps = len(line_arg)
-        #     step = 0
-        #     for row in line_arg:
-        #         features.append(cal_percentile(row))
-        #         step += 1
-        #         if verbose:
-        #             print(
-        #                 ' "PROGRESS_LABEL Calculate Percentile on line {} of {}" '.format(
-        #                     step, total_steps
-        #                 ),
-        #                 flush=True,
-        #             )
-        #             print(" %{} ".format(step / total_steps * 100), flush=True)
-        #     return gpd.GeoDataFrame(pd.concat(features))
 
     except OperationCancelledException:
         print("Operation cancelled")
