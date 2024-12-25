@@ -138,11 +138,11 @@ def find_centerline(poly, input_line):
     centerline = centerline.difference(end_buffer)
 
     if not centerline:
-        print('No centerline detected, use input line instead.')
+        # print('No centerline detected, use input line instead.')
         return default_return
     try:
         if centerline.is_empty:
-            print('Empty centerline detected, use input line instead.')
+            # print('Empty centerline detected, use input line instead.')
             return default_return
     except Exception as e:
         print(f'find_centerline: {e}')

@@ -162,7 +162,7 @@ def process_single_line(line_arg):
     except Exception as e:
         print(e)
 
-    print('line processed: {}'.format(line_id))
+    # print('line processed: {}'.format(line_id))
 
     return row
 

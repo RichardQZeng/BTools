@@ -128,7 +128,6 @@ class MergeLines:
     def merge_single_line(self, component):
         path = self.find_path_for_component(component)
 
-        print('Merge lines')
         pairs = list(pairwise(path))
         line_list = [self.G.edgeId(i[0], i[1]) for i in pairs]
 
@@ -160,6 +159,8 @@ class MergeLines:
                 lines.extend(self.get_merged_line_for_component(c))
             else:  # TODO: check line
                 print(f"merge_all_lines: failed to merge line: {self.multi_line}")
+
+        print('Merge lines done.')
 
         if len(lines) > 1:
             return MultiLineString(lines)

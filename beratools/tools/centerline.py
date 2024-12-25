@@ -82,7 +82,7 @@ def process_single_line(line_args):
     center_line, status = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
     prop['status'] = status.value
 
-    print(" Searching centerline: line {} ".format(line_id), flush=True)
+    # print(" Searching centerline: line {} ".format(line_id), flush=True)
     return center_line, lc_path, prop, corridor_poly_gpd
 
 

@@ -7,7 +7,17 @@ import time
 import pandas as pd
 import numpy as np
 import shapely
-from beratools.tools.common import *
+from shapely import ops
+from beratools.tools.common import (
+    compare_crs,
+    vector_crs,
+    raster_crs,
+    chk_df_multipart,
+    check_arguments,
+    clip_raster,
+)
+
+from beratools.core.constants import BT_DEBUGGING, BT_NODATA
 from beratools.core.tool_base import execute_multiprocessing
 import sys
 import math
@@ -32,10 +42,6 @@ def main_canopy_threshold_relative(
     processes,
     verbose,
 ):
-    file_path, in_file_name = os.path.split(in_line)
-    out_file = os.path.join(file_path, "DynCanTh_" + in_file_name)
-    line_seg = gpd.GeoDataFrame.from_file(in_line)
-
     # check coordinate systems between line and raster features
     # with rasterio.open(in_chm) as in_raster:
     if compare_crs(vector_crs(in_line), raster_crs(in_chm)):
@@ -44,40 +50,7 @@ def main_canopy_threshold_relative(
         print("Line and raster spatial references are not same, please check.")
         exit()
 
-    # Check the canopy threshold percent in 0-100 range.  If it is not, 50% will be applied
-    if not 100 >= int(canopy_percentile) > 0:
-        canopy_percentile = 50
-
-    # Check the Dynamic Canopy threshold column in data. If it is not, new column will be created
-    if "DynCanTh" not in line_seg.columns.array:
-        if BT_DEBUGGING:
-            print("{} column not found in input line".format("DynCanTh"))
-        print("New column created: {}".format("DynCanTh"))
-        line_seg["DynCanTh"] = np.nan
-
-    # Check the OLnFID column in data. If it is not, column will be created
-    if "OLnFID" not in line_seg.columns.array:
-        if BT_DEBUGGING:
-            print("{} column not found in input line".format("OLnFID"))
-
-        print("New column created: {}".format("OLnFID"))
-        line_seg["OLnFID"] = line_seg.index
-
-    # Check the OLnSEG column in data. If it is not, column will be created
-    if "OLnSEG" not in line_seg.columns.array:
-        if BT_DEBUGGING:
-            print("{} column not found in input line".format("OLnSEG"))
-
-        print("New column created: {}".format("OLnSEG"))
-        line_seg["OLnSEG"] = 0
-
-    line_seg = chk_df_multipart(line_seg, "LineString")[0]
-
-    proc_segments = False
-    if proc_segments:
-        line_seg = split_into_segments(line_seg)
-    else:
-        pass
+    canopy_percentile, out_file, line_seg = prepare_line_seg(in_line, canopy_percentile)
 
     # copy original line input to another GeoDataframe
     workln_dfC = gpd.GeoDataFrame.copy((line_seg))
@@ -85,53 +58,12 @@ def main_canopy_threshold_relative(
         tolerance=0.5, preserve_topology=True
     )
 
-    print("%{}".format(5))
-
     worklnbuffer_dfLRing = gpd.GeoDataFrame.copy((workln_dfC))
     worklnbuffer_dfRRing = gpd.GeoDataFrame.copy((workln_dfC))
 
     print("Create ring buffer for input line to find the forest edge....")
 
-    def multiringbuffer(df, nrings, ringdist):
-        """
-        Buffers an input dataframes geometry nring (number of rings) times, with a distance between
-        rings of ringdist and returns a list of non overlapping buffers
-        """
-
-        rings = []  # A list to hold the individual buffers
-        for ring in np.arange(
-            0, ringdist, nrings
-        ):  # For each ring (1, 2, 3, ..., nrings)
-            big_ring = df["geometry"].buffer(
-                nrings + ring, single_sided=True, cap_style="flat"
-            )  # Create one big buffer
-            small_ring = df["geometry"].buffer(
-                ring, single_sided=True, cap_style="flat"
-            )  # Create one smaller one
-            the_ring = big_ring.difference(
-                small_ring
-            )  # Difference the big with the small to create a ring
-            if (
-                ~shapely.is_empty(the_ring)
-                or ~shapely.is_missing(the_ring)
-                or not None
-                or ~the_ring.area == 0
-            ):
-                if isinstance(the_ring, shapely.MultiPolygon) or isinstance(
-                    the_ring, shapely.Polygon
-                ):
-                    rings.append(the_ring)  # Append the ring to the rings list
-                else:
-                    if isinstance(the_ring, shapely.GeometryCollection):
-                        for i in range(0, len(the_ring.geoms)):
-                            if not isinstance(the_ring.geoms[i], shapely.LineString):
-                                rings.append(the_ring.geoms[i])
-            print(" %{} ".format((ring / ringdist) * 100))
-
-        return rings  # return the list
-
     # Create a column with the rings as a list
-
     worklnbuffer_dfLRing["mgeometry"] = worklnbuffer_dfLRing.apply(
         lambda x: multiringbuffer(df=x, nrings=1, ringdist=15), axis=1
     )
@@ -175,7 +107,6 @@ def main_canopy_threshold_relative(
     worklnbuffer_dfRRing = worklnbuffer_dfRRing.reset_index(drop=True)
 
     print("Task done.")
-    print("%{}".format(20))
 
     worklnbuffer_dfRRing["Percentile_RRing"] = np.nan
     worklnbuffer_dfLRing["Percentile_LRing"] = np.nan
@@ -183,7 +114,6 @@ def main_canopy_threshold_relative(
     line_seg["CR_CutHt"] = np.nan
     line_seg["RDist_Cut"] = np.nan
     line_seg["LDist_Cut"] = np.nan
-    print("%{}".format(80))
 
     # calculate the Height percentile for each parallel area using CHM
     worklnbuffer_dfLRing = multiprocessing_percentile(
@@ -217,8 +147,6 @@ def main_canopy_threshold_relative(
     result = multiprocessing_RofC(
         line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing, processes
     )
-    print("%{}".format(40))
-    print("Task done.")
 
     print("Saving percentile information to input line ...")
     gpd.GeoDataFrame.to_file(result, out_file)
@@ -227,7 +155,84 @@ def main_canopy_threshold_relative(
     if full_step:
         return out_file
 
-    print("%{}".format(100))
+def multiringbuffer(df, nrings, ringdist):
+    """
+    Buffers an input dataframes geometry nring (number of rings) times, with a distance between
+    rings of ringdist and returns a list of non overlapping buffers
+    """
+
+    rings = []  # A list to hold the individual buffers
+    for ring in np.arange(0, ringdist, nrings):  # For each ring (1, 2, 3, ..., nrings)
+        big_ring = df["geometry"].buffer(
+            nrings + ring, single_sided=True, cap_style="flat"
+        )  # Create one big buffer
+        small_ring = df["geometry"].buffer(
+            ring, single_sided=True, cap_style="flat"
+        )  # Create one smaller one
+        the_ring = big_ring.difference(
+            small_ring
+        )  # Difference the big with the small to create a ring
+        if (
+            ~shapely.is_empty(the_ring)
+            or ~shapely.is_missing(the_ring)
+            or not None
+            or ~the_ring.area == 0
+        ):
+            if isinstance(the_ring, shapely.MultiPolygon) or isinstance(
+                the_ring, shapely.Polygon
+            ):
+                rings.append(the_ring)  # Append the ring to the rings list
+            else:
+                if isinstance(the_ring, shapely.GeometryCollection):
+                    for i in range(0, len(the_ring.geoms)):
+                        if not isinstance(the_ring.geoms[i], shapely.LineString):
+                            rings.append(the_ring.geoms[i])
+        # print(" %{} ".format((ring / ringdist) * 100))
+
+    return rings  # return the list
+
+
+def prepare_line_seg(in_line, canopy_percentile):
+    file_path, in_file_name = os.path.split(in_line)
+    out_file = os.path.join(file_path, "DynCanTh_" + in_file_name)
+    line_seg = gpd.GeoDataFrame.from_file(in_line)
+
+    # Check the canopy threshold percent in 0-100 range.  If it is not, 50% will be applied
+    if not 100 >= int(canopy_percentile) > 0:
+        canopy_percentile = 50
+
+    # Check the Dynamic Canopy threshold column in data. If it is not, new column will be created
+    if "DynCanTh" not in line_seg.columns.array:
+        if BT_DEBUGGING:
+            print("{} column not found in input line".format("DynCanTh"))
+        print("New column created: {}".format("DynCanTh"))
+        line_seg["DynCanTh"] = np.nan
+
+    # Check the OLnFID column in data. If it is not, column will be created
+    if "OLnFID" not in line_seg.columns.array:
+        if BT_DEBUGGING:
+            print("{} column not found in input line".format("OLnFID"))
+
+        print("New column created: {}".format("OLnFID"))
+        line_seg["OLnFID"] = line_seg.index
+
+    # Check the OLnSEG column in data. If it is not, column will be created
+    if "OLnSEG" not in line_seg.columns.array:
+        if BT_DEBUGGING:
+            print("{} column not found in input line".format("OLnSEG"))
+
+        print("New column created: {}".format("OLnSEG"))
+        line_seg["OLnSEG"] = 0
+
+    line_seg = chk_df_multipart(line_seg, "LineString")[0]
+
+    proc_segments = False
+    if proc_segments:
+        line_seg = split_into_segments(line_seg)
+    else:
+        pass
+
+    return canopy_percentile, out_file,line_seg
 
 
 def rate_of_change(in_arg):  # ,max_chmht):
@@ -266,56 +271,56 @@ def rate_of_change(in_arg):  # ,max_chmht):
                             if cut_dist > 5:
                                 cut_percentile = 2
                                 cut_dist = cut_dist * scale_down**3
-                                print(
-                                    "{}: OLnFID:{}, OLnSEG: {} @<0.5  found and modified".format(
-                                        side, Olnfid, Olnseg
-                                    ),
-                                    flush=True,
-                                )
+                                # print(
+                                #     "{}: OLnFID:{}, OLnSEG: {} @<0.5  found and modified".format(
+                                #         side, Olnfid, Olnseg
+                                #     ),
+                                #     flush=True,
+                                # )
                         elif 0.5 < cut_percentile <= 5.0:
                             if cut_dist > 6:
                                 cut_dist = cut_dist * scale_down**3  # 4.0
-                                print(
-                                    "{}: OLnFID:{}, OLnSEG: {} @0.5-5.0  found and modified".format(
-                                        side, Olnfid, Olnseg
-                                    ),
-                                    flush=True,
-                                )
+                                # print(
+                                #     "{}: OLnFID:{}, OLnSEG: {} @0.5-5.0  found and modified".format(
+                                #         side, Olnfid, Olnseg
+                                #     ),
+                                #     flush=True,
+                                # )
                         elif 5.0 < cut_percentile <= 10.0:
                             if cut_dist > 8:  # 5
                                 cut_dist = cut_dist * scale_down**3
-                                print(
-                                    "{}: OLnFID:{}, OLnSEG: {} @5-10  found and modified".format(
-                                        side, Olnfid, Olnseg
-                                    ),
-                                    flush=True,
-                                )
+                                # print(
+                                #     "{}: OLnFID:{}, OLnSEG: {} @5-10  found and modified".format(
+                                #         side, Olnfid, Olnseg
+                                #     ),
+                                #     flush=True,
+                                # )
                         elif 10.0 < cut_percentile <= 15:
                             if cut_dist > 5:
                                 cut_dist = cut_dist * scale_down**3  # 5.5
-                                print(
-                                    "{}: OLnFID:{}, OLnSEG: {} @10-15  found and modified".format(
-                                        side, Olnfid, Olnseg
-                                    ),
-                                    flush=True,
-                                )
+                                # print(
+                                #     "{}: OLnFID:{}, OLnSEG: {} @10-15  found and modified".format(
+                                #         side, Olnfid, Olnseg
+                                #     ),
+                                #     flush=True,
+                                # )
                         elif 15 < cut_percentile:
                             if cut_dist > 4:
                                 cut_dist = cut_dist * scale_down**2
                                 cut_percentile = 15.5
-                                print(
-                                    "{}: OLnFID:{}, OLnSEG: {} @>15  found and modified".format(
-                                        side, Olnfid, Olnseg
-                                    ),
-                                    flush=True,
-                                )
+                                # print(
+                                #     "{}: OLnFID:{}, OLnSEG: {} @>15  found and modified".format(
+                                #         side, Olnfid, Olnseg
+                                #     ),
+                                #     flush=True,
+                                # )
                         found = True
-                        print(
-                            "{}: OLnFID:{}, OLnSEG: {} rate of change found".format(
-                                side, Olnfid, Olnseg
-                            ),
-                            flush=True,
-                        )
+                        # print(
+                        #     "{}: OLnFID:{}, OLnSEG: {} rate of change found".format(
+                        #         side, Olnfid, Olnseg
+                        #     ),
+                        #     flush=True,
+                        # )
                         break
             changes = changes - 0.1
 
@@ -339,10 +344,10 @@ def rate_of_change(in_arg):  # ,max_chmht):
         elif 15 < median_percentile:
             cut_dist = 5 * scale_down  # 5
             cut_percentile = 15.5
-        print(
-            "{}: OLnFID:{}, OLnSEG: {} Estimated".format(side, Olnfid, Olnseg),
-            flush=True,
-        )
+        # print(
+        #     "{}: OLnFID:{}, OLnSEG: {} Estimated".format(side, Olnfid, Olnseg),
+        #     flush=True,
+        # )
     if side == "Right":
         df["RDist_Cut"] = cut_dist
         df["CR_CutHt"] = cut_percentile
@@ -390,13 +395,13 @@ def multiprocessing_RofC(
         line_seg.loc[index, "DynCanTh"] = (
             line_seg.loc[index, "CL_CutHt"] + line_seg.loc[index, "CR_CutHt"]
         ) / 2
-        print(
-            ' "PROGRESS_LABEL Recording ... {} of {}" '.format(
-                index + 1, len(line_seg)
-            ),
-            flush=True,
-        )
-        print(" %{} ".format(index + 1 / len(line_seg) * 100), flush=True)
+        # print(
+        #     ' "PROGRESS_LABEL Recording ... {} of {}" '.format(
+        #         index + 1, len(line_seg)
+        #     ),
+        #     flush=True,
+        # )
+        # print(" %{} ".format(index + 1 / len(line_seg) * 100), flush=True)
 
     return line_seg
 
@@ -405,8 +410,6 @@ def prepare_multiprocessing_rofc(line_seg, worklnbuffer_dfLRing, worklnbuffer_df
     in_argsR = []
 
     for index in line_seg.index:
-        resultsL = []
-        resultsR = []
         Olnfid = int(line_seg.OLnFID.iloc[index])
         Olnseg = int(line_seg.OLnSEG.iloc[index])
         sql_dfL = worklnbuffer_dfLRing.loc[
@@ -414,15 +417,17 @@ def prepare_multiprocessing_rofc(line_seg, worklnbuffer_dfLRing, worklnbuffer_df
             & (worklnbuffer_dfLRing["OLnSEG"] == Olnseg)
         ].sort_values(by=["iRing"])
         PLRing = list(sql_dfL["Percentile_LRing"])
+
         sql_dfR = worklnbuffer_dfRRing.loc[
             (worklnbuffer_dfRRing["OLnFID"] == Olnfid)
             & (worklnbuffer_dfRRing["OLnSEG"] == Olnseg)
         ].sort_values(by=["iRing"])
         PRRing = list(sql_dfR["Percentile_RRing"])
+
         in_argsL.append([PLRing, Olnfid, Olnseg, "Left", line_seg.loc[index], index])
         in_argsR.append([PRRing, Olnfid, Olnseg, "Right", line_seg.loc[index], index])
-        print(' "PROGRESS_LABEL Preparing grouped buffer areas...." ', flush=True)
-        print(" %{} ".format((index + 1 / len(line_seg)) * 100))
+        # print(' "PROGRESS_LABEL Preparing grouped buffer areas...." ', flush=True)
+        # print(" %{} ".format((index + 1 / len(line_seg)) * 100))
 
     total_steps = len(in_argsL) + len(in_argsR)
     return in_argsL,in_argsR,total_steps
@@ -547,17 +552,15 @@ def prepare_percentiles_multiprocessing(
             PerCol,
         ]
         line_arg.append(item_list)
-        print(
-            ' "PROGRESS_LABEL Preparing... {} of {}" '.format(item + 1, len(df)),
-            flush=True,
-        )
-        print(" %{} ".format(item / len(df) * 100), flush=True)
+        # print(
+        #     ' "PROGRESS_LABEL Preparing... {} of {}" '.format(item + 1, len(df)),
+        #     flush=True,
+        # )
+        # print(" %{} ".format(item / len(df) * 100), flush=True)
     return line_arg, total_steps, cal_percentile
 
 
 def cal_percentileLR(line_arg):
-    from shapely import ops
-
     try:
         df = line_arg[0]
         CanPercentile = line_arg[1]
@@ -626,8 +629,6 @@ def cal_percentileLR(line_arg):
 
 
 def cal_percentileRing(line_arg):
-    from shapely import ops
-
     try:
         df = line_arg[0]
         CanPercentile = line_arg[1]
@@ -730,28 +731,15 @@ def copyparallel_lineLRC(line_arg):
 
 if __name__ == "__main__":
     start_time = time.time()
-    print(
-        "Starting Dynamic Canopy Threshold calculation processing\n @ {}".format(
-            time.strftime("%d %b %Y %H:%M:%S", time.localtime())
-        )
-    )
+    print("Dynamic Canopy Threshold Started")
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", type=json.loads)
-    parser.add_argument("-p", "--processes")
-    parser.add_argument("-v", "--verbose")
-    args = parser.parse_args()
-    args.input["full_step"] = False
+    in_args, in_verbose = check_arguments()
+    in_args.input["full_step"] = False
 
-    verbose = True if args.verbose == "True" else False
     main_canopy_threshold_relative(
-        print, **args.input, processes=int(args.processes), verbose=verbose
+        print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose
     )
 
     print("%{}".format(100))
-    print(
-        "Finishing Dynamic Canopy Threshold calculation @ {}\n(or in {} second)".format(
-            time.strftime("%d %b %Y %H:%M:%S", time.localtime()),
-            round(time.time() - start_time, 5),
-        )
-    )
+    print("Dynamic Canopy Threshold finished")
+    print('Elapsed time: {}'.format(time.time() - start_time))
