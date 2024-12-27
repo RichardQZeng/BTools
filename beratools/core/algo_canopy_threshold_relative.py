@@ -16,7 +16,6 @@ from beratools.tools.common import (
 
 from beratools.core.constants import BT_NODATA
 from beratools.core.tool_base import execute_multiprocessing
-import sys
 import math
 
 
@@ -282,11 +281,13 @@ def multiprocessing_rate_of_change(
 
     featuresL = []
     featuresR = []
+    print("Change In Buffer Area: left side")
     featuresL = execute_multiprocessing(
         rate_of_change, in_argsL, "Change In Buffer Area", processes, 1, verbose=False
     )
     gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
 
+    print("Change In Buffer Area: right side")
     featuresR = execute_multiprocessing(
         rate_of_change, in_argsR, "Change In Buffer Area", processes, 1, verbose=False
     )
@@ -457,6 +458,7 @@ def main_canopy_threshold_relative(
     gdf_line_buffer_LRing["Percentile_LRing"] = np.nan
 
     # calculate the Height percentile for each parallel area using CHM
+    print("Percentile: left rings")
     gdf_line_buffer_LRing = multiprocessing_percentile(
         gdf_line_buffer_LRing,
         int(canopy_percentile),
@@ -466,6 +468,7 @@ def main_canopy_threshold_relative(
         side="LRing",
     )
 
+    print("Percentile: right rings")
     gdf_line_buffer_RRing = multiprocessing_percentile(
         gdf_line_buffer_RRing,
         int(canopy_percentile),

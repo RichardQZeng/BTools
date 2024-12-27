@@ -1,7 +1,5 @@
-# ---------------------------------------------------------------------------
-#    Copyright (C) 2021  Applied Geospatial Research Group
 #
-# ---------------------------------------------------------------------------
+#    Copyright (C) 2021  Applied Geospatial Research Group
 #
 # Refactor to use for produce dynamic footprint from dynamic canopy and cost raster with open source libraries
 # Prerequisite:  Line feature class must have the attribute Fields:"CorridorTh" "DynCanTh" "OLnFID"
@@ -9,41 +7,33 @@
 # Maverick Fong
 # Date: 2023-Dec
 # This script is part of the BERA toolset
-# Webpage: https://github.com/
 #
 # Purpose: Creates dynamic footprint polygons for each input line based on a least
 # cost corridor method and individual line thresholds.
 #
-# ---------------------------------------------------------------------------
 
 import time
 import numpy as np
-from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 import rasterio
-from scipy import ndimage
 from geopandas import GeoDataFrame
 from shapely import buffer
 from shapely.geometry import LineString, Point, MultiPolygon, shape
 from rasterio.features import shapes, rasterize
-from xrspatial import convolution
 from skimage.graph import MCP_Flexible
 
 from beratools.core.constants import BT_NODATA, LP_SEGMENT_LENGTH, FP_CORRIDOR_THRESHOLD
 from beratools.tools.common import (
     clip_raster,
     remove_nan_from_array,
-    dyn_np_cc_map,
-    dyn_fs_raster_stdmean,
-    dyn_smooth_cost,
-    dyn_np_cost_raster,
     compare_crs,
     vector_crs,
     raster_crs,
     split_into_Equal_Nth_segments,
     check_arguments,
     morph_raster,
+    cost_raster_2nd_version,
 )
 from beratools.core.tool_base import execute_multiprocessing
 
@@ -86,33 +76,17 @@ def dyn_canopy_cost_raster(args):
 
     try:
         clipped_rasterC, out_meta = clip_raster(in_chm_raster, line_buffer, 0)
-        in_chm = np.squeeze(clipped_rasterC, axis=0)
-
-        # print('Loading CHM ...')
-        cell_x, cell_y = out_meta["transform"][0], -out_meta["transform"][4]
-
-        # print('Preparing Kernel window ...')
-        kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
-
-        # Generate Canopy Raster and return the Canopy array
-        dyn_canopy_ndarray = dyn_np_cc_map(in_chm, canopy_ht_threshold, BT_NODATA)
-
-        # Calculating focal statistic from canopy raster
-        cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
-
-        # Smoothing raster
-        cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
-        avoidance = max(min(float(canopy_avoid), 1), 0)
-        cost_clip = dyn_np_cost_raster(
-            dyn_canopy_ndarray,
-            cc_mean,
-            cc_std,
-            cc_smooth,
-            avoidance,
+        negative_cost_clip, dyn_canopy_ndarray = cost_raster_2nd_version(
+            clipped_rasterC,
+            out_meta,
+            tree_radius,
+            canopy_ht_threshold,
+            max_line_dist,
+            canopy_avoid,
             cost_raster_exponent,
         )
         # TODO was nodata, changed to BT_NODATA_COST
-        negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)
+        # negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)
         return (
             line_df,
             dyn_canopy_ndarray,
@@ -177,34 +151,6 @@ def split_into_equal_nth_segments(df):
     gdf = gdf.sort_values(by=["OLnFID", "OLnSEG"])
     gdf = gdf.reset_index(drop=True)
     return gdf
-
-
-def find_corridor_threshold(raster):
-    """
-    Find the optimal corridor threshold by raster histogram
-    Parameters
-    ----------
-    raster : corridor raster
-
-    Returns
-    -------
-    corridor_threshold : float
-
-    """
-    corridor_threshold = -1.0
-    hist, bins = np.histogram(raster.flatten(), bins=100, range=(0, 100))
-    CostStd = np.nanstd(raster.flatten())
-    half_count = np.sum(hist) / 2
-    sub_count = 0
-
-    for count, bin_no in zip(hist, bins):
-        sub_count += count
-        if sub_count > half_count:
-            break
-
-        corridor_threshold = bin_no
-
-    return corridor_threshold
 
 
 def generate_line_args_DFP_NoClip(
@@ -396,31 +342,6 @@ def process_single_line_relative(segment):
             corridor_th_value = FP_CORRIDOR_THRESHOLD / cell_size_x
 
         corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-
-        # # Process: Stamp CC and Max Line Width
-        # # Original code here
-        # temp1 = corridor_thresh + in_canopy_r
-        # raster_class = np.ma.where(temp1 == 0, 1, 0).data
-
-        # # BERA proposed Binary morphology
-        # if exp_shk_cell > 0 and cell_size_x < 1:
-        #     # Process: Expand
-        #     # FLM original Expand equivalent
-        #     cell_size = int(exp_shk_cell * 2 + 1)
-
-        #     expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
-
-        #     # Process: Shrink
-        #     # FLM original Shrink equivalent
-        #     file_shrink = ndimage.grey_erosion(expanded, size=(cell_size, cell_size))
-
-        # else:
-        #     print("No Expand And Shrink cell performed.")
-
-        #     file_shrink = raster_class
-
-        # # Process: Boundary Clean
-        # clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode="nearest")
         clean_raster = morph_raster(
             corridor_thresh, in_canopy_r, exp_shk_cell, cell_size_x
         )
@@ -461,9 +382,7 @@ def main_line_footprint_relative(
     in_line,
     in_chm,
     max_ln_width,
-    exp_shk_cell,
     out_footprint,
-    out_centerline,
     tree_radius,
     max_line_dist,
     canopy_avoidance,
@@ -473,7 +392,6 @@ def main_line_footprint_relative(
     processes,
     verbose,
 ):
-    # use_corridor_th_col = True
     line_seg = gpd.read_file(in_line)
 
     # If Dynamic canopy threshold column not found, create one
@@ -589,6 +507,7 @@ def main_line_footprint_relative(
         feat_listL = []
         feat_listR = []
 
+        print("Dynamic Line Footprint: left side")
         feat_listL = execute_multiprocessing(
             process_single_line_relative,
             line_argsL,
@@ -596,6 +515,8 @@ def main_line_footprint_relative(
             processes,
             workers=1,
         )
+
+        print("Dynamic Line Footprint: right side")
         feat_listR = execute_multiprocessing(
             process_single_line_relative,
             line_argsR,
@@ -608,11 +529,11 @@ def main_line_footprint_relative(
     footprint_listR = []
 
     for feat in feat_listL:
-        if feat:
+        if not feat.empty:
             footprint_listL.append(feat)
 
     for feat in feat_listR:
-        if feat:
+        if not feat.empty:
             footprint_listR.append(feat)
 
     resultsL = GeoDataFrame(pd.concat(footprint_listL))
@@ -627,10 +548,10 @@ def main_line_footprint_relative(
     resultsAll = GeoDataFrame(pd.concat([resultsL, resultsR]))
     dissolved_results = resultsAll.dissolve(by="OLnFID", as_index=False)
     dissolved_results["geometry"] = dissolved_results["geometry"].buffer(-0.005)
-    
+
     print("Saving output ...")
     dissolved_results.to_file(out_footprint)
-    print("Footprint file saved")
+    print(f"Footprint file saved {out_footprint}")
 
 
 if __name__ == "__main__":
