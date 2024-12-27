@@ -43,8 +43,8 @@ from beratools.tools.common import (
     raster_crs,
     split_into_Equal_Nth_segments,
     check_arguments,
+    morph_raster,
 )
-from beratools.core.algo_centerline import find_centerlines, find_corridor_polygon
 from beratools.core.tool_base import execute_multiprocessing
 
 
@@ -311,11 +311,7 @@ def process_single_line_relative(segment):
     segment = dyn_canopy_cost_raster(segment)
     if segment is None:
         return None
-    # Segement after Clipped Canopy and Cost Raster
     # line_df, dyn_canopy_ndarray, negative_cost_clip, out_meta, max_line_dist, nodata, line_id,Cut_Dist,line_buffer
-
-    # this function takes single line to work the line footprint
-    # (regardless it process the whole line or individual segment)
     df = segment[0]
     in_canopy_r = segment[1]
     in_cost_r = segment[2]
@@ -351,11 +347,6 @@ def process_single_line_relative(segment):
 
     # Work out the corridor from both end of the centerline
     try:
-        # TODO: further investigate and submit issue to skimage
-        # There is a severe bug in skimage find_costs
-        # when nan is present in clip_cost_r, find_costs cause access violation
-        # no message/exception will be caught
-        # change all nan to BT_NODATA_COST for workaround
         if len(in_cost_r.shape) > 2:
             in_cost_r = np.squeeze(in_cost_r, axis=0)
 
@@ -387,7 +378,6 @@ def process_single_line_relative(segment):
         )
 
         # Generate corridor
-        # corridor = source_cost_acc + dest_cost_acc
         corridor = flex_cost_alongLn
         corridor = np.ma.masked_invalid(corridor)
 
@@ -406,37 +396,34 @@ def process_single_line_relative(segment):
             corridor_th_value = FP_CORRIDOR_THRESHOLD / cell_size_x
 
         corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-        corridor_thresh_cl = np.ma.where(
-            corridor_norm >= (corridor_th_value + (5 / cell_size_x)), 1.0, 0.0
+
+        # # Process: Stamp CC and Max Line Width
+        # # Original code here
+        # temp1 = corridor_thresh + in_canopy_r
+        # raster_class = np.ma.where(temp1 == 0, 1, 0).data
+
+        # # BERA proposed Binary morphology
+        # if exp_shk_cell > 0 and cell_size_x < 1:
+        #     # Process: Expand
+        #     # FLM original Expand equivalent
+        #     cell_size = int(exp_shk_cell * 2 + 1)
+
+        #     expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
+
+        #     # Process: Shrink
+        #     # FLM original Shrink equivalent
+        #     file_shrink = ndimage.grey_erosion(expanded, size=(cell_size, cell_size))
+
+        # else:
+        #     print("No Expand And Shrink cell performed.")
+
+        #     file_shrink = raster_class
+
+        # # Process: Boundary Clean
+        # clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode="nearest")
+        clean_raster = morph_raster(
+            corridor_thresh, in_canopy_r, exp_shk_cell, cell_size_x
         )
-
-        # find contiguous corridor polygon for centerline
-        corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, in_transform, df)
-
-        # Process: Stamp CC and Max Line Width
-        # Original code here
-        temp1 = corridor_thresh + in_canopy_r
-        raster_class = np.ma.where(temp1 == 0, 1, 0).data
-
-        # BERA proposed Binary morphology
-        if exp_shk_cell > 0 and cell_size_x < 1:
-            # Process: Expand
-            # FLM original Expand equivalent
-            cell_size = int(exp_shk_cell * 2 + 1)
-
-            expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
-
-            # Process: Shrink
-            # FLM original Shrink equivalent
-            file_shrink = ndimage.grey_erosion(expanded, size=(cell_size, cell_size))
-
-        else:
-            print("No Expand And Shrink cell performed.")
-
-            file_shrink = raster_class
-
-        # Process: Boundary Clean
-        clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode="nearest")
 
         # creat mask for non-polygon area
         mask = np.where(clean_raster == 1, True, False)
@@ -463,7 +450,7 @@ def process_single_line_relative(segment):
         )
         out_gdata = GeoDataFrame(out_data, geometry="geometry", crs=shapefile_proj)
 
-        return out_gdata, corridor_poly_gpd
+        return out_gdata
 
     except Exception as e:
         print("Exception: {}".format(e))
@@ -617,22 +604,17 @@ def main_line_footprint_relative(
             workers=1,
         )
 
-    poly_listL = []
-    poly_listR = []
     footprint_listL = []
     footprint_listR = []
 
     for feat in feat_listL:
         if feat:
-            footprint_listL.append(feat[0])
-            poly_listL.append(feat[1])
+            footprint_listL.append(feat)
 
     for feat in feat_listR:
         if feat:
-            footprint_listR.append(feat[0])
-            poly_listR.append(feat[1])
+            footprint_listR.append(feat)
 
-    print("Writing shapefile ...")
     resultsL = GeoDataFrame(pd.concat(footprint_listL))
     resultsL["geometry"] = resultsL["geometry"].buffer(0.005)
     resultsR = GeoDataFrame(pd.concat(footprint_listR))
@@ -645,40 +627,10 @@ def main_line_footprint_relative(
     resultsAll = GeoDataFrame(pd.concat([resultsL, resultsR]))
     dissolved_results = resultsAll.dissolve(by="OLnFID", as_index=False)
     dissolved_results["geometry"] = dissolved_results["geometry"].buffer(-0.005)
+    
     print("Saving output ...")
     dissolved_results.to_file(out_footprint)
     print("Footprint file saved")
-
-    # dissolved polygon group by column 'OLnFID'
-    print("Generating centerlines from corridor polygons ...")
-    resultsCL = GeoDataFrame(pd.concat(poly_listL))
-    resultsCL["geometry"] = resultsCL["geometry"].buffer(0.005)
-    resultsCR = GeoDataFrame(pd.concat(poly_listR))
-    resultsCR["geometry"] = resultsCR["geometry"].buffer(0.005)
-
-    resultsCLR = GeoDataFrame(pd.concat([resultsCL, resultsCR]))
-    resultsCLR = resultsCLR.dissolve(by="OLnFID", as_index=False)
-    resultsCLR = resultsCLR.sort_values(by=["OLnFID", "OLnSEG"])
-    resultsCLR = resultsCLR.reset_index(drop=True)
-    resultsCLR["geometry"] = resultsCLR["geometry"].buffer(-0.005)
-
-    # save lines to file
-    if out_centerline:
-        poly_centerline_gpd = find_centerlines(resultsCLR, line_seg, processes)
-        poly_gpd = poly_centerline_gpd.copy()
-        centerline_gpd = poly_centerline_gpd.copy()
-
-        centerline_gpd = centerline_gpd.set_geometry("centerline")
-        centerline_gpd = centerline_gpd.drop(columns=["geometry"])
-        centerline_gpd.crs = poly_centerline_gpd.crs
-        centerline_gpd.to_file(out_centerline)
-        print("Centerline file saved")
-
-        # save polygons
-        path = Path(out_centerline)
-        path = path.with_stem(path.stem + "_poly")
-        poly_gpd = poly_gpd.drop(columns=["centerline"])
-        poly_gpd.to_file(path)
 
 
 if __name__ == "__main__":
