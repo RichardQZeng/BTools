@@ -1,8 +1,5 @@
 import os.path
-from multiprocessing.pool import Pool
 import geopandas as gpd
-import json
-import argparse
 import time
 import pandas as pd
 import numpy as np
@@ -215,11 +212,7 @@ def cal_percentileRing(line_arg):
             line_buffer = ops.transform(lambda x, y, z=None: (x, y), line_buffer)
 
     except Exception as e:
-        print(e)
-        print(
-            "Assigning variable on index:{} Error: ".format(line_arg) + sys.exc_info()
-        )
-        exit()
+        print(f"cal_percentileRing: {e}")
 
     # TODO: temporary workaround for exception causing not percentile defined
     percentile = 0.5
@@ -250,42 +243,41 @@ def cal_percentileRing(line_arg):
         return df
 
 
-def prepare_multiprocessing_rate_of_change(line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing):
+def prepare_multiprocessing_rate_of_change(line_seg, gdf_line_buffer_LRing, gdf_line_buffer_RRing):
     in_argsL = []
     in_argsR = []
 
     for index in line_seg.index:
         Olnfid = int(line_seg.OLnFID.iloc[index])
         Olnseg = int(line_seg.OLnSEG.iloc[index])
-        sql_dfL = worklnbuffer_dfLRing.loc[
-            (worklnbuffer_dfLRing["OLnFID"] == Olnfid)
-            & (worklnbuffer_dfLRing["OLnSEG"] == Olnseg)
+        sql_dfL = gdf_line_buffer_LRing.loc[
+            (gdf_line_buffer_LRing["OLnFID"] == Olnfid)
+            & (gdf_line_buffer_LRing["OLnSEG"] == Olnseg)
         ].sort_values(by=["iRing"])
         PLRing = list(sql_dfL["Percentile_LRing"])
 
-        sql_dfR = worklnbuffer_dfRRing.loc[
-            (worklnbuffer_dfRRing["OLnFID"] == Olnfid)
-            & (worklnbuffer_dfRRing["OLnSEG"] == Olnseg)
+        sql_dfR = gdf_line_buffer_RRing.loc[
+            (gdf_line_buffer_RRing["OLnFID"] == Olnfid)
+            & (gdf_line_buffer_RRing["OLnSEG"] == Olnseg)
         ].sort_values(by=["iRing"])
         PRRing = list(sql_dfR["Percentile_RRing"])
 
         in_argsL.append([PLRing, Olnfid, Olnseg, "Left", line_seg.loc[index], index])
         in_argsR.append([PRRing, Olnfid, Olnseg, "Right", line_seg.loc[index], index])
 
-    total_steps = len(in_argsL) + len(in_argsR)
-    return in_argsL, in_argsR, total_steps
+    return in_argsL, in_argsR
 
 
 def multiprocessing_rate_of_change(
-    line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing, processes
+    line_seg, gdf_line_buffer_LRing, gdf_line_buffer_RRing, processes
 ):
     line_seg["CL_CutHt"] = np.nan
     line_seg["CR_CutHt"] = np.nan
     line_seg["RDist_Cut"] = np.nan
     line_seg["LDist_Cut"] = np.nan
 
-    in_argsL, in_argsR, total_steps = prepare_multiprocessing_rate_of_change(
-        line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing
+    in_argsL, in_argsR = prepare_multiprocessing_rate_of_change(
+        line_seg, gdf_line_buffer_LRing, gdf_line_buffer_RRing
     )
 
     featuresL = []
@@ -326,7 +318,6 @@ def prepare_multiprocessing_percentile(
     df, CanPercentile, CanThrPercentage, in_CHM, side
 ):
     line_arg = []
-    total_steps = len(df)
     cal_percentile = cal_percentileRing
 
     if side == "LRing":
@@ -352,13 +343,13 @@ def prepare_multiprocessing_percentile(
         ]
         line_arg.append(item_list)
 
-    return line_arg, total_steps, cal_percentile
+    return line_arg, cal_percentile
 
 
 def multiprocessing_percentile(
     df, CanPercentile, CanThrPercentage, in_CHM, processes, side
 ):
-    line_arg, total_steps, cal_percentile = prepare_multiprocessing_percentile(
+    line_arg, cal_percentile = prepare_multiprocessing_percentile(
         df, CanPercentile, CanThrPercentage, in_CHM, side
     )
 
@@ -409,10 +400,8 @@ def prepare_line_seg(in_line, canopy_percentile):
     return canopy_percentile, out_file, line_seg
 
 
-def prepar_ring_buffer(workln_dfC, nrings, ringdist):
-    gdf_buffer_ring = gpd.GeoDataFrame.copy((workln_dfC))
-
-    print("Create ring buffer for input line to find the forest edge....")
+def prepar_ring_buffer(gdf_line_seg_simp, nrings, ringdist):
+    gdf_buffer_ring = gpd.GeoDataFrame.copy((gdf_line_seg_simp))
 
     # Create a column with the rings as a list
     gdf_buffer_ring["mgeometry"] = gdf_buffer_ring.apply(
@@ -425,11 +414,13 @@ def prepar_ring_buffer(workln_dfC, nrings, ringdist):
     gdf_buffer_ring = (
         gdf_buffer_ring.drop(columns=["geometry"])
         .rename_geometry("geometry")
-        .set_crs(workln_dfC.crs)
+        .set_crs(gdf_line_seg_simp.crs)
     )
     gdf_buffer_ring["iRing"] = gdf_buffer_ring.groupby(["OLnFID", "OLnSEG"]).cumcount()
     gdf_buffer_ring = gdf_buffer_ring.sort_values(by=["OLnFID", "OLnSEG", "iRing"])
     gdf_buffer_ring = gdf_buffer_ring.reset_index(drop=True)
+
+    print("Ring buffers are created.")
     return gdf_buffer_ring
 
 
@@ -453,21 +444,21 @@ def main_canopy_threshold_relative(
     canopy_percentile, out_file, line_seg = prepare_line_seg(in_line, canopy_percentile)
 
     # copy original line input to another GeoDataframe
-    workln_dfC = gpd.GeoDataFrame.copy((line_seg))
-    workln_dfC.geometry = workln_dfC.geometry.simplify(
+    gdf_line_seg_simp = gpd.GeoDataFrame.copy((line_seg))
+    gdf_line_seg_simp.geometry = gdf_line_seg_simp.geometry.simplify(
         tolerance=0.5, preserve_topology=True
     )
 
-    worklnbuffer_dfLRing = prepar_ring_buffer(workln_dfC, 1, 15)
-    worklnbuffer_dfRRing = prepar_ring_buffer(workln_dfC, -1, -15)
+    gdf_line_buffer_LRing = prepar_ring_buffer(gdf_line_seg_simp, 1, 15)
+    gdf_line_buffer_RRing = prepar_ring_buffer(gdf_line_seg_simp, -1, -15)
     print("Ring buffers are created.")
 
-    worklnbuffer_dfRRing["Percentile_RRing"] = np.nan
-    worklnbuffer_dfLRing["Percentile_LRing"] = np.nan
+    gdf_line_buffer_RRing["Percentile_RRing"] = np.nan
+    gdf_line_buffer_LRing["Percentile_LRing"] = np.nan
 
     # calculate the Height percentile for each parallel area using CHM
-    worklnbuffer_dfLRing = multiprocessing_percentile(
-        worklnbuffer_dfLRing,
+    gdf_line_buffer_LRing = multiprocessing_percentile(
+        gdf_line_buffer_LRing,
         int(canopy_percentile),
         float(canopy_thresh_percentage),
         in_chm,
@@ -475,8 +466,8 @@ def main_canopy_threshold_relative(
         side="LRing",
     )
 
-    worklnbuffer_dfRRing = multiprocessing_percentile(
-        worklnbuffer_dfRRing,
+    gdf_line_buffer_RRing = multiprocessing_percentile(
+        gdf_line_buffer_RRing,
         int(canopy_percentile),
         float(canopy_thresh_percentage),
         in_chm,
@@ -485,7 +476,7 @@ def main_canopy_threshold_relative(
     )
 
     result = multiprocessing_rate_of_change(
-        line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing, processes
+        line_seg, gdf_line_buffer_LRing, gdf_line_buffer_RRing, processes
     )
 
     print("Saving percentile information to input line ...")
