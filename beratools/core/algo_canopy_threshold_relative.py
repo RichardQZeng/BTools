@@ -314,45 +314,6 @@ def cal_percentileRing(line_arg):
         return df
 
 
-def copyparallel_lineLRC(line_arg):
-    dfL = line_arg[0]
-    dfR = line_arg[1]
-
-    # Simplify input center lines
-    geom = dfL.loc[line_arg[6], "geometry"]
-    if not geom:
-        return None
-
-    lineL = dfL.loc[line_arg[6], "geometry"].simplify(
-        tolerance=0.05, preserve_topology=True
-    )
-    lineR = dfR.loc[line_arg[6], "geometry"].simplify(
-        tolerance=0.05, preserve_topology=True
-    )
-    offset_distL = float(line_arg[3])
-    offset_distR = float(line_arg[4])
-
-    # Older alternative method to the offset_curve() method,
-    # but uses resolution instead of quad_segs and a side keyword (‘left’ or ‘right’) instead
-    # of sign of the distance. This method is kept for backwards compatibility for now,
-    # but it is recommended to use offset_curve() instead.
-    # (ref: https://shapely.readthedocs.io/en/stable/manual.html#object.offset_curve)
-    parallel_lineL = lineL.parallel_offset(
-        distance=offset_distL, side="left", join_style=shapely.BufferJoinStyle.mitre
-    )
-
-    parallel_lineR = lineR.parallel_offset(
-        distance=-offset_distR, side="right", join_style=shapely.BufferJoinStyle.mitre
-    )
-
-    if not parallel_lineL.is_empty:
-        dfL.loc[line_arg[6], "geometry"] = parallel_lineL
-    if not parallel_lineR.is_empty:
-        dfR.loc[line_arg[6], "geometry"] = parallel_lineR
-
-    return dfL.iloc[[line_arg[6]]], dfR.iloc[[line_arg[6]]]
-
-
 def prepare_multiprocessing_rofc(line_seg, worklnbuffer_dfLRing, worklnbuffer_dfRRing):
     in_argsL = []
     in_argsR = []
@@ -429,62 +390,14 @@ def multiprocessing_RofC(
     return line_seg
 
 
-def prepare_multiprocessing_copyparallel(
-    dfL, dfR, dfc, left_dis, right_dist, center_dist
-):
-    line_arg = []
-    total_steps = len(dfL)
-
-    for item in dfL.index:
-        item_list = [dfL, dfR, dfc, left_dis, right_dist, center_dist, item]
-        line_arg.append(item_list)
-    return line_arg, total_steps
-
-
-def multiprocessing_copyparallel_lineLRC(
-    dfL, dfR, dfc, processes, left_dis, right_dist, center_dist
-):
-    try:
-        line_arg, total_steps = prepare_multiprocessing_copyparallel(
-            dfL, dfR, dfc, left_dis, right_dist, center_dist
-        )
-
-        result = execute_multiprocessing(
-            copyparallel_lineLRC,
-            line_arg,
-            "Copy Parallel",
-            workers=1,
-            verbose=False,
-        )
-
-        featuresL = []
-        featuresR = []
-        for item in result:
-            featuresL.append(item[0])
-            featuresR.append(item[0])
-
-        return (gpd.GeoDataFrame(pd.concat(featuresL)), 
-               gpd.GeoDataFrame(pd.concat(featuresR)))
-
-    except OperationCancelledException:
-        print("Operation cancelled")
-
-
 def prepare_percentiles_multiprocessing(
     df, CanPercentile, CanThrPercentage, in_CHM, side
 ):
     line_arg = []
     total_steps = len(df)
     cal_percentile = cal_percentileLR
-    if side == "left":
-        PerCol = "Percentile_L"
-        which_side = "left"
-        cal_percentile = cal_percentileLR
-    elif side == "right":
-        PerCol = "Percentile_R"
-        which_side = "right"
-        cal_percentile = cal_percentileLR
-    elif side == "LRing":
+
+    if side == "LRing":
         PerCol = "Percentile_LRing"
         cal_percentile = cal_percentileRing
         which_side = "left"
@@ -494,10 +407,7 @@ def prepare_percentiles_multiprocessing(
         cal_percentile = cal_percentileRing
 
     print(
-        "Calculating surrounding ({}) forest population for buffer area ...".format(
-            which_side
-        )
-    )
+        f"Calculating surrounding {which_side} forest population for buffer area ...")
 
     for item in df.index:
         item_list = [
