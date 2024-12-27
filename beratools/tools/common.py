@@ -712,7 +712,7 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
         corridor = np.ma.masked_invalid(corridor)
 
         # Calculate minimum value of corridor raster
-        if not np.ma.min(corridor) is None:
+        if np.ma.min(corridor) is not None:
             corr_min = float(np.ma.min(corridor))
         else:
             corr_min = 0.5
