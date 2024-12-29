@@ -37,31 +37,28 @@ if __name__ == '__main__':
     with open(yml_file) as in_params:
         params = yaml.safe_load(in_params)
 
-    # ### centerline
-    args_centerline = params['args_centerline']
-    print(args_centerline)
-
-    centerline(**args_centerline, processes=processes, verbose=verbose)
+    # centerline
+    # args_centerline = params['args_centerline']
+    # print(args_centerline)
+    # centerline(**args_centerline, processes=processes, verbose=verbose)
 
     # canopy footprint
     args_canopy_threshold = params["args_canopy_threshold"]
     print(args_canopy_threshold)
-
     dy_cl_line = main_canopy_threshold_relative(
         callback=print, **args_canopy_threshold, processes=processes, verbose=verbose
     )
 
     args_line_footprint_relative = params["args_line_footprint_relative"]
     print(args_line_footprint_relative)
-
     main_line_footprint_relative(
         callback=print, **args_line_footprint_relative, processes=processes, verbose=verbose
     )
 
     # ground footprint
-    args_line_footprint_fixed = params["args_line_footprint_fixed"]
-    print(args_line_footprint_fixed)
+    # args_line_footprint_fixed = params["args_line_footprint_fixed"]
+    # print(args_line_footprint_fixed)
 
-    line_footprint_fixed(
-        callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
-    )
+    # line_footprint_fixed(
+    #     callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
+    # )
