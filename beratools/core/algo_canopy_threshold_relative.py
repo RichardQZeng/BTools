@@ -19,10 +19,6 @@ from beratools.core.tool_base import execute_multiprocessing
 import math
 
 
-class OperationCancelledException(Exception):
-    pass
-
-
 def split_line_fc(line):
     if line:
         return list(map(shapely.LineString, zip(line.coords[:-1], line.coords[1:])))
@@ -49,7 +45,7 @@ def split_into_segments(df):
 
 def multiringbuffer(df, nrings, ringdist):
     """
-    Buffers an input dataframes geometry nring (number of rings) times, with a distance between
+    Buffers an input DataFrames geometry nring (number of rings) times, with a distance between
     rings of ringdist and returns a list of non overlapping buffers
     """
 
@@ -79,7 +75,6 @@ def multiringbuffer(df, nrings, ringdist):
                     for i in range(0, len(the_ring.geoms)):
                         if not isinstance(the_ring.geoms[i], shapely.LineString):
                             rings.append(the_ring.geoms[i])
-        # print(" %{} ".format((ring / ringdist) * 100))
 
     return rings  # return the list
 
@@ -367,8 +362,6 @@ def multiprocessing_percentile(
 
 
 def prepare_line_seg(in_line, canopy_percentile):
-    file_path, in_file_name = os.path.split(in_line)
-    out_file = os.path.join(file_path, "DynCanTh_" + in_file_name)
     line_seg = gpd.GeoDataFrame.from_file(in_line)
 
     # Check the canopy threshold percent in 0-100 range.  If it is not, 50% will be applied
@@ -377,17 +370,14 @@ def prepare_line_seg(in_line, canopy_percentile):
 
     # Check the Dynamic Canopy threshold column in data. If it is not, new column will be created
     if "DynCanTh" not in line_seg.columns.array:
-        print("New column created: {}".format("DynCanTh"))
         line_seg["DynCanTh"] = np.nan
 
     # Check the OLnFID column in data. If it is not, column will be created
     if "OLnFID" not in line_seg.columns.array:
-        print("New column created: {}".format("OLnFID"))
         line_seg["OLnFID"] = line_seg.index
 
     # Check the OLnSEG column in data. If it is not, column will be created
     if "OLnSEG" not in line_seg.columns.array:
-        print("New column created: {}".format("OLnSEG"))
         line_seg["OLnSEG"] = 0
 
     line_seg = chk_df_multipart(line_seg, "LineString")[0]
@@ -398,7 +388,7 @@ def prepare_line_seg(in_line, canopy_percentile):
     else:
         pass
 
-    return canopy_percentile, out_file, line_seg
+    return canopy_percentile, line_seg
 
 
 def prepar_ring_buffer(gdf_line_seg_simp, nrings, ringdist):
@@ -435,16 +425,15 @@ def main_canopy_threshold_relative(
     verbose,
 ):
     # check coordinate systems between line and raster features
-    # with rasterio.open(in_chm) as in_raster:
     if compare_crs(vector_crs(in_line), raster_crs(in_chm)):
         pass
     else:
         print("Line and raster spatial references are not same, please check.")
         exit()
 
-    canopy_percentile, out_file, line_seg = prepare_line_seg(in_line, canopy_percentile)
+    canopy_percentile, line_seg = prepare_line_seg(in_line, canopy_percentile)
 
-    # copy original line input to another GeoDataframe
+    # copy original line input to another GeoDataFrame
     gdf_line_seg_simp = gpd.GeoDataFrame.copy((line_seg))
     gdf_line_seg_simp.geometry = gdf_line_seg_simp.geometry.simplify(
         tolerance=0.5, preserve_topology=True
@@ -482,11 +471,10 @@ def main_canopy_threshold_relative(
         line_seg, gdf_line_buffer_LRing, gdf_line_buffer_RRing, processes
     )
 
-    print("Saving percentile information to input line ...")
-    gpd.GeoDataFrame.to_file(result, out_file)
-    print("Task done.")
-
-    return out_file
+    print("Saving percentile information of input line ...")
+    file_path, in_file_name = os.path.split(in_line)
+    out_file = os.path.join(file_path, "DynCanTh_" + in_file_name)
+    result.to_file(out_file)
 
 
 if __name__ == "__main__":
