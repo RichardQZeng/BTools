@@ -421,8 +421,6 @@ def prepare_line_seg(in_line, canopy_percentile):
     proc_segments = False
     if proc_segments:
         line_seg = split_into_segments(line_seg)
-    else:
-        pass
 
     return canopy_percentile, line_seg
 
