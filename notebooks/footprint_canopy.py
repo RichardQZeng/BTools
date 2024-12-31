@@ -35,8 +35,23 @@ class Side(StrEnum):
 
 
 class FootprintCanopy:
-    def __init__(self, gdf, in_chm):
-        pass
+    def __init__(self, in_geom, in_chm):
+        data = gpd.read_file(in_file)
+        self.lines = []
+
+        for idx in data.index:
+            line = LineInfo(data.iloc[[idx]], in_chm)
+            self.lines.append(line)
+    def compute(self):
+        for item in self.lines:
+            item.compute()
+            print("line computation done")
+
+        fp = [item.footprint for item in self.lines]
+        self.footprints = pd.concat(fp)
+
+        percentile = [item.line for item in self.lines]
+        self.lines = pd.concat(percentile)
 
 class BufferRing:
     def __init__(self, ring_poly, side):
@@ -80,6 +95,7 @@ class LineInfo:
 
         self.buffer_left = None
         self.buffer_right = None
+        self.footprint = None
 
     def compute(self):
         self.prepar_ring_buffer()
@@ -475,13 +491,11 @@ class LineInfo:
 if __name__ == "__main__":
     in_file = r"D:\BERATools\Surmont_New_AOI\Developement\centerline.shp"
     in_chm = r"D:\BERATools\Surmont_New_AOI\Developement\CHM_New_AOI_2022.tif"
-    out_file = r"D:\BERATools\Surmont_New_AOI\Developement\centerline_percentile.shp"
-    out_file_fp = r"D:\BERATools\Surmont_New_AOI\Developement\footprint.shp"
+    out_file_percentile = r"D:\BERATools\Surmont_New_AOI\Developement\centerline_percentile.shp"
+    out_file_fp = r"D:\BERATools\Surmont_New_AOI\Developement\footprints.shp"
 
-    data = gpd.read_file(in_file)
-    line = LineInfo(data.iloc[[0]], in_chm)
-    line.compute()
-    print("end")
+    footprint = FootprintCanopy(in_file, in_chm)
+    footprint.compute()
 
-    line.line.to_file(out_file)
-    line.footprint.to_file(out_file_fp)
+    footprint.lines.to_file(out_file_percentile)
+    footprint.footprints.to_file(out_file_fp)
