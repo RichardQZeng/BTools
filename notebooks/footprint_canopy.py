@@ -8,6 +8,7 @@ from shapely.geometry import Point, MultiPolygon, shape
 from rasterio.features import shapes, rasterize
 from skimage.graph import MCP_Flexible
 from enum import StrEnum
+import yaml
 
 import sys
 from pathlib import Path
@@ -27,6 +28,7 @@ from beratools.tools.common import (
 )
 
 from beratools.core.constants import BT_NODATA, FP_CORRIDOR_THRESHOLD
+from beratools.tools.common import execute_multiprocessing
 
 
 class Side(StrEnum):
@@ -36,22 +38,37 @@ class Side(StrEnum):
 
 class FootprintCanopy:
     def __init__(self, in_geom, in_chm):
-        data = gpd.read_file(in_file)
+        data = gpd.read_file(in_geom)
         self.lines = []
 
         for idx in data.index:
             line = LineInfo(data.iloc[[idx]], in_chm)
             self.lines.append(line)
-    def compute(self):
-        for item in self.lines:
-            item.compute()
-            print("line computation done")
 
-        fp = [item.footprint for item in self.lines]
+    @staticmethod
+    def process_single_line(line):
+        line.compute()
+        return line
+
+    def compute(self):
+        # for item in self.lines:
+        #     item.compute()
+        #     print("line computation done")
+        result = execute_multiprocessing(
+            self.process_single_line, self.lines, "Canopy Footprint", 18, 1
+        )
+
+        fp = [item.footprint for item in result]
         self.footprints = pd.concat(fp)
 
-        percentile = [item.line for item in self.lines]
-        self.lines = pd.concat(percentile)
+        percentile = [item.line for item in result]
+        self.lines_percentile = pd.concat(percentile)
+
+    def save_footprint(self, out_footprint):
+        self.footprints.to_file(out_footprint)
+
+    def savve_line_percentile(self, out_percentile):
+        self.lines_percentile.to_file(out_percentile)
 
 class BufferRing:
     def __init__(self, ring_poly, side):
@@ -133,13 +150,19 @@ class LineInfo:
         ringdist = 15
         ring_list = self.multiringbuffer(self.line_simp, nrings, ringdist)
         for i in ring_list:
-            self.buffer_rings.append(BufferRing(i, Side.left))
+            if BufferRing(i, Side.left):
+                self.buffer_rings.append(BufferRing(i, Side.left))
+            else:
+                print("Empty buffer ring")
 
         nrings = -1
         ringdist = -15
         ring_list = self.multiringbuffer(self.line_simp, nrings, ringdist)
         for i in ring_list:
-            self.buffer_rings.append(BufferRing(i, Side.right))
+            if BufferRing(i, Side.right):
+                self.buffer_rings.append(BufferRing(i, Side.right))
+            else:
+                print("Empty buffer ring")
 
     def cal_percentileRing(self, ring):
         try:
@@ -179,8 +202,11 @@ class LineInfo:
     def get_percentile_array(self, side):
         per_array = []
         for item in self.buffer_rings:
-            if item.side == side:
-                per_array.append(item.percentile)
+            try:
+                if item.side == side:
+                    per_array.append(item.percentile)
+            except Exception as e:
+                print(e)
 
         return per_array
 
@@ -489,13 +515,19 @@ class LineInfo:
 
 
 if __name__ == "__main__":
-    in_file = r"D:\BERATools\Surmont_New_AOI\Developement\centerline.shp"
-    in_chm = r"D:\BERATools\Surmont_New_AOI\Developement\CHM_New_AOI_2022.tif"
-    out_file_percentile = r"D:\BERATools\Surmont_New_AOI\Developement\centerline_percentile.shp"
-    out_file_fp = r"D:\BERATools\Surmont_New_AOI\Developement\footprints.shp"
+    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    current_folder = current_file.parent
+    with open(current_folder.joinpath('params_win.yml')) as in_params:
+        params = yaml.safe_load(in_params)
+
+    fp_params = params['args_footprint_canopy']
+    in_file = fp_params['in_file']
+    in_chm = fp_params["in_chm"]
+    out_file_percentile = fp_params["out_file_percentile"]
+    out_file_fp = fp_params["out_file_fp"]
 
     footprint = FootprintCanopy(in_file, in_chm)
     footprint.compute()
 
-    footprint.lines.to_file(out_file_percentile)
-    footprint.footprints.to_file(out_file_fp)
+    footprint.savve_line_percentile(out_file_percentile)
+    footprint.save_footprint(out_file_fp)
