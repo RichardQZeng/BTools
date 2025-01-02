@@ -19,11 +19,11 @@ import geopandas as gpd
 import rasterio
 from geopandas import GeoDataFrame
 from shapely import buffer
-from shapely.geometry import LineString, Point, MultiPolygon, shape
+from shapely.geometry import Point, MultiPolygon, shape
 from rasterio.features import shapes, rasterize
 from skimage.graph import MCP_Flexible
 
-from beratools.core.constants import BT_NODATA, LP_SEGMENT_LENGTH, FP_CORRIDOR_THRESHOLD
+from beratools.core.constants import BT_NODATA, FP_CORRIDOR_THRESHOLD
 from beratools.tools.common import (
     clip_raster,
     remove_nan_from_array,
@@ -34,6 +34,9 @@ from beratools.tools.common import (
     check_arguments,
     morph_raster,
     cost_raster_2nd_version,
+)
+from beratools.core.algo_canopy_threshold_relative import (
+    split_into_segments,
 )
 from beratools.core.tool_base import execute_multiprocessing
 
@@ -86,7 +89,6 @@ def dyn_canopy_cost_raster(args):
             cost_raster_exponent,
         )
         # TODO was nodata, changed to BT_NODATA_COST
-        # negative_cost_clip = np.where(np.isnan(cost_clip), -9999, cost_clip)
         return (
             line_df,
             dyn_canopy_ndarray,
@@ -100,60 +102,10 @@ def dyn_canopy_cost_raster(args):
         )
 
     except Exception as e:
-        print(f"Error in createing cost raster @ {line_id}: {e}")
+        print(f"Error in creating cost raster @ {line_id}: {e}")
         return None
 
-
-def split_line_fc(line):
-    return list(map(LineString, zip(line.coords[:-1], line.coords[1:])))
-
-
-def split_line_npart(line):
-    # Work out n parts for each line (divided by LP_SEGMENT_LENGTH)
-    n = int(np.ceil(line.length / LP_SEGMENT_LENGTH))
-    if n > 1:
-        # divided line into n-1 equal parts;
-        distances = np.linspace(0, line.length, n)
-        points = [line.interpolate(distance) for distance in distances]
-        line = LineString(points)
-        mline = split_line_fc(line)
-    else:
-        mline = line
-    return mline
-
-
-def split_into_segments(df):
-    odf = df
-    crs = odf.crs
-    if "OLnSEG" not in odf.columns.array:
-        df["OLnSEG"] = np.nan
-
-    df = odf.assign(geometry=odf.apply(lambda x: split_line_fc(x.geometry), axis=1))
-    df = df.explode()
-
-    df["OLnSEG"] = df.groupby("OLnFID").cumcount()
-    gdf = GeoDataFrame(df, geometry=df.geometry, crs=crs)
-    gdf = gdf.sort_values(by=["OLnFID", "OLnSEG"])
-    gdf = gdf.reset_index(drop=True)
-    return gdf
-
-
-def split_into_equal_nth_segments(df):
-    odf = df
-    crs = odf.crs
-    if "OLnSEG" not in odf.columns.array:
-        df["OLnSEG"] = np.nan
-    df = odf.assign(geometry=odf.apply(lambda x: split_line_npart(x.geometry), axis=1))
-    df = df.explode(index_parts=True)
-
-    df["OLnSEG"] = df.groupby("OLnFID").cumcount()
-    gdf = GeoDataFrame(df, geometry=df.geometry, crs=crs)
-    gdf = gdf.sort_values(by=["OLnFID", "OLnSEG"])
-    gdf = gdf.reset_index(drop=True)
-    return gdf
-
-
-def generate_line_args_DFP_NoClip(
+def generate_line_args_dfp_no_clip(
     line_seg,
     work_in_bufferL,
     work_in_bufferC,
@@ -346,7 +298,7 @@ def process_single_line_relative(segment):
             corridor_thresh, in_canopy_r, exp_shk_cell, cell_size_x
         )
 
-        # creat mask for non-polygon area
+        # create mask for non-polygon area
         mask = np.where(clean_raster == 1, True, False)
         if clean_raster.dtype == np.int64:
             clean_raster = clean_raster.astype(np.int32)
@@ -354,13 +306,13 @@ def process_single_line_relative(segment):
         # Process: ndarray to shapely Polygon
         out_polygon = shapes(clean_raster, mask=mask, transform=in_transform)
 
-        # create a shapely multipolygon
+        # create a shapely MultiPolygon
         multi_polygon = []
         for poly, value in out_polygon:
             multi_polygon.append(shape(poly))
         poly = MultiPolygon(multi_polygon)
 
-        # create a pandas dataframe for the FP
+        # create a pandas DataFrame for the FP
         out_data = pd.DataFrame(
             {
                 "OLnFID": OID,
@@ -483,7 +435,7 @@ def main_line_footprint_relative(
             )
 
             print("Prepare arguments for Dynamic FP ...")
-            line_argsL, line_argsR, line_argsC = generate_line_args_DFP_NoClip(
+            line_argsL, line_argsR, line_argsC = generate_line_args_dfp_no_clip(
                 line_seg_split,
                 work_in_bufferL,
                 work_in_bufferC,

@@ -19,10 +19,6 @@ from beratools.core.tool_base import execute_multiprocessing
 import math
 
 
-class OperationCancelledException(Exception):
-    pass
-
-
 def split_line_fc(line):
     if line:
         return list(map(shapely.LineString, zip(line.coords[:-1], line.coords[1:])))
@@ -49,7 +45,7 @@ def split_into_segments(df):
 
 def multiringbuffer(df, nrings, ringdist):
     """
-    Buffers an input dataframes geometry nring (number of rings) times, with a distance between
+    Buffers an input DataFrames geometry nring (number of rings) times, with a distance between
     rings of ringdist and returns a list of non overlapping buffers
     """
 
@@ -79,7 +75,6 @@ def multiringbuffer(df, nrings, ringdist):
                     for i in range(0, len(the_ring.geoms)):
                         if not isinstance(the_ring.geoms[i], shapely.LineString):
                             rings.append(the_ring.geoms[i])
-        # print(" %{} ".format((ring / ringdist) * 100))
 
     return rings  # return the list
 
@@ -281,13 +276,13 @@ def multiprocessing_rate_of_change(
 
     featuresL = []
     featuresR = []
-    print("Change In Buffer Area: left side")
+    print("Multiprocessing: Change In Buffer Area - left side")
     featuresL = execute_multiprocessing(
         rate_of_change, in_argsL, "Change In Buffer Area", processes, 1, verbose=False
     )
     gpdL = gpd.GeoDataFrame(pd.concat(featuresL, axis=1).T)
 
-    print("Change In Buffer Area: right side")
+    print("Multiprocessing: Change In Buffer Area - right side")
     featuresR = execute_multiprocessing(
         rate_of_change, in_argsR, "Change In Buffer Area", processes, 1, verbose=False
     )
@@ -316,60 +311,94 @@ def multiprocessing_rate_of_change(
 
 
 def prepare_multiprocessing_percentile(
-    df, CanPercentile, CanThrPercentage, in_CHM, side
+    df_left, df_right, CanPercentile, CanThrPercentage, in_CHM
 ):
-    line_arg = []
-    cal_percentile = cal_percentileRing
+    line_arg_left = []
 
-    if side == "LRing":
-        PerCol = "Percentile_LRing"
-        cal_percentile = cal_percentileRing
-        which_side = "left"
-    elif side == "RRing":
-        PerCol = "Percentile_RRing"
-        which_side = "right"
-        cal_percentile = cal_percentileRing
-
-    print(
-        f"Calculating surrounding {which_side} forest population for buffer area ...")
-
-    for item in df.index:
+    for item in df_left.index:
         item_list = [
-            df.iloc[[item]],
+            df_left.iloc[[item]],
             CanPercentile,
             CanThrPercentage,
             in_CHM,
             item,
-            PerCol,
+            "Percentile_LRing",
         ]
-        line_arg.append(item_list)
+        line_arg_left.append(item_list)
 
-    return line_arg, cal_percentile
+    line_arg_right = []
+    for item in df_right.index:
+        item_list = [
+            df_right.iloc[[item]],
+            CanPercentile,
+            CanThrPercentage,
+            in_CHM,
+            item,
+            "Percentile_RRing",
+        ]
+        line_arg_right.append(item_list)
+
+    return line_arg_left, line_arg_right
 
 
 def multiprocessing_percentile(
-    df, CanPercentile, CanThrPercentage, in_CHM, processes, side
+    line_seg, CanPercentile, CanThrPercentage, in_CHM, processes
 ):
-    line_arg, cal_percentile = prepare_multiprocessing_percentile(
-        df, CanPercentile, CanThrPercentage, in_CHM, side
+    # copy original line input to another GeoDataFrame
+    gdf_line_seg_simp = gpd.GeoDataFrame.copy((line_seg))
+    gdf_line_seg_simp.geometry = gdf_line_seg_simp.geometry.simplify(
+        tolerance=0.5, preserve_topology=True
     )
 
+    gdf_line_buffer_LRing = prepar_ring_buffer(gdf_line_seg_simp, 1, 15)
+    gdf_line_buffer_RRing = prepar_ring_buffer(gdf_line_seg_simp, -1, -15)
+
+    gdf_line_buffer_RRing["Percentile_RRing"] = np.nan
+    gdf_line_buffer_LRing["Percentile_LRing"] = np.nan
+
+    gdf_line_buffer_LRing, gdf_line_buffer_RRing = prepare_multiprocessing_percentile(
+        gdf_line_buffer_LRing,
+        gdf_line_buffer_RRing,
+        CanPercentile,
+        CanThrPercentage,
+        in_CHM,
+    )
+
+    print("Multiprocessing: Percentile - left rings")
     features = []
     features = execute_multiprocessing(
-        cal_percentile, line_arg, "Calculate Percentile", processes, workers=1
+        cal_percentileRing,
+        gdf_line_buffer_LRing,
+        "Calculate Percentile",
+        processes,
+        workers=1,
     )
-    gdf_percentile = gpd.GeoDataFrame(pd.concat(features))
+    gdf_percentile_left = gpd.GeoDataFrame(pd.concat(features))
+    gdf_percentile_left = gdf_percentile_left.sort_values(
+        by=["OLnFID", "OLnSEG", "iRing"]
+    )
+    gdf_percentile_left = gdf_percentile_left.reset_index(drop=True)
 
-    gdf_percentile = gdf_percentile.sort_values(by=["OLnFID", "OLnSEG", "iRing"])
-    gdf_percentile = gdf_percentile.reset_index(drop=True)
+    print("Multiprocessing: Percentile - right rings")
+    features = []
+    features = execute_multiprocessing(
+        cal_percentileRing,
+        gdf_line_buffer_RRing,
+        "Calculate Percentile",
+        processes,
+        workers=1,
+    )
+    gdf_percentile_right = gpd.GeoDataFrame(pd.concat(features))
+    gdf_percentile_right = gdf_percentile_right.sort_values(
+        by=["OLnFID", "OLnSEG", "iRing"]
+    )
+    gdf_percentile_right = gdf_percentile_right.reset_index(drop=True)
 
-    return gdf_percentile
+    return gdf_percentile_left, gdf_percentile_right
 
 
 def prepare_line_seg(in_line, canopy_percentile):
-    file_path, in_file_name = os.path.split(in_line)
-    out_file = os.path.join(file_path, "DynCanTh_" + in_file_name)
-    line_seg = gpd.GeoDataFrame.from_file(in_line)
+    line_seg = gpd.read_file(in_line)
 
     # Check the canopy threshold percent in 0-100 range.  If it is not, 50% will be applied
     if not 100 >= int(canopy_percentile) > 0:
@@ -377,17 +406,14 @@ def prepare_line_seg(in_line, canopy_percentile):
 
     # Check the Dynamic Canopy threshold column in data. If it is not, new column will be created
     if "DynCanTh" not in line_seg.columns.array:
-        print("New column created: {}".format("DynCanTh"))
         line_seg["DynCanTh"] = np.nan
 
     # Check the OLnFID column in data. If it is not, column will be created
     if "OLnFID" not in line_seg.columns.array:
-        print("New column created: {}".format("OLnFID"))
         line_seg["OLnFID"] = line_seg.index
 
     # Check the OLnSEG column in data. If it is not, column will be created
     if "OLnSEG" not in line_seg.columns.array:
-        print("New column created: {}".format("OLnSEG"))
         line_seg["OLnSEG"] = 0
 
     line_seg = chk_df_multipart(line_seg, "LineString")[0]
@@ -395,10 +421,8 @@ def prepare_line_seg(in_line, canopy_percentile):
     proc_segments = False
     if proc_segments:
         line_seg = split_into_segments(line_seg)
-    else:
-        pass
 
-    return canopy_percentile, out_file, line_seg
+    return canopy_percentile, line_seg
 
 
 def prepar_ring_buffer(gdf_line_seg_simp, nrings, ringdist):
@@ -435,58 +459,31 @@ def main_canopy_threshold_relative(
     verbose,
 ):
     # check coordinate systems between line and raster features
-    # with rasterio.open(in_chm) as in_raster:
     if compare_crs(vector_crs(in_line), raster_crs(in_chm)):
         pass
     else:
         print("Line and raster spatial references are not same, please check.")
         exit()
 
-    canopy_percentile, out_file, line_seg = prepare_line_seg(in_line, canopy_percentile)
-
-    # copy original line input to another GeoDataframe
-    gdf_line_seg_simp = gpd.GeoDataFrame.copy((line_seg))
-    gdf_line_seg_simp.geometry = gdf_line_seg_simp.geometry.simplify(
-        tolerance=0.5, preserve_topology=True
-    )
-
-    gdf_line_buffer_LRing = prepar_ring_buffer(gdf_line_seg_simp, 1, 15)
-    gdf_line_buffer_RRing = prepar_ring_buffer(gdf_line_seg_simp, -1, -15)
-    print("Ring buffers are created.")
-
-    gdf_line_buffer_RRing["Percentile_RRing"] = np.nan
-    gdf_line_buffer_LRing["Percentile_LRing"] = np.nan
+    canopy_percentile, line_seg = prepare_line_seg(in_line, canopy_percentile)
 
     # calculate the Height percentile for each parallel area using CHM
-    print("Percentile: left rings")
-    gdf_line_buffer_LRing = multiprocessing_percentile(
-        gdf_line_buffer_LRing,
+    gdf_line_buffer_LRing, gdf_line_buffer_RRing = multiprocessing_percentile(
+        line_seg,
         int(canopy_percentile),
         float(canopy_thresh_percentage),
         in_chm,
         processes,
-        side="LRing",
-    )
-
-    print("Percentile: right rings")
-    gdf_line_buffer_RRing = multiprocessing_percentile(
-        gdf_line_buffer_RRing,
-        int(canopy_percentile),
-        float(canopy_thresh_percentage),
-        in_chm,
-        processes,
-        side="RRing",
     )
 
     result = multiprocessing_rate_of_change(
         line_seg, gdf_line_buffer_LRing, gdf_line_buffer_RRing, processes
     )
 
-    print("Saving percentile information to input line ...")
-    gpd.GeoDataFrame.to_file(result, out_file)
-    print("Task done.")
-
-    return out_file
+    print("Saving percentile information of input line ...")
+    file_path, in_file_name = os.path.split(in_line)
+    out_file = os.path.join(file_path, "DynCanTh_" + in_file_name)
+    result.to_file(out_file)
 
 
 if __name__ == "__main__":
