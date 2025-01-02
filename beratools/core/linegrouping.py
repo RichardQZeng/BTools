@@ -404,7 +404,9 @@ class LineGrouping:
                     for trim in poly_trim_list:
                         # TODO: sometimes contains can not tolerance tiny error: 1e-11
                         # buffer polygon by 1 meter to make sure contains works
-                        if p.buffer(1).contains(trim.line_cleanup):
+                        midpoint = trim.line_cleanup.interpolate(0.5, normalized=True)
+                        # if p.buffer(1).contains(trim.line_cleanup):
+                        if p.buffer(1).contains(midpoint):
                             trim.poly_cleanup = p
                             trim.poly_index = j
 
@@ -414,7 +416,7 @@ class LineGrouping:
 
             for p in poly_trim_list:
                 p.trim()
-                # update main line and polygon dataframe
+                # update main line and polygon DataFrame
                 self.polys.at[p.poly_index, 'geometry'] = p.poly_cleanup
                 self.lines.at[p.line_index, 'geometry'] = p.line_cleanup
                 # update VertexNode's line
