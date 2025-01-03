@@ -459,9 +459,13 @@ class LineGrouping:
 
             poly_primary = MultiPolygon(poly_primary)
             # limit poly_primary around vertex to avoid duplicate cutting of lines and polygons
-            poly_primary = poly_primary.intersection(
-                vertex.vertex.buffer(TRIMMING_EFFECT_AREA)
-            )
+            try:
+                poly_primary = poly_primary.intersection(
+                    vertex.vertex.buffer(TRIMMING_EFFECT_AREA)
+                )
+            except Exception as e:
+                print(f"line_and_poly_cleanup: {e}")
+                return
 
             for t in poly_trim_list:
                 t.poly_primary = poly_primary
