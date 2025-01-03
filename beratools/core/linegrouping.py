@@ -12,6 +12,7 @@ import geopandas as gpd
 from dataclasses import dataclass, field
 from .mergelines import MergeLines
 
+TRIMMING_EFFECT_AREA = 40  # meters
 
 @unique
 class VertexClass(IntEnum):
@@ -457,6 +458,11 @@ class LineGrouping:
                             trim.poly_index = j
 
             poly_primary = MultiPolygon(poly_primary)
+            # limit poly_primary around vertex to avoid duplicate cutting of lines and polygons
+            poly_primary = poly_primary.intersection(
+                vertex.vertex.buffer(TRIMMING_EFFECT_AREA)
+            )
+
             for t in poly_trim_list:
                 t.poly_primary = poly_primary
 
