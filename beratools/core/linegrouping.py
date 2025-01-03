@@ -12,14 +12,20 @@ import geopandas as gpd
 from dataclasses import dataclass, field
 from .mergelines import MergeLines
 
+
 @unique
 class VertexClass(IntEnum):
-    THREE_WAY_ZERO_PRIMARY_LINE = 1
-    THREE_WAY_ONE_PRIMARY_LINE = 2
-    FOUR_WAY_ZERO_PRIMARY_LINE = 3
-    FOUR_WAY_ONE_PRIMARY_LINE = 4
-    FOUR_WAY_TWO_PRIMARY_LINE = 5
-    SINGLE_WAY = 6
+    TWO_WAY_ZERO_PRIMARY_LINE = 1
+    THREE_WAY_ZERO_PRIMARY_LINE = 2
+    THREE_WAY_ONE_PRIMARY_LINE = 3
+    FOUR_WAY_ZERO_PRIMARY_LINE = 4
+    FOUR_WAY_ONE_PRIMARY_LINE = 5
+    FOUR_WAY_TWO_PRIMARY_LINE = 6
+    FIVE_WAY_ZERO_PRIMARY_LINE = 7
+    FIVE_WAY_ONE_PRIMARY_LINE = 8
+    FIVE_WAY_TWO_PRIMARY_LINE = 9
+    SINGLE_WAY = 10
+
 
 ANGLE_TOLERANCE = np.pi / 10
 TURN_ANGLE_TOLERANCE = np.pi * 0.5  # (little bigger than right angle)
@@ -27,14 +33,19 @@ GROUP_ATTRIBUTE = "group"
 TRIM_THRESHOLD = 0.05
 TRANSECT_LENGTH = 20
 CONCERN_CLASSES = (
+    VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE,
+    VertexClass.FIVE_WAY_TWO_PRIMARY_LINE,
+    VertexClass.FOUR_WAY_ZERO_PRIMARY_LINE,
     VertexClass.FOUR_WAY_ONE_PRIMARY_LINE,
+    VertexClass.THREE_WAY_ZERO_PRIMARY_LINE,
     VertexClass.THREE_WAY_ONE_PRIMARY_LINE,
-    VertexClass.SINGLE_WAY
+    VertexClass.TWO_WAY_ZERO_PRIMARY_LINE,
+    VertexClass.SINGLE_WAY,
 )
 
 
 def points_in_line(line):
-    """ return point list of line """
+    """return point list of line"""
     point_list = []
     try:
         for point in list(line.coords):  # loops through every point in a line
@@ -45,6 +56,7 @@ def points_in_line(line):
         print(e)
 
     return point_list
+
 
 def get_angle(line, end_index):
     """
@@ -67,8 +79,9 @@ def get_angle(line, end_index):
 
     return angle
 
+
 @dataclass
-class SingleLine():
+class SingleLine:
     line_id: int = field(default=0)
     line: Union[LineString, MultiLineString] = field(default=None)
     sim_line: Union[LineString, MultiLineString] = field(default=None)
@@ -89,17 +102,18 @@ class SingleLine():
         l_left = end_seg.offset_curve(TRANSECT_LENGTH)
         l_right = end_seg.offset_curve(-TRANSECT_LENGTH)
 
-        return LineString(
-            [l_left.coords[0], l_right.coords[0]]
-        )
+        return LineString([l_left.coords[0], l_right.coords[0]])
+
+    def midpoint(self):
+        return force_2d(self.line.interpolate(0.5, normalized=True))
 
     def update_line(self, line):
         self.line = line
 
 
 class VertexNode:
-    """
-    """
+    """ """
+
     def __init__(self, line_id, line, sim_line, vertex_index, group=None) -> None:
         self.vertex = None
         self.line_list = []
@@ -111,11 +125,11 @@ class VertexNode:
             self.add_line(SingleLine(line_id, line, sim_line, vertex_index, group))
 
     def set_vertex(self, line, vertex_index):
-        """ Set vertex coordinates """
+        """Set vertex coordinates"""
         self.vertex = force_2d(get_point(line, vertex_index))
-    
+
     def add_line(self, line_class):
-        """ Common function for adding line when creating or merging other VertexNode """
+        """Common function for adding line when creating or merging other VertexNode"""
         self.line_list.append(line_class)
         self.set_vertex(line_class.line, line_class.vertex_index)
 
@@ -123,18 +137,30 @@ class VertexNode:
         for line in self.line_list:
             if line.line_id == line_id:
                 return line.line
-    
+
+    def get_line_obj(self, line_id):
+        for line in self.line_list:
+            if line.line_id == line_id:
+                return line
+
     def update_line(self, line_id, line):
         for i in self.line_list:
             if i.line_id == line_id:
                 i.update_line(line)
 
     def merge(self, vertex):
-        """ merge other VertexNode if they have same vertex coords """
+        """merge other VertexNode if they have same vertex coords"""
         self.add_line(vertex.line_list[0])
 
     def assign_vertex_class(self):
-        if len(self.line_list) == 4:
+        if len(self.line_list) == 5:
+            if len(self.line_connected) == 0:
+                self.vertex_class = VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE
+            if len(self.line_connected) == 1:
+                self.vertex_class = VertexClass.FIVE_WAY_ONE_PRIMARY_LINE
+            if len(self.line_connected) == 2:
+                self.vertex_class = VertexClass.FIVE_WAY_TWO_PRIMARY_LINE
+        elif len(self.line_list) == 4:
             if len(self.line_connected) == 0:
                 self.vertex_class = VertexClass.FOUR_WAY_ZERO_PRIMARY_LINE
             if len(self.line_connected) == 1:
@@ -156,7 +182,7 @@ class VertexNode:
                 return False
 
         return True
-    
+
     def need_regrouping(self):
         pass
 
@@ -171,11 +197,11 @@ class VertexNode:
             self.group_line_by_angle()
 
         # record line not connected
-        all_line_ids = {i.line_id for i in self.line_list} # set of line id
+        all_line_ids = {i.line_id for i in self.line_list}  # set of line id
         self.line_not_connected = list(all_line_ids - set(chain(*self.line_connected)))
-        
+
         self.assign_vertex_class()
-    
+
     def group_regroup(self):
         pass
 
@@ -189,7 +215,7 @@ class VertexNode:
                 self.line_connected.append(value)
 
     def group_line_by_angle(self):
-        """ generate connectivity of all lines """
+        """generate connectivity of all lines"""
         if len(self.line_list) == 1:
             return
 
@@ -199,9 +225,9 @@ class VertexNode:
 
         if len(self.line_list) == 2:
             angle_diff = abs(new_angles[0] - new_angles[1])
-            angle_diff = angle_diff if angle_diff <= np.pi else angle_diff-np.pi
+            angle_diff = angle_diff if angle_diff <= np.pi else angle_diff - np.pi
 
-            #if angle_diff >= TURN_ANGLE_TOLERANCE:
+            # if angle_diff >= TURN_ANGLE_TOLERANCE:
             self.line_connected.append(
                 (
                     self.line_list[0].line_id,
@@ -213,23 +239,33 @@ class VertexNode:
         # three and more lines
         for i, angle_1 in enumerate(new_angles):
             for j, angle_2 in enumerate(new_angles[i + 1 :]):
-                if not angle_visited[i+j+1]:
+                if not angle_visited[i + j + 1]:
                     angle_diff = abs(angle_1 - angle_2)
-                    angle_diff = angle_diff if angle_diff <= np.pi else angle_diff-np.pi
-                    if angle_diff < ANGLE_TOLERANCE or np.pi-ANGLE_TOLERANCE < abs(angle_1-angle_2) < np.pi+ANGLE_TOLERANCE:
-                        angle_visited[j+i+1] = True  # tenth of PI
+                    angle_diff = (
+                        angle_diff if angle_diff <= np.pi else angle_diff - np.pi
+                    )
+                    if (
+                        angle_diff < ANGLE_TOLERANCE
+                        or np.pi - ANGLE_TOLERANCE
+                        < abs(angle_1 - angle_2)
+                        < np.pi + ANGLE_TOLERANCE
+                    ):
+                        angle_visited[j + i + 1] = True  # tenth of PI
                         self.line_connected.append(
                             (
                                 self.line_list[i].line_id,
-                                self.line_list[i+j+1].line_id,
+                                self.line_list[i + j + 1].line_id,
                             )
                         )
+
 
 class LineGrouping:
     def __init__(self, in_line):
         # remove empty and null geometry
         self.lines = in_line.copy()
-        self.lines = self.lines[~self.lines.geometry.isna() & ~self.lines.geometry.is_empty]
+        self.lines = self.lines[
+            ~self.lines.geometry.isna() & ~self.lines.geometry.is_empty
+        ]
         self.lines.reset_index(inplace=True, drop=True)
 
         self.sim_geom = self.lines.simplify(1)
@@ -329,64 +365,74 @@ class LineGrouping:
     def line_and_poly_cleanup(self):
         sindex_poly = self.polys.sindex
 
-        for i in self.vertex_of_concern:
-            idx = sindex_poly.query(i.vertex, predicate="within")
+        for vertex in self.vertex_of_concern:
+            idx = sindex_poly.query(vertex.vertex, predicate="within")
             if len(idx) == 0:
                 continue
 
             idx_not_available = False
             for num in idx:
                 if num not in self.polys.index:
-                    print('no index')
+                    print("no index")
                     idx_not_available = True
                     break
 
             if idx_not_available:
                 continue
 
-            if i.vertex_class == VertexClass.SINGLE_WAY:
-                if len(idx) > 1:
-                    print('Too many polygons')
+            if (
+                vertex.vertex_class == VertexClass.SINGLE_WAY
+                or vertex.vertex_class == VertexClass.TWO_WAY_ZERO_PRIMARY_LINE
+                or vertex.vertex_class == VertexClass.THREE_WAY_ZERO_PRIMARY_LINE
+                or vertex.vertex_class == VertexClass.FOUR_WAY_ZERO_PRIMARY_LINE
+                or vertex.vertex_class == VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE
+            ):
+                if len(idx) == 0:
+                    print("No footprint is retrieved.")
                     continue
 
-                # TODO use only last segment to reduce computation
-                single_line = i.line_list[0]
-                poly = self.polys.loc[*idx].geometry
-                split_poly = split(poly, single_line.end_transect())
+                for item in idx:
+                    poly = self.polys.loc[item].geometry
 
-                if len(split_poly.geoms) != 2:
-                    continue
+                    for line_idx in vertex.line_not_connected:
+                        line = vertex.get_line_obj(line_idx)
+                        if poly.contains(line.midpoint()):
+                            single_line = line
 
-                # check geom type
-                none_poly = False
-                for i in split_poly.geoms:
-                    if i.geom_type != 'Polygon':
-                        none_poly = True
+                    split_poly = split(poly, single_line.end_transect())
 
-                if none_poly:
-                    continue
+                    if len(split_poly.geoms) != 2:
+                        continue
 
-                # only two polygons in split_poly
-                if split_poly.geoms[0].area > split_poly.geoms[1].area:
-                    poly = split_poly.geoms[0]
-                else:
-                    poly = split_poly.geoms[1]
+                    # check geom_type
+                    none_poly = False
+                    for geom in split_poly.geoms:
+                        if geom.geom_type != "Polygon":
+                            none_poly = True
 
-                self.polys.at[idx[0], "geometry"] = poly 
+                    if none_poly:
+                        continue
 
-                continue
+                    # only two polygons in split_poly
+                    if split_poly.geoms[0].area > split_poly.geoms[1].area:
+                        poly = split_poly.geoms[0]
+                    else:
+                        poly = split_poly.geoms[1]
+
+                    self.polys.at[item, "geometry"] = poly
+
+                continue  # TODO: refactor this code block
 
             # other classes
             poly_trim_list = []
             primary_lines = []
 
             # retrieve primary lines
-            for j in i.line_connected[0]:  # only one connected line is available
-                primary_lines.append(i.get_line(j))
+            for j in vertex.line_connected[0]:  # only one connected line is available
+                primary_lines.append(vertex.get_line(j))
 
-            for j in i.line_not_connected:  # only one connected line is available
-                trim = PolygonTrimming(line_index = j, 
-                                       line_cleanup = i.get_line(j))
+            for j in vertex.line_not_connected:  # only one connected line is available
+                trim = PolygonTrimming(line_index=j, line_cleanup=vertex.get_line(j))
 
                 poly_trim_list.append(trim)
 
@@ -417,8 +463,8 @@ class LineGrouping:
             for p in poly_trim_list:
                 p.trim()
                 # update main line and polygon DataFrame
-                self.polys.at[p.poly_index, 'geometry'] = p.poly_cleanup
-                self.lines.at[p.line_index, 'geometry'] = p.line_cleanup
+                self.polys.at[p.poly_index, "geometry"] = p.poly_cleanup
+                self.lines.at[p.line_index, "geometry"] = p.line_cleanup
                 # update VertexNode's line
                 self.update_line_in_vertex_node(p.line_index, p.line_cleanup)
 
@@ -440,7 +486,7 @@ class LineGrouping:
         """
         pass
 
-    def run_cleanup(self, in_polys): 
+    def run_cleanup(self, in_polys):
         self.polys = in_polys.copy()
         self.line_and_poly_cleanup()
         self.run_line_merge_trimmed()
@@ -478,11 +524,14 @@ class LineGrouping:
         ]
 
         # save MultiLineString and MultiPolygon
-        self.invalid_polys = self.polys[(self.polys.geometry.geom_type == "MultiPolygon")]
+        self.invalid_polys = self.polys[
+            (self.polys.geometry.geom_type == "MultiPolygon")
+        ]
 
         # check lines
         self.valid_lines = self.merged_lines_trimmed[
-            ~self.merged_lines_trimmed.geometry.isna() & ~self.merged_lines_trimmed.geometry.is_empty
+            ~self.merged_lines_trimmed.geometry.isna()
+            & ~self.merged_lines_trimmed.geometry.is_empty
         ]
         self.valid_lines.reset_index(inplace=True, drop=True)
 
@@ -506,20 +555,21 @@ class LineGrouping:
         if not self.invalid_polys.empty:
             self.invalid_polys.to_file(out_file, layer="invalid_polygons")
 
-@dataclass
-class PolygonTrimming():
-    """ Store polygon and line to trim. Primary polygon is used to trim both """
 
-    poly_primary : MultiPolygon = field(default=None)
+@dataclass
+class PolygonTrimming:
+    """Store polygon and line to trim. Primary polygon is used to trim both"""
+
+    poly_primary: MultiPolygon = field(default=None)
     poly_index: int = field(default=-1)
     poly_cleanup: Polygon = field(default=None)
     line_index: int = field(default=-1)
     line_cleanup: LineString = field(default=None)
-    
+
     def trim(self):
         # TODO: check why there is such cases
         if self.poly_cleanup is None:
-            print('No polygon to trim.')
+            print("No polygon to trim.")
             return
 
         diff = self.poly_cleanup.difference(self.poly_primary)
@@ -539,7 +589,7 @@ class PolygonTrimming():
             else:
                 # TODO output all MultiPolygons which should be dealt with
                 self.poly_cleanup = MultiPolygon(reserved)
-        
+
         diff = self.line_cleanup.intersection(self.poly_cleanup)
         if diff.geom_type == "LineString":
             self.line_cleanup = diff
