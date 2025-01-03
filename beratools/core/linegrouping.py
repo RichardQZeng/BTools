@@ -591,6 +591,20 @@ class PolygonTrimming:
                 self.poly_cleanup = MultiPolygon(reserved)
 
         diff = self.line_cleanup.intersection(self.poly_cleanup)
+        if diff.geom_type == "GeometryCollection":
+            geoms = []
+            for item in diff.geoms:
+                if item.geom_type == "LineString":
+                    geoms.append(item)
+                elif item.geom_type == "MultiLineString":
+                    print("trim: MultiLineString detected, please check")
+            if len(geoms) == 0:
+                return
+            elif len(geoms) == 1:
+                diff = geoms[0]
+            else:
+                diff = MultiLineString(geoms)
+
         if diff.geom_type == "LineString":
             self.line_cleanup = diff
         elif diff.geom_type == "MultiLineString":
