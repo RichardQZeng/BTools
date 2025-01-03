@@ -1,4 +1,4 @@
-# usage: python full_workflow.py 10 win
+# usage: python full_workflow.py 10 win/hpc
 
 import os
 
