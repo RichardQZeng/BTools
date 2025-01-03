@@ -255,7 +255,7 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
 
     line_args = prepare_line_args(merged_line_gdf, poly_gdf, n_samples, offset)
     out_lines = execute_multiprocessing(process_single_line, line_args, 'Fixed footprint',
-                                        processes, workers=1, mode=ParallelMode.SEQUENTIAL, verbose=verbose)
+                                        processes, workers=1, mode=ParallelMode.MULTIPROCESSING, verbose=verbose)
     line_attr = pd.concat(out_lines)
 
     # create fixed width footprint
