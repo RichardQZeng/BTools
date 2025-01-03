@@ -12,7 +12,7 @@ import geopandas as gpd
 from dataclasses import dataclass, field
 from .mergelines import MergeLines
 
-TRIMMING_EFFECT_AREA = 40  # meters
+TRIMMING_EFFECT_AREA = 50  # meters
 
 @unique
 class VertexClass(IntEnum):
