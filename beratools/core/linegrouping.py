@@ -1,5 +1,5 @@
 import networkit as nk
-from shapely import force_2d, STRtree, get_point
+from shapely import force_2d, STRtree, get_point, union_all
 from shapely.ops import split
 import numpy as np
 from shapely.geometry import Point, MultiPolygon, Polygon, LineString, MultiLineString
@@ -173,6 +173,9 @@ class VertexNode:
                 self.vertex_class = VertexClass.THREE_WAY_ZERO_PRIMARY_LINE
             if len(self.line_connected) == 1:
                 self.vertex_class = VertexClass.THREE_WAY_ONE_PRIMARY_LINE
+        elif len(self.line_list) == 2:
+            if len(self.line_connected) == 0:
+                self.vertex_class = VertexClass.TWO_WAY_ZERO_PRIMARY_LINE
         elif len(self.line_list) == 1:
             self.vertex_class = VertexClass.SINGLE_WAY
 
@@ -370,7 +373,7 @@ class LineGrouping:
             idx = sindex_poly.query(vertex.vertex, predicate="within")
             if len(idx) == 0:
                 continue
-
+            
             idx_not_available = False
             for num in idx:
                 if num not in self.polys.index:
@@ -457,7 +460,7 @@ class LineGrouping:
                             trim.poly_cleanup = p
                             trim.poly_index = j
 
-            poly_primary = MultiPolygon(poly_primary)
+            poly_primary = union_all(poly_primary)
             # limit poly_primary around vertex to avoid duplicate cutting of lines and polygons
             try:
                 poly_primary = poly_primary.intersection(
@@ -465,7 +468,7 @@ class LineGrouping:
                 )
             except Exception as e:
                 print(f"line_and_poly_cleanup: {e}")
-                return
+                continue
 
             for t in poly_trim_list:
                 t.poly_primary = poly_primary
@@ -515,6 +518,7 @@ class LineGrouping:
                 if merged_line:
                     out_line_gdf.at[i.Index, "geometry"] = merged_line
 
+        print("Merge all lines done.")
         out_line_gdf.reset_index(inplace=True, drop=True)
         return out_line_gdf
 

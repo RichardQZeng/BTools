@@ -160,7 +160,7 @@ class MergeLines:
             else:  # TODO: check line
                 print(f"merge_all_lines: failed to merge line: {self.multi_line}")
 
-        print('Merge lines done.')
+        # print('Merge lines done.')
 
         if len(lines) > 1:
             return MultiLineString(lines)
