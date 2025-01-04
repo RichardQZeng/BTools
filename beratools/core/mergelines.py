@@ -158,7 +158,7 @@ class MergeLines:
             if line:
                 lines.extend(self.get_merged_line_for_component(c))
             else:  # TODO: check line
-                print(f"merge_all_lines: failed to merge line: {self.multi_line}")
+                print(f"merge_all_lines: failed to merge line: {self.multi_line.coords[0]}")
 
         # print('Merge lines done.')
 

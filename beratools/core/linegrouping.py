@@ -373,16 +373,6 @@ class LineGrouping:
             if len(idx) == 0:
                 continue
             
-            idx_not_available = False
-            for num in idx:
-                if num not in self.polys.index:
-                    print("no index")
-                    idx_not_available = True
-                    break
-
-            if idx_not_available:
-                continue
-
             if (
                 vertex.vertex_class == VertexClass.SINGLE_WAY
                 or vertex.vertex_class == VertexClass.TWO_WAY_ZERO_PRIMARY_LINE
@@ -390,19 +380,15 @@ class LineGrouping:
                 or vertex.vertex_class == VertexClass.FOUR_WAY_ZERO_PRIMARY_LINE
                 or vertex.vertex_class == VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE
             ):
-                if len(idx) == 0:
-                    print("No footprint is retrieved.")
-                    continue
-
                 for item in idx:
                     poly = self.polys.loc[item].geometry
 
                     for line_idx in vertex.line_not_connected:
                         line = vertex.get_line_obj(line_idx)
                         if poly.contains(line.midpoint()):
-                            single_line = line
+                            internal_line = line
 
-                    split_poly = split(poly, single_line.end_transect())
+                    split_poly = split(poly, internal_line.end_transect())
 
                     if len(split_poly.geoms) != 2:
                         continue
@@ -431,10 +417,10 @@ class LineGrouping:
             primary_lines = []
 
             # retrieve primary lines
-            for j in vertex.line_connected[0]:  # only one connected line is available
+            for j in vertex.line_connected[0]:  # only one connected line is used
                 primary_lines.append(vertex.get_line(j))
 
-            for j in vertex.line_not_connected:  # only one connected line is available
+            for j in vertex.line_not_connected:
                 trim = PolygonTrimming(line_index=j, line_cleanup=vertex.get_line(j))
 
                 poly_trim_list.append(trim)
