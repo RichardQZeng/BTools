@@ -7,7 +7,6 @@ from enum import IntEnum, unique
 from collections import defaultdict
 from itertools import chain
 from typing import Union
-import geopandas as gpd
 
 from dataclasses import dataclass, field
 from .mergelines import MergeLines
@@ -27,12 +26,6 @@ class VertexClass(IntEnum):
     FIVE_WAY_TWO_PRIMARY_LINE = 9
     SINGLE_WAY = 10
 
-
-ANGLE_TOLERANCE = np.pi / 10
-TURN_ANGLE_TOLERANCE = np.pi * 0.5  # (little bigger than right angle)
-GROUP_ATTRIBUTE = "group"
-TRIM_THRESHOLD = 0.05
-TRANSECT_LENGTH = 20
 CONCERN_CLASSES = (
     VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE,
     VertexClass.FIVE_WAY_TWO_PRIMARY_LINE,
@@ -43,6 +36,12 @@ CONCERN_CLASSES = (
     VertexClass.TWO_WAY_ZERO_PRIMARY_LINE,
     VertexClass.SINGLE_WAY,
 )
+
+ANGLE_TOLERANCE = np.pi / 10
+TURN_ANGLE_TOLERANCE = np.pi * 0.5  # (little bigger than right angle)
+GROUP_ATTRIBUTE = "group"
+TRIM_THRESHOLD = 0.05
+TRANSECT_LENGTH = 20
 
 
 def points_in_line(line):
