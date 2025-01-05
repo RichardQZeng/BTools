@@ -152,6 +152,82 @@ class VertexNode:
         """merge other VertexNode if they have same vertex coords"""
         self.add_line(vertex.line_list[0])
 
+    def trim_end(self, idx, poly):
+        for line_idx in self.line_not_connected:
+            line = self.get_line_obj(line_idx)
+            if poly.contains(line.midpoint()):
+                internal_line = line
+
+        split_poly = split(poly, internal_line.end_transect())
+
+        if len(split_poly.geoms) != 2:
+            return
+
+        # check geom_type
+        none_poly = False
+        for geom in split_poly.geoms:
+            if geom.geom_type != "Polygon":
+                none_poly = True
+
+        if none_poly:
+            return
+
+        # only two polygons in split_poly
+        if split_poly.geoms[0].area > split_poly.geoms[1].area:
+            poly = split_poly.geoms[0]
+        else:
+            poly = split_poly.geoms[1]
+
+        return idx, poly
+
+    def trim_intersection(self, polys):
+        """
+        polys: GeoSeries of polygons
+        """
+        # other classes
+        poly_trim_list = []
+        primary_lines = []
+
+        # retrieve primary lines
+        for j in self.line_connected[0]:  # only one connected line is used
+            primary_lines.append(self.get_line(j))
+
+        for j in self.line_not_connected:
+            trim = PolygonTrimming(line_index=j, line_cleanup=self.get_line(j))
+
+            poly_trim_list.append(trim)
+
+        poly_primary = []
+        for j, poly in polys.items():
+            if poly.contains(primary_lines[0]) or poly.contains(primary_lines[1]):
+                poly_primary.append(poly)
+            else:
+                for trim in poly_trim_list:
+                    # TODO: sometimes contains can not tolerance tiny error: 1e-11
+                    # buffer polygon by 1 meter to make sure contains works
+                    midpoint = trim.line_cleanup.interpolate(0.5, normalized=True)
+                    # if p.buffer(1).contains(trim.line_cleanup):
+                    if poly.buffer(1).contains(midpoint):
+                        trim.poly_cleanup = poly
+                        trim.poly_index = j
+
+        poly_primary = union_all(poly_primary)
+        # limit poly_primary around vertex 
+        # to avoid duplicate cutting of lines and polygons
+        try:
+            poly_primary = poly_primary.intersection(
+                self.vertex.buffer(TRIMMING_EFFECT_AREA)
+            )
+        except Exception as e:
+            print(f"line_and_poly_cleanup: {e}")
+            return
+
+        for trim in poly_trim_list:
+            trim.poly_primary = poly_primary
+            trim.trim()
+
+        return poly_trim_list
+
     def assign_vertex_class(self):
         if len(self.line_list) == 5:
             if len(self.line_connected) == 0:
@@ -369,10 +445,12 @@ class LineGrouping:
         sindex_poly = self.polys.sindex
 
         for vertex in self.vertex_of_concern:
-            idx = sindex_poly.query(vertex.vertex, predicate="within")
-            if len(idx) == 0:
+            s_idx = sindex_poly.query(vertex.vertex, predicate="within")
+            if len(s_idx) == 0:
                 continue
-            
+
+            polys = self.polys.loc[s_idx].geometry
+
             if (
                 vertex.vertex_class == VertexClass.SINGLE_WAY
                 or vertex.vertex_class == VertexClass.TWO_WAY_ZERO_PRIMARY_LINE
@@ -380,91 +458,18 @@ class LineGrouping:
                 or vertex.vertex_class == VertexClass.FOUR_WAY_ZERO_PRIMARY_LINE
                 or vertex.vertex_class == VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE
             ):
-                for item in idx:
-                    poly = self.polys.loc[item].geometry
+                for idx, poly in polys.items():
+                    out_idx, out_poly = vertex.trim_end(idx, poly)
+                    self.polys.at[out_idx, "geometry"] = out_poly
 
-                    for line_idx in vertex.line_not_connected:
-                        line = vertex.get_line_obj(line_idx)
-                        if poly.contains(line.midpoint()):
-                            internal_line = line
-
-                    split_poly = split(poly, internal_line.end_transect())
-
-                    if len(split_poly.geoms) != 2:
-                        continue
-
-                    # check geom_type
-                    none_poly = False
-                    for geom in split_poly.geoms:
-                        if geom.geom_type != "Polygon":
-                            none_poly = True
-
-                    if none_poly:
-                        continue
-
-                    # only two polygons in split_poly
-                    if split_poly.geoms[0].area > split_poly.geoms[1].area:
-                        poly = split_poly.geoms[0]
-                    else:
-                        poly = split_poly.geoms[1]
-
-                    self.polys.at[item, "geometry"] = poly
-
-                continue  # TODO: refactor this code block
-
-            # other classes
-            poly_trim_list = []
-            primary_lines = []
-
-            # retrieve primary lines
-            for j in vertex.line_connected[0]:  # only one connected line is used
-                primary_lines.append(vertex.get_line(j))
-
-            for j in vertex.line_not_connected:
-                trim = PolygonTrimming(line_index=j, line_cleanup=vertex.get_line(j))
-
-                poly_trim_list.append(trim)
-
-            try:
-                polys = self.polys.loc[idx].geometry
-            except Exception as e:
-                print(e)
-                continue
-
-            poly_primary = []
-            for j, p in polys.items():
-                if p.contains(primary_lines[0]) or p.contains(primary_lines[1]):
-                    poly_primary.append(p)
-                else:
-                    for trim in poly_trim_list:
-                        # TODO: sometimes contains can not tolerance tiny error: 1e-11
-                        # buffer polygon by 1 meter to make sure contains works
-                        midpoint = trim.line_cleanup.interpolate(0.5, normalized=True)
-                        # if p.buffer(1).contains(trim.line_cleanup):
-                        if p.buffer(1).contains(midpoint):
-                            trim.poly_cleanup = p
-                            trim.poly_index = j
-
-            poly_primary = union_all(poly_primary)
-            # limit poly_primary around vertex to avoid duplicate cutting of lines and polygons
-            try:
-                poly_primary = poly_primary.intersection(
-                    vertex.vertex.buffer(TRIMMING_EFFECT_AREA)
-                )
-            except Exception as e:
-                print(f"line_and_poly_cleanup: {e}")
-                continue
-
-            for t in poly_trim_list:
-                t.poly_primary = poly_primary
-
-            for p in poly_trim_list:
-                p.trim()
-                # update main line and polygon DataFrame
-                self.polys.at[p.poly_index, "geometry"] = p.poly_cleanup
-                self.lines.at[p.line_index, "geometry"] = p.line_cleanup
-                # update VertexNode's line
-                self.update_line_in_vertex_node(p.line_index, p.line_cleanup)
+            else:
+                poly_trim_list = vertex.trim_intersection(polys)
+                for p_trim in poly_trim_list:
+                    # update main line and polygon DataFrame
+                    self.polys.at[p_trim.poly_index, "geometry"] = p_trim.poly_cleanup
+                    self.lines.at[p_trim.line_index, "geometry"] = p_trim.line_cleanup
+                    # update VertexNode's line
+                    self.update_line_in_vertex_node(p_trim.line_index, p_trim.line_cleanup)
 
     def get_merged_lines_original(self):
         return self.lines.dissolve(by=GROUP_ATTRIBUTE)
