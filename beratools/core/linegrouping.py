@@ -153,10 +153,15 @@ class VertexNode:
         self.add_line(vertex.line_list[0])
 
     def trim_end(self, idx, poly):
+        internal_line = None
         for line_idx in self.line_not_connected:
             line = self.get_line_obj(line_idx)
             if poly.contains(line.midpoint()):
                 internal_line = line
+        
+        if not internal_line:
+            print("No line is retrieved")
+            return
 
         split_poly = split(poly, internal_line.end_transect())
 
@@ -459,7 +464,13 @@ class LineGrouping:
                 or vertex.vertex_class == VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE
             ):
                 for idx, poly in polys.items():
-                    out_idx, out_poly = vertex.trim_end(idx, poly)
+                    return_value = vertex.trim_end(idx, poly)
+                    if return_value:
+                        out_idx = return_value[0]
+                        out_poly = return_value[1]
+                    else:
+                        continue
+
                     self.polys.at[out_idx, "geometry"] = out_poly
 
             else:
