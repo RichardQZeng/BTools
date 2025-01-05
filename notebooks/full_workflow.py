@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     footprint = FootprintCanopy(in_file, in_chm)
     footprint.compute()
-    footprint.savve_line_percentile(out_file_percentile)
+    # footprint.savve_line_percentile(out_file_percentile)
     footprint.save_footprint(out_file_fp)
 
     # ground footprint
