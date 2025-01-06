@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" This file is intended to be hosting common functions for BERA Tools.
+""" This file is intended to be hosting common classes/functions for BERA Tools.
 """
 
 # This script is part of the BERA Tools geospatial library.
@@ -11,9 +11,8 @@
 import sys
 import math
 import tempfile
-from pathlib import Path
 from collections import OrderedDict
-from itertools import zip_longest, compress
+from itertools import zip_longest
 
 import json
 import shlex
@@ -21,16 +20,15 @@ import argparse
 import warnings
 import numpy as np
 
-from osgeo import ogr, gdal
+from osgeo import gdal
 import osgeo
 from osgeo.osr import SpatialReference
 import fiona
 import shapely
 from shapely.affinity import rotate
 from shapely.ops import split, transform
-from shapely.geometry import shape, mapping, Point, LineString, box
+from shapely.geometry import shape, mapping, Point, LineString
 
-import pandas as pd
 import geopandas as gpd
 from pyproj import CRS, Transformer
 from pyogrio import set_gdal_config_options
@@ -44,8 +42,6 @@ from scipy import ndimage
 import xarray as xr
 from xrspatial import focal, convolution
 
-from numpy.lib.stride_tricks import as_strided,sliding_window_view
-
 from pathlib import Path
 from inspect import getsourcefile
 if __name__ == "__main__":
@@ -53,8 +49,15 @@ if __name__ == "__main__":
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
 
-from beratools.core.tool_base import *
-from beratools.core.constants import *
+# from beratools.core.tool_base import *
+from beratools.core.constants import (
+    BT_DEBUGGING,
+    BT_NODATA,
+    BT_BUFFER_RATIO,
+    BT_NODATA_COST,
+    BT_EPSILON,
+    FP_CORRIDOR_THRESHOLD,
+)
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -65,7 +68,7 @@ set_gdal_config_options({'SHAPE_RESTORE_SHX': 'YES'})
 
 # suppress all kinds of warnings
 if not BT_DEBUGGING:
-    gdal.SetConfigOption('CPL_LOG', 'NUL')  # gdal warning
+    gdal.SetConfigOption('CPL_LOG', 'NUL')  # GDAL warning
     warnings.filterwarnings("ignore")  # suppress warnings
     warnings.simplefilter(action='ignore', category=UserWarning)  # suppress Pandas UserWarning
 
@@ -113,15 +116,10 @@ def clip_raster(in_raster_file, clip_geom, buffer=0.0, out_raster_file=None, def
 def save_raster_to_file(in_raster_mem, in_meta, out_raster_file):
     """
 
-    Parameters
-    ----------
-    in_raster_mem: npmpy raster
-    in_meta: input meta
-    out_raster_file: output raster file
-
-    Returns
-    -------
-
+    Args:
+        in_raster_mem: numpy raster
+        in_meta: input meta
+        out_raster_file: output raster file
     """
     with rasterio.open(out_raster_file, "w", **in_meta) as dest:
         dest.write(in_raster_mem, indexes=1)
@@ -141,15 +139,21 @@ def clip_lines(clip_geom, buffer, in_line_file, out_line_file):
 def read_geoms_from_shapefile(in_file):
     geoms = []
     with fiona.open(in_file) as open_file:
-        layer_crs = open_file.crs
         for geom in open_file:
             geoms.append(geom['geometry'])
 
     return geoms
 
 
-# Read feature from shapefile
 def read_feature_from_shapefile(in_file):
+    """ Read feature from shapefile
+
+    Args:
+        in_file (str): file name
+
+    Returns:
+        list: list of features
+    """
     shapes = []
     with fiona.open(in_file) as open_file:
         for feat in open_file:
@@ -161,7 +165,6 @@ def read_feature_from_shapefile(in_file):
 def generate_raster_footprint(in_raster, latlon=True):
     inter_img = 'image_overview.tif'
 
-    #  get raster datasource
     src_ds = gdal.Open(in_raster)
     width, height = src_ds.RasterXSize, src_ds.RasterYSize
     src_crs = src_ds.GetSpatialRef().ExportToWkt()
@@ -186,30 +189,11 @@ def generate_raster_footprint(in_raster, latlon=True):
             target_feat = shapes['features'][0]
             geom = shape(target_feat['geometry'])
 
-        # coords = None
-        # with rasterio.open(inter_img) as src:
-        #     if np.isnan(src.nodata):
-        #         geom = box(*src.bounds)
-        #         coords_geo = list(geom.exterior.coords)
-        #     else:
-        #         msk = src.read_masks(1)
-        #         shapes = features.shapes(msk, mask=msk)
-        #         shapes = list(shapes)
-        #         coords = shapes[0][0]['coordinates'][0]
-        #
-        #         for pt in coords:
-        #             pt = rasterio.transform.xy(src.transform, pt[1], pt[0])
-        #             coords_geo.append(pt)
-        #
-        #         coords_geo.pop(-1)
-
     if latlon:
         out_crs = CRS('EPSG:4326')
         transformer = Transformer.from_crs(CRS(src_crs), out_crs)
 
         geom = transform(transformer.transform, geom)
-        # coords_geo = list(transformer.itransform(coords_geo))
-        # coords_geo = [list(pt) for pt in coords_geo]
 
     return geom
 
@@ -261,7 +245,6 @@ def extract_string_from_printout(str_print, str_extract):
 
 def check_arguments():
     # Get tool arguments
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=json.loads)
     parser.add_argument('-p', '--processes')
@@ -282,24 +265,17 @@ def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
                           driver='ESRI Shapefile', layer=None):
     """
 
-    Parameters
-    ----------
-    out_file :
-    crs :
-    geoms : shapely geometry objects
-    schema :
-    properties :
-    driver:
-    layer:
-
-    Returns
-    -------
-
+    Args:
+        out_file :
+        crs :
+        geoms : shapely geometry objects
+        schema :
+        properties :
+        driver:
+        layer:
     """
     # remove all None items
     # TODO: check geom type consistency
-    # geoms = [item for item in geoms if item is not None]
-
     if len(geoms) < 1:
         return
 
@@ -319,7 +295,6 @@ def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
 
         properties = None
 
-    # driver = 'ESRI Shapefile'
     print('Writing to file {}'.format(out_file), flush=True)
 
     try:
@@ -353,10 +328,10 @@ def vector_crs(in_vector):
     osr_crs = SpatialReference()
     from pyproj.enums import WktVersion
     vec_crs = None
-    # open input vector data as Geodataframe
+    # open input vector data as GeoDataFrame
     gpd_vector=gpd.GeoDataFrame.from_file(in_vector)
     try:
-        if gpd_vector.crs != None:
+        if gpd_vector.crs is not None:
             vec_crs=gpd_vector.crs
             if osgeo.version_info.major < 3:
                 osr_crs.ImportFromWkt(vec_crs.to_wkt(WktVersion.WKT1_GDAL))
@@ -370,18 +345,13 @@ def vector_crs(in_vector):
         print(e)
         exit()
 
-    # with ogr.Open(in_vector) as vector_file:
-    #     if vector_file:
-    #         vec_crs = vector_file.GetLayer().GetSpatialRef()
-
-    # return vec_crs
 
 def df_crs(in_df):
     vec_crs = None
     osr_crs = SpatialReference()
     from pyproj.enums import WktVersion
     try:
-        if in_df.crs != None:
+        if in_df.crs is not None:
             vec_crs=in_df.crs
             if osgeo.version_info.major < 3:
                 osr_crs.ImportFromWkt(vec_crs.to_wkt(WktVersion.WKT1_GDAL))
@@ -396,13 +366,11 @@ def df_crs(in_df):
         exit()
 
 def raster_crs(in_raster):
-    ras_crs = None
     osr_crs = SpatialReference()
     with rasterio.open(in_raster) as raster_file:
-    # with gdal.Open(in_raster) as raster_file:
         from pyproj.enums import WktVersion
         try:
-            if raster_file.crs != None:
+            if raster_file.crs is not None:
                 vec_crs = raster_file.crs
                 if osgeo.version_info.major < 3:
                     osr_crs.ImportFromWkt(vec_crs.to_wkt(WktVersion.WKT1_GDAL))
@@ -444,7 +412,9 @@ def compare_crs(crs_org, crs_dst):
                     print('Checked: Input files Spatial Reference are the same, continue.')
                     return True
                 else:
-                    print('Checked: Data are on the same projected Zone but using different Spatial Reference. \n Consider to reproject all data onto same spatial reference system.\n Process Stop.')
+                    print(
+                        "Checked: Data are on the same projected Zone but using different Spatial Reference. \n Consider to re-project all data onto same spatial reference system.\n Process Stop."
+                    )
                     exit()
             else:
                 return False
@@ -456,17 +426,14 @@ def identity_polygon(line_args):
     """
     Return polygon of line segment
 
-    Parameters
-    ----------
-    line_args : list of geodataframe
-        0 : geodataframe line segment, one item
-        1 : geodataframe line buffer, one item
-        2 : geodataframe polygons returned by spatial search
+    Args:
+        line_args : list[GeoDataFrame]
+            0 : GeoDataFrame line segment, one item
+            1 : GeoDataFrame line buffer, one item
+            2 : GeoDataFrame polygons returned by spatial search
 
-    Returns
-    -------
+    Returns:
         line, identity :  tuple of line and associated footprint
-
     """
     line = line_args[0]
     in_cl_buffer = line_args[1][['geometry', 'OLnFID']]
@@ -500,7 +467,7 @@ def line_split2(in_ln_shp, seg_length):
         if BT_DEBUGGING:
             print("Cannot find {} column in input line data")
 
-        print("New column created: {}".format('OLnFID', 'OLnFID'))
+        print(f"New column created: {'OLnFID'}, {'OLnFID'}")
         in_ln_shp['OLnFID'] = in_ln_shp.index
     line_seg = split_into_Equal_Nth_segments(in_ln_shp, seg_length)
 
@@ -513,7 +480,6 @@ def split_into_Equal_Nth_segments(df, seg_length):
     if 'OLnSEG' not in odf.columns.array:
         df['OLnSEG'] = np.nan
     df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, seg_length), axis=1))
-    # df = odf.assign(geometry=odf.apply(lambda x: cut_line(x.geometry, x.geometry.length), axis=1))
     df = df.explode()
 
     df['OLnSEG'] = df.groupby('OLnFID').cumcount()
@@ -548,14 +514,12 @@ def split_line_nPart(line, seg_length):
 def cut_line(line, distance):
     """
 
-    Parameters
-    ----------
-    line : LineString line to be split by distance along line
-    distance : float length of segment to cut
+    Args:
+        line : LineString line to be split by distance along line
+        distance : float length of segment to cut
 
     Returns
-    -------
-    List of LineString
+        List of LineString
     """
     lines = list()
     lines = cut(line, distance, lines)
@@ -581,14 +545,14 @@ def cut(line, distance, lines):
     while line.length > distance:
         coords = list(line.coords)
         for i, p in enumerate(coords):
-            pd = line.project(Point(p))
+            p_dist = line.project(Point(p))
 
-            if abs(pd - distance) < BT_EPSILON:
+            if abs(p_dist - distance) < BT_EPSILON:
                 lines.append(LineString(coords[:i + 1]))
                 line = LineString(coords[i:])
                 end_pt = None
                 break
-            elif pd > distance:
+            elif p_dist > distance:
                 end_pt = line.interpolate(distance)
                 lines.append(LineString(coords[:i] + list(end_pt.coords)))
                 line = LineString(list(end_pt.coords) + coords[i:])
@@ -603,9 +567,8 @@ def line_angle(point_1, point_2):
     """
     Calculates the angle of the line
 
-    Parameters
-    ----------
-    point_1, point_2: start and end points of shapely line
+    Args:
+        point_1, point_2: start and end points of shapely line
     """
     delta_y = point_2.y - point_1.y
     delta_x = point_2.x - point_1.x
@@ -618,17 +581,12 @@ def generate_perpendicular_line_precise(points, offset=20):
     """
     Generate a perpendicular line to the input line at the given point.
 
-    Parameters
-    ----------
-    points : shapely.geometry.Point list
-        The points on the line where the perpendicular should be generated.
-    offset : float, optional
-        The length of the perpendicular line.
+    Args:
+        points (list[Point]): The points on the line where the perpendicular should be generated.
+        offset (float): The length of the perpendicular line.
 
     Returns
-    -------
-    shapely.geometry.LineString
-        The generated perpendicular line.
+        shapely.geometry.LineString: The generated perpendicular line.
     """
     # Compute the angle of the line
     center = points[1]
@@ -675,20 +633,15 @@ def generate_perpendicular_line_precise(points, offset=20):
 def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corridor_threshold):
     """
     Calculate corridor raster
-    Parameters
-    ----------
-    raster_clip : raster
-    out_meta : raster file meta
-    source : list of point tuple(s)
-        start point in row/col
-    destination : list of point tuple(s)
-        end point in row/col
-    cell_size: tuple
-        (cell_size_x, cell_size_y)
-    corridor_threshold : double
+    Args:
+        raster_clip (raster): 
+        out_meta : raster file meta
+        source (list of point tuple(s)): start point in row/col
+        destination (list of point tuple(s)): end point in row/col
+        cell_size (tuple): (cell_size_x, cell_size_y)
+        corridor_threshold (double)
 
     Returns
-    -------
     corridor raster
     """
 
@@ -745,8 +698,6 @@ def LCP_skimage_mcp_connect(cost_clip, in_meta, seed_line):
     try:
 
         init_obj1 = MCP_Connect(cost_clip)
-        results = init_obj1.find_costs(source, destination)
-        # init_obj2 = MCP_Geometric(cost_clip)
         path = []
         for end in destination:
             path.append(init_obj1.traceback(end))
@@ -829,8 +780,6 @@ def dyn_np_cc_map(in_chm, canopy_ht_threshold, nodata):
 
     canopy_ndarray = np.ma.where(in_chm >= canopy_ht_threshold, 1., 0.).astype(float)
     canopy_ndarray.fill_value=nodata
-    # canopy_ndarray = np.ma.filled(canopy_ndarray, nodata)
-    # canopy_ndarray[canopy_ndarray==nodata]=np.NaN   # TODO check the code, extra step?
 
     return canopy_ndarray
 
@@ -839,8 +788,6 @@ def cost_raster(in_raster, meta):
     if len(in_raster.shape) > 2:
         in_raster = np.squeeze(in_raster, axis=0)
 
-    # raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-    # in_raster = np.squeeze(in_raster, axis=0)
     cell_x, cell_y = meta['transform'][0], -meta['transform'][4]
 
     kernel = convolution.circle_kernel(cell_x, cell_y, 2.5)
@@ -876,8 +823,6 @@ def cost_raster_2nd_version(
     if len(in_raster.shape) > 2:
         in_raster = np.squeeze(in_raster, axis=0)
 
-    # raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-    # in_raster = np.squeeze(in_raster, axis=0)
     cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
 
     kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
@@ -979,28 +924,7 @@ def generate_line_args_DFP_NoClip(line_seg, work_in_bufferL, work_in_bufferC, in
     for record in range(0, len(work_in_bufferR)):
         line_bufferR = work_in_bufferR.loc[record, 'geometry']
         RCut = work_in_bufferR.loc[record, 'RDist_Cut']
-        # clipped_rasterR, out_transformR = rasterio.mask.mask(in_chm, [line_bufferR], crop=True,
-        #                                                      nodata=BT_NODATA, filled=True)
-        # clipped_rasterR = np.squeeze(clipped_rasterR, axis=0)
-        #
-        # # make rasterio meta for saving raster later
-        # out_metaR = in_chm.meta.copy()
-        # out_metaR.update({"driver": "GTiff",
-        #                  "height": clipped_rasterR.shape[0],
-        #                  "width": clipped_rasterR.shape[1],
-        #                  "nodata": BT_NODATA,
-        #                  "transform": out_transformR})
         line_bufferC = work_in_bufferC.loc[record, 'geometry']
-        # clipped_rasterC, out_transformC = rasterio.mask.mask(in_chm, [line_bufferC], crop=True,
-        #                                                      nodata=BT_NODATA, filled=True)
-        #
-        # clipped_rasterC = np.squeeze(clipped_rasterC, axis=0)
-        # out_metaC = in_chm.meta.copy()
-        # out_metaC.update({"driver": "GTiff",
-        #                   "height": clipped_rasterC.shape[0],
-        #                   "width": clipped_rasterC.shape[1],
-        #                   "nodata": BT_NODATA,
-        #                   "transform": out_transformC})
 
         nodata = BT_NODATA
         # TODO deal with inherited nodata and BT_NODATA_COST

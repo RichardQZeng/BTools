@@ -17,32 +17,29 @@ import geopandas as gpd
 import shapely.ops
 from shapely.geometry import Polygon, MultiPolygon, MultiLineString, mapping, Point
 from beratools.tools.common import (
-    ParallelMode,
     generate_perpendicular_line_precise,
-    execute_multiprocessing,
     check_arguments,
 )
-from beratools.core.constants import FP_FIXED_WIDTH_DEFAULT
+from beratools.core.tool_base import execute_multiprocessing
+from beratools.core.constants import FP_FIXED_WIDTH_DEFAULT, ParallelMode
 from beratools.core.linegrouping import LineGrouping
 
 
 def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):
     """
-    Parameters
-    ----------
-    line_gdf
-    poly_gdf
-    n_samples
-    offset
+    Args:
+        line_gdf
+        poly_gdf
+        n_samples
+        offset
 
-    Returns
-    -------
-    line_args : list
-        row :
-        inter_poly :
-        n_samples :
-        offset :
-        i :  line ID
+    Returns:
+        line_args : list
+            row :
+            inter_poly :
+            n_samples :
+            offset :
+            i :  line ID
 
     """
     spatial_index = poly_gdf.sindex
@@ -72,19 +69,13 @@ def generate_sample_points(line, n_samples=10):
     """
     Generate evenly spaced points along a line.
 
-    Parameters
-    ----------
-    line : shapely LineString
-        The line along which to generate points.
-    n_samples : int, optional
-        The number of points to generate (default is 10).
+    Args:
+        line (LineString): The line along which to generate points.
+        n_samples (int): The number of points to generate (default is 10).
 
     Returns
-    -------
-    list
-        List of shapely Point objects.
+        list:  List of shapely Point objects.
     """
-    # return [line.interpolate(i / n_samples, normalized=True) for i in range(n_samples)]
     # TODO: determine line type
     try:
         pts = line.coords

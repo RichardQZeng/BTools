@@ -28,7 +28,7 @@ from beratools.tools.common import (
 )
 
 from beratools.core.constants import BT_NODATA, FP_CORRIDOR_THRESHOLD
-from beratools.tools.common import execute_multiprocessing
+from beratools.core.tool_base import execute_multiprocessing
 
 
 class Side(StrEnum):
@@ -51,9 +51,6 @@ class FootprintCanopy:
         return line
 
     def compute(self):
-        # for item in self.lines:
-        #     item.compute()
-        #     print("line computation done")
         result = execute_multiprocessing(
             self.process_single_line, self.lines, "Canopy Footprint", 18, 1
         )

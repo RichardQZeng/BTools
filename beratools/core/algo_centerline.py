@@ -1,30 +1,41 @@
 import numpy as np
+import pandas as pd
+from geopandas import GeoDataFrame
 from rasterio import features
 import shapely
 from shapely.geometry import shape
 from shapely.ops import unary_union, substring, linemerge, nearest_points, split
 from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, LineString, MultiLineString
-# from beratools.third_party.label_centerlines import get_centerline
 from label_centerlines import get_centerline
+from itertools import compress
 
-from beratools.core.tool_base import *
-from beratools.core.constants import *
+from beratools.core.tool_base import execute_multiprocessing
+from beratools.core.constants import (
+    BT_EPSILON,
+    CenterlineStatus,
+    CL_SEGMENTIZE_LENGTH,
+    CL_POLYGON_BUFFER,
+    CL_DELETE_HOLES,
+    CL_SIMPLIFY_POLYGON,
+    CL_SIMPLIFY_LENGTH,
+    CL_BUFFER_CLIP,
+    CL_SMOOTH_SIGMA,
+    CL_CLEANUP_POLYGON_BY_AREA,
+)
 from beratools.tools.common import generate_perpendicular_line_precise
 
 
 def centerline_is_valid(centerline, input_line):
-    """
-    Check if centerline is valid
-    Parameters
-    ----------
-    centerline :
-    input_line : shapely LineString
-        This can be input seed line or least cost path. Only two end points are used.
+    """Check if centerline is valid
 
-    Returns
-    -------
+    Args:
+        centerline (_type_): _description_
+        input_line (LineString): This can be input seed line or least cost path. Only two end points are used.
 
+    Returns:
+        bool: True if line is valid
     """
+
     if not centerline:
         return False
 
@@ -71,14 +82,11 @@ def snap_end_to_end(in_line, line_reference):
 
 def find_centerline(poly, input_line):
     """
-    Parameters
-    ----------
-    poly : Polygon
-    input_line : LineString
-        Least cost path or seed line
+    Args:
+        poly : Polygon
+        input_line ( LineString): Least cost path or seed line
 
-    Returns
-    -------
+    Returns:
 
     """
     default_return = input_line, CenterlineStatus.FAILED
@@ -152,7 +160,7 @@ def find_centerline(poly, input_line):
     # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(centerline, input_line):
         try:
-            print(f'Regenerating line ...')
+            print('Regenerating line ...')
             centerline = regenerate_centerline(poly, input_line)
             return centerline, CenterlineStatus.REGENERATE_SUCCESS
         except Exception as e:
@@ -160,11 +168,6 @@ def find_centerline(poly, input_line):
             return input_line, CenterlineStatus.REGENERATE_FAILED
 
     return centerline, CenterlineStatus.SUCCESS
-
-
-# def find_route(array, start, end, fully_connected, geometric):
-#     route_list, cost_list = route_through_array(array, start, end, fully_connected, geometric)
-#     return route_list, cost_list
 
 
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
@@ -201,7 +204,7 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
         corridor_polygon = None
 
     # create GeoDataFrame for centerline
-    corridor_poly_gpd = gpd.GeoDataFrame.copy(line_gpd)
+    corridor_poly_gpd = GeoDataFrame.copy(line_gpd)
     corridor_poly_gpd.geometry = [corridor_polygon]
 
     return corridor_poly_gpd
@@ -214,7 +217,7 @@ def process_single_centerline(row_and_path):
     ----------
     row_and_path:
         list of row (polygon and props) and least cost path
-        first is geopandas row, second is input line, (least cost path)
+        first is GeoPandas row, second is input line, (least cost path)
 
     Returns
     -------
@@ -231,14 +234,12 @@ def process_single_centerline(row_and_path):
 
 
 def find_centerlines(poly_gpd, line_seg, processes):
-    centerline = None
     centerline_gpd = []
     rows_and_paths = []
 
     try:
         for i in poly_gpd.index:
             row = poly_gpd.loc[[i]]
-            poly = row.geometry.iloc[0]
             if 'OLnSEG' in line_seg.columns:
                 line_id, Seg_id = row['OLnFID'].iloc[0], row['OLnSEG'].iloc[0]
                 lc_path = line_seg.loc[(line_seg.OLnFID == line_id) & (line_seg.OLnSEG == Seg_id)]['geometry'].iloc[0]
@@ -250,26 +251,6 @@ def find_centerlines(poly_gpd, line_seg, processes):
     except Exception as e:
         print(f"find_centerlines: {e}")
 
-    total_steps = len(rows_and_paths)
-    step = 0
-
-    # if PARALLEL_MODE == ParallelMode.MULTIPROCESSING:
-    #     with Pool(processes=processes) as pool:
-    #         # execute tasks in order, process results out of order
-    #         for result in pool.imap_unordered(process_single_centerline, rows_and_paths):
-    #             centerline_gpd.append(result)
-    #             step += 1
-    #             print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-    #             print(' %{} '.format(step / total_steps * 100))
-    #             print('Centerline No. {} done'.format(step))
-    # elif PARALLEL_MODE == ParallelMode.SEQUENTIAL:
-    #     for item in rows_and_paths:
-    #         row_with_centerline = process_single_centerline(item)
-    #         centerline_gpd.append(row_with_centerline)
-    #         step += 1
-    #         print(' "PROGRESS_LABEL Centerline {} of {}" '.format(step, total_steps), flush=True)
-    #         print(' %{} '.format(step / total_steps * 100))
-    #         print('Centerline No. {} done'.format(step))
     centerline_gpd = execute_multiprocessing(process_single_centerline, rows_and_paths,
                                              'find_centerlines', processes, 1)
     return pd.concat(centerline_gpd)
@@ -277,15 +258,13 @@ def find_centerlines(poly_gpd, line_seg, processes):
 
 def regenerate_centerline(poly, input_line):
     """
-    Regenerates centerline when initial
-    ----------
-    poly : line is not valid
-    Parameters
-    input_line : shapely LineString
-        This can be input seed line or least cost path. Only two end points will be used
+    Regenerates centerline when initial poly is not valid
 
-    Returns
-    -------
+    Args:
+        input_line (LineString): This can be input seed line or least cost path. Only two end points will be used
+
+    Returns:
+        MultiLineString
 
     """
     line_1 = substring(input_line, start_dist=0.0, end_dist=input_line.length / 2)
@@ -349,5 +328,5 @@ def regenerate_centerline(poly, input_line):
     except Exception as e:
         print(f"regenerate_centerline: {e}")
 
-    print(f'Centerline is regenerated.')
+    print('Centerline is regenerated.')
     return linemerge(MultiLineString([center_line_1, center_line_2]))
