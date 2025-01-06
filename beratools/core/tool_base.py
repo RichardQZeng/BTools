@@ -54,8 +54,16 @@ def print_msg(app_name, step, total_steps):
     print(f' %{step / total_steps * 100} ', flush=True)
 
 
-def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
-                            mode=PARALLEL_MODE, verbose=False):
+def execute_multiprocessing(
+    in_func,
+    in_data,
+    app_name,
+    processes,
+    workers,
+    mode=PARALLEL_MODE,
+    verbose=False,
+    scheduler_file="dask_scheduler.json",
+):
     out_result = []
     step = 0
     print("Using {} CPU cores".format(processes), flush=True)
@@ -106,8 +114,12 @@ def execute_multiprocessing(in_func, in_data, app_name, processes, workers,
                             print_msg(app_name, step, total_steps)
                         else:
                             pbar.update()
-        elif mode == ParallelMode.DASK:
-            dask_client = Client(threads_per_worker=1, n_workers=processes)
+        elif mode == ParallelMode.DASK or mode == ParallelMode.SLURM:
+            if mode == ParallelMode.DASK:
+                dask_client = Client(threads_per_worker=1, n_workers=processes)
+            elif mode == ParallelMode.SLURM:
+                dask_client = Client(scheduler_file)
+
             print(dask_client)
             try:
                 print('start processing')
