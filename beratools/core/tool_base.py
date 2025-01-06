@@ -1,5 +1,4 @@
 from multiprocessing.pool import Pool
-import multiprocessing
 import concurrent.futures
 import warnings
 from tqdm.auto import tqdm
@@ -9,7 +8,7 @@ import geopandas as gpd
 
 from beratools.core.constants import PARALLEL_MODE, ParallelMode
 
-from dask.distributed import Client, as_completed
+from dask.distributed import Client, as_completed, progress
 from dask import config as cfg
 import dask.distributed
 # import ray
@@ -147,17 +146,18 @@ def execute_multiprocessing(
                 print("start processing")
                 result = dask_client.map(in_func, in_data)
                 # seq = as_completed(result)
+                progress(result)
 
-                with tqdm(total=total_steps, disable=verbose) as pbar:
-                    for i in seq:
-                        if result_is_valid(result):
-                            out_result.append(i.result())
+                # with tqdm(total=total_steps, disable=verbose) as pbar:
+                #     for i in seq:
+                #         if result_is_valid(result):
+                #             out_result.append(i.result())
 
-                        step += 1
-                        if verbose:
-                            print_msg(app_name, step, total_steps)
-                        else:
-                            pbar.update()
+                #         step += 1
+                #         if verbose:
+                #             print_msg(app_name, step, total_steps)
+                #         else:
+                #             pbar.update()
             except Exception as e:
                 dask_client.close()
 
