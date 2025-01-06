@@ -13,7 +13,7 @@ if __name__ == "__main__":
     sys.path.insert(0, btool_dir.as_posix())
 
 from beratools.tools.centerline import centerline
-from notebooks.footprint_canopy import FootprintCanopy
+from beratools.core.algo_footprint_canopy_rel import FootprintCanopy
 from beratools.tools.line_footprint_fixed import line_footprint_fixed
 
 import yaml
@@ -41,17 +41,16 @@ if __name__ == '__main__':
     print(args_centerline)
     # centerline(**args_centerline, processes=processes, verbose=verbose)
 
-    # alternative relative footprint
+    # canopy footprint
     fp_params = params['args_footprint_canopy']
     in_file = fp_params['in_file']
     in_chm = fp_params["in_chm"]
     out_file_percentile = fp_params["out_file_percentile"]
     out_file_fp = fp_params["out_file_fp"]
 
-    # footprint = FootprintCanopy(in_file, in_chm)
-    # footprint.compute()
-    # footprint.savve_line_percentile(out_file_percentile)
-    # footprint.save_footprint(out_file_fp)
+    footprint = FootprintCanopy(in_file, in_chm)
+    footprint.compute()
+    footprint.save_footprint(out_file_fp)
 
     # ground footprint
     args_line_footprint_fixed = params["args_line_footprint_fixed"]
