@@ -59,7 +59,7 @@ def execute_multiprocessing(
     in_data,
     app_name,
     processes,
-    workers,
+    workers=1,
     mode=PARALLEL_MODE,
     verbose=False,
     scheduler_file="dask_scheduler.json",
