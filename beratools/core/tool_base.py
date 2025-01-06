@@ -140,7 +140,28 @@ def execute_multiprocessing(
                 dask_client.close()
 
             dask_client.close()
+        elif mode == ParallelMode.SLURM:
+            dask_client = Client(scheduler_file=scheduler_file)
+            print(dask_client)
+            try:
+                print("start processing")
+                result = dask_client.map(in_func, in_data)
+                # seq = as_completed(result)
 
+                with tqdm(total=total_steps, disable=verbose) as pbar:
+                    for i in seq:
+                        if result_is_valid(result):
+                            out_result.append(i.result())
+
+                        step += 1
+                        if verbose:
+                            print_msg(app_name, step, total_steps)
+                        else:
+                            pbar.update()
+            except Exception as e:
+                dask_client.close()
+
+            dask_client.close()
         # ! important !
         # comment temporarily, man enable later if need to use ray
         # elif mode == ParallelMode.RAY:
