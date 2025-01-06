@@ -52,7 +52,9 @@ if __name__ == "__main__":
     current_file = Path(getsourcefile(lambda: 0)).resolve()
     btool_dir = current_file.parents[2]
     sys.path.insert(0, btool_dir.as_posix())
+
 from beratools.core.tool_base import *
+from beratools.core.constants import *
 
 # to suppress pandas UserWarning: Geometry column does not contain geometry when splitting lines
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -415,8 +417,6 @@ def raster_crs(in_raster):
             exit()
 
 
-
-
 def compare_crs(crs_org, crs_dst):
     if crs_org and crs_dst:
         if crs_org.IsSameGeogCS(crs_dst):
@@ -712,7 +712,7 @@ def corridor_raster(raster_clip, out_meta, source, destination, cell_size, corri
         corridor = np.ma.masked_invalid(corridor)
 
         # Calculate minimum value of corridor raster
-        if not np.ma.min(corridor) is None:
+        if np.ma.min(corridor) is not None:
             corr_min = float(np.ma.min(corridor))
         else:
             corr_min = 0.5
@@ -860,6 +860,70 @@ def cost_raster(in_raster, meta):
     return cost_clip, dyn_canopy_ndarray
 
 
+def cost_raster_2nd_version(
+    in_raster,
+    meta,
+    tree_radius,
+    canopy_ht_threshold,
+    max_line_dist,
+    canopy_avoid,
+    cost_raster_exponent,
+):
+    """
+    This is the general version of cost_raster
+    To be merged later: variables and consistent nodata solution
+    """
+    if len(in_raster.shape) > 2:
+        in_raster = np.squeeze(in_raster, axis=0)
+
+    # raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
+    # in_raster = np.squeeze(in_raster, axis=0)
+    cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
+
+    kernel = convolution.circle_kernel(cell_x, cell_y, tree_radius)
+    dyn_canopy_ndarray = dyn_np_cc_map(in_raster, canopy_ht_threshold, BT_NODATA)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, BT_NODATA)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
+
+    # TODO avoidance, re-use this code
+    avoidance = max(min(float(canopy_avoid), 1), 0)
+    cost_clip = dyn_np_cost_raster(
+        dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
+    )
+
+    # TODO use nan or BT_DATA?
+    cost_clip[in_raster == BT_NODATA] = np.nan
+    dyn_canopy_ndarray[in_raster == BT_NODATA] = np.nan
+
+    return cost_clip, dyn_canopy_ndarray
+
+
+def morph_raster(corridor_thresh, canopy_raster, exp_shk_cell, cell_size_x):
+    # Process: Stamp CC and Max Line Width
+    ras_sum = corridor_thresh + canopy_raster
+    raster_class = np.ma.where(ras_sum == 0, 1, 0).data
+
+    if exp_shk_cell > 0 and cell_size_x < 1:
+        # Process: Expand
+        # FLM original Expand equivalent
+        cell_size = int(exp_shk_cell * 2 + 1)
+        expanded = ndimage.grey_dilation(raster_class, size=(cell_size, cell_size))
+
+        # Process: Shrink
+        # FLM original Shrink equivalent
+        file_shrink = ndimage.grey_erosion(expanded, size=(cell_size, cell_size))
+
+    else:
+        if BT_DEBUGGING:
+            print("No Expand And Shrink cell performed.")
+        file_shrink = raster_class
+
+    # Process: Boundary Clean
+    clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode="nearest")
+
+    return clean_raster
+
+
 def generate_line_args_NoClipraster(line_seg, work_in_buffer, in_chm_obj, in_chm, tree_radius, max_line_dist,
                                     canopy_avoidance, exponent, canopy_thresh_percentage):
     line_argsC = []
@@ -968,4 +1032,3 @@ def read_data2gpd(in_data):
     print("Reading data.......")
     out_gpd_obj = gpd.GeoDataFrame.from_file(in_data)
     return out_gpd_obj
-

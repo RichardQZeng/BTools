@@ -15,8 +15,14 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import shapely.ops
-from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString
-from beratools.tools.common import *
+from shapely.geometry import Polygon, MultiPolygon, MultiLineString, mapping, Point
+from beratools.tools.common import (
+    ParallelMode,
+    generate_perpendicular_line_precise,
+    execute_multiprocessing,
+    check_arguments,
+)
+from beratools.core.constants import FP_FIXED_WIDTH_DEFAULT
 from beratools.core.linegrouping import LineGrouping
 
 
@@ -90,41 +96,6 @@ def generate_sample_points(line, n_samples=10):
     return [Point(item) for item in pts]
 
 
-# def generate_perpendicular_line(point, line, offset=FP_PERP_LINE_OFFSET):
-#     """
-#     THIS IS NOT
-#     generate_perpendicular_line_precise IS USED INSTEAD
-
-#     Generate a perpendicular line to the input line at the given point.
-
-#     Parameters
-#     ----------
-#     point : shapely.geometry.Point
-#         The point on the line where the perpendicular should be generated.
-#     line : shapely.geometry.LineString
-#         The line to which the perpendicular line will be generated.
-#     offset : float, optional
-#         The length of the perpendicular line.
-
-#     Returns
-#     -------
-#     shapely.geometry.LineString
-#         The generated perpendicular line.
-#     """
-#     # Compute the angle of the line
-#     p1, p2 = line.coords[0], line.coords[-1]  # Modify this line
-#     angle = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
-
-#     # Compute the angle of the perpendicular line
-#     angle_perp = angle + np.pi / 2.0  # Perpendicular angle
-
-#     # Generate the perpendicular line
-#     perp_line = LineString([(point.x - offset * np.cos(angle_perp), point.y - offset * np.sin(angle_perp)),
-#                             (point.x + offset * np.cos(angle_perp), point.y + offset * np.sin(angle_perp))])
-
-#     return perp_line
-
-
 def process_single_line(line_arg):
     row = line_arg[0]
     inter_poly = line_arg[1]
@@ -162,7 +133,7 @@ def process_single_line(line_arg):
     except Exception as e:
         print(e)
 
-    print('line processed: {}'.format(line_id))
+    # print('line processed: {}'.format(line_id))
 
     return row
 
@@ -284,7 +255,7 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
 
     line_args = prepare_line_args(merged_line_gdf, poly_gdf, n_samples, offset)
     out_lines = execute_multiprocessing(process_single_line, line_args, 'Fixed footprint',
-                                        processes, 1, verbose=verbose)
+                                        processes, workers=1, mode=ParallelMode.MULTIPROCESSING, verbose=verbose)
     line_attr = pd.concat(out_lines)
 
     # create fixed width footprint

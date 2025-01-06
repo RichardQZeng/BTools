@@ -234,9 +234,10 @@ def process_single_line_segment(dict_segment):
         corridor_thresh = corridor_raster(clip_cost, out_meta, source, destination,
                                           (cell_size_x, cell_size_y), corridor_th_value)
 
-        def morph_raster(corridor_raster, canopy_raster, exp_shk_cell, cell_size_x):
+        # TODO use function from common
+        def morph_raster(corridor_thresh, canopy_raster, exp_shk_cell, cell_size_x):
             # Process: Stamp CC and Max Line Width
-            temp1 = (corridor_thresh + clip_canopy)
+            temp1 = corridor_thresh + canopy_raster
             raster_class = np.ma.where(temp1 == 0, 1, 0).data
 
             if exp_shk_cell > 0 and cell_size_x < 1:
@@ -259,7 +260,9 @@ def process_single_line_segment(dict_segment):
 
             return clean_raster
 
-        clean_raster = morph_raster(corridor_thresh, in_canopy, exp_shk_cell, cell_size_x)
+        clean_raster = morph_raster(
+            corridor_thresh, in_canopy, exp_shk_cell, cell_size_x
+        )
 
         # creat mask for non-polygon area
         msk = np.where(clean_raster == 1, True, False)
