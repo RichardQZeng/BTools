@@ -23,6 +23,7 @@ gdal_env
 
 processes = 18
 verbose = False
+platform_str = "hpc"
 
 if __name__ == '__main__':
     if len(sys.argv) > 2:
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     # centerline
     args_centerline = params['args_centerline']
     print(args_centerline)
-    # centerline(**args_centerline, processes=processes, verbose=verbose)
+    centerline(**args_centerline, processes=processes, verbose=verbose)
 
     # canopy footprint
     fp_params = params['args_footprint_canopy']
@@ -48,14 +49,14 @@ if __name__ == '__main__':
     out_file_percentile = fp_params["out_file_percentile"]
     out_file_fp = fp_params["out_file_fp"]
 
-    footprint = FootprintCanopy(in_file, in_chm)
-    footprint.compute()
-    footprint.save_footprint(out_file_fp)
+    # footprint = FootprintCanopy(in_file, in_chm)
+    # footprint.compute()
+    # footprint.save_footprint(out_file_fp)
 
     # ground footprint
     args_line_footprint_fixed = params["args_line_footprint_fixed"]
     print(args_line_footprint_fixed)
 
-    line_footprint_fixed(
-        callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
-    )
+    # line_footprint_fixed(
+    #     callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
+    # )
