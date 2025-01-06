@@ -118,7 +118,7 @@ def execute_multiprocessing(
             if mode == ParallelMode.DASK:
                 dask_client = Client(threads_per_worker=1, n_workers=processes)
             elif mode == ParallelMode.SLURM:
-                dask_client = Client(scheduler_file)
+                dask_client = Client(scheduler_file=scheduler_file)
 
             print(dask_client)
             try:
