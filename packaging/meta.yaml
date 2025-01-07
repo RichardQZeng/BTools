@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/RichardQZeng/BTools/archive/{{ version }}.tar.gz
-  sha256: 973df933fc0e85895aa6579a81f75adf63e2c126fcaa50324f802c56d713af29
+  sha256: d4136c976740ac96a8f7991372cbc0f959893afc0e8bbf47273e7d80e8c55542
 
 build:
   entry_points:
@@ -23,8 +23,12 @@ requirements:
     - pip
   run:
     - python >=3.9
-    - dask
     - bera_centerlines
+    - dask
+    - dask-expr
+    - distributed
+    - fiona
+    - gdal
     - geopandas
     - pip
     - pyogrio
@@ -41,6 +45,7 @@ requirements:
     - r-sp
     - r-terra
     - scikit-image
+    - tqdm
     - xarray-spatial
 
 test:
