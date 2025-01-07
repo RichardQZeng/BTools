@@ -35,7 +35,6 @@ class Side(StrEnum):
     left = "left"
     right = "right"
 
-
 class FootprintCanopy:
     def __init__(self, in_geom, in_chm):
         data = gpd.read_file(in_geom)
@@ -49,7 +48,7 @@ class FootprintCanopy:
     def process_single_line(line):
         line.compute()
         return line
-
+    
     def compute(self):
         result = execute_multiprocessing(
             self.process_single_line, self.lines, "Canopy Footprint", 18, 1

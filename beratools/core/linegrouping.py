@@ -508,7 +508,7 @@ class LineGrouping:
 
     @staticmethod
     def run_line_merge(in_line_gdf):
-        out_line_gdf = in_line_gdf.dissolve(by=GROUP_ATTRIBUTE)
+        out_line_gdf = in_line_gdf.dissolve(by=GROUP_ATTRIBUTE, as_index=False)
         out_line_gdf.geometry = out_line_gdf.line_merge()
         num = 0
         for i in out_line_gdf.itertuples():

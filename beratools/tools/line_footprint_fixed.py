@@ -112,10 +112,10 @@ def process_single_line(line_arg):
     # Store the 75th percentile width as a new attribute
     row['avg_width'] = q3_width
     row['max_width'] = q4_width
-    hist, bins = np.histogram(widths)
-    bins = pd.Series(bins).rolling(2).mean()[1:].to_numpy()  # mid-points of bins
-    row['width_hist'] = str(hist)
-    row['width_bins'] = str(bins)
+    # hist, bins = np.histogram(widths)
+    # bins = pd.Series(bins).rolling(2).mean()[1:].to_numpy()  # mid-points of bins
+    # row['width_hist'] = str(hist)
+    # row['width_bins'] = str(bins)
 
     row['geometry'] = line
     try:
