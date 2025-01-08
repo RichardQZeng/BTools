@@ -9,8 +9,8 @@ package:
   version: ${{ version }}
 
 source:
-  url: https://github.com/RichardQZeng/BTools/archive/${{ version }}.tar.gz
-  sha256: d4136c976740ac96a8f7991372cbc0f959893afc0e8bbf47273e7d80e8c55542
+  git: https://github.com/RichardQZeng/BTools.git
+  tag: 0.2.0
 
 build:
   number: 0
@@ -53,15 +53,20 @@ requirements:
     - xarray-spatial
 
 tests:
+  - script:
+      - pytest ./tests
+    
+    files:
+      source:
+        - tests/
+
+    requirements:
+      run:
+        - pytest
+
   - python:
       imports:
         - beratools
-  - requirements:
-      run:
-        - pip
-    script:
-      - pip check
-      - BERATools --help
 
 about:
   summary: An advanced forest line feature analysis platform
