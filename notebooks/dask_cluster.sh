@@ -5,9 +5,6 @@
 #SBATCH --cpus-per-task=12                             # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=1900MB                          # memory per cpu-core (2G is default)
 #SBATCH --time=01:00:00                               # total run time limit (HH:MM:SS)
-#SBATCH --mail-type=begin                             # send email when job begins
-#SBATCH --mail-type=end                               # send email when job ends
-#SBATCH --mail-user=EMAIL_TO_USE
 
 source ~/software/init-conda
 conda activate bera
