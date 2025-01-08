@@ -145,8 +145,12 @@ def execute_multiprocessing(
             try:
                 print("start processing")
                 result = dask_client.map(in_func, in_data)
-                # seq = as_completed(result)
+                seq = as_completed(result)
                 progress(result)
+
+                for i in seq:
+                    if result_is_valid(result):
+                        out_result.append(i.result())
 
                 # with tqdm(total=total_steps, disable=verbose) as pbar:
                 #     for i in seq:
