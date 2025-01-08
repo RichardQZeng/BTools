@@ -147,17 +147,6 @@ def execute_multiprocessing(
                 for i in seq:
                     if result_is_valid(result):
                         out_result.append(i.result())
-
-                # with tqdm(total=total_steps, disable=verbose) as pbar:
-                #     for i in seq:
-                #         if result_is_valid(result):
-                #             out_result.append(i.result())
-
-                #         step += 1
-                #         if verbose:
-                #             print_msg(app_name, step, total_steps)
-                #         else:
-                #             pbar.update()
             except Exception as e:
                 dask_client.close()
 
