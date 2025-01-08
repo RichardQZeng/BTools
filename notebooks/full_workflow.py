@@ -12,9 +12,11 @@ if __name__ == "__main__":
     btool_dir = current_file.parents[1]
     sys.path.insert(0, btool_dir.as_posix())
 
+from beratools.core.constants import PARALLEL_MODE, ParallelMode
 from beratools.tools.centerline import centerline
 from beratools.core.algo_footprint_canopy_rel import FootprintCanopy
 from beratools.tools.line_footprint_fixed import line_footprint_fixed
+
 
 import yaml
 
@@ -31,6 +33,10 @@ if __name__ == '__main__':
         print(f'CPU cores: {processes}')
         platform_str = sys.argv[2]
 
+    # setup for HPC cluster
+    if platform_str == 'hpc':
+        PARALLEL_MODE = ParallelMode.SLURM
+
     yml_file = current_folder.joinpath("params_" + platform_str).with_suffix(".yml")
     print(f"Config file: {yml_file}")
 
@@ -40,6 +46,8 @@ if __name__ == '__main__':
     # centerline
     args_centerline = params['args_centerline']
     print(args_centerline)
+    print(f'Parallel mode: {PARALLEL_MODE}')
+    args_centerline["parallel_mode"] = PARALLEL_MODE
     centerline(**args_centerline, processes=processes, verbose=verbose)
 
     # canopy footprint
@@ -49,14 +57,15 @@ if __name__ == '__main__':
     out_file_percentile = fp_params["out_file_percentile"]
     out_file_fp = fp_params["out_file_fp"]
 
-    # footprint = FootprintCanopy(in_file, in_chm)
-    # footprint.compute()
-    # footprint.save_footprint(out_file_fp)
+    footprint = FootprintCanopy(in_file, in_chm)
+    footprint.compute(PARALLEL_MODE)
+    footprint.save_footprint(out_file_fp)
 
     # ground footprint
     args_line_footprint_fixed = params["args_line_footprint_fixed"]
+    args_line_footprint_fixed["parallel_mode"] = PARALLEL_MODE
     print(args_line_footprint_fixed)
 
-    # line_footprint_fixed(
-    #     callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
-    # )
+    line_footprint_fixed(
+        callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
+    )
