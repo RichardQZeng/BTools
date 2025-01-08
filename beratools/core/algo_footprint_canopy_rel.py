@@ -49,9 +49,9 @@ class FootprintCanopy:
         line.compute()
         return line
     
-    def compute(self):
+    def compute(self, parallel_mode):
         result = execute_multiprocessing(
-            self.process_single_line, self.lines, "Canopy Footprint", 18, 1
+            self.process_single_line, self.lines, "Canopy Footprint", 18, 1, parallel_mode
         )
 
         fp = [item.footprint for item in result]

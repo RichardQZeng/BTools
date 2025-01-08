@@ -113,13 +113,9 @@ def execute_multiprocessing(
                             print_msg(app_name, step, total_steps)
                         else:
                             pbar.update()
-        elif mode == ParallelMode.DASK or mode == ParallelMode.SLURM:
-            if mode == ParallelMode.DASK:
-                dask_client = Client(threads_per_worker=1, n_workers=processes)
-            elif mode == ParallelMode.SLURM:
-                dask_client = Client(scheduler_file=scheduler_file)
-
-            print(dask_client)
+        elif mode == ParallelMode.DASK:
+            dask_client = Client(threads_per_worker=1, n_workers=processes)
+            print(f"Local Dask client: {dask_client}")
             try:
                 print('start processing')
                 result = dask_client.map(in_func, in_data)
@@ -141,7 +137,7 @@ def execute_multiprocessing(
             dask_client.close()
         elif mode == ParallelMode.SLURM:
             dask_client = Client(scheduler_file=scheduler_file)
-            print(dask_client)
+            print(f"Slurm cluster Dask client: {dask_client}")
             try:
                 print("start processing")
                 result = dask_client.map(in_func, in_data)

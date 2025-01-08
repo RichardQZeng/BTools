@@ -21,7 +21,7 @@ from beratools.tools.common import (
     check_arguments,
 )
 from beratools.core.tool_base import execute_multiprocessing
-from beratools.core.constants import FP_FIXED_WIDTH_DEFAULT, ParallelMode
+from beratools.core.constants import FP_FIXED_WIDTH_DEFAULT, PARALLEL_MODE
 from beratools.core.linegrouping import LineGrouping
 
 
@@ -233,8 +233,18 @@ def calculate_average_width(line, polygon, offset, n_samples):
     return widths, line, MultiLineString(perp_lines), MultiLineString(perp_lines_original)
 
 
-def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max_width,
-                         out_footprint, processes, verbose):
+def line_footprint_fixed(
+    callback,
+    in_line,
+    in_footprint,
+    n_samples,
+    offset,
+    max_width,
+    out_footprint,
+    processes,
+    verbose,
+    parallel_mode=PARALLEL_MODE,
+):
     n_samples = int(n_samples)
     offset = float(offset)
     line_gdf = gpd.read_file(in_line)
@@ -247,7 +257,9 @@ def line_footprint_fixed(callback, in_line, in_footprint, n_samples, offset, max
     line_args = prepare_line_args(merged_line_gdf, poly_gdf, n_samples, offset)
     del poly_gdf
 
-    out_lines = execute_multiprocessing(process_single_line, line_args, 'Fixed footprint', processes)
+    out_lines = execute_multiprocessing(
+        process_single_line, line_args, "Fixed footprint", processes, mode=parallel_mode
+    )
     line_attr = pd.concat(out_lines)
 
     # create fixed width footprint

@@ -26,6 +26,7 @@ from beratools.core.constants import (
     CL_USE_SKIMAGE_GRAPH,
     CenterlineStatus,
     FP_CORRIDOR_THRESHOLD,
+    PARALLEL_MODE,
 )
 from beratools.core.tool_base import execute_multiprocessing
 from beratools.tools.common import (
@@ -119,6 +120,7 @@ def centerline(
     processes,
     verbose,
     callback=print,
+    parallel_mode=PARALLEL_MODE,
 ):
     if not compare_crs(vector_crs(in_line), raster_crs(in_raster)):
         print("Line and CHM have different spatial references, please check.")
@@ -181,7 +183,12 @@ def centerline(
     center_line_geoms = []
     corridor_poly_list = []
     result = execute_multiprocessing(
-        process_single_line, all_lines, "Centerline", processes, verbose=verbose
+        process_single_line,
+        all_lines,
+        "Centerline",
+        processes,
+        verbose=verbose,
+        mode=parallel_mode,
     )
 
     for item in result:
