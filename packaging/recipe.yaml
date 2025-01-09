@@ -10,7 +10,8 @@ package:
 
 source:
   git: https://github.com/RichardQZeng/BTools.git
-  tag: 0.2.0
+  # tag: 0.2.0
+  rev: ba68f27ded2abaac34e741df6bf4f611a1e214c0
 
 build:
   number: 0

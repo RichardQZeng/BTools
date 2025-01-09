@@ -6,8 +6,8 @@ package:
   version: {{ version }}
 
 source:
-  url: https://github.com/RichardQZeng/BTools/archive/{{ version }}.tar.gz
-  sha256: d4136c976740ac96a8f7991372cbc0f959893afc0e8bbf47273e7d80e8c55542
+  git_url: https://github.com/RichardQZeng/BTools.git
+  git_tag: 0.2.0
 
 build:
   entry_points:
@@ -52,8 +52,10 @@ test:
   imports:
     - beratools
   commands:
-    - pip check
-    - BERATools --help
+    - pytest ./tests
+  source_files:
+    - tests
+
   requires:
     - pip
 
