@@ -391,6 +391,7 @@ class BTData(object):
             else:
                 new_param['flag'] = 'FIXME'
 
+            new_param['output'] = param['output']
             if not param['output']:
                 if param['type'] == 'list':
                     if tool_name == 'Batch Processing':

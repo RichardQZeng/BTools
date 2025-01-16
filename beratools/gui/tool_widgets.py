@@ -1,7 +1,10 @@
 import os
 import sys
+import json
+import json
 import pyogrio
 import numpy as np
+from pathlib import Path
 
 from PyQt5.QtWidgets import (
     QApplication,
@@ -24,10 +27,9 @@ from PyQt5.QtWidgets import (
 )
 
 from PyQt5.QtCore import pyqtSignal, Qt, QPoint
-import json
 
 import beratools.core.constants as bt_const
-from common import *
+import beratools.tools.common as bt_common
 
 
 class ToolWidgets(QWidget):
@@ -178,6 +180,7 @@ class FileSelector(QWidget):
         if 'layer' in params.keys():
             self.layer_flag = params['layer']
 
+        self.output = params['output']  # Ensure output flag is read
         self.parameter_type = params['parameter_type']
         self.file_type = ""
         if "ExistingFile" in self.parameter_type:
@@ -212,6 +215,24 @@ class FileSelector(QWidget):
 
         # text changed
         self.in_file.textChanged.connect(self.set_value)
+
+        # Handle showing the layer combo and making it editable when needed
+        if self.value.lower().endswith('.gpkg'):
+            self.layer_combo.setVisible(True)  # Show the combo box if it's a .gpkg
+            if self.output:
+                self.layer_combo.setEditable(True)  # Ensure it's editable if output is True
+                self.layer_combo.addItem("")  # Add an empty item to the combo box
+                # If the .gpkg file doesn't exist, show empty layer
+                if not os.path.exists(self.value):
+                    self.layer_combo.clear()  # Clear the combo box
+                    self.layer_combo.addItem("No layers available")  # Show "No layers available"
+            else:
+                self.layer_combo.setEditable(False)  # Set it as non-editable if output is False
+                self.load_gpkg_layers(self.value)  # Load layers if output is False
+
+        # If the file is not a .gpkg, don't show the combo box at all
+        elif self.layer_combo.isVisible():
+            self.layer_combo.setVisible(False)
 
     def select_file(self):
         try:
@@ -275,7 +296,14 @@ class FileSelector(QWidget):
 
             # Check if the selected file is a GeoPackage (.gpkg)
             if result.lower().endswith('.gpkg'):
-                self.load_gpkg_layers(result)
+                if not os.path.exists(result):
+                    # If GeoPackage doesn't exist, clear the combo box and show empty
+                    self.layer_combo.clear()
+                    self.layer_combo.addItem("No layers available")
+                else:
+                    self.load_gpkg_layers(result)
+                    if self.output:
+                        self.layer_combo.setEditable(True)  # Ensure it's editable when output is True
             else:
                 self.layer_combo.setVisible(False)  # Hide the layer list if not a GeoPackage
 
@@ -357,6 +385,7 @@ class FileSelector(QWidget):
             value.update({self.layer_flag: self.selected_layer})  # Store the layer name (key)
 
         return value
+
 
 
 class FileOrFloat(QWidget):
