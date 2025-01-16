@@ -1,5 +1,7 @@
 import os
 import sys
+import pyogrio
+
 from PyQt5.QtWidgets import (
     QApplication,
     QLineEdit,
@@ -23,6 +25,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import pyqtSignal, Qt, QPoint
 from re import search
 
+import beratools.core.constants as bt_const
 from common import *
 
 
@@ -141,11 +144,13 @@ class ToolWidgets(QWidget):
             item.set_default_value()
 
 
+import os
+
 class FileSelector(QWidget):
     def __init__(self, json_str, parent=None):
         super(FileSelector, self).__init__(parent)
 
-        # first make sure that the json data has the correct fields
+        # Parsing the JSON data
         params = json.loads(json_str)
         self.name = params['name']
         self.description = params['description']
@@ -160,18 +165,25 @@ class FileSelector(QWidget):
 
         self.default_value = params['default_value']
         self.value = self.default_value
+        self.selected_layer = None  # Add attribute for selected layer
         if 'saved_value' in params.keys():
             self.value = params['saved_value']
 
         self.layout = QHBoxLayout()
         self.label = QLabel(self.name)
-        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(200)
         self.in_file = QLineEdit(self.value)
         self.btn_select = QPushButton("...")
         self.btn_select.clicked.connect(self.select_file)
+
+        # ComboBox for displaying GeoPackage layers
+        self.layer_combo = QComboBox()
+        self.layer_combo.setVisible(False)  # Initially hidden
+        self.layer_combo.currentTextChanged.connect(self.set_layer)  # Connect layer change event
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.in_file)
         self.layout.addWidget(self.btn_select)
+        self.layout.addWidget(self.layer_combo)
 
         self.setLayout(self.layout)
 
@@ -187,108 +199,140 @@ class FileSelector(QWidget):
             result = None
             file_names = None
 
-            if "Directory" in self.parameter_type:
-                dialog.setFileMode(QFileDialog.Directory)
+            # Set the file type filter dynamically before opening the dialog
+            file_types = "All files (*.*)"
+            if 'RasterAndVector' in self.file_type:
+                file_types = """Shapefiles (*.shp);; 
+                                Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.rdc *.asc *grd)"""
+            elif 'Raster' in self.file_type:
+                file_types = """Tiff raster files (*.tif *.tiff);; 
+                                Other raster files (*.dep *.bil *.flt *.sdat *.rdc *.asc *.grd)"""
+            elif 'Lidar' in self.file_type:
+                file_types = "LiDAR files (*.las *.zlidar *.laz *.zip)"
+            elif 'Vector' in self.file_type:
+                file_types = """GeoPackage (*.gpkg);;
+                                Shapefiles (*.shp)"""
+            elif 'Text' in self.file_type:
+                file_types = "Text files (*.txt);; all files (*.*)"
+            elif 'Csv' in self.file_type:
+                file_types = "CSV files (*.csv);; all files (*.*)"
+            elif 'Dat' in self.file_type:
+                file_types = "Binary data files (*.dat);; all files (*.*)"
+            elif 'Html' in self.file_type:
+                file_types = "HTML files (*.html)"
+            elif 'json' in self.file_type or 'JSON' in self.file_type:
+                file_types = "JSON files (*.json)"
 
-                if dialog.exec_():
-                    folder_name = dialog.selectedFiles()
-                    print(folder_name)
-                    self.set_value(folder_name)
-            elif "ExistingFile" in self.parameter_type or "NewFile" in self.parameter_type:
-                file_types = "All files '*.*')"
-                if 'RasterAndVector' in self.file_type:
-                    file_types = """Shapefiles (*.shp);; 
-                                    Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.rdc *.asc *grd)"""
-                elif 'Raster' in self.file_type:
-                    file_types = """Tiff raster files (*.tif *.tiff);; 
-                                    Other raster files (*.dep *.bil *.flt *.sdat *.rdc *.asc *.grd)"""
-                elif 'Lidar' in self.file_type:
-                    file_types = "LiDAR files (*.las *.zlidar *.laz *.zip)"
-                elif 'Vector' in self.file_type:
-                    file_types = """Shapefiles (*.shp);;
-                                    GeoPackage (*.gpkg)"""
-                elif 'Text' in self.file_type:
-                    file_types = "Text files (*.txt);; all files (*.*)"
-                elif 'Csv' in self.file_type:
-                    file_types = "CSC files (*.csv);; all files (*.*)"
-                elif 'Dat' in self.file_type:
-                    file_types = "Binary data files (*.dat);; all files (*.*)"
-                elif 'Html' in self.file_type:
-                    file_types = "HTML files (*.html)"
-                elif 'json' in self.file_type or 'JSON' in self.file_type:
-                    file_types = "JSON files (*.json)"
+            # Check for GeoPackage first in filter order
+            if self.value.lower().endswith('.gpkg'):
+                file_types = """GeoPackage (*.gpkg);;
+                                Shapefiles (*.shp);;
+                                All files (*.*)"""
+            elif self.value.lower().endswith('.shp'):
+                file_types = """Shapefiles (*.shp);;
+                                GeoPackage (*.gpkg);;
+                                All files (*.*)"""
 
-                dialog.setNameFilter(file_types)
+            dialog.setNameFilter(file_types)
 
-                if "ExistingFile" in self.parameter_type:
-                    dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
-                else:
-                    dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+            # Allow the user to choose multiple files or one file
+            if "ExistingFile" in self.parameter_type:
+                dialog.setFileMode(QFileDialog.ExistingFiles)
+            else:
+                dialog.setFileMode(QFileDialog.AnyFile)
 
-                if dialog.exec_():
-                    file_names = dialog.selectedFiles()
+            if dialog.exec_():
+                file_names = dialog.selectedFiles()
 
-                if not file_names:
-                    return
+            if not file_names:
+                return
 
-                if len(file_names) == 0:
-                    print('No file(s) selected.')
+            result = file_names[0]
+            self.set_value(result)
 
-                    if file_names[0] == '':
-                        print('File name not valid.')
-                        return
+            # Check if the selected file is a GeoPackage (.gpkg)
+            if result.lower().endswith('.gpkg'):
+                self.load_gpkg_layers(result)
+            else:
+                self.layer_combo.setVisible(False)  # Hide the layer list if not a GeoPackage
 
-                # append suffix when not
-                # TODO: more consideration for multiple formats
-                result = file_names[0]
-                file_path = Path(result)
-                if result != '':
-                    break_loop = False
-                    selected_filters = self.get_file_filter_list(dialog.selectedNameFilter())
-
-                    if file_path.suffix not in selected_filters:
-                        if selected_filters[0] != '.*':
-                            file_path = file_path.with_suffix(selected_filters[0])
-
-                result = file_path.as_posix()
-                self.set_value(result)
         except Exception as e:
             print(e)
-
-            t = "file"
-            if self.parameter_type == "Directory":
-                t = "directory"
-
             msg_box = QMessageBox()
             msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setText("Could not find {}".format(t))
+            msg_box.setText("Could not find the selected file.")
             msg_box.exec()
 
-    @staticmethod
-    def get_file_filter_list(filter_str):
+    def load_gpkg_layers(self, gpkg_file):
         """
-        Extract filters out of full filter string, split int list and replace first '*'
-        Result: ['.shp', '.*']
+        Load layers from a GeoPackage and populate the combo box using pyogrio.
         """
-        filter_list = search('\((.+?)\)', filter_str).group(1).split(' ')
-        filter_list = [item.replace('*', '', 1) for item in filter_list if item != '']
-        return filter_list
+        try:
+            # Print the file path to verify it's correct
+            print(f"Attempting to load layers from: {gpkg_file}")
 
-    def get_value(self):
-        return self.flag, self.value
+            # Use pyogrio to list the layers in the GeoPackage
+            layers = pyogrio.list_layers(gpkg_file)
+
+            # Check if layers is a list or array and handle accordingly
+            if isinstance(layers, (list, np.ndarray)) and len(layers) == 0:
+                raise ValueError("No layers found in the GeoPackage.")
+
+            # Clear any existing layers in the combo box
+            self.layer_combo.clear()
+
+            # Add layers to the combo box, ensure they're strings
+            if isinstance(layers, np.ndarray):
+                # Convert numpy.ndarray to a list of strings
+                layers = layers.astype(str)
+
+            # Iterate over layers and add each to the combo box
+            for layer in layers:
+                # Ensure each layer is a string before adding
+                self.layer_combo.addItem(str(layer))
+
+            # Set the tooltip for the layer list widget
+            self.layer_combo.setToolTip("Select layer")
+
+            # Make the combo box visible
+            self.layer_combo.setVisible(True)
+
+        except Exception as e:
+            # Print the full error message for debugging purposes
+            print(f"Error loading GeoPackage layers: {e}")
+
+            # Show a message box with the error
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setText(f"Could not load layers from GeoPackage: {gpkg_file}")
+            msg_box.setDetailedText(str(e))  # Show detailed error message
+            msg_box.exec()
 
     def set_value(self, value):
-        if type(value) is list:
-            if len(value) > 0:
-                value = value[0]
+        # Check if the file has an extension
+        base_name, ext = os.path.splitext(value)
+
+        # Only append an extension if none exists and based on the file type
+        if not ext:
+            # Check if the value refers to a GeoPackage or Shapefile (based on user expectations)
+            if value.lower().endswith('.gpkg'):
+                value = f"{base_name}.gpkg"
+            elif value.lower().endswith('.shp'):
+                value = f"{base_name}.shp"
+            else:
+                # If none of the expected types match, default to .txt extension
+                value = f"{base_name}.txt"  # Default extension
 
         self.value = value
         self.in_file.setText(self.value)
         self.in_file.setToolTip(self.value)
 
-    def set_default_value(self):
-        self.value = self.default_value
-        self.in_file.setText(self.value)
+    def set_layer(self, layer):
+        self.selected_layer = layer  # Store the selected layer
+
+    def get_value(self):
+        # Return both the file path and the selected layer
+        return self.flag, self.value, self.selected_layer
 
 
 class FileOrFloat(QWidget):
@@ -328,7 +372,7 @@ class OptionsInput(QWidget):
             self.value = params['saved_value']
 
         self.label = QLabel(self.name)
-        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
         self.combobox = QComboBox()
         self.combobox.currentIndexChanged.connect(self.selection_change)
 
@@ -389,7 +433,7 @@ class DataInput(QWidget):
             self.value = params['saved_value']
 
         self.label = QLabel(self.name)
-        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
         self.data_input = None
 
         if "Integer" in self.parameter_type:

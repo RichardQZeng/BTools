@@ -22,6 +22,7 @@ from subprocess import CalledProcessError, Popen, PIPE, STDOUT
 
 from beratools.tools.lapis_all import *
 from beratools.tools.common import *
+import beratools.core.constants as bt_const
 
 
 running_windows = platform.system() == 'Windows'
@@ -53,14 +54,14 @@ class BeraTools(object):
 
         self.work_dir = ""
         self.verbose = True
-        self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
+        self.show_advanced = bt_const.BT_SHOW_ADVANCED_OPTIONS
         self.__compress_rasters = False
         self.__max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
 
         # set maximum available cpu core for tools
-        self.__max_cpu_cores = min(BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
+        self.__max_cpu_cores = min(bt_const.BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
 
         # load bera tools
         self.bera_tools = None
