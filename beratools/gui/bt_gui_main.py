@@ -369,7 +369,7 @@ class MainWindow(QMainWindow):
         self.upper_toolboxes = bt.upper_toolboxes
         self.lower_toolboxes = bt.lower_toolboxes
 
-        self.exe_path = path.dirname(path.abspath(__file__))
+        self.exe_path = Path(__file__).resolve().parent
         bt.set_bera_dir(self.exe_path)
 
         # Tree view
