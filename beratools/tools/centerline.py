@@ -3,40 +3,24 @@ import time
 
 import sys
 from pathlib import Path
-from inspect import getsourcefile
-
-if __name__ == "__main__":
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
-    btool_dir = current_file.parents[2]
-    sys.path.insert(0, btool_dir.as_posix())
+# from inspect import getsourcefile
+#
+# if __name__ == "__main__":
+#     current_file = Path(getsourcefile(lambda: 0)).resolve()
+#     btool_dir = current_file.parents[2]
+#     sys.path.insert(0, btool_dir.as_posix())
 
 import rasterio
 import pandas as pd
 import geopandas as gpd
-from shapely.geometry import shape, LineString, MultiLineString
+from shapely.geometry import LineString, MultiLineString
 from beratools.core.logger import Logger
-from beratools.core.algo_centerline import find_corridor_polygon, find_centerline
-from beratools.core.dijkstra_algorithm import (
-    find_least_cost_path_skimage,
-    find_least_cost_path,
-)
-from beratools.core.constants import (
-    HAS_COST_RASTER,
-    CL_USE_SKIMAGE_GRAPH,
-    CenterlineStatus,
-    FP_CORRIDOR_THRESHOLD,
-    PARALLEL_MODE,
-)
+import beratools.core.algo_centerline as bt_centerline
+import beratools.core.dijkstra_algorithm as bt_dijkstra
+import beratools.core.constants as bt_const
+import beratools.tools.common as bt_common
+
 from beratools.core.tool_base import execute_multiprocessing
-from beratools.tools.common import (
-    clip_raster,
-    cost_raster,
-    corridor_raster,
-    compare_crs,
-    vector_crs,
-    raster_crs,
-    check_arguments,
-)
 
 log = Logger('centerline', file_level=logging.INFO)
 logger = log.get_logger()
@@ -58,18 +42,18 @@ class SeedLine:
         seed_line = line  # LineString
         default_return = (seed_line, seed_line, None)
 
-        cost_clip, out_meta = clip_raster(in_raster, seed_line, line_radius)
+        cost_clip, out_meta = bt_common.clip_raster(in_raster, seed_line, line_radius)
 
-        if not HAS_COST_RASTER:
-            cost_clip, _ = cost_raster(cost_clip, out_meta)
+        if not bt_const.HAS_COST_RASTER:
+            cost_clip, _ = bt_common.cost_raster(cost_clip, out_meta)
 
         lc_path = line
         try:
-            if CL_USE_SKIMAGE_GRAPH:
+            if bt_const.CL_USE_SKIMAGE_GRAPH:
                 # skimage shortest path
-                lc_path = find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
+                lc_path = bt_dijkstra.find_least_cost_path_skimage(cost_clip, out_meta, seed_line)
             else:
-                lc_path = find_least_cost_path(cost_clip, out_meta, seed_line)
+                lc_path = bt_dijkstra.find_least_cost_path(cost_clip, out_meta, seed_line)
         except Exception as e:
             print(e)
             return default_return
@@ -84,14 +68,14 @@ class SeedLine:
         # search for centerline
         if len(lc_path_coords) < 2:
             print('No least cost path detected, use input line.')
-            self.line["status"] = CenterlineStatus.FAILED.value
+            self.line["status"] = bt_const.CenterlineStatus.FAILED.value
             return default_return
 
         # get corridor raster
         lc_path = LineString(lc_path_coords)
-        cost_clip, out_meta = clip_raster(in_raster, lc_path, line_radius * 0.9)
-        if not HAS_COST_RASTER:
-            cost_clip, _ = cost_raster(cost_clip, out_meta)
+        cost_clip, out_meta = bt_common.clip_raster(in_raster, lc_path, line_radius * 0.9)
+        if not bt_const.HAS_COST_RASTER:
+            cost_clip, _ = bt_common.cost_raster(cost_clip, out_meta)
 
         out_transform = out_meta['transform']
         transformer = rasterio.transform.AffineTransformer(out_transform)
@@ -101,13 +85,13 @@ class SeedLine:
         x2, y2 = lc_path_coords[-1]
         source = [transformer.rowcol(x1, y1)]
         destination = [transformer.rowcol(x2, y2)]
-        corridor_thresh_cl = corridor_raster(cost_clip, out_meta, source, destination,
-                                             cell_size, FP_CORRIDOR_THRESHOLD)
+        corridor_thresh_cl = bt_common.corridor_raster(cost_clip, out_meta, source, destination,
+                                             cell_size, bt_const.FP_CORRIDOR_THRESHOLD)
 
         # find contiguous corridor polygon and extract centerline
         df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta['crs'])
-        corridor_poly_gpd = find_corridor_polygon(corridor_thresh_cl, out_transform, df)
-        center_line, status = find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
+        corridor_poly_gpd = bt_centerline.find_corridor_polygon(corridor_thresh_cl, out_transform, df)
+        center_line, status = bt_centerline.find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
         self.line ['status'] = status.value
 
         self.lc_path = self.line.copy()
@@ -179,7 +163,6 @@ def prepare_lines_gdf(file_path, layer=None, proc_segments=True):
     if has_multilinestring(gdf):
         gdf = gdf.explode(index_parts=False)  # Explode MultiLineStrings into individual LineStrings
 
-    # List to hold the resulting single-row GeoDataFrames
     split_gdf_list = []
 
     for row in gdf.itertuples(index=False):  # Use itertuples to iterate
@@ -191,13 +174,10 @@ def prepare_lines_gdf(file_path, layer=None, proc_segments=True):
 
             # For each LineString, split the line into segments by the vertices
             for i in range(len(coords) - 1):
-                # Create a new segment (LineString) from each pair of consecutive coordinates
                 segment = LineString([coords[i], coords[i + 1]])
 
                 # Copy over all non-geometry columns from the parent row (excluding 'geometry')
                 attributes = {col: getattr(row, col) for col in gdf.columns if col != 'geometry'}
-
-                # Create a single-row GeoDataFrame for the segment
                 single_row_gdf = gpd.GeoDataFrame([attributes], geometry=[segment], crs=gdf.crs)
                 split_gdf_list.append(single_row_gdf)
 
@@ -207,17 +187,16 @@ def prepare_lines_gdf(file_path, layer=None, proc_segments=True):
             single_row_gdf = gpd.GeoDataFrame([attributes], geometry=[line])
             split_gdf_list.append(single_row_gdf)
 
-    # Return the list of single-row GeoDataFrames, but merge them back into a single GeoDataFrame
     return split_gdf_list
 
-def generate_line_class_list(in_vector, in_raster, line_radius,  layer=None, proc_segments=True):
-    line_class_list = []
+def generate_line_class_list(in_vector, in_raster, line_radius,  layer=None, proc_segments=True)-> list:
+    line_classes = []
     line_list = prepare_lines_gdf(in_vector, layer, proc_segments)
 
     for item in line_list :
-        line_class_list.append(SeedLine(item, in_raster, proc_segments, line_radius))
+        line_classes.append(SeedLine(item, in_raster, proc_segments, line_radius))
 
-    return line_class_list
+    return line_classes
 
 def process_single_line_class(seed_line):
     seed_line.compute()
@@ -232,11 +211,11 @@ def centerline(
     processes,
     verbose,
     callback=print,
-    parallel_mode=PARALLEL_MODE,
+    parallel_mode=bt_const.PARALLEL_MODE,
     in_layer=None,
     out_layer=None
 ):
-    if not compare_crs(vector_crs(in_line), raster_crs(in_raster)):
+    if not bt_common.compare_crs(bt_common.vector_crs(in_line), bt_common.raster_crs(in_raster)):
         print("Line and CHM have different spatial references, please check.")
         return
 
@@ -268,14 +247,14 @@ def centerline(
     lc_path_list = pd.concat(lc_path_list)
     centerline_list = pd.concat(centerline_list)
     corridor_polys = pd.concat(corridor_poly_list)
-    lc_path_list.to_file(out_line, layer='least_cost_path')
+    # lc_path_list.to_file(out_line, layer='least_cost_path')
     centerline_list.to_file(out_line, layer='centerline')
-    corridor_polys.to_file(out_line, layer='corridor_polygon')
+    # corridor_polys.to_file(out_line, layer='corridor_polygon')
 
 
 # TODO: fix geometries when job done
 if __name__ == '__main__':
-    in_args, in_verbose = check_arguments()
+    in_args, in_verbose = bt_common.check_arguments()
     start_time = time.time()
     centerline(**in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))
