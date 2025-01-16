@@ -1,6 +1,7 @@
 import logging
 import time
 
+from pathlib import Path
 import rasterio
 import pandas as pd
 import geopandas as gpd
@@ -234,13 +235,27 @@ def centerline(
         centerline_list.append(item.centerline)
         corridor_poly_list.append(item.corridor_poly_gpd)
 
-    # save features
-    lc_path_list = pd.concat(lc_path_list)
-    centerline_list = pd.concat(centerline_list)
-    corridor_polys = pd.concat(corridor_poly_list)
-    # lc_path_list.to_file(out_line, layer='least_cost_path')
+    # Concatenate the lists of GeoDataFrames into single GeoDataFrames
+    lc_path_list = pd.concat(lc_path_list, ignore_index=True)
+    centerline_list = pd.concat(centerline_list, ignore_index=True)
+    corridor_polys = pd.concat(corridor_poly_list, ignore_index=True)
+
+    # Save the concatenated GeoDataFrames to the shapefile/gpkg
     centerline_list.to_file(out_line, layer='centerline')
-    # corridor_polys.to_file(out_line, layer='corridor_polygon')
+
+    # Check if the output file is a shapefile
+    out_line_path = Path(out_line)
+
+    if out_line_path.suffix == ".shp":
+        # Generate the new file name for the GeoPackage with '_aux' appended
+        aux_file = out_line_path.with_name(out_line_path.stem + "_aux.gpkg")
+        print(f"Saved auxiliary data to: {aux_file}")
+    else:
+        aux_file = out_line  # continue using out_line (gpkg)
+
+    # Save lc_path_list and corridor_polys to the new GeoPackage with '_aux' suffix
+    lc_path_list.to_file(aux_file, layer='least_cost_path')
+    corridor_polys.to_file(aux_file, layer='corridor_polygon')
 
 
 # TODO: fix geometries when job done
