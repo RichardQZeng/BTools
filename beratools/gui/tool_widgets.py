@@ -58,8 +58,8 @@ class ToolWidgets(QWidget):
         param_missing = False
         for widget in self.widget_list:
             v = widget.get_value()
-            if v and len(v) == 2:
-                args[v[0]] = v[1]
+            if v:
+                args.update(v)
             else:
                 print(f'[Missing argument]: {widget.name} parameter not specified.', 'missing')
                 param_missing = True
@@ -155,6 +155,10 @@ class FileSelector(QWidget):
         self.name = params['name']
         self.description = params['description']
         self.flag = params['flag']
+        self.layer_flag = None
+        if 'layer' in params.keys():
+            self.layer_flag = params['layer']
+
         self.parameter_type = params['parameter_type']
         self.file_type = ""
         if "ExistingFile" in self.parameter_type:
@@ -182,8 +186,8 @@ class FileSelector(QWidget):
         self.layer_combo.currentTextChanged.connect(self.set_layer)  # Connect layer change event
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.in_file)
-        self.layout.addWidget(self.btn_select)
         self.layout.addWidget(self.layer_combo)
+        self.layout.addWidget(self.btn_select)
 
         self.setLayout(self.layout)
 
@@ -332,7 +336,11 @@ class FileSelector(QWidget):
 
     def get_value(self):
         # Return both the file path and the selected layer
-        return self.flag, self.value, self.selected_layer
+        value = {self.flag: self.value}
+        if self.layer_flag and self.selected_layer:
+            value.update({self.layer_flag: self.selected_layer})
+
+        return {self.flag: self.value}
 
 
 class FileOrFloat(QWidget):
@@ -412,7 +420,7 @@ class OptionsInput(QWidget):
                 self.combobox.setCurrentIndex(self.option_list.index(v))
 
     def get_value(self):
-        return self.flag, self.value
+        return {self.flag: self.value}
 
 
 class DataInput(QWidget):
@@ -458,13 +466,15 @@ class DataInput(QWidget):
         v = self.value
         if v is not None:
             if "Integer" in self.parameter_type:
-                return self.flag, int(self.value)
+                value = int(self.value)
             elif "Float" in self.parameter_type:
-                return self.flag, float(self.value)
+                value = float(self.value)
             elif "Double" in self.parameter_type:
-                return self.flag, float(self.value)
+                value = float(self.value)
             else:  # String or StringOrNumber types
-                return self.flag, self.value
+                value = self.value
+
+            return {self.flag: value}
         else:
             if not self.optional:
                 msg_box = QMessageBox()

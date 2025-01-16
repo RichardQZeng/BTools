@@ -432,6 +432,9 @@ class BTData(object):
             elif param['type'] == 'vector':
                 for i in new_param["parameter_type"].keys():
                     new_param['parameter_type'][i] = 'Vector'
+                if 'layer' in param.keys():
+                    new_param['layer'] = param['layer']
+
             elif param['type'] == 'Directory':
                 new_param['parameter_type'] = {'Directory': [param['typelab']]}
 
