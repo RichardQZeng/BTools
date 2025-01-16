@@ -1,6 +1,7 @@
 import os
 import sys
 import pyogrio
+import numpy as np
 
 from PyQt5.QtWidgets import (
     QApplication,
@@ -23,7 +24,7 @@ from PyQt5.QtWidgets import (
 )
 
 from PyQt5.QtCore import pyqtSignal, Qt, QPoint
-from re import search
+import json
 
 import beratools.core.constants as bt_const
 from common import *
@@ -144,7 +145,25 @@ class ToolWidgets(QWidget):
             item.set_default_value()
 
 
-import os
+def get_layers(gpkg_file):
+    try:
+        # Get the list of layers and their geometry types from the GeoPackage file
+        layers_info = pyogrio.list_layers(gpkg_file)
+
+        # Check if layers_info is in the expected format
+        if isinstance(layers_info, np.ndarray) and all(
+                isinstance(layer, np.ndarray) and len(layer) >= 2 for layer in layers_info):
+            # Create a dictionary where the key is the layer name and the value is the geometry type
+            layers_dict = {layer[0]: layer[1] for layer in layers_info}
+            return layers_dict
+        else:
+            # If the format is not correct, raise an exception with a detailed message
+            raise ValueError("Expected a list of lists or tuples with layer name and geometry type.")
+
+    except Exception as e:
+        print(f"Error retrieving layers from GeoPackage '{gpkg_file}': {e}")
+        raise
+
 
 class FileSelector(QWidget):
     def __init__(self, json_str, parent=None):
@@ -269,31 +288,25 @@ class FileSelector(QWidget):
 
     def load_gpkg_layers(self, gpkg_file):
         """
-        Load layers from a GeoPackage and populate the combo box using pyogrio.
+        Load layers from a GeoPackage and populate the combo box using get_layers.
         """
         try:
             # Print the file path to verify it's correct
             print(f"Attempting to load layers from: {gpkg_file}")
 
-            # Use pyogrio to list the layers in the GeoPackage
-            layers = pyogrio.list_layers(gpkg_file)
+            # Use get_layers to load layers from the GeoPackage
+            layers = get_layers(gpkg_file)
 
-            # Check if layers is a list or array and handle accordingly
-            if isinstance(layers, (list, np.ndarray)) and len(layers) == 0:
+            # Check if layers is empty
+            if not layers:
                 raise ValueError("No layers found in the GeoPackage.")
 
             # Clear any existing layers in the combo box
             self.layer_combo.clear()
 
-            # Add layers to the combo box, ensure they're strings
-            if isinstance(layers, np.ndarray):
-                # Convert numpy.ndarray to a list of strings
-                layers = layers.astype(str)
-
-            # Iterate over layers and add each to the combo box
-            for layer in layers:
-                # Ensure each layer is a string before adding
-                self.layer_combo.addItem(str(layer))
+            # Iterate over the layers dictionary and add each layer name with geometry type to the combo box
+            for layer_name, geometry_type in layers.items():
+                self.layer_combo.addItem(f"{layer_name} ({geometry_type})")
 
             # Set the tooltip for the layer list widget
             self.layer_combo.setToolTip("Select layer")
@@ -332,15 +345,18 @@ class FileSelector(QWidget):
         self.in_file.setToolTip(self.value)
 
     def set_layer(self, layer):
-        self.selected_layer = layer  # Store the selected layer
+        # Store only the selected layer's name (key) from the combo box display
+        # The layer is in the format: "layer_name (geometry_type)"
+        self.selected_layer = layer.split(" ")[0]  # Get only the layer name (before the space)
+        print(f"Selected Layer: {self.selected_layer}")
 
     def get_value(self):
         # Return both the file path and the selected layer
         value = {self.flag: self.value}
         if self.layer_flag and self.selected_layer:
-            value.update({self.layer_flag: self.selected_layer})
+            value.update({self.layer_flag: self.selected_layer})  # Store the layer name (key)
 
-        return {self.flag: self.value}
+        return value
 
 
 class FileOrFloat(QWidget):
