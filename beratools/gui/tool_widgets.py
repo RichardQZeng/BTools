@@ -1,40 +1,19 @@
 import os
 import sys
 import json
-import json
 import pyogrio
 import numpy as np
 from pathlib import Path
 from collections import OrderedDict
 
-from PyQt5.QtWidgets import (
-    QApplication,
-    QLineEdit,
-    QFileDialog,
-    QComboBox,
-    QWidget,
-    QPushButton,
-    QLabel,
-    QSlider,
-    QMessageBox,
-    QStyleOptionSlider,
-    QStyle,
-    QToolTip,
-    QAbstractSlider,
-    QHBoxLayout,
-    QVBoxLayout,
-    QSpinBox,
-    QDoubleSpinBox
-)
-
-from PyQt5.QtCore import pyqtSignal, Qt, QPoint
+from PyQt5 import QtWidgets
+from PyQt5 import QtCore 
 
 import beratools.core.constants as bt_const
-import beratools.tools.common as bt_common
 
 
-class ToolWidgets(QWidget):
-    signal_save_tool_params = pyqtSignal(object)
+class ToolWidgets(QtWidgets.QWidget):
+    signal_save_tool_params = QtCore.pyqtSignal(object)
 
     def __init__(self, tool_name, tool_args, show_advanced, parent=None):
         super(ToolWidgets, self).__init__(parent)
@@ -46,12 +25,12 @@ class ToolWidgets(QWidget):
         self.setWindowTitle("Tool widgets")
 
         self.create_widgets(tool_args)
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
 
         for item in self.widget_list:
             layout.addWidget(item)
 
-        self.save_button = QPushButton('Save Parameters')
+        self.save_button = QtWidgets.QPushButton('Save Parameters')
         self.save_button.clicked.connect(self.save_tool_parameters)
         self.save_button.setFixedSize(200, 50)
         layout.addSpacing(20)
@@ -101,8 +80,8 @@ class ToolWidgets(QWidget):
                 widget = DataInput(json_str)
                 param_num = param_num + 1
             else:
-                msg_box = QMessageBox()
-                msg_box.setIcon(QMessageBox.Warning)
+                msg_box = QtWidgets.QMessageBox()
+                msg_box.setIcon(QtWidgets.QMessageBox.Warning)
                 msg_box.setText("Unsupported parameter type: {}.".format(pt))
                 msg_box.exec()
 
@@ -122,7 +101,7 @@ class ToolWidgets(QWidget):
             # hide optional widgets
             if widget:
                 if widget.optional and widget.label:
-                    widget.label.setStyleSheet("QLabel { background-color : transparent; color : blue; }")
+                    widget.label.setStyleSheet("QtWidgets.QLabel { background-color : transparent; color : blue; }")
 
                 if not self.show_advanced and widget.optional:
                     widget.hide()
@@ -169,7 +148,7 @@ def get_layers(gpkg_file):
         raise
 
 
-class FileSelector(QWidget):
+class FileSelector(QtWidgets.QWidget):
     def __init__(self, json_str, parent=None):
         super(FileSelector, self).__init__(parent)
 
@@ -200,15 +179,15 @@ class FileSelector(QWidget):
         if 'saved_value' in params.keys():
             self.value = params['saved_value']
 
-        self.layout = QHBoxLayout()
-        self.label = QLabel(self.name)
+        self.layout = QtWidgets.QHBoxLayout()
+        self.label = QtWidgets.QLabel(self.name)
         self.label.setMinimumWidth(200)
-        self.in_file = QLineEdit(self.value)
-        self.btn_select = QPushButton("...")
+        self.in_file = QtWidgets.QLineEdit(self.value)
+        self.btn_select = QtWidgets.QPushButton("...")
         self.btn_select.clicked.connect(self.select_file)
 
         # ComboBox for displaying GeoPackage layers
-        self.layer_combo = QComboBox()
+        self.layer_combo = QtWidgets.QComboBox()
         self.layer_combo.setVisible(False)  # Initially hidden
         self.layer_combo.currentTextChanged.connect(self.set_layer)  # Connect layer change event
         self.layout.addWidget(self.label)
@@ -235,7 +214,7 @@ class FileSelector(QWidget):
                 self.layer_combo.setEditable(False)  # Set it as non-editable if output is False
                 self.load_gpkg_layers(self.value)  # Load layers if output is False
 
-        # check saved layer existence, if Ture then set it to selected
+        # check saved layer existence, if True then set it to selected
         index = self.search_saved_combo_items()
         if index != -1:
             self.layer_combo.setCurrentIndex(index)
@@ -283,8 +262,8 @@ class FileSelector(QWidget):
 
     def select_file(self):
         try:
-            dialog = QFileDialog(self)
-            dialog.setViewMode(QFileDialog.Detail)
+            dialog = QtWidgets.QLineEdit(self)
+            dialog.setViewMode(QtWidgets.QLineEdit.Detail)
             dialog.setDirectory(str(Path(self.value).parent))
             dialog.selectFile(Path(self.value).name)
             file_names = None
@@ -326,9 +305,9 @@ class FileSelector(QWidget):
             dialog.setNameFilter(file_types)
 
             if "ExistingFile" in self.parameter_type:
-                dialog.setFileMode(QFileDialog.ExistingFiles)
+                dialog.setFileMode(QtWidgets.QLineEdit.ExistingFiles)
             else:
-                dialog.setFileMode(QFileDialog.AnyFile)
+                dialog.setFileMode(QtWidgets.QLineEdit.AnyFile)
 
             if dialog.exec_():
                 file_names = dialog.selectedFiles()
@@ -371,8 +350,8 @@ class FileSelector(QWidget):
             self.update_combo_visibility()  # Update combo visibility after file selection
         except Exception as e:
             print(e)
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setIcon(QtWidgets.QMessageBox.Warning)
             msg_box.setText("Could not find the selected file.")
             msg_box.exec()
 
@@ -409,8 +388,8 @@ class FileSelector(QWidget):
             print(f"Error loading GeoPackage layers: {e}")
 
             # Show a message box with the error
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setIcon(QtWidgets.QMessageBox.Warning)
             msg_box.setText(f"Could not load layers from GeoPackage: {gpkg_file}")
             msg_box.setDetailedText(str(e))  # Show detailed error message
             msg_box.exec()
@@ -467,25 +446,25 @@ class FileSelector(QWidget):
         return -1
 
 
-class FileOrFloat(QWidget):
+class FileOrFloat(QtWidgets.QWidget):
     def __init__(self, json_str, parent=None):
         super(FileOrFloat, self).__init__(parent)
         pass
 
 
-class MultiFileSelector(QWidget):
+class MultiFileSelector(QtWidgets.QWidget):
     def __init__(self, json_str, parent=None):
         super(MultiFileSelector, self).__init__(parent)
         pass
 
 
-class BooleanInput(QWidget):
+class BooleanInput(QtWidgets.QWidget):
     def __init__(self, json_str, parent=None):
         super(BooleanInput, self).__init__(parent)
         pass
 
 
-class OptionsInput(QWidget):
+class OptionsInput(QtWidgets.QWidget):
     def __init__(self, json_str, parent=None):
         super(OptionsInput, self).__init__(parent)
 
@@ -503,9 +482,9 @@ class OptionsInput(QWidget):
         if 'saved_value' in params.keys():
             self.value = params['saved_value']
 
-        self.label = QLabel(self.name)
+        self.label = QtWidgets.QLabel(self.name)
         self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
-        self.combobox = QComboBox()
+        self.combobox = QtWidgets.QComboBox()
         self.combobox.currentIndexChanged.connect(self.selection_change)
 
         i = 1
@@ -523,7 +502,7 @@ class OptionsInput(QWidget):
         self.combobox.addItems(self.option_list)
         self.combobox.setCurrentIndex(default_index)
 
-        self.layout = QHBoxLayout()
+        self.layout = QtWidgets.QHBoxLayout()
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.combobox)
         self.setLayout(self.layout)
@@ -547,7 +526,7 @@ class OptionsInput(QWidget):
         return {self.flag: self.value}
 
 
-class DataInput(QWidget):
+class DataInput(QtWidgets.QWidget):
     def __init__(self, json_str, parent=None):
         super(DataInput, self).__init__(parent)
 
@@ -564,21 +543,21 @@ class DataInput(QWidget):
         if 'saved_value' in params.keys():
             self.value = params['saved_value']
 
-        self.label = QLabel(self.name)
+        self.label = QtWidgets.QLabel(self.name)
         self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
         self.data_input = None
 
         if "Integer" in self.parameter_type:
-            self.data_input = QSpinBox()
+            self.data_input = QtWidgets.QSpinBox()
         elif "Float" in self.parameter_type or "Double" in self.parameter_type:
-            self.data_input = QDoubleSpinBox()
+            self.data_input = QtWidgets.QDoubleSpinBox()
 
         if self.data_input:
             self.data_input.setValue(self.value)
 
         self.data_input.valueChanged.connect(self.update_value)
 
-        self.layout = QHBoxLayout()
+        self.layout = QtWidgets.QHBoxLayout()
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.data_input)
         self.setLayout(self.layout)
@@ -601,8 +580,8 @@ class DataInput(QWidget):
             return {self.flag: value}
         else:
             if not self.optional:
-                msg_box = QMessageBox()
-                msg_box.setIcon(QMessageBox.Warning)
+                msg_box = QtWidgets.QMessageBox()
+                msg_box.setIcon(QtWidgets.QMessageBox.Warning)
                 msg_box.setText("Unspecified non-optional parameter {}.".format(self.flag))
                 msg_box.exec()
 
@@ -619,15 +598,15 @@ class DataInput(QWidget):
             self.update_value()
 
 
-class DoubleSlider(QSlider):
+class DoubleSlider(QtWidgets.QSlider):
     # create our signal that we can connect to if necessary
-    doubleValueChanged = pyqtSignal(float)
+    doubleValueChanged = QtCore.pyqtSignal(float)
 
     def __init__(self, decimals=3, *args, **kargs):
-        super(DoubleSlider, self).__init__(Qt.Horizontal)
+        super(DoubleSlider, self).__init__(QtCore.Qt.Horizontal)
         self._multi = 10 ** decimals
 
-        self.opt = QStyleOptionSlider()
+        self.opt = QtWidgets.QStyleOptionSlider()
         self.initStyleOption(self.opt)
 
         self.valueChanged.connect(self.emit_double_value_changed)
@@ -655,10 +634,10 @@ class DoubleSlider(QSlider):
         super(DoubleSlider, self).setValue(int(value * self._multi))
 
     def sliderChange(self, change):
-        if change == QAbstractSlider.SliderValueChange:
-            sr = self.style().subControlRect(QStyle.CC_Slider, self.opt, QStyle.SC_SliderHandle)
+        if change == QtWidgets.QAbstractSlider.SliderValueChange:
+            sr = self.style().subControlRect(QtWidgets.QStyle.CC_Slider, self.opt, QtWidgets.QStyle.SC_SliderHandle)
             bottom_right_corner = sr.bottomLeft()
-            QToolTip.showText(self.mapToGlobal(QPoint(bottom_right_corner.x(), bottom_right_corner.y())),
+            QtWidgets.QToolTip.showText(self.mapToGlobal(QtCore.QPoint(bottom_right_corner.x(), bottom_right_corner.y())),
                               str(self.value()), self)
 
 
@@ -667,7 +646,7 @@ if __name__ == '__main__':
 
     bt = BTData()
 
-    app = QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     dlg = ToolWidgets('Raster Line Attributes',
                       bt.get_bera_tool_args('Raster Line Attributes'),
                       bt.show_advanced)
