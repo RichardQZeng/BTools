@@ -7,16 +7,10 @@
 # License: MIT
 
 import os
-from os import path
-from pathlib import Path
-from inspect import getsourcefile
-
 import platform
 import json
-from json.decoder import JSONDecodeError
-import multiprocessing
+from pathlib import Path
 from collections import OrderedDict
-
 import beratools.core.constants as bt_const
 
 running_windows = platform.system() == 'Windows'
@@ -41,7 +35,7 @@ class BTData(object):
             self.ext = '.exe'
         else:
             self.ext = ''
-        self.current_file_path = path.dirname(path.abspath(__file__))
+        self.current_file_path = Path(__file__).resolve().parent
 
         self.work_dir = ""
         self.user_folder = Path('')
@@ -55,7 +49,7 @@ class BTData(object):
         self.get_user_folder()
 
         # set maximum available cpu core for tools
-        self.max_cpu_cores = min(bt_const.BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
+        self.max_cpu_cores = min(bt_const.BT_MAXIMUM_CPU_CORES, os.cpu_count())
 
         # load bera tools
         self.tool_history = []
@@ -74,7 +68,7 @@ class BTData(object):
         self.setting_file = None
         self.get_data_folder()
         self.get_setting_file()
-        self.gui_setting_file = Path(self.current_file_path).joinpath(r'assets/gui.json')
+        self.gui_setting_file = Path(self.current_file_path).joinpath(bt_const.ASSETS_PATH, r'gui.json')
 
         self.load_saved_tool_info()
         self.load_gui_data()
@@ -106,7 +100,7 @@ class BTData(object):
         with open(self.setting_file, 'w') as file_setting:
             try:
                 json.dump(self.settings, file_setting, indent=4)
-            except JSONDecodeError:
+            except json.decoder.JSONDecodeError:
                 pass
 
     def save_setting(self, key, value):
@@ -127,7 +121,7 @@ class BTData(object):
                 json.dump(self.settings, write_settings_file, indent=4)
 
     def get_working_dir(self):
-        current_file = Path(getsourcefile(lambda: 0)).resolve()
+        current_file = Path(__file__).resolve()
         btool_dir = current_file.parents[1]
         self.work_dir = btool_dir
 
@@ -220,7 +214,7 @@ class BTData(object):
         Retrieves the license information for BERA Tools.
         """
         try:
-            with open(os.path.join(self.current_file_path, r'..\..\LICENSE.txt'), 'r') as f:
+            with open(Path(self.current_file_path).joinpath(r'..\..\LICENSE.txt'), 'r') as f:
                 ret = f.read()
 
             return ret
@@ -304,9 +298,9 @@ class BTData(object):
         return None
 
     def get_bera_tools(self):
-        tool_json = os.path.join(self.current_file_path, bt_const.ASSETS_PATH, r'beratools.json')
-        if os.path.exists(tool_json):
-            tool_json = open(os.path.join(self.current_file_path, bt_const.ASSETS_PATH, r'beratools.json'))
+        tool_json = Path(self.current_file_path).joinpath(bt_const.ASSETS_PATH, r'beratools.json')
+        if tool_json.exists():
+            tool_json = open(Path(self.current_file_path).joinpath(bt_const.ASSETS_PATH, r'beratools.json'))
             self.bera_tools = json.load(tool_json)
         else:
             print('Tool configuration file not exists')
