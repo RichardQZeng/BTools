@@ -523,7 +523,7 @@
                             "description": "Output centerline shapefile.",
                             "type": "vector",
                             "typelab": "SHP",
-                            "layer": "in_layer",
+                            "layer": "out_layer",
                             "default": "",
                             "output": true,
                             "optional": false

@@ -5,7 +5,7 @@
 # import sys
 # sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from bt_gui_main import *
+from beratools.gui.bt_gui_main import *
 
 name = 'gui'
 

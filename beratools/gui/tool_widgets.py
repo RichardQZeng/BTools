@@ -243,7 +243,7 @@ class FileSelector(QWidget):
                 if self.output:
                     self.layer_combo.setEditable(True)
                     if self.layer_combo.count() == 0:
-                        self.layer_combo.addItem("Input layer name")
+                        self.layer_combo.addItem("layer_name")
                         self.load_gpkg_layers(self.value)
                     elif self.layer_combo.itemText(0) != "Input layer name":
                         self.layer_combo.insertItem(0, "Input layer name")
@@ -372,7 +372,7 @@ class FileSelector(QWidget):
         """
         try:
             # Print the file path to verify it's correct
-            print(f"Attempting to load layers from: {gpkg_file}")
+            # print(f"Attempting to load layers from: {gpkg_file}")
 
             # Use get_layers to load layers from the GeoPackage
             layers = get_layers(gpkg_file)
@@ -429,7 +429,7 @@ class FileSelector(QWidget):
         # Store only the selected layer's name (key) from the combo box display
         # The layer is in the format: "layer_name (geometry_type)"
         self.selected_layer = layer.split(" ")[0]  # Get only the layer name (before the space)
-        print(f"Selected Layer: {self.selected_layer}")
+        # print(f"Selected Layer: {self.selected_layer}")
 
     def get_value(self):
         # Return both the file path and the selected layer

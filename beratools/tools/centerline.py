@@ -241,7 +241,7 @@ def centerline(
     corridor_polys = pd.concat(corridor_poly_list, ignore_index=True)
 
     # Save the concatenated GeoDataFrames to the shapefile/gpkg
-    centerline_list.to_file(out_line, layer='centerline')
+    centerline_list.to_file(out_line, layer=out_layer)
 
     # Check if the output file is a shapefile
     out_line_path = Path(out_line)
