@@ -234,28 +234,63 @@ class FileSelector(QWidget):
         elif self.layer_combo.isVisible():
             self.layer_combo.setVisible(False)
 
+        self.update_combo_visibility()  # Update combo visibility after init
+
+    def update_combo_visibility(self):
+        if self.value.lower().endswith('.gpkg'):
+            self.layer_combo.setVisible(True)
+            if os.path.exists(self.value):
+                if self.output:
+                    self.layer_combo.setEditable(True)
+                    if self.layer_combo.count() == 0:
+                        self.layer_combo.addItem("Input layer name")
+                        self.load_gpkg_layers(self.value)
+                    elif self.layer_combo.itemText(0) != "Input layer name":
+                        self.layer_combo.insertItem(0, "Input layer name")
+                        self.load_gpkg_layers(self.value)
+                else:  # output is False
+                    self.layer_combo.setEditable(False)
+                    if self.layer_combo.count() == 0 or self.layer_combo.itemText(0) == "Input layer name":
+                        self.layer_combo.clear()
+                        self.load_gpkg_layers(self.value)
+            else:  # gpkg does not exist
+                self.layer_combo.clear()
+                if self.output:
+                    self.layer_combo.setEditable(True)
+                    self.layer_combo.addItem("Input layer name")
+                else:
+                    self.layer_combo.addItem("No layers available")
+
+            self.layer_combo.adjustSize()
+        else:
+            self.layer_combo.setVisible(False)
+            self.adjustSize()
+
+        self.adjustSize() #Adjust the widget size
+        if self.parentWidget():
+            self.parentWidget().adjustSize() #Adjust the parent widget size
+
     def select_file(self):
         try:
             dialog = QFileDialog(self)
             dialog.setViewMode(QFileDialog.Detail)
             dialog.setDirectory(str(Path(self.value).parent))
             dialog.selectFile(Path(self.value).name)
-            result = None
             file_names = None
 
-            # Set the file type filter dynamically before opening the dialog
             file_types = "All files (*.*)"
+
             if 'RasterAndVector' in self.file_type:
                 file_types = """Shapefiles (*.shp);; 
-                                Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.rdc *.asc *grd)"""
+                                    Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.rdc *.asc *grd)"""
             elif 'Raster' in self.file_type:
                 file_types = """Tiff raster files (*.tif *.tiff);; 
-                                Other raster files (*.dep *.bil *.flt *.sdat *.rdc *.asc *.grd)"""
+                                    Other raster files (*.dep *.bil *.flt *.sdat *.rdc *.asc *grd)"""
             elif 'Lidar' in self.file_type:
                 file_types = "LiDAR files (*.las *.zlidar *.laz *.zip)"
             elif 'Vector' in self.file_type:
                 file_types = """GeoPackage (*.gpkg);;
-                                Shapefiles (*.shp)"""
+                                    Shapefiles (*.shp)"""
             elif 'Text' in self.file_type:
                 file_types = "Text files (*.txt);; all files (*.*)"
             elif 'Csv' in self.file_type:
@@ -267,19 +302,18 @@ class FileSelector(QWidget):
             elif 'json' in self.file_type or 'JSON' in self.file_type:
                 file_types = "JSON files (*.json)"
 
-            # Check for GeoPackage first in filter order
+            # Check for GeoPackage/Shapefile first in filter order based on current value
             if self.value.lower().endswith('.gpkg'):
                 file_types = """GeoPackage (*.gpkg);;
-                                Shapefiles (*.shp);;
-                                All files (*.*)"""
+                               Shapefiles (*.shp);;
+                               All files (*.*)"""
             elif self.value.lower().endswith('.shp'):
                 file_types = """Shapefiles (*.shp);;
-                                GeoPackage (*.gpkg);;
-                                All files (*.*)"""
+                               GeoPackage (*.gpkg);;
+                               All files (*.*)"""
 
             dialog.setNameFilter(file_types)
 
-            # Allow the user to choose multiple files or one file
             if "ExistingFile" in self.parameter_type:
                 dialog.setFileMode(QFileDialog.ExistingFiles)
             else:
@@ -292,21 +326,38 @@ class FileSelector(QWidget):
                 return
 
             result = file_names[0]
+            base_name, selected_ext = os.path.splitext(result)
+            selected_filter = dialog.selectedNameFilter()
+
+            if selected_filter:
+                filter_parts = selected_filter.split("(*")
+                if len(filter_parts) > 1:
+                    extensions_str = filter_parts[1].replace(")", "")
+                    extensions = extensions_str.split(" ")
+
+                    if extensions:
+                        preferred_ext = extensions[0].strip()
+                        if not preferred_ext.startswith("."):
+                            preferred_ext = "." + preferred_ext
+                        if not selected_ext:
+                            result = f"{base_name}{preferred_ext}"
+            elif not selected_ext:  # No filter and no extension
+                result = f"{base_name}.txt"
+
             self.set_value(result)
 
-            # Check if the selected file is a GeoPackage (.gpkg)
             if result.lower().endswith('.gpkg'):
                 if not os.path.exists(result):
-                    # If GeoPackage doesn't exist, clear the combo box and show empty
                     self.layer_combo.clear()
                     self.layer_combo.addItem("No layers available")
                 else:
                     self.load_gpkg_layers(result)
                     if self.output:
-                        self.layer_combo.setEditable(True)  # Ensure it's editable when output is True
+                        self.layer_combo.setEditable(True)
             else:
-                self.layer_combo.setVisible(False)  # Hide the layer list if not a GeoPackage
+                self.layer_combo.setVisible(False)
 
+            self.update_combo_visibility()  # Update combo visibility after file selection
         except Exception as e:
             print(e)
             msg_box = QMessageBox()
