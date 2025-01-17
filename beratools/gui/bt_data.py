@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """ This file is intended to be a helper for running BERA tools from a Python script.
 """
 
@@ -18,8 +17,8 @@ from json.decoder import JSONDecodeError
 import multiprocessing
 from collections import OrderedDict
 
-from beratools.tools.common import *
-from beratools.core.constants import *
+import beratools.core.constants as bt_const
+
 
 running_windows = platform.system() == 'Windows'
 
@@ -50,7 +49,7 @@ class BTData(object):
         self.user_folder = Path('')
         self.data_folder = Path('')
         self.verbose = True
-        self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
+        self.show_advanced = bt_const.BT_SHOW_ADVANCED_OPTIONS
         self.max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
@@ -58,7 +57,7 @@ class BTData(object):
         self.get_user_folder()
 
         # set maximum available cpu core for tools
-        self.max_cpu_cores = min(BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
+        self.max_cpu_cores = min(bt_const.BT_MAXIMUM_CPU_CORES, multiprocessing.cpu_count())
 
         # load bera tools
         self.tool_history = []
@@ -154,13 +153,6 @@ class BTData(object):
     def get_setting_file(self):
         self.setting_file = self.data_folder.joinpath('saved_tool_parameters.json')
 
-    # def get_verbose_mode(self):
-    #     return self.verbose
-    #
-    # def set_verbose_mode(self, val=True):
-    #     self.verbose = val
-    #     self.save_setting('verbose_mode', val)
-
     def set_max_procs(self, val=-1):
         """ 
         Sets the flag used by BERA Tools to determine whether to use compression for output rasters.
@@ -190,8 +182,6 @@ class BTData(object):
 
         # Call script using new process to make GUI responsive
         try:
-            proc = None
-
             # convert to valid json string
             args_string = str(args).replace("'", '"')
             args_string = args_string.replace('True', 'true')
@@ -258,14 +248,6 @@ class BTData(object):
         # parse file
         if 'gui_parameters' in self.settings.keys():
             gui_settings = self.settings['gui_parameters']
-
-            # TODO remove working dir and verbose
-            # if 'working_directory' in gui_settings.keys():
-            #     self.work_dir = str(gui_settings['working_directory'])
-            # if 'verbose_mode' in gui_settings.keys():
-            #     self.verbose = str(gui_settings['verbose_mode'])
-            # else:
-            #     self.verbose = False
 
             if 'max_procs' in gui_settings.keys():
                 self.max_procs = gui_settings['max_procs']

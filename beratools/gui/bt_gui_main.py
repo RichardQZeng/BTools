@@ -1,6 +1,9 @@
+import os
+import sys
+import json
 import webbrowser
-import faulthandler
 from re import compile
+from pathlib import Path
 
 from PyQt5.QtCore import (
     Qt,
@@ -27,7 +30,9 @@ from PyQt5.QtWidgets import (
     QSlider,
     QLabel,
     QProgressBar,
-    QToolTip
+    QToolTip,
+    QStyle,
+    QStyleOptionSlider,
 )
 
 from PyQt5.QtGui import (
@@ -38,12 +43,15 @@ from PyQt5.QtGui import (
     QFont,
     QCursor)
 
-from .tool_widgets import *
-from .bt_data import *
+from beratools.gui.tool_widgets import ToolWidgets
+from beratools.gui import bt_data
+import beratools.tools.common as bt_common
+
+ASSETS_PATH = "img"
 
 # A regular expression, to extract the % complete.
 progress_re = compile("Total complete: (\d+)%")
-bt = BTData()
+bt = bt_data.BTData()
 
 
 def simple_percent_parser(output):
@@ -139,9 +147,7 @@ class BTTreeView(QWidget):
         self.tree_view.expanded.connect(self.tree_item_expanded)
 
     def create_model(self):
-        model = self.tree_view.model().sourceModel()
         first_child = self.add_tool_list_to_tree(bt.toolbox_list, bt.sorted_tools)
-        # self.tree_view.sortByColumn(0, Qt.AscendingOrder)
 
         return first_child
 
@@ -156,7 +162,7 @@ class BTTreeView(QWidget):
     def add_tool_list_to_tree(self, toolbox_list, sorted_tools):
         first_child = None
         for i, toolbox in enumerate(toolbox_list):
-            parent = QStandardItem(QIcon('img/close.gif'), toolbox)
+            parent = QStandardItem(QIcon(os.path.join(ASSETS_PATH, 'close.gif')), toolbox)
             for j, tool in enumerate(sorted_tools[i]):
                 child = QStandardItem(QIcon('img/tool.gif'), tool)
                 if i == 0 and j == 0:
@@ -178,7 +184,6 @@ class BTTreeView(QWidget):
         if not parent:
             return
 
-        toolset = parent.text()
         tool = item.text()
         self.tool_changed.emit(tool)
 
@@ -236,7 +241,7 @@ class ClickSlider(QSlider):
         else:
             slider_length = sr.height()
             slider_min = gr.y()
-            slider_max = gr.bottom() - slider_length + 1;
+            slider_max = gr.bottom() - slider_length + 1
         pr = pos - sr.center() + sr.topLeft()
         p = pr.x() if self.orientation() == Qt.Horizontal else pr.y()
         return QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), p - slider_min,
@@ -572,7 +577,7 @@ class MainWindow(QMainWindow):
 
         if "%" in value:
             try:
-                str_progress = extract_string_from_printout(value, '%')
+                str_progress = bt_common.extract_string_from_printout(value, '%')
                 value = value.replace(str_progress, '').strip()  # remove progress string
                 progress = float(str_progress.replace("%", "").strip())
                 self.progress_bar.setValue(int(progress))
@@ -581,7 +586,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 print(e)
         elif 'PROGRESS_LABEL' in value:
-            str_label = extract_string_from_printout(value, 'PROGRESS_LABEL')
+            str_label = bt_common.extract_string_from_printout(value, 'PROGRESS_LABEL')
             value = value.replace(str_label, '').strip()  # remove progress string
             value = value.replace('"', '')
             str_label = str_label.replace("PROGRESS_LABEL", "").strip()
@@ -683,7 +688,6 @@ class MainWindow(QMainWindow):
 
 
 def runner():
-    # faulthandler.enable()
     app = QApplication(sys.argv)
     window = MainWindow()
     window.setMinimumSize(1024, 768)
