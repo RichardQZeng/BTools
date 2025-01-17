@@ -74,7 +74,7 @@ class BTData(object):
         self.setting_file = None
         self.get_data_folder()
         self.get_setting_file()
-        self.gui_setting_file = Path(self.current_file_path).joinpath(r'gui.json')
+        self.gui_setting_file = Path(self.current_file_path).joinpath(r'assets/gui.json')
 
         self.load_saved_tool_info()
         self.load_gui_data()
