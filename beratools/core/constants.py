@@ -4,6 +4,8 @@ from enum import Flag, Enum, IntEnum, unique
 
 NADDatum = ['NAD83 Canadian Spatial Reference System', 'North American Datum 1983']
 
+ASSETS_PATH = "assets"
+
 BT_DEBUGGING = False
 BT_SHOW_ADVANCED_OPTIONS = False
 HAS_COST_RASTER = False
@@ -84,5 +86,3 @@ class ParallelMode(IntEnum):
 
 
 PARALLEL_MODE = ParallelMode.MULTIPROCESSING
-
-

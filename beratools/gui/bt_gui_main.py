@@ -5,49 +5,14 @@ import webbrowser
 from re import compile
 from pathlib import Path
 
-from PyQt5.QtCore import (
-    Qt,
-    QItemSelectionModel,
-    pyqtSignal,
-    QProcess,
-    QSortFilterProxyModel,
-    QRegExp,
-    QStringListModel
-)
-from PyQt5.QtWidgets import (
-    QApplication,
-    QHBoxLayout,
-    QVBoxLayout,
-    QMainWindow,
-    QPushButton,
-    QWidget,
-    QTreeView,
-    QAbstractItemView,
-    QPlainTextEdit,
-    QListView,
-    QGroupBox,
-    QLineEdit,
-    QSlider,
-    QLabel,
-    QProgressBar,
-    QToolTip,
-    QStyle,
-    QStyleOptionSlider,
-)
-
-from PyQt5.QtGui import (
-    QStandardItem,
-    QStandardItemModel,
-    QIcon,
-    QTextCursor,
-    QFont,
-    QCursor)
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
+from PyQt5 import QtGui
 
 from beratools.gui.tool_widgets import ToolWidgets
 from beratools.gui import bt_data
 import beratools.tools.common as bt_common
-
-ASSETS_PATH = "img"
+import beratools.core.constants as bt_const
 
 # A regular expression, to extract the % complete.
 progress_re = compile("Total complete: (\d+)%")
@@ -65,16 +30,18 @@ def simple_percent_parser(output):
         return int(pc_complete)
 
 
-class SearchProxyModel(QSortFilterProxyModel):
+class SearchProxyModel(QtCore.QSortFilterProxyModel):
 
     def setFilterRegExp(self, pattern):
         if isinstance(pattern, str):
-            pattern = QRegExp(pattern, Qt.CaseInsensitive, QRegExp.FixedString)
+            pattern = QtCore.QRegExp(
+                pattern, QtCore.Qt.CaseInsensitive, QtCore.QRegExp.FixedString
+            )
         super(SearchProxyModel, self).setFilterRegExp(pattern)
 
     def _accept_index(self, idx):
         if idx.isValid():
-            text = idx.data(Qt.DisplayRole)
+            text = idx.data(QtCore.Qt.DisplayRole)
             if self.filterRegExp().indexIn(text) >= 0:
                 return True
             for row in range(idx.model().rowCount(idx)):
@@ -87,33 +54,31 @@ class SearchProxyModel(QSortFilterProxyModel):
         return self._accept_index(idx)
 
 
-class BTTreeView(QWidget):
-    tool_changed = pyqtSignal(str)  # tool selection changed
+class BTTreeView(QtWidgets.QWidget):
+    tool_changed = QtCore.pyqtSignal(str)  # tool selection changed
 
     def __init__(self, parent=None):
         super(BTTreeView, self).__init__(parent)
 
         # controls
-        self.tool_search = QLineEdit()
+        self.tool_search = QtWidgets.QLineEdit()
         self.tool_search.setPlaceholderText('Search...')
 
         self.tags_model = SearchProxyModel()
-        self.tree_model = QStandardItemModel()
+        self.tree_model = QtGui.QStandardItemModel()
         self.tags_model.setSourceModel(self.tree_model)
         # self.tags_model.setDynamicSortFilter(True)
-        self.tags_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.tags_model.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
 
-        self.tree_view = QTreeView()
-        # self.tree_view.setSortingEnabled(False)
-        # self.tree_view.sortByColumn(0, Qt.AscendingOrder)
-        self.tree_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tree_view = QtWidgets.QTreeView()
+        self.tree_view.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.tree_view.setHeaderHidden(True)
         self.tree_view.setRootIsDecorated(True)
         self.tree_view.setUniformRowHeights(True)
         self.tree_view.setModel(self.tags_model)
 
         # layout
-        main_layout = QVBoxLayout()
+        main_layout = QtWidgets.QVBoxLayout()
         main_layout.addWidget(self.tool_search)
         main_layout.addWidget(self.tree_view)
         self.setLayout(main_layout)
@@ -124,9 +89,9 @@ class BTTreeView(QWidget):
         # init
         first_child = self.create_model()
 
-        self.tree_view.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.tree_view.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.tree_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tree_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tree_view.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.tree_view.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.tree_view.setFirstColumnSpanned(0, self.tree_view.rootIndex(), True)
         self.tree_view.setUniformRowHeights(True)
 
@@ -162,9 +127,9 @@ class BTTreeView(QWidget):
     def add_tool_list_to_tree(self, toolbox_list, sorted_tools):
         first_child = None
         for i, toolbox in enumerate(toolbox_list):
-            parent = QStandardItem(QIcon(os.path.join(ASSETS_PATH, 'close.gif')), toolbox)
+            parent = QtGui.QStandardItem(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'close.gif')), toolbox)
             for j, tool in enumerate(sorted_tools[i]):
-                child = QStandardItem(QIcon('img/tool.gif'), tool)
+                child = QtGui.QStandardItem(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'tool.gif')), tool)
                 if i == 0 and j == 0:
                     first_child = child
 
@@ -192,17 +157,19 @@ class BTTreeView(QWidget):
         item = self.tree_model.itemFromIndex(source_index)
         if item:
             if item.hasChildren():
-                item.setIcon(QIcon('img/open.gif'))
+                item.setIcon(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'open.gif')))
 
     def tree_item_collapsed(self, index):
         source_index = self.tags_model.mapToSource(index)
         item = self.tree_model.itemFromIndex(source_index)
         if item:
             if item.hasChildren():
-                item.setIcon(QIcon('img/close.gif'))
+                item.setIcon(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'close.gif')))
 
     def get_tool_index(self, tool_name):
-        item = self.tree_model.findItems(tool_name, Qt.MatchExactly | Qt.MatchRecursive)
+        item = self.tree_model.findItems(
+            tool_name, QtCore.Qt.MatchExactly | QtCore.Qt.MatchRecursive
+        )
         if len(item) > 0:
             item = item[0]
 
@@ -211,30 +178,34 @@ class BTTreeView(QWidget):
 
     def select_tool_by_index(self, index):
         proxy_index = self.tags_model.mapFromSource(index)
-        self.tree_sel_model.select(proxy_index, QItemSelectionModel.ClearAndSelect)
+        self.tree_sel_model.select(
+            proxy_index, QtCore.QItemSelectionModel.ClearAndSelect
+        )
         self.tree_view.expand(proxy_index.parent())
-        self.tree_sel_model.setCurrentIndex(proxy_index, QItemSelectionModel.Current)
+        self.tree_sel_model.setCurrentIndex(
+            proxy_index, QtCore.QItemSelectionModel.Current
+        )
 
     def select_tool_by_name(self, name):
         index = self.get_tool_index(name)
         self.select_tool_by_index(index)
 
 
-class ClickSlider(QSlider):
+class ClickSlider(QtWidgets.QSlider):
     def mousePressEvent(self, event):
         super(ClickSlider, self).mousePressEvent(event)
-        if event.button() == Qt.LeftButton:
+        if event.button() == QtCore.Qt.LeftButton:
             val = self.pixel_pos_to_range_value(event.pos())
             self.setValue(val)
             self.sliderMoved.emit(val)
 
     def pixel_pos_to_range_value(self, pos):
-        opt = QStyleOptionSlider()
+        opt = QtWidgets.QStyleOptionSlider()
         self.initStyleOption(opt)
-        gr = self.style().subControlRect(QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, self)
-        sr = self.style().subControlRect(QStyle.CC_Slider, opt, QStyle.SC_SliderHandle, self)
+        gr = self.style().subControlRect(QtWidgets.QStyle.CC_Slider, opt, QtWidgets.QStyle.SC_SliderGroove, self)
+        sr = self.style().subControlRect(QtWidgets.QStyle.CC_Slider, opt, QtWidgets.QStyle.SC_SliderHandle, self)
 
-        if self.orientation() == Qt.Horizontal:
+        if self.orientation() == QtCore.Qt.Horizontal:
             slider_length = sr.width()
             slider_min = gr.x()
             slider_max = gr.right() - slider_length + 1
@@ -243,25 +214,25 @@ class ClickSlider(QSlider):
             slider_min = gr.y()
             slider_max = gr.bottom() - slider_length + 1
         pr = pos - sr.center() + sr.topLeft()
-        p = pr.x() if self.orientation() == Qt.Horizontal else pr.y()
-        return QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), p - slider_min,
+        p = pr.x() if self.orientation() == QtCore.Qt.Horizontal else pr.y()
+        return QtWidgets.QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), p - slider_min,
                                               slider_max - slider_min, opt.upsideDown)
 
 
-class BTSlider(QWidget):
+class BTSlider(QtWidgets.QWidget):
     def __init__(self, current, maximum, parent=None):
         super(BTSlider, self).__init__(parent)
 
         self.value = current
-        self.slider = ClickSlider(Qt.Horizontal)
+        self.slider = ClickSlider(QtCore.Qt.Horizontal)
         self.slider.setFixedWidth(120)
         self.slider.setTickInterval(2)
-        self.slider.setTickPosition(QSlider.TicksAbove)
+        self.slider.setTickPosition(QtWidgets.QSlider.TicksAbove)
         self.slider.setRange(1, maximum)
         self.slider.setValue(current)
-        self.label = QLabel(self.generate_label_text(current))
+        self.label = QtWidgets.QLabel(self.generate_label_text(current))
 
-        layout = QHBoxLayout()
+        layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.label)
         layout.addWidget(self.slider)
         self.setLayout(layout)
@@ -270,7 +241,7 @@ class BTSlider(QWidget):
 
     def slider_moved(self, value):
         bt.set_max_procs(value)
-        QToolTip.showText(QCursor.pos(), f'{value}')
+        QtWidgets.QToolTip.showText(QtGui.QCursor.pos(), f'{value}')
         self.label.setText(self.generate_label_text())
 
     def generate_label_text(self, value=None):
@@ -280,18 +251,18 @@ class BTSlider(QWidget):
         return f'Use CPU Cores: {value:3d}'
 
 
-class BTListView(QWidget):
-    tool_changed = pyqtSignal(str)
+class BTListView(QtWidgets.QWidget):
+    tool_changed = QtCore.pyqtSignal(str)
 
     def __init__(self, data_list=None, parent=None):
         super(BTListView, self).__init__(parent)
 
-        delete_icon = QStyle.SP_DialogCloseButton
+        delete_icon = QtWidgets.QStyle.SP_DialogCloseButton
         delete_icon = self.style().standardIcon(delete_icon)
-        clear_icon = QStyle.SP_DialogResetButton
+        clear_icon = QtWidgets.QStyle.SP_DialogResetButton
         clear_icon = self.style().standardIcon(clear_icon)
-        btn_delete = QPushButton()
-        btn_clear = QPushButton()
+        btn_delete = QtWidgets.QPushButton()
+        btn_clear = QtWidgets.QPushButton()
         btn_delete.setIcon(delete_icon)
         btn_clear.setIcon(clear_icon)
         btn_delete.setToolTip('Delete selected tool history')
@@ -299,28 +270,28 @@ class BTListView(QWidget):
         btn_delete.setFixedWidth(40)
         btn_clear.setFixedWidth(40)
 
-        layout_h = QHBoxLayout()
+        layout_h = QtWidgets.QHBoxLayout()
         layout_h.addWidget(btn_delete)
         layout_h.addWidget(btn_clear)
         layout_h.addStretch(1)
 
-        self.list_view = QListView()
-        self.list_view.setFlow(QListView.TopToBottom)
+        self.list_view = QtWidgets.QListView()
+        self.list_view.setFlow(QtWidgets.QListView.TopToBottom)
         self.list_view.setBatchSize(5)
 
-        self.list_model = QStringListModel()  # model
+        self.list_model = QtCore.QStringListModel()  # model
         if data_list:
             self.list_model.setStringList(data_list)
 
         self.list_view.setModel(self.list_model)  # set model
         self.sel_model = self.list_view.selectionModel()
 
-        self.list_view.setLayoutMode(QListView.SinglePass)
+        self.list_view.setLayoutMode(QtWidgets.QListView.SinglePass)
         btn_delete.clicked.connect(self.delete_selected_item)
         btn_clear.clicked.connect(self.clear_all_items)
         self.sel_model.selectionChanged.connect(self.selection_changed)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addLayout(layout_h)
         layout.addWidget(self.list_view)
         self.setLayout(layout)
@@ -345,7 +316,7 @@ class BTListView(QWidget):
         self.list_model.setStringList([])
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
@@ -374,17 +345,17 @@ class MainWindow(QMainWindow):
         self.upper_toolboxes = bt.upper_toolboxes
         self.lower_toolboxes = bt.lower_toolboxes
 
-        self.exe_path = Path(__file__).resolve().parent
-        bt.set_bera_dir(self.exe_path)
+        self.current_file_path = Path(__file__).resolve().parent
+        bt.set_bera_dir(self.current_file_path)
 
         # Tree view
         self.tree_view = BTTreeView()
         self.tree_view.tool_changed.connect(self.set_tool)
 
         # group box for tree view
-        tree_box = QGroupBox()
+        tree_box = QtWidgets.QGroupBox()
         tree_box.setTitle('Tools available')
-        tree_layout = QVBoxLayout()
+        tree_layout = QtWidgets.QVBoxLayout()
         tree_layout.addWidget(self.tree_view)
         tree_box.setLayout(tree_layout)
 
@@ -394,32 +365,32 @@ class MainWindow(QMainWindow):
         self.tool_history.tool_changed.connect(self.set_tool)
 
         # group box
-        tool_history_box = QGroupBox()
-        tool_history_layout = QVBoxLayout()
+        tool_history_box = QtWidgets.QGroupBox()
+        tool_history_layout = QtWidgets.QVBoxLayout()
         tool_history_layout.addWidget(self.tool_history)
         tool_history_box.setTitle('Tool history')
         tool_history_box.setLayout(tool_history_layout)
 
         # left layout
-        page_layout = QHBoxLayout()
-        self.left_layout = QVBoxLayout()
-        self.right_layout = QVBoxLayout()
+        page_layout = QtWidgets.QHBoxLayout()
+        self.left_layout = QtWidgets.QVBoxLayout()
+        self.right_layout = QtWidgets.QVBoxLayout()
 
         self.left_layout.addWidget(tree_box)
         self.left_layout.addWidget(tool_history_box)
 
         # top buttons
-        label = QLabel(f'{self.tool_name}')
-        label.setFont(QFont('Consolas', 14))
-        self.btn_advanced = QPushButton('Show Advanced Options')
+        label = QtWidgets.QLabel(f'{self.tool_name}')
+        label.setFont(QtGui.QFont('Consolas', 14))
+        self.btn_advanced = QtWidgets.QPushButton('Show Advanced Options')
         self.btn_advanced.setFixedWidth(180)
-        btn_help = QPushButton('help')
-        btn_code = QPushButton('Code')
+        btn_help = QtWidgets.QPushButton('help')
+        btn_code = QtWidgets.QPushButton('Code')
         btn_help.setFixedWidth(250)
         btn_code.setFixedWidth(100)
 
-        self.btn_layout_top = QHBoxLayout()
-        self.btn_layout_top.setAlignment(Qt.AlignRight)
+        self.btn_layout_top = QtWidgets.QHBoxLayout()
+        self.btn_layout_top.setAlignment(QtCore.Qt.AlignRight)
         self.btn_layout_top.addWidget(label)
         self.btn_layout_top.addStretch(1)
         self.btn_layout_top.addWidget(self.btn_advanced)
@@ -431,42 +402,42 @@ class MainWindow(QMainWindow):
 
         # bottom buttons
         slider = BTSlider(bt.max_procs, bt.max_cpu_cores)
-        btn_default_args = QPushButton('Load Default Arguments')
-        self.btn_run = QPushButton('Run')
-        btn_cancel = QPushButton('Cancel')
+        btn_default_args = QtWidgets.QPushButton('Load Default Arguments')
+        self.btn_run = QtWidgets.QPushButton('Run')
+        btn_cancel = QtWidgets.QPushButton('Cancel')
         btn_default_args.setFixedWidth(150)
         slider.setFixedWidth(250)
         self.btn_run.setFixedWidth(120)
         btn_cancel.setFixedWidth(120)
 
-        btn_layout_bottom = QHBoxLayout()
-        btn_layout_bottom.setAlignment(Qt.AlignRight)
+        btn_layout_bottom = QtWidgets.QHBoxLayout()
+        btn_layout_bottom.setAlignment(QtCore.Qt.AlignRight)
         btn_layout_bottom.addStretch(1)
         btn_layout_bottom.addWidget(btn_default_args)
         btn_layout_bottom.addWidget(slider)
         btn_layout_bottom.addWidget(self.btn_run)
         btn_layout_bottom.addWidget(btn_cancel)
 
-        self.top_right_layout = QVBoxLayout()
+        self.top_right_layout = QtWidgets.QVBoxLayout()
         self.top_right_layout.addLayout(self.btn_layout_top)
         self.top_right_layout.addWidget(self.tool_widget)
         self.top_right_layout.addLayout(btn_layout_bottom)
-        tool_widget_grp = QGroupBox('Tool')
+        tool_widget_grp = QtWidgets.QGroupBox('Tool')
         tool_widget_grp.setLayout(self.top_right_layout)
 
         # Text widget
-        self.text_edit = QPlainTextEdit()
-        self.text_edit.setFont(QFont('Consolas', 9))
+        self.text_edit = QtWidgets.QPlainTextEdit()
+        self.text_edit.setFont(QtGui.QFont('Consolas', 9))
         self.text_edit.setReadOnly(True)
         self.print_about()
 
         # progress bar
-        self.progress_label = QLabel()
-        self.progress_bar = QProgressBar(self)
+        self.progress_label = QtWidgets.QLabel()
+        self.progress_bar = QtWidgets.QProgressBar(self)
         self.progress_var = 0
 
         # progress layout
-        progress_layout = QHBoxLayout()
+        progress_layout = QtWidgets.QHBoxLayout()
         progress_layout.addWidget(self.progress_label)
         progress_layout.addWidget(self.progress_bar)
 
@@ -486,7 +457,7 @@ class MainWindow(QMainWindow):
         self.btn_run.clicked.connect(self.start_process)
         btn_cancel.clicked.connect(self.stop_process)
 
-        widget = QWidget(self)
+        widget = QtWidgets.QWidget(self)
         widget.setLayout(page_layout)
         self.setCentralWidget(widget)
 
@@ -541,14 +512,14 @@ class MainWindow(QMainWindow):
         bt.set_max_procs(max_procs)
 
     def print_to_output(self, text):
-        self.text_edit.moveCursor(QTextCursor.End)
+        self.text_edit.moveCursor(QtGui.QTextCursor.End)
         self.text_edit.insertPlainText(text)
-        self.text_edit.moveCursor(QTextCursor.End)
+        self.text_edit.moveCursor(QtGui.QTextCursor.End)
 
     def print_line_to_output(self, text, tag=None):
-        self.text_edit.moveCursor(QTextCursor.End)
+        self.text_edit.moveCursor(QtGui.QTextCursor.End)
         self.text_edit.insertPlainText(text + '\n')
-        self.text_edit.moveCursor(QTextCursor.End)
+        self.text_edit.moveCursor(QtGui.QTextCursor.End)
 
     def show_advanced(self):
         if bt.show_advanced:
@@ -627,7 +598,7 @@ class MainWindow(QMainWindow):
         if self.process is None:  # No process running.
             self.print_line_to_output(f"Tool {self.tool_name} started")
             self.print_line_to_output("-----------------------")
-            self.process = QProcess()  # Keep a reference to the QProcess
+            self.process = QtCore.QProcess()  # Keep a reference to the QProcess
             self.process.readyReadStandardOutput.connect(self.handle_stdout)
             self.process.readyReadStandardError.connect(self.handle_stderr)
             self.process.stateChanged.connect(self.handle_state)
@@ -668,9 +639,9 @@ class MainWindow(QMainWindow):
 
     def handle_state(self, state):
         states = {
-            QProcess.NotRunning: 'Not running',
-            QProcess.Starting: 'Starting',
-            QProcess.Running: 'Running',
+            QtCore.QProcess.NotRunning: "Not running",
+            QtCore.QProcess.Starting: "Starting",
+            QtCore.QProcess.Running: "Running",
         }
         state_name = states[state]
         if state_name == 'Not running':
@@ -688,7 +659,7 @@ class MainWindow(QMainWindow):
 
 
 def runner():
-    app = QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
     window.setMinimumSize(1024, 768)
     window.show()

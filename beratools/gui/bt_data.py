@@ -19,7 +19,6 @@ from collections import OrderedDict
 
 import beratools.core.constants as bt_const
 
-
 running_windows = platform.system() == 'Windows'
 
 
@@ -42,8 +41,7 @@ class BTData(object):
             self.ext = '.exe'
         else:
             self.ext = ''
-        self.exe_name = "BERA_tools{}".format(self.ext)
-        self.exe_path = path.dirname(path.abspath(__file__))
+        self.current_file_path = path.dirname(path.abspath(__file__))
 
         self.work_dir = ""
         self.user_folder = Path('')
@@ -76,7 +74,7 @@ class BTData(object):
         self.setting_file = None
         self.get_data_folder()
         self.get_setting_file()
-        self.gui_setting_file = Path(self.exe_path).joinpath(r'gui.json')
+        self.gui_setting_file = Path(self.current_file_path).joinpath(r'gui.json')
 
         self.load_saved_tool_info()
         self.load_gui_data()
@@ -89,7 +87,7 @@ class BTData(object):
         """ 
         Sets the directory to the BERA Tools executable file.
         """
-        self.exe_path = path_str
+        self.current_file_path = path_str
 
     def add_tool_history(self, tool, params):
         if 'tool_history' not in self.settings:
@@ -222,7 +220,7 @@ class BTData(object):
         Retrieves the license information for BERA Tools.
         """
         try:
-            with open(os.path.join(self.exe_path, r'..\..\LICENSE.txt'), 'r') as f:
+            with open(os.path.join(self.current_file_path, r'..\..\LICENSE.txt'), 'r') as f:
                 ret = f.read()
 
             return ret
@@ -306,9 +304,9 @@ class BTData(object):
         return None
 
     def get_bera_tools(self):
-        tool_json = os.path.join(self.exe_path, r'beratools.json')
+        tool_json = os.path.join(self.current_file_path, bt_const.ASSETS_PATH, r'beratools.json')
         if os.path.exists(tool_json):
-            tool_json = open(os.path.join(self.exe_path, r'beratools.json'))
+            tool_json = open(os.path.join(self.current_file_path, bt_const.ASSETS_PATH, r'beratools.json'))
             self.bera_tools = json.load(tool_json)
         else:
             print('Tool configuration file not exists')
