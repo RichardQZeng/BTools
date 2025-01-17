@@ -5,6 +5,7 @@ import json
 import pyogrio
 import numpy as np
 from pathlib import Path
+from collections import OrderedDict
 
 from PyQt5.QtWidgets import (
     QApplication,
@@ -156,7 +157,8 @@ def get_layers(gpkg_file):
         if isinstance(layers_info, np.ndarray) and all(
                 isinstance(layer, np.ndarray) and len(layer) >= 2 for layer in layers_info):
             # Create a dictionary where the key is the layer name and the value is the geometry type
-            layers_dict = {layer[0]: layer[1] for layer in layers_info}
+            # layers_dict = {layer[0]: layer[1] for layer in layers_info}
+            layers_dict = OrderedDict((layer[0], layer[1]) for layer in layers_info)
             return layers_dict
         else:
             # If the format is not correct, raise an exception with a detailed message
@@ -177,9 +179,12 @@ class FileSelector(QWidget):
         self.description = params['description']
         self.flag = params['flag']
         self.layer_flag = None
+        self.saved_layer = ''
         if 'layer' in params.keys():
-            self.layer_flag = params['layer']
+            self.layer_flag = params['layer']['layer_name']
+            self.saved_layer = params['layer']['layer_value']
 
+        self.gpkg_layers = None
         self.output = params['output']  # Ensure output flag is read
         self.parameter_type = params['parameter_type']
         self.file_type = ""
@@ -229,6 +234,11 @@ class FileSelector(QWidget):
             else:
                 self.layer_combo.setEditable(False)  # Set it as non-editable if output is False
                 self.load_gpkg_layers(self.value)  # Load layers if output is False
+
+        # check saved layer existence, if Ture then set it to selected
+        index = self.search_saved_combo_items()
+        if index != -1:
+            self.layer_combo.setCurrentIndex(index)
 
         # If the file is not a .gpkg, don't show the combo box at all
         elif self.layer_combo.isVisible():
@@ -375,17 +385,17 @@ class FileSelector(QWidget):
             # print(f"Attempting to load layers from: {gpkg_file}")
 
             # Use get_layers to load layers from the GeoPackage
-            layers = get_layers(gpkg_file)
+            self.gpkg_layers = get_layers(gpkg_file)
 
             # Check if layers is empty
-            if not layers:
+            if not self.gpkg_layers:
                 raise ValueError("No layers found in the GeoPackage.")
 
             # Clear any existing layers in the combo box
             self.layer_combo.clear()
 
             # Iterate over the layers dictionary and add each layer name with geometry type to the combo box
-            for layer_name, geometry_type in layers.items():
+            for layer_name, geometry_type in self.gpkg_layers.items():
                 self.layer_combo.addItem(f"{layer_name} ({geometry_type})")
 
             # Set the tooltip for the layer list widget
@@ -439,6 +449,22 @@ class FileSelector(QWidget):
 
         return value
 
+    def search_saved_combo_items(self):
+        """
+        Search saved layer in combo box items.
+
+        Returns
+        If found, then return the index, or return -1
+
+        """
+        if not self.gpkg_layers:
+            return -1
+
+        for idx, key in enumerate(self.gpkg_layers.keys()):
+            if key == self.saved_layer:
+                return idx
+
+        return -1
 
 
 class FileOrFloat(QWidget):
