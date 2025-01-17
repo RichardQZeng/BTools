@@ -1,21 +1,17 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-
+import sys
 import pandas as pd
-from PyQt5.QtCore import (QDir, QItemSelectionModel, QAbstractTableModel, QModelIndex,
-                          QVariant, QSettings)
-from PyQt5.QtWidgets import (QTableView, QAbstractItemView, QShortcut, QDialog, QDialogButtonBox)
-from PyQt5.QtGui import QKeySequence, QTextDocument, QTextCursor, QTextTableFormat
-from PyQt5 import QtPrintSupport
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
+from PyQt5 import QtGui, QtPrintSupport
 
-from beratools.gui.tool_widgets import *
-from bt_data import *
+from beratools.gui.tool_widgets import ToolWidgets
+from beratools.gui.bt_data import BTData
 bt = BTData()
 
 
-class PandasModel(QAbstractTableModel):
+class PandasModel(QtCore.QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):
-        QAbstractTableModel.__init__(self, parent=None)
+        QtCore.QAbstractTableModel.__init__(self, parent=None)
         self._df = df
         self.setChanged = False
         self.dataChanged.connect(self.setModified)
@@ -24,28 +20,28 @@ class PandasModel(QAbstractTableModel):
         self.setChanged = True
         print(self.setChanged)
 
-    def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role != Qt.DisplayRole:
-            return QVariant()
-        if orientation == Qt.Horizontal:
+    def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+        if role != QtCore.Qt.DisplayRole:
+            return QtCore.QVariant()
+        if orientation == QtCore.Qt.Horizontal:
             try:
                 return self._df.columns.tolist()[section]
             except (IndexError,):
-                return QVariant()
-        elif orientation == Qt.Vertical:
+                return QtCore.QVariant()
+        elif orientation == QtCore.Qt.Vertical:
             try:
                 return self._df.index.tolist()[section]
             except (IndexError,):
-                return QVariant()
+                return QtCore.QVariant()
 
     def flags(self, index):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable
+        return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
 
-    def data(self, index, role=Qt.DisplayRole):
+    def data(self, index, role=QtCore.Qt.DisplayRole):
         if index.isValid():
-            if role == Qt.EditRole:
+            if role == QtCore.Qt.EditRole:
                 return self._df.values[index.row()][index.column()]
-            elif role == Qt.DisplayRole:
+            elif role == QtCore.Qt.DisplayRole:
                 return self._df.values[index.row()][index.column()]
         return None
 
@@ -59,33 +55,31 @@ class PandasModel(QAbstractTableModel):
         self.dataChanged.emit(index, index)
         return True
 
-    def rowCount(self, parent=QModelIndex()):
+    def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._df.index)
 
-    def columnCount(self, parent=QModelIndex()):
+    def columnCount(self, parent=QtCore.QModelIndex()):
         return len(self._df.columns)
 
     def sort(self, column, order):
-        colname = self._df.columns.tolist()[column]
+        col_name = self._df.columns.tolist()[column]
         self.layoutAboutToBeChanged.emit()
-        self._df.sort_values(colname, ascending=order == Qt.AscendingOrder, inplace=True)
+        self._df.sort_values(col_name, ascending=order == QtCore.Qt.AscendingOrder, inplace=True)
         self._df.reset_index(inplace=True, drop=True)
         self.layoutChanged.emit()
 
-    def insertRows(self, position, rows=1, index=QModelIndex()):
+    def insertRows(self, position, rows=1, index=QtCore.QModelIndex()):
         print("\n\t\t ...insertRows() Starting position: '%s'" % position, 'with the total rows to be inserted: ', rows)
-        self.beginInsertRows(QModelIndex(), position, position + rows - 1)
-        # del self._data[position]
-        default_row = []
+        self.beginInsertRows(QtCore.QModelIndex(), position, position + rows - 1)
         for i in range(rows):
             self._df.loc[len(self._df)] = self.default_record
 
         self.endInsertRows()
         return True
 
-    def removeRows(self, position, rows=1, index=QModelIndex()):
+    def removeRows(self, position, rows=1, index=QtCore.QModelIndex()):
         print("\n\t\t ...removeRows() Starting position: '%s'" % position, 'with the total rows to be removed: ', rows)
-        self.beginRemoveRows(QModelIndex(), position, position + rows - 1)
+        self.beginRemoveRows(QtCore.QModelIndex(), position, position + rows - 1)
         for i in range(rows):
             self._df.drop(self._df.index[position + i], inplace=True)
             print('removed: {}'.format(position + i))
@@ -101,9 +95,9 @@ class PandasModel(QAbstractTableModel):
         self._df.to_csv(csv_file, index=False)
 
 
-class BPDialog(QDialog):
+class BPDialog(QtWidgets.QDialog):
     # signals
-    signal_update_tool_widgets = pyqtSignal(int)
+    signal_update_tool_widgets = QtCore.pyqtSignal(int)
 
     def __init__(self, tool_name, parent=None):
         super(BPDialog, self).__init__(parent)
@@ -111,23 +105,23 @@ class BPDialog(QDialog):
         self.MaxRecentFiles = 5
         self.window_list = []
         self.recent_files = []
-        self.settings = QSettings('Richard Zeng', 'Batch Processing')
+        self.settings = QtCore.QSettings('Richard Zeng', 'Batch Processing')
         self.filename = ""
         self.setGeometry(0, 0, 800, 600)
 
-        # tableview
-        self.table_view = QTableView()
+        # table view
+        self.table_view = QtWidgets.QTableView()
         self.table_view.verticalHeader().setVisible(True)
         self.model = PandasModel()
         self.table_view.setModel(self.model)
-        self.table_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table_view.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.table_view.setSelectionBehavior(self.table_view.SelectRows)
         self.table_view.setSelectionMode(self.table_view.ExtendedSelection)
 
         self.table_view.clicked.connect(self.table_view_clicked)
         self.table_view.verticalHeader().sectionClicked.connect(self.table_view_vertical_header_clicked)
-        QShortcut(Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
-        QShortcut(Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
+        QtWidgets.QShortcut(QtCore.Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
+        QtWidgets.QShortcut(QtCore.Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
 
         # create form
         self.tool_name = tool_name
@@ -135,35 +129,35 @@ class BPDialog(QDialog):
         self.tool_widgets = ToolWidgets(tool_name, tool_args, False)
 
         # self.createToolBar()
-        hbox_widgets = QHBoxLayout()
+        hbox_widgets = QtWidgets.QHBoxLayout()
         hbox_widgets.addWidget(self.table_view, 2)
         hbox_widgets.addWidget(self.tool_widgets, 1)
 
         # Add project, record related button box
-        self.project_btns = QHBoxLayout()
-        open_button = QPushButton('Open')
-        save_button = QPushButton('Save')
-        save_as_button = QPushButton('Save as')
-        delete_button = QPushButton('Delete records')
-        add_button = QPushButton('Add record')
-        print_button = QPushButton('Print')
+        self.project_btns = QtWidgets.QHBoxLayout()
+        open_button = QtWidgets.QPushButton('Open')
+        save_button = QtWidgets.QPushButton('Save')
+        save_as_button = QtWidgets.QPushButton('Save as')
+        delete_button = QtWidgets.QPushButton('Delete records')
+        add_button = QtWidgets.QPushButton('Add record')
+        print_button = QtWidgets.QPushButton('Print')
 
         open_button.clicked.connect(self.load_csv)
-        save_button.setShortcut(QKeySequence.Open)
+        save_button.setShortcut(QtGui.QKeySequence.Open)
         save_button.clicked.connect(self.write_csv_update)
-        save_button.setShortcut(QKeySequence.Save)
+        save_button.setShortcut(QtGui.QKeySequence.Save)
         save_as_button.clicked.connect(self.write_csv)
-        save_as_button.setShortcut(QKeySequence.SaveAs)
+        save_as_button.setShortcut(QtGui.QKeySequence.SaveAs)
         delete_button.clicked.connect(self.table_view_delete_records)
-        delete_button.setShortcut(QKeySequence.Delete)
+        delete_button.setShortcut(QtGui.QKeySequence.Delete)
 
         add_button.clicked.connect(self.table_view_add_records)
 
-        self.last_files = QComboBox()
+        self.last_files = QtWidgets.QComboBox()
         self.last_files.setFixedWidth(300)
         self.last_files.currentIndexChanged.connect(self.load_recent)
 
-        self.line_find = QLineEdit()
+        self.line_find = QtWidgets.QLineEdit()
         self.line_find.setPlaceholderText("find")
         self.line_find.setClearButtonEnabled(True)
         self.line_find.setFixedWidth(250)
@@ -171,35 +165,35 @@ class BPDialog(QDialog):
 
         print_button.clicked.connect(self.handle_preview)
 
-        self.project_btns.addWidget(open_button, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(save_button, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(save_as_button, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(delete_button, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(add_button, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(self.line_find, QDialogButtonBox.ActionRole)
-        self.project_btns.addWidget(print_button, QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(open_button, QtWidgets.QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(save_button, QtWidgets.QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(save_as_button, QtWidgets.QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(delete_button, QtWidgets.QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(add_button, QtWidgets.QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(self.line_find, QtWidgets.QDialogButtonBox.ActionRole)
+        self.project_btns.addWidget(print_button, QtWidgets.QDialogButtonBox.ActionRole)
 
         # Add OK/cancel buttons
-        self.ok_btn_box = QDialogButtonBox()
-        self.ok_btn_box.addButton("Run", QDialogButtonBox.AcceptRole)
-        self.ok_btn_box.addButton("Cancel", QDialogButtonBox.RejectRole)
-        self.ok_btn_box.addButton("Help", QDialogButtonBox.HelpRole)
+        self.ok_btn_box = QtWidgets.QDialogButtonBox()
+        self.ok_btn_box.addButton("Run", QtWidgets.QDialogButtonBox.AcceptRole)
+        self.ok_btn_box.addButton("Cancel", QtWidgets.QDialogButtonBox.RejectRole)
+        self.ok_btn_box.addButton("Help", QtWidgets.QDialogButtonBox.HelpRole)
 
         self.ok_btn_box.accepted.connect(self.run)
         self.ok_btn_box.rejected.connect(self.reject)
         self.ok_btn_box.helpRequested.connect(self.help)
 
-        hbox_btns = QHBoxLayout()
+        hbox_btns = QtWidgets.QHBoxLayout()
         hbox_btns.addLayout(self.project_btns)
         hbox_btns.addWidget(self.ok_btn_box)
 
-        vbox_main = QVBoxLayout()
+        vbox_main = QtWidgets.QVBoxLayout()
         vbox_main.addLayout(hbox_widgets)
         vbox_main.addLayout(hbox_btns)
         self.setLayout(vbox_main)
 
         # delete dialog when close
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
         self.setContentsMargins(10, 10, 10, 10)
         self.read_settings()
@@ -215,7 +209,7 @@ class BPDialog(QDialog):
             return
 
         print("Run the batch processing.")
-        QDialog.accept(self)
+        QtWidgets.QDialog.accept(self)
 
     def run(self):
         self.model.save_csv(self.filename)
@@ -278,9 +272,9 @@ class BPDialog(QDialog):
         self.model.updateRow(current_row, row_data)
 
     def update_tool_widgets(self, row):
-        tool_paramas = self.model.data_row_dict(row)
-        self.tool_widgets.update_widgets(tool_paramas)
-        print('Update tool parameters for record {}'.format(tool_paramas))
+        tool_params = self.model.data_row_dict(row)
+        self.tool_widgets.update_widgets(tool_params)
+        print('Update tool parameters for record {}'.format(tool_params))
 
     def table_view_key_down(self):
         current_row = self.table_view.selectionModel().selectedRows()[-1].row()
@@ -307,9 +301,9 @@ class BPDialog(QDialog):
         if self.model.setChanged:
             print("is changed, saving?")
             quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-            reply = QMessageBox.question(self, 'Save Confirmation',
-                                         quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-            if reply == QMessageBox.Yes:
+            reply = QtWidgets.QMessageBox.question(self, 'Save Confirmation',
+                                         quit_msg, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.Yes)
+            if reply == QtWidgets.QMessageBox.Yes:
                 self.write_csv_update()
             else:
                 print("Settings not saved.")
@@ -325,9 +319,9 @@ class BPDialog(QDialog):
             if self.model.setChanged:
                 print("is changed, saving?")
                 quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-                reply = QMessageBox.question(self, 'Save Confirmation',
-                                             quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-                if reply == QMessageBox.Yes:
+                reply = QtWidgets.QMessageBox.question(self, 'Save Confirmation',
+                                             quit_msg, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.Yes)
+                if reply == QtWidgets.QMessageBox.Yes:
                     self.open_csv(self.last_files.currentText())
                 else:
                     self.open_csv(self.last_files.currentText())
@@ -355,25 +349,25 @@ class BPDialog(QDialog):
         model = self.table_view.model()
         for column in range(self.model.columnCount()):
             start = model.index(0, column)
-            matches = model.match(start, Qt.DisplayRole, text, -1, Qt.MatchContains)
+            matches = model.match(start, QtCore.Qt.DisplayRole, text, -1, QtCore.Qt.MatchContains)
             if matches:
                 for index in matches:
                     # print(index.row(), index.column())
-                    self.table_view.selectionModel().select(index, QItemSelectionModel.Select)
+                    self.table_view.selectionModel().select(index, QtCore.QItemSelectionModel.Select)
 
     def open_file(self, path=None):
         print(self.model.setChanged)
-        if self.model.setChanged == True:
+        if self.model.setChanged:
             print("is changed, saving?")
             quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-            reply = QMessageBox.question(self, 'Save Confirmation',
-                                         quit_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-            if reply == QMessageBox.Yes:
+            reply = QtWidgets.QMessageBox.question(self, 'Save Confirmation',
+                                         quit_msg, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.Yes)
+            if reply == QtWidgets.QMessageBox.Yes:
                 self.write_csv_update()
             else:
                 print("not saved, loading ...")
                 return
-        path, _ = QFileDialog.getOpenFileName(self, "Open File", QDir.homePath() + "/Dokumente/CSV/",
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", QtCore.QDir.homePath() + "/Document/CSV/",
                                               "CSV Files (*.csv)")
         if path:
             return path
@@ -396,7 +390,7 @@ class BPDialog(QDialog):
         self.last_files.insertItem(1, file_name)
 
     def write_csv(self):
-        file_name, _ = QFileDialog.getSaveFileName(self, "Open File", self.filename, "CSV Files (*.csv)")
+        file_name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Open File", self.filename, "CSV Files (*.csv)")
         if file_name:
             print(file_name + " saved")
             f = open(file_name, 'w')
@@ -426,35 +420,34 @@ class BPDialog(QDialog):
 
     def handle_paint_request(self, printer):
         printer.setDocName(self.filename)
-        document = QTextDocument()
-        cursor = QTextCursor(document)
+        document = QtGui.QTextDocument()
+        cursor = QtGui.QTextCursor(document)
         model = self.table_view.model()
-        table_format = QTextTableFormat()
+        table_format = QtGui.QTextTableFormat()
         table_format.setBorder(0.2)
         table_format.setBorderStyle(3)
-        table_format.setCellSpacing(0);
-        table_format.setTopMargin(0);
+        table_format.setCellSpacing(0)
+        table_format.setTopMargin(0)
         table_format.setCellPadding(4)
-        table = cursor.insertTable(model.rowCount() + 1, model.columnCount(), table_format)
         model = self.table_view.model()
 
         # get headers
-        myheader = []
+        my_header = []
         for i in range(0, model.columnCount()):
-            myheader = model.headerData(i, Qt.Horizontal)
-            cursor.insertText(str(myheader))
-            cursor.movePosition(QTextCursor.NextCell)
+            my_header = model.headerData(i, QtCore.Qt.Horizontal)
+            cursor.insertText(str(my_header))
+            cursor.movePosition(QtGui.QTextCursor.NextCell)
         # get cells
         for row in range(0, model.rowCount()):
             for col in range(0, model.columnCount()):
                 index = model.index(row, col)
                 cursor.insertText(str(index.data()))
-                cursor.movePosition(QTextCursor.NextCell)
+                cursor.movePosition(QtGui.QTextCursor.NextCell)
         document.print_(printer)
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    app = QtCore.QApplication(sys.argv)
     main = BPDialog('Raster Line Attributes')
     main.show()
     if len(sys.argv) > 1:

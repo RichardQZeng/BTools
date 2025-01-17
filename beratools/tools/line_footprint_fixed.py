@@ -1,14 +1,6 @@
 import time
 from itertools import chain
-
-import sys
 from pathlib import Path
-from inspect import getsourcefile
-
-if __name__ == "__main__":
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
-    btool_dir = current_file.parents[2]
-    sys.path.insert(0, btool_dir.as_posix())
 
 from math import isclose
 import numpy as np
@@ -16,12 +8,10 @@ import pandas as pd
 import geopandas as gpd
 import shapely.ops
 from shapely.geometry import Polygon, MultiPolygon, MultiLineString, mapping, Point
-from beratools.tools.common import (
-    generate_perpendicular_line_precise,
-    check_arguments,
-)
+
+import beratools.tools.common as bt_common
 from beratools.core.tool_base import execute_multiprocessing
-from beratools.core.constants import FP_FIXED_WIDTH_DEFAULT, PARALLEL_MODE
+import beratools.core.constants as bt_const
 from beratools.core.linegrouping import LineGrouping
 
 
@@ -79,7 +69,8 @@ def generate_sample_points(line, n_samples=10):
     # TODO: determine line type
     try:
         pts = line.coords
-    except Exception as e:
+    except Exception as e:  # TODO: check the code
+        print(e)
         line = shapely.ops.linemerge(line)
         tuple_coord = mapping(line)['coordinates']
         pts = list(chain(*tuple_coord))
@@ -92,7 +83,7 @@ def process_single_line(line_arg):
     inter_poly = line_arg[1]
     n_samples = line_arg[2]
     offset = line_arg[3]
-    line_id = line_arg[4]
+    # line_id = line_arg[4]
 
     widths, line, perp_lines, perp_lines_original = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
 
@@ -101,8 +92,8 @@ def process_single_line(line_arg):
     arr_filter = [False if isclose(i, 0.0) else True for i in widths]
     widths = widths[arr_filter]
 
-    q3_width = FP_FIXED_WIDTH_DEFAULT
-    q4_width = FP_FIXED_WIDTH_DEFAULT
+    q3_width = bt_const.FP_FIXED_WIDTH_DEFAULT
+    q4_width = bt_const.FP_FIXED_WIDTH_DEFAULT
     try:
         q3_width = np.percentile(widths, 40)
         q4_width = np.percentile(widths, 90)
@@ -123,8 +114,6 @@ def process_single_line(line_arg):
         row['perp_lines_original'] = perp_lines_original
     except Exception as e:
         print(e)
-
-    # print('line processed: {}'.format(line_id))
 
     return row
 
@@ -204,7 +193,7 @@ def calculate_average_width(line, polygon, offset, n_samples):
     polygon_no_holes = gpd.GeoDataFrame(geometry=poly_list, crs=polygon.crs)
 
     for i, points in enumerate(sample_points_pairs):
-        perp_line = generate_perpendicular_line_precise(points, offset=offset)
+        perp_line = bt_common.generate_perpendicular_line_precise(points, offset=offset)
         perp_lines_original.append(perp_line)
 
         polygon_intersect = polygon_no_holes.iloc[polygon_no_holes.sindex.query(perp_line)]
@@ -243,7 +232,7 @@ def line_footprint_fixed(
     out_footprint,
     processes,
     verbose,
-    parallel_mode=PARALLEL_MODE,
+    parallel_mode=bt_const.PARALLEL_MODE,
 ):
     n_samples = int(n_samples)
     offset = float(offset)
@@ -267,7 +256,7 @@ def line_footprint_fixed(
 
     # Save the lines with attributes and polygons to a new file
     perp_lines_gdf = buffer_gdf.copy(deep=True)
-    perp_lines_origianl_gdf = buffer_gdf.copy(deep=True)
+    perp_lines_original_gdf = buffer_gdf.copy(deep=True)
 
     # save fixed width footprint
     buffer_gdf = buffer_gdf.drop(columns=['perp_lines'])
@@ -293,11 +282,11 @@ def line_footprint_fixed(
     perp_lines_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
     layer = 'perp_lines_original'
-    perp_lines_origianl_gdf = perp_lines_origianl_gdf.set_geometry('perp_lines_original')
-    perp_lines_origianl_gdf = perp_lines_origianl_gdf.drop(columns=['perp_lines'])
-    perp_lines_origianl_gdf = perp_lines_origianl_gdf.drop(columns=['geometry'])
-    perp_lines_origianl_gdf.crs = buffer_gdf.crs
-    perp_lines_origianl_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
+    perp_lines_original_gdf = perp_lines_original_gdf.set_geometry('perp_lines_original')
+    perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=['perp_lines'])
+    perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=['geometry'])
+    perp_lines_original_gdf.crs = buffer_gdf.crs
+    perp_lines_original_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
     layer = 'centerline_simplified'
     line_attr = line_attr.drop(columns='perp_lines')
@@ -307,7 +296,7 @@ def line_footprint_fixed(
 
 
 if __name__ == '__main__':
-    in_args, in_verbose = check_arguments()
+    in_args, in_verbose = bt_common.check_arguments()
     start_time = time.time()
     line_footprint_fixed(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))
