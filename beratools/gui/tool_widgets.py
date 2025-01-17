@@ -264,11 +264,12 @@ class FileSelector(QWidget):
             self.layer_combo.adjustSize()
         else:
             self.layer_combo.setVisible(False)
-            self.adjustSize()
 
-        self.adjustSize() #Adjust the widget size
+        self.adjustSize()
         if self.parentWidget():
-            self.parentWidget().adjustSize() #Adjust the parent widget size
+            self.parentWidget().layout().invalidate()
+            self.parentWidget().adjustSize()
+            self.parentWidget().update()
 
     def select_file(self):
         try:
@@ -408,8 +409,8 @@ class FileSelector(QWidget):
         # Check if the file has an extension
         base_name, ext = os.path.splitext(value)
 
-        # Only append an extension if none exists and based on the file type
-        if not ext:
+        # Only append an extension if none exists AND the value doesn't end with a dot
+        if not ext and not value.endswith("."):  # ***ADD THIS CHECK***
             # Check if the value refers to a GeoPackage or Shapefile (based on user expectations)
             if value.lower().endswith('.gpkg'):
                 value = f"{base_name}.gpkg"
@@ -422,6 +423,7 @@ class FileSelector(QWidget):
         self.value = value
         self.in_file.setText(self.value)
         self.in_file.setToolTip(self.value)
+        self.update_combo_visibility()
 
     def set_layer(self, layer):
         # Store only the selected layer's name (key) from the combo box display
