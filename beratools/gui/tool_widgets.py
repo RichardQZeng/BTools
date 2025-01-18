@@ -262,8 +262,8 @@ class FileSelector(QtWidgets.QWidget):
 
     def select_file(self):
         try:
-            dialog = QtWidgets.QLineEdit(self)
-            dialog.setViewMode(QtWidgets.QLineEdit.Detail)
+            dialog = QtWidgets.QFileDialog(self)
+            dialog.setViewMode(QtWidgets.QFileDialog.Detail)
             dialog.setDirectory(str(Path(self.value).parent))
             dialog.selectFile(Path(self.value).name)
             file_names = None
@@ -305,9 +305,9 @@ class FileSelector(QtWidgets.QWidget):
             dialog.setNameFilter(file_types)
 
             if "ExistingFile" in self.parameter_type:
-                dialog.setFileMode(QtWidgets.QLineEdit.ExistingFiles)
+                dialog.setFileMode(QtWidgets.QFileDialog.ExistingFiles)
             else:
-                dialog.setFileMode(QtWidgets.QLineEdit.AnyFile)
+                dialog.setFileMode(QtWidgets.QFileDialog.AnyFile)
 
             if dialog.exec_():
                 file_names = dialog.selectedFiles()
