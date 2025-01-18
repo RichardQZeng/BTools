@@ -2,7 +2,7 @@ schema_version: 1
 
 context:
   name: BERATools
-  version: 0.2.0
+  version: 0.2.1
 
 package:
   name: ${{ name|lower }}
@@ -11,7 +11,7 @@ package:
 source:
   git: https://github.com/RichardQZeng/BTools.git
   # tag: 0.2.0
-  rev: ba68f27ded2abaac34e741df6bf4f611a1e214c0
+  rev: 25408f2e1b2d46b500e491dde6abd599fcb6f88b
 
 build:
   number: 0
