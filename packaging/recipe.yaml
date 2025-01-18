@@ -9,8 +9,9 @@ package:
   version: ${{ version }}
 
 source:
-  url: https://github.com/RichardQZeng/BTools/archive/${{ version }}.tar.gz
-  sha256: 973df933fc0e85895aa6579a81f75adf63e2c126fcaa50324f802c56d713af29
+  git: https://github.com/RichardQZeng/BTools.git
+  # tag: 0.2.0
+  rev: ba68f27ded2abaac34e741df6bf4f611a1e214c0
 
 build:
   number: 0
@@ -27,9 +28,12 @@ requirements:
     - pip
   run:
     - python >=3.9
+    - bera_centerlines
     - dask
     - dask-expr
-    - bera_centerlines
+    - distributed
+    - fiona
+    - gdal
     - geopandas
     - pip
     - pyogrio
@@ -46,18 +50,24 @@ requirements:
     - r-sp
     - r-terra
     - scikit-image
+    - tqdm
     - xarray-spatial
 
 tests:
+  - script:
+      - pytest ./tests
+    
+    files:
+      source:
+        - tests/
+
+    requirements:
+      run:
+        - pytest
+
   - python:
       imports:
         - beratools
-  - requirements:
-      run:
-        - pip
-    script:
-      - pip check
-      - BERATools --help
 
 about:
   summary: An advanced forest line feature analysis platform

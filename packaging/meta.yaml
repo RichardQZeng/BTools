@@ -6,8 +6,8 @@ package:
   version: {{ version }}
 
 source:
-  url: https://github.com/RichardQZeng/BTools/archive/{{ version }}.tar.gz
-  sha256: 973df933fc0e85895aa6579a81f75adf63e2c126fcaa50324f802c56d713af29
+  git_url: https://github.com/RichardQZeng/BTools.git
+  git_tag: 0.2.0
 
 build:
   entry_points:
@@ -23,9 +23,12 @@ requirements:
     - pip
   run:
     - python >=3.9
+    - bera_centerlines
     - dask
     - dask-expr
-    - bera_centerlines
+    - distributed
+    - fiona
+    - gdal
     - geopandas
     - pip
     - pyogrio
@@ -42,14 +45,17 @@ requirements:
     - r-sp
     - r-terra
     - scikit-image
+    - tqdm
     - xarray-spatial
 
 test:
   imports:
     - beratools
   commands:
-    - pip check
-    - BERATools --help
+    - pytest ./tests
+  source_files:
+    - tests
+
   requires:
     - pip
 
