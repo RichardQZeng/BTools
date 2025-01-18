@@ -1,25 +1,21 @@
-from multiprocessing.pool import Pool
-import concurrent.futures
 import warnings
 from tqdm.auto import tqdm
+import concurrent.futures
+from multiprocessing.pool import Pool
 
 import pandas as pd
 import geopandas as gpd
 
-from beratools.core.constants import PARALLEL_MODE, ParallelMode
-
-from dask.distributed import Client, as_completed, progress
-from dask import config as cfg
-import dask.distributed
+import dask.distributed as dask_dist
+from dask import config as dask_cfg
 # import ray
 
-# settings for dask
-cfg.set({'distributed.scheduler.worker-ttl': None})
-warnings.simplefilter("ignore", dask.distributed.comm.core.CommClosedError)
-warnings.simplefilter(action="ignore", category=FutureWarning)
+import beratools.core.constants as bt_const
 
-class OperationCancelledException(Exception):
-    pass
+# settings for dask
+dask_cfg.set({"distributed.scheduler.worker-ttl": None})
+warnings.simplefilter("ignore", dask_dist.comm.core.CommClosedError)
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 class ToolBase(object):
@@ -59,7 +55,7 @@ def execute_multiprocessing(
     app_name,
     processes,
     workers=1,
-    mode=PARALLEL_MODE,
+    mode=bt_const.PARALLEL_MODE,
     verbose=False,
     scheduler_file="dask_scheduler.json",
 ):
@@ -69,7 +65,7 @@ def execute_multiprocessing(
     total_steps = len(in_data)
 
     try:
-        if mode == ParallelMode.MULTIPROCESSING:
+        if mode == bt_const.ParallelMode.MULTIPROCESSING:
             print("Multiprocessing started...", flush=True)
 
             with Pool(processes) as pool:
@@ -87,7 +83,7 @@ def execute_multiprocessing(
 
             pool.close()
             pool.join()
-        elif mode == ParallelMode.SEQUENTIAL:
+        elif mode == bt_const.ParallelMode.SEQUENTIAL:
             with tqdm(total=total_steps, disable=verbose) as pbar:
                 for line in in_data:
                     result_item = in_func(line)
@@ -99,7 +95,7 @@ def execute_multiprocessing(
                         print_msg(app_name, step, total_steps)
                     else:
                         pbar.update()
-        elif mode == ParallelMode.CONCURRENT:
+        elif mode == bt_const.ParallelMode.CONCURRENT:
             with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
                 futures = [executor.submit(in_func, line) for line in in_data]
                 with tqdm(total=total_steps, disable=verbose) as pbar:
@@ -113,13 +109,13 @@ def execute_multiprocessing(
                             print_msg(app_name, step, total_steps)
                         else:
                             pbar.update()
-        elif mode == ParallelMode.DASK:
-            dask_client = Client(threads_per_worker=1, n_workers=processes)
+        elif mode == bt_const.ParallelMode.DASK:
+            dask_client = dask_dist.Client(threads_per_worker=1, n_workers=processes)
             print(f"Local Dask client: {dask_client}")
             try:
                 print('start processing')
                 result = dask_client.map(in_func, in_data)
-                seq = as_completed(result)
+                seq = dask_dist.as_completed(result)
 
                 with tqdm(total=total_steps, disable=verbose) as pbar:
                     for i in seq:
@@ -135,14 +131,14 @@ def execute_multiprocessing(
                 dask_client.close()
 
             dask_client.close()
-        elif mode == ParallelMode.SLURM:
-            dask_client = Client(scheduler_file=scheduler_file)
+        elif mode == bt_const.ParallelMode.SLURM:
+            dask_client = dask_dist.Client(scheduler_file=scheduler_file)
             print(f"Slurm cluster Dask client: {dask_client}")
             try:
                 print("start processing")
                 result = dask_client.map(in_func, in_data)
-                seq = as_completed(result)
-                progress(result)
+                seq = dask_dist.as_completed(result)
+                dask_dist.progress(result)
 
                 for i in seq:
                     if result_is_valid(result):
@@ -153,7 +149,7 @@ def execute_multiprocessing(
             dask_client.close()
         # ! important !
         # comment temporarily, man enable later if need to use ray
-        # elif mode == ParallelMode.RAY:
+        # elif mode == bt_const.ParallelMode.RAY:
         #     ray.init(log_to_driver=False)
         #     process_single_line_ray = ray.remote(in_func)
         #     result_ids = [process_single_line_ray.remote(item) for item in in_data]
@@ -169,8 +165,8 @@ def execute_multiprocessing(
         #         print_msg(app_name, step, total_steps)
 
         #     ray.shutdown()
-    except OperationCancelledException:
-        print("Operation cancelled")
+    except Exception as e:
+        print(e)
         return None
 
     return out_result

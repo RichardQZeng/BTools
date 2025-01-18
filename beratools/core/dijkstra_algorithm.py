@@ -1,45 +1,44 @@
 # -*- coding: utf-8 -*-
 
 """
-/***************************************************************************
- LeastCostPath Algorithm
- This algorithm is adapted from a QGIS plugin:
- Find the least cost path with given cost raster and points
- Original author: FlowMap Group@SESS.PKU
- Source code repository: https://github.com/Gooong/LeastCostPath
- ***************************************************************************/
+Least Cost Path Algorithm
 
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+This algorithm is adapted from the QGIS plugin:
+Find the least cost path with given cost raster and points
+Original author: FlowMap Group@SESS.PKU
+Source code repository: https://github.com/Gooong/LeastCostPath
+
+Copyright (C) 2023 by AppliedGRG
+Author: Richard Zeng
+Date: 2023-03-01
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 """
-
-__author__ = 'Richard Zeng'
-__date__ = '2023-03-01'
-__copyright__ = '(C) 2023 by AppliedGRG'
 
 # This will get replaced with a git SHA1 when you do a git archive
 __revision__ = '$Format:%H$'
 
-from math import sqrt
+import numpy as np
+import math
 import queue
 from collections import defaultdict
-from skimage.graph import route_through_array
-from beratools.tools.common import *
 
-sqrt2 = sqrt(2)
+import rasterio
+import shapely.geometry as shp_geom
+import skimage.graph as sk_graph
+import beratools.core.constants as bt_const
+
+sqrt2 = math.sqrt(2)
 USE_NUMPY_FOR_DIJKSTRA = True
 
 
 class MinCostPathHelper:
     @staticmethod
-    def _point_to_row_col(pointxy, ras_transform):
-        col, row = ras_transform.rowcol(pointxy.x(), pointxy.y())
+    def _point_to_row_col(point_xy, ras_transform):
+        col, row = ras_transform.rowcol(point_xy.x(), point_xy.y())
 
         return row, col
 
@@ -60,7 +59,7 @@ class MinCostPathHelper:
     def create_path_feature_from_points(path_points, attr_vals):
         path_points_raw = [[pt.x, pt.y] for pt in path_points]
 
-        return LineString(path_points_raw), attr_vals
+        return shp_geom.LineString(path_points_raw), attr_vals
 
     @staticmethod
     def block2matrix_numpy(block, nodata):
@@ -81,13 +80,13 @@ class MinCostPathHelper:
         contains_negative = False
         width, height = block.shape
         # TODO: deal with nodata
-        matrix = [[None if np.isclose(block[i][j], nodata) or np.isclose(block[i][j], BT_NODATA)
+        matrix = [[None if np.isclose(block[i][j], nodata) or np.isclose(block[i][j], bt_const.BT_NODATA)
                    else block[i][j] for j in range(height)] for i in range(width)]
 
-        for l in matrix:
-            for v in l:
+        for row in matrix:
+            for v in row:
                 if v is not None:
-                    if v < 0 and not np.isclose(v, BT_NODATA):
+                    if v < 0 and not np.isclose(v, bt_const.BT_NODATA):
                         contains_negative = True
 
         return matrix, contains_negative
@@ -99,8 +98,8 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
             self.map = matrix
             self.h = len(matrix)
             self.w = len(matrix[0])
-            self.manhattan_boundry = None
-            self.curr_boundry = None
+            self.manhattan_boundary = None
+            self.curr_boundary = None
 
         def _in_bounds(self, id):
             x, y = id
@@ -210,7 +209,7 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
                     if feedback:
                         feedback.setProgress(1 + 100 * (1 - bound / total_manhattan) * (1 - bound / total_manhattan))
 
-        # reacn destination
+        # destination
         if current_node in end_row_cols:
             path = []
             costs = []
@@ -289,7 +288,6 @@ def backtrack(initial_node, desired_node, distances):
                 potential_nodes.append(node)
                 potential_distances.append(distances[node[0], node[1]])
 
-        # least_distance_index = np.argmin(potential_distances)
         print(potential_nodes)
 
         least_distance_index = np.argsort(potential_distances)
@@ -315,7 +313,7 @@ def backtrack(initial_node, desired_node, distances):
 
 
 def dijkstra_np(start_tuple, end_tuple, matrix):
-    """Dijkstras algorithm for finding the shortest path between two nodes in a graph.
+    """Dijkstra's algorithm for finding the shortest path between two nodes in a graph.
 
     Args:
         start_node (list): [row,col] coordinates of the initial node
@@ -336,7 +334,7 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
         matrix[start_node[0], start_node[1]] = 0
         matrix[end_node[0], end_node[1]] = 0
 
-        path, cost = route_through_array(matrix, start_node, end_node)
+        path, cost = sk_graph.route_through_array(matrix, start_node, end_node)
         costs = [0.0 for i in range(len(path))]
     except Exception as e:
         print(e)
@@ -371,19 +369,19 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
             type(pt_start[1]) is tuple or
             type(pt_end[0]) is tuple or
             type(pt_end[1]) is tuple):
-        print("Point initialization error. Input is tuple.")
+        print("shp_geom.Point initialization error. Input is tuple.")
         return default_return
 
     start_tuples = []
     end_tuples = []
     start_tuple = []
     try:
-        start_tuples = [(transformer.rowcol(pt_start[0], pt_start[1]), Point(pt_start[0], pt_start[1]), 0)]
-        end_tuples = [(transformer.rowcol(pt_end[0], pt_end[1]), Point(pt_end[0], pt_end[1]), 1)]
+        start_tuples = [(transformer.rowcol(pt_start[0], pt_start[1]), shp_geom.Point(pt_start[0], pt_start[1]), 0)]
+        end_tuples = [(transformer.rowcol(pt_end[0], pt_end[1]), shp_geom.Point(pt_end[0], pt_end[1]), 1)]
         start_tuple = start_tuples[0]
         end_tuple = end_tuples[0]
 
-        # regulate end poit coords in case they are out of index of matrix
+        # regulate end point coords in case they are out of index of matrix
         mat_size = matrix.shape
         mat_size = (mat_size[0] - 1, mat_size[0] - 1)
         start_tuple = (min(start_tuple[0], mat_size), start_tuple[1], start_tuple[2])
@@ -417,12 +415,10 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
             for point, cost in zip(path_points, costs):
                 point.addMValue(cost)
 
-        total_cost = costs[-1]
-
-    feat_attr = (start_tuple[2], end_tuple[2], total_cost)
+    # feat_attr = (start_tuple[2], end_tuple[2], total_cost)
     lc_path = None
     if len(path_points) >= 2:
-        lc_path = LineString(path_points)
+        lc_path = shp_geom.LineString(path_points)
 
     return lc_path
 
@@ -441,7 +437,7 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     row2, col2 = transformer.rowcol(x2, y2)
 
     try:
-        path_new = route_through_array(cost_clip[0], [row1, col1], [row2, col2])
+        path_new = sk_graph.route_through_array(cost_clip[0], [row1, col1], [row2, col2])
     except Exception as e:
         print(e)
         return None
@@ -455,6 +451,6 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
         print('No least cost path detected, pass.')
         return None
     else:
-        lc_path_new = LineString(lc_path_new)
+        lc_path_new = shp_geom.LineString(lc_path_new)
 
     return lc_path_new

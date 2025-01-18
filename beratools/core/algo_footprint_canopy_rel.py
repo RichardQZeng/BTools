@@ -1,34 +1,20 @@
 import math
-import geopandas as gpd
-import pandas as pd
 import numpy as np
-import shapely
-from shapely import ops
-from shapely.geometry import Point, MultiPolygon, shape
-from rasterio.features import shapes, rasterize
-from skimage.graph import MCP_Flexible
-from enum import StrEnum
-import yaml
-
-import sys
+import pandas as pd
+import geopandas as gpd
 from pathlib import Path
-from inspect import getsourcefile
+import yaml
+from enum import StrEnum
 
-if __name__ == "__main__":
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
-    current_folder = current_file.parent
-    btool_dir = current_file.parents[1]
-    sys.path.insert(0, btool_dir.as_posix())
+import shapely
+import shapely.ops as shp_ops
+import shapely.geometry as shp_geom
+import rasterio.features as ras_feat 
+from skimage.graph import MCP_Flexible
 
-from beratools.tools.common import (
-    clip_raster,
-    cost_raster_2nd_version,
-    remove_nan_from_array,
-    morph_raster,
-)
-
-from beratools.core.constants import BT_NODATA, FP_CORRIDOR_THRESHOLD
-from beratools.core.tool_base import execute_multiprocessing
+import beratools.tools.common as bt_common
+import beratools.core.constants as bt_const
+import beratools.core.tool_base as bt_base
 
 
 class Side(StrEnum):
@@ -50,7 +36,7 @@ class FootprintCanopy:
         return line
     
     def compute(self, parallel_mode):
-        result = execute_multiprocessing(
+        result = bt_base.execute_multiprocessing(
             self.process_single_line, self.lines, "Canopy Footprint", 18, 1, parallel_mode
         )
 
@@ -63,7 +49,7 @@ class FootprintCanopy:
     def save_footprint(self, out_footprint):
         self.footprints.to_file(out_footprint)
 
-    def savve_line_percentile(self, out_percentile):
+    def save_line_percentile(self, out_percentile):
         self.lines_percentile.to_file(out_percentile)
 
 class BufferRing:
@@ -111,7 +97,7 @@ class LineInfo:
         self.footprint = None
 
     def compute(self):
-        self.prepar_ring_buffer()
+        self.prepare_ring_buffer()
 
         ring_list = []
         for item in self.buffer_rings:
@@ -141,10 +127,10 @@ class LineInfo:
         self.footprint = self.footprint.dissolve()
         self.footprint.geometry = self.footprint.buffer(-0.005)
 
-    def prepar_ring_buffer(self):
+    def prepare_ring_buffer(self):
         nrings = 1
         ringdist = 15
-        ring_list = self.multiringbuffer(self.line_simp, nrings, ringdist)
+        ring_list = self.multi_ring_buffer(self.line_simp, nrings, ringdist)
         for i in ring_list:
             if BufferRing(i, Side.left):
                 self.buffer_rings.append(BufferRing(i, Side.left))
@@ -153,7 +139,7 @@ class LineInfo:
 
         nrings = -1
         ringdist = -15
-        ring_list = self.multiringbuffer(self.line_simp, nrings, ringdist)
+        ring_list = self.multi_ring_buffer(self.line_simp, nrings, ringdist)
         for i in ring_list:
             if BufferRing(i, Side.right):
                 self.buffer_rings.append(BufferRing(i, Side.right))
@@ -166,18 +152,20 @@ class LineInfo:
             if line_buffer.is_empty or shapely.is_missing(line_buffer):
                 return None
             if line_buffer.has_z:
-                line_buffer = ops.transform(lambda x, y, z=None: (x, y), line_buffer)
+                line_buffer = shp_ops.transform(
+                    lambda x, y, z=None: (x, y), line_buffer
+                )
 
         except Exception as e:
             print(f"cal_percentileRing: {e}")
 
         # TODO: temporary workaround for exception causing not percentile defined
         try:
-            clipped_raster, _ = clip_raster(self.in_chm, line_buffer, 0)
+            clipped_raster, _ = bt_common.clip_raster(self.in_chm, line_buffer, 0)
             clipped_raster = np.squeeze(clipped_raster, axis=0)
 
             # mask all -9999 (nodata) value cells
-            masked_raster = np.ma.masked_where(clipped_raster == BT_NODATA, clipped_raster)
+            masked_raster = np.ma.masked_where(clipped_raster == bt_const.BT_NODATA, clipped_raster)
             filled_raster = np.ma.filled(masked_raster, np.nan)
 
             # Calculate the percentile
@@ -288,7 +276,7 @@ class LineInfo:
             self.LDist_Cut = cut_dist
             self.CL_CutHt = float(cut_percentile)
 
-    def multiringbuffer(self, df, nrings, ringdist):
+    def multi_ring_buffer(self, df, nrings, ringdist):
         """
         Buffers an input DataFrames geometry nring (number of rings) times, with a distance between
         rings of ringdist and returns a list of non overlapping buffers
@@ -312,7 +300,7 @@ class LineInfo:
                 or not None
                 or ~the_ring.area == 0
             ):
-                if isinstance(the_ring, shapely.MultiPolygon) or isinstance(
+                if isinstance(the_ring, shapely.shp_geom.MultiPolygon) or isinstance(
                     the_ring, shapely.Polygon
                 ):
                     rings.append(the_ring)  # Append the ring to the rings list
@@ -338,7 +326,7 @@ class LineInfo:
             single_sided=True,
         )
 
-        self.buffer_left = ops.unary_union([buffer_left_1, buffer_left_2])
+        self.buffer_left = shp_ops.unary_union([buffer_left_1, buffer_left_2])
 
         buffer_right_1 = line.buffer(
             distance=-self.max_ln_width - 1,
@@ -347,7 +335,7 @@ class LineInfo:
         )
         buffer_right_2 = line.buffer(distance=1, cap_style=3, single_sided=True)
 
-        self.buffer_right = ops.unary_union([buffer_right_1, buffer_right_2])
+        self.buffer_right = shp_ops.unary_union([buffer_right_1, buffer_right_2])
 
     def dyn_canopy_cost_raster(self, side):
         in_chm_raster = self.in_chm
@@ -382,8 +370,8 @@ class LineInfo:
         cost_raster_exponent = float(exponent)
 
         try:
-            clipped_rasterC, out_meta = clip_raster(in_chm_raster, line_buffer, 0)
-            negative_cost_clip, dyn_canopy_ndarray = cost_raster_2nd_version(
+            clipped_rasterC, out_meta = bt_common.clip_raster(in_chm_raster, line_buffer, 0)
+            negative_cost_clip, dyn_canopy_ndarray = bt_common.cost_raster_2nd_version(
                 clipped_rasterC,
                 out_meta,
                 tree_radius,
@@ -426,10 +414,10 @@ class LineInfo:
 
         # Work out the corridor from both end of the centerline
         try:
-            if len(in_cost_r.shape) > 2:
+            if len(in_cost_r.shp_geom.shape) > 2:
                 in_cost_r = np.squeeze(in_cost_r, axis=0)
 
-            remove_nan_from_array(in_cost_r)
+            bt_common.remove_nan_from_array(in_cost_r)
             in_cost_r[in_cost_r == no_data] = np.inf
 
             # generate 1m interval points along line
@@ -438,11 +426,11 @@ class LineInfo:
             multipoint_along_line = [
                 feat.interpolate(distance) for distance in distances
             ]
-            multipoint_along_line.append(Point(segment_list[-1]))
+            multipoint_along_line.append(shp_geom.Point(segment_list[-1]))
             # Rasterize points along line
-            rasterized_points_Alongln = rasterize(
+            rasterized_points_Alongln = ras_feat.rasterize(
                 multipoint_along_line,
-                out_shape=in_cost_r.shape,
+                out_shape=in_cost_r.shp_geom.shape,
                 transform=in_transform,
                 fill=0,
                 all_touched=True,
@@ -474,10 +462,10 @@ class LineInfo:
             # Set minimum as zero and save minimum file
             corridor_th_value = Cut_Dist / cell_size_x
             if corridor_th_value < 0:  # if no threshold found, use default value
-                corridor_th_value = FP_CORRIDOR_THRESHOLD / cell_size_x
+                corridor_th_value = bt_const.FP_CORRIDOR_THRESHOLD / cell_size_x
 
             corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-            clean_raster = morph_raster(
+            clean_raster = bt_common.morph_raster(
                 corridor_thresh, in_canopy_r, exp_shk_cell, cell_size_x
             )
 
@@ -487,13 +475,13 @@ class LineInfo:
                 clean_raster = clean_raster.astype(np.int32)
 
             # Process: ndarray to shapely Polygon
-            out_polygon = shapes(clean_raster, mask=mask, transform=in_transform)
+            out_polygon = ras_feat.shapes(clean_raster, mask=mask, transform=in_transform)
 
-            # create a shapely MultiPolygon
+            # create a shapely shp_geom.MultiPolygon
             multi_polygon = []
             for poly, value in out_polygon:
-                multi_polygon.append(shape(poly))
-            poly = MultiPolygon(multi_polygon)
+                multi_polygon.append(shp_geom.shape(poly))
+            poly = shp_geom.MultiPolygon(multi_polygon)
 
             # create a pandas DataFrame for the FP
             out_data = pd.DataFrame(
@@ -511,7 +499,7 @@ class LineInfo:
 
 
 if __name__ == "__main__":
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
+    current_file = Path(__file__).resolve()
     current_folder = current_file.parent
     with open(current_folder.joinpath('params_win.yml')) as in_params:
         params = yaml.safe_load(in_params)
@@ -525,5 +513,5 @@ if __name__ == "__main__":
     footprint = FootprintCanopy(in_file, in_chm)
     footprint.compute()
 
-    footprint.savve_line_percentile(out_file_percentile)
+    footprint.save_line_percentile(out_file_percentile)
     footprint.save_footprint(out_file_fp)

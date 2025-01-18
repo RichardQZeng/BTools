@@ -1,20 +1,21 @@
-import networkit as nk
-from shapely import force_2d, STRtree, get_point, union_all
-from shapely.ops import split
 import numpy as np
-from shapely.geometry import Point, MultiPolygon, Polygon, LineString, MultiLineString
-from enum import IntEnum, unique
+import enum
 from collections import defaultdict
 from itertools import chain
 from typing import Union
-
 from dataclasses import dataclass, field
-from .mergelines import MergeLines
+
+import networkit as nk
+import shapely
+import shapely.geometry as shp_geom
+
+from beratools.core.mergelines import MergeLines
 
 TRIMMING_EFFECT_AREA = 50  # meters
 
-@unique
-class VertexClass(IntEnum):
+
+@enum.unique
+class VertexClass(enum.IntEnum):
     TWO_WAY_ZERO_PRIMARY_LINE = 1
     THREE_WAY_ZERO_PRIMARY_LINE = 2
     THREE_WAY_ONE_PRIMARY_LINE = 3
@@ -25,6 +26,7 @@ class VertexClass(IntEnum):
     FIVE_WAY_ONE_PRIMARY_LINE = 8
     FIVE_WAY_TWO_PRIMARY_LINE = 9
     SINGLE_WAY = 10
+
 
 CONCERN_CLASSES = (
     VertexClass.FIVE_WAY_ZERO_PRIMARY_LINE,
@@ -51,7 +53,7 @@ def points_in_line(line):
         for point in list(line.coords):  # loops through every point in a line
             # loops through every vertex of every segment
             if point:  # adds all the vertices to segment_list, which creates an array
-                point_list.append(Point(point[0], point[1]))
+                point_list.append(shp_geom.Point(point[0], point[1]))
     except Exception as e:
         print(e)
 
@@ -61,7 +63,7 @@ def points_in_line(line):
 def get_angle(line, end_index):
     """
     Calculate the angle of the first or last segment
-    line: LineString
+    line: shp_geom.LineString
     end_index: 0 or -1 of the line vertices. Consider the multipart.
     """
     pts = points_in_line(line)
@@ -83,8 +85,8 @@ def get_angle(line, end_index):
 @dataclass
 class SingleLine:
     line_id: int = field(default=0)
-    line: Union[LineString, MultiLineString] = field(default=None)
-    sim_line: Union[LineString, MultiLineString] = field(default=None)
+    line: Union[shp_geom.LineString, shp_geom.MultiLineString] = field(default=None)
+    sim_line: Union[shp_geom.LineString, shp_geom.MultiLineString] = field(default=None)
     vertex_index: int = field(default=0)
     group: int = field(default=0)
 
@@ -95,17 +97,17 @@ class SingleLine:
         coords = self.sim_line.coords
         end_seg = None
         if self.vertex_index == 0:
-            end_seg = LineString([coords[0], coords[1]])
+            end_seg = shp_geom.LineString([coords[0], coords[1]])
         elif self.vertex_index == -1:
-            end_seg = LineString([coords[-1], coords[-2]])
+            end_seg = shp_geom.LineString([coords[-1], coords[-2]])
 
         l_left = end_seg.offset_curve(TRANSECT_LENGTH)
         l_right = end_seg.offset_curve(-TRANSECT_LENGTH)
 
-        return LineString([l_left.coords[0], l_right.coords[0]])
+        return shp_geom.LineString([l_left.coords[0], l_right.coords[0]])
 
     def midpoint(self):
-        return force_2d(self.line.interpolate(0.5, normalized=True))
+        return shapely.force_2d(self.line.interpolate(0.5, normalized=True))
 
     def update_line(self, line):
         self.line = line
@@ -126,7 +128,7 @@ class VertexNode:
 
     def set_vertex(self, line, vertex_index):
         """Set vertex coordinates"""
-        self.vertex = force_2d(get_point(line, vertex_index))
+        self.vertex = shapely.force_2d(shapely.get_point(line, vertex_index))
 
     def add_line(self, line_class):
         """Common function for adding line when creating or merging other VertexNode"""
@@ -158,12 +160,12 @@ class VertexNode:
             line = self.get_line_obj(line_idx)
             if poly.contains(line.midpoint()):
                 internal_line = line
-        
+
         if not internal_line:
             print("No line is retrieved")
             return
 
-        split_poly = split(poly, internal_line.end_transect())
+        split_poly = shapely.ops.split(poly, internal_line.end_transect())
 
         if len(split_poly.geoms) != 2:
             return
@@ -171,7 +173,7 @@ class VertexNode:
         # check geom_type
         none_poly = False
         for geom in split_poly.geoms:
-            if geom.geom_type != "Polygon":
+            if geom.geom_type != "shp_geom.Polygon":
                 none_poly = True
 
         if none_poly:
@@ -216,8 +218,8 @@ class VertexNode:
                         trim.poly_cleanup = poly
                         trim.poly_index = j
 
-        poly_primary = union_all(poly_primary)
-        # limit poly_primary around vertex 
+        poly_primary = shapely.union_all(poly_primary)
+        # limit poly_primary around vertex
         # to avoid duplicate cutting of lines and polygons
         try:
             poly_primary = poly_primary.intersection(
@@ -391,7 +393,7 @@ class LineGrouping:
         for i in self.vertex_list:
             v_points.append(i.vertex.buffer(1))  # small polygon around vertices
 
-        self.v_index = STRtree(v_points)
+        self.v_index = shapely.STRtree(v_points)
 
         vertex_visited = [False] * len(self.vertex_list)
 
@@ -513,7 +515,7 @@ class LineGrouping:
         num = 0
         for i in out_line_gdf.itertuples():
             num += 1
-            if i.geometry.geom_type == "MultiLineString":
+            if i.geometry.geom_type == "shp_geom.MultiLineString":
                 worker = MergeLines(i.geometry)
                 merged_line = worker.merge_all_lines()
                 if merged_line:
@@ -528,7 +530,7 @@ class LineGrouping:
 
     def check_geom_validity(self):
         """
-        Check MultiLineString and MultiPolygon in line and polygon dataframe
+        Check shp_geom.MultiLineString and shp_geom.MultiPolygon in line and polygon dataframe
         Save multis to sperate layers for user to double check
         """
         #  remove null geometry
@@ -538,9 +540,9 @@ class LineGrouping:
             ~self.polys.geometry.isna() & ~self.polys.geometry.is_empty
         ]
 
-        # save MultiLineString and MultiPolygon
+        # save shp_geom.MultiLineString and shp_geom.MultiPolygon
         self.invalid_polys = self.polys[
-            (self.polys.geometry.geom_type == "MultiPolygon")
+            (self.polys.geometry.geom_type == "shp_geom.MultiPolygon")
         ]
 
         # check lines
@@ -551,7 +553,7 @@ class LineGrouping:
         self.valid_lines.reset_index(inplace=True, drop=True)
 
         self.invalid_lines = self.merged_lines_trimmed[
-            (self.merged_lines_trimmed.geometry.geom_type == "MultiLineString")
+            (self.merged_lines_trimmed.geometry.geom_type == "shp_geom.MultiLineString")
         ]
         self.invalid_lines.reset_index(inplace=True, drop=True)
 
@@ -575,11 +577,11 @@ class LineGrouping:
 class PolygonTrimming:
     """Store polygon and line to trim. Primary polygon is used to trim both"""
 
-    poly_primary: MultiPolygon = field(default=None)
+    poly_primary: shp_geom.MultiPolygon = field(default=None)
     poly_index: int = field(default=-1)
-    poly_cleanup: Polygon = field(default=None)
+    poly_cleanup: shp_geom.Polygon = field(default=None)
     line_index: int = field(default=-1)
-    line_cleanup: LineString = field(default=None)
+    line_cleanup: shp_geom.LineString = field(default=None)
 
     def trim(self):
         # TODO: check why there is such cases
@@ -588,9 +590,9 @@ class PolygonTrimming:
             return
 
         diff = self.poly_cleanup.difference(self.poly_primary)
-        if diff.geom_type == "Polygon":
+        if diff.geom_type == "shp_geom.Polygon":
             self.poly_cleanup = diff
-        elif diff.geom_type == "MultiPolygon":
+        elif diff.geom_type == "shp_geom.MultiPolygon":
             area = self.poly_cleanup.area
             reserved = []
             for i in diff.geoms:
@@ -600,29 +602,29 @@ class PolygonTrimming:
             if len(reserved) == 0:
                 pass
             elif len(reserved) == 1:
-                self.poly_cleanup = Polygon(*reserved)
+                self.poly_cleanup = shp_geom.Polygon(*reserved)
             else:
                 # TODO output all MultiPolygons which should be dealt with
-                self.poly_cleanup = MultiPolygon(reserved)
+                self.poly_cleanup = shp_geom.MultiPolygon(reserved)
 
         diff = self.line_cleanup.intersection(self.poly_cleanup)
         if diff.geom_type == "GeometryCollection":
             geoms = []
             for item in diff.geoms:
-                if item.geom_type == "LineString":
+                if item.geom_type == "shp_geom.LineString":
                     geoms.append(item)
-                elif item.geom_type == "MultiLineString":
-                    print("trim: MultiLineString detected, please check")
+                elif item.geom_type == "shp_geom.MultiLineString":
+                    print("trim: shp_geom.MultiLineString detected, please check")
             if len(geoms) == 0:
                 return
             elif len(geoms) == 1:
                 diff = geoms[0]
             else:
-                diff = MultiLineString(geoms)
+                diff = shp_geom.MultiLineString(geoms)
 
-        if diff.geom_type == "LineString":
+        if diff.geom_type == "shp_geom.LineString":
             self.line_cleanup = diff
-        elif diff.geom_type == "MultiLineString":
+        elif diff.geom_type == "shp_geom.MultiLineString":
             length = self.line_cleanup.length
             reserved = []
             for i in diff.geoms:
@@ -632,7 +634,7 @@ class PolygonTrimming:
             if len(reserved) == 0:
                 pass
             elif len(reserved) == 1:
-                self.line_cleanup = LineString(*reserved)
+                self.line_cleanup = shp_geom.LineString(*reserved)
             else:
                 # TODO output all MultiPolygons which should be dealt with
-                self.poly_cleanup = MultiLineString(reserved)
+                self.poly_cleanup = shp_geom.MultiLineString(reserved)
