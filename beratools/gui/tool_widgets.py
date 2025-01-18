@@ -7,7 +7,8 @@ from pathlib import Path
 from collections import OrderedDict
 
 from PyQt5 import QtWidgets
-from PyQt5 import QtCore 
+from PyQt5 import QtCore
+from PyQt5 import QtGui
 
 import beratools.core.constants as bt_const
 
@@ -198,7 +199,7 @@ class FileSelector(QtWidgets.QWidget):
         self.setLayout(self.layout)
 
         # text changed
-        self.in_file.textChanged.connect(self.set_value)
+        self.in_file.textChanged.connect(self.file_name_edited)
 
         # Handle showing the layer combo and making it editable when needed
         if self.value.lower().endswith('.gpkg'):
@@ -234,19 +235,19 @@ class FileSelector(QtWidgets.QWidget):
                     if self.layer_combo.count() == 0:
                         self.layer_combo.addItem("layer_name")
                         self.load_gpkg_layers(self.value)
-                    elif self.layer_combo.itemText(0) != "Input layer name":
-                        self.layer_combo.insertItem(0, "Input layer name")
+                    elif self.layer_combo.itemText(0) != "layer_name":
+                        self.layer_combo.insertItem(0, "layer_name")
                         self.load_gpkg_layers(self.value)
                 else:  # output is False
                     self.layer_combo.setEditable(False)
-                    if self.layer_combo.count() == 0 or self.layer_combo.itemText(0) == "Input layer name":
+                    if self.layer_combo.count() == 0 or self.layer_combo.itemText(0) == "layer_name":
                         self.layer_combo.clear()
                         self.load_gpkg_layers(self.value)
             else:  # gpkg does not exist
                 self.layer_combo.clear()
                 if self.output:
                     self.layer_combo.setEditable(True)
-                    self.layer_combo.addItem("Input layer name")
+                    self.layer_combo.addItem("layer_name")
                 else:
                     self.layer_combo.addItem("No layers available")
 
@@ -394,20 +395,50 @@ class FileSelector(QtWidgets.QWidget):
             msg_box.setDetailedText(str(e))  # Show detailed error message
             msg_box.exec()
 
+    def file_name_edited(self):
+        # Step 1: Get the current value in the file input field
+        new_value = self.in_file.text()
+        self.value = new_value  # update file name
+
+        # Step 2: Check if the new value ends with a .gpkg extension
+        if new_value.lower().endswith('.gpkg'):
+            # If it's a GeoPackage, check if the file exists
+            if os.path.exists(new_value):
+                # File exists, load layers from the GeoPackage
+                self.load_gpkg_layers(new_value)
+                self.layer_combo.setVisible(True)  # Show the layer combo box
+                self.update_combo_visibility()  # Ensure layers are updated properly
+            else:
+                # File doesn't exist, clear the layer combo box and show message
+                self.layer_combo.clear()
+                self.layer_combo.addItem("No layers available")
+                self.layer_combo.setVisible(True)  # Show the layer combo box but indicate no layers
+        else:
+            # If it's not a GeoPackage, hide the layer combo box
+            self.layer_combo.setVisible(False)
+
+        # Optional: Adjust the combo box visibility and layout
+        self.adjustSize()
+        if self.parentWidget():
+            self.parentWidget().layout().invalidate()
+            self.parentWidget().adjustSize()
+            self.parentWidget().update()
+
     def set_value(self, value):
-        # Check if the file has an extension
+        # Check if the value has an extension
         base_name, ext = os.path.splitext(value)
 
         # Only append an extension if none exists AND the value doesn't end with a dot
-        if not ext and not value.endswith("."):  # ***ADD THIS CHECK***
-            # Check if the value refers to a GeoPackage or Shapefile (based on user expectations)
-            if value.lower().endswith('.gpkg'):
-                value = f"{base_name}.gpkg"
-            elif value.lower().endswith('.shp'):
-                value = f"{base_name}.shp"
-            else:
-                # If none of the expected types match, default to .txt extension
-                value = f"{base_name}.txt"  # Default extension
+        if not ext:  # If there's no extension
+            if not value.endswith("."):  # If the user hasn't typed a dot at the end
+                # Don't force the .txt extension unless the filename doesn't have one
+                if not value.endswith(".gpkg") and not value.endswith(".shp"):  # Add default extension for other cases
+                    value = f"{base_name}.txt"
+            # If the value ends with a dot (like `file.`), don't append anything yet
+
+        # If the value ends with a dot, don't append an extension.
+        elif value.endswith("."):
+            value = base_name  # Strip the dot
 
         self.value = value
         self.in_file.setText(self.value)
