@@ -1,4 +1,4 @@
-# usage: python full_workflow.py 10 win/hpc
+# usage: python full_workflow.py -c 10 -p win/hpc -f some.yml
 
 import os
 
@@ -67,6 +67,8 @@ def check_arguments():
     # Parse the arguments
     args = parser.parse_args()
 
+    # Print out the arguments to debug
+    print(f"Parsed arguments: {args}")
     return args
 
 if __name__ == '__main__':
@@ -94,8 +96,8 @@ if __name__ == '__main__':
     else:
         print("No configuration file provided.")
 
-    if len(sys.argv) > 2:
-        processes = int(sys.argv[1])
+    if args.cores:
+        processes = args.cores
         print(f'CPU cores: {processes}')
 
     print(f'Parallel mode: {PARALLEL_MODE.name}')
@@ -113,21 +115,21 @@ if __name__ == '__main__':
     centerline(**args_centerline, processes=processes, verbose=verbose)
 
     # canopy footprint
-    fp_params = params['args_footprint_canopy']
-    in_file = fp_params['in_file']
-    in_chm = fp_params["in_chm"]
-    out_file_percentile = fp_params["out_file_percentile"]
-    out_file_fp = fp_params["out_file_fp"]
+    # fp_params = params['args_footprint_canopy']
+    # in_file = fp_params['in_file']
+    # in_chm = fp_params["in_chm"]
+    # out_file_percentile = fp_params["out_file_percentile"]
+    # out_file_fp = fp_params["out_file_fp"]
 
-    footprint = FootprintCanopy(in_file, in_chm)
-    footprint.compute(PARALLEL_MODE)
-    footprint.save_footprint(out_file_fp)
+    # footprint = FootprintCanopy(in_file, in_chm)
+    # footprint.compute(PARALLEL_MODE)
+    # footprint.save_footprint(out_file_fp)
 
     # ground footprint
-    args_line_footprint_fixed = params["args_line_footprint_fixed"]
-    args_line_footprint_fixed["parallel_mode"] = PARALLEL_MODE
-    print(args_line_footprint_fixed)
+    # args_line_footprint_fixed = params["args_line_footprint_fixed"]
+    # args_line_footprint_fixed["parallel_mode"] = PARALLEL_MODE
+    # print(args_line_footprint_fixed)
 
-    line_footprint_fixed(
-        callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
-    )
+    # line_footprint_fixed(
+    #     callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
+    # )
