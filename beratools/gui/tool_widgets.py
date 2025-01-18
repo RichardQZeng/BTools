@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
 
 from PyQt5.QtCore import pyqtSignal, Qt, QPoint
 from re import search
+import beratools.core.constants as bt_const
 
 from common import *
 
@@ -165,7 +166,7 @@ class FileSelector(QWidget):
 
         self.layout = QHBoxLayout()
         self.label = QLabel(self.name)
-        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
         self.in_file = QLineEdit(self.value)
         self.btn_select = QPushButton("...")
         self.btn_select.clicked.connect(self.select_file)
@@ -328,7 +329,7 @@ class OptionsInput(QWidget):
             self.value = params['saved_value']
 
         self.label = QLabel(self.name)
-        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
         self.combobox = QComboBox()
         self.combobox.currentIndexChanged.connect(self.selection_change)
 
@@ -389,7 +390,7 @@ class DataInput(QWidget):
             self.value = params['saved_value']
 
         self.label = QLabel(self.name)
-        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
         self.data_input = None
 
         if "Integer" in self.parameter_type:
