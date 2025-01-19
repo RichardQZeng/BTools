@@ -98,7 +98,6 @@ def line_footprint(callback, in_line, in_canopy, in_cost, corridor_th_value, max
         print("Centerline file saved", flush=True)
 
     print(f'%{100}')
-    print(f'Finishing footprint processing in {time.time() - start_time} seconds')
 
 
 def field_name_list(fc):
@@ -180,7 +179,7 @@ def process_single_line_segment(dict_segment):
         if corridor_th_value < 0.0:
             corridor_th_value = 3.0
     except ValueError as e:
-        print(e)
+        print(f"process_single_line_segment: {e}")
         corridor_th_value = 3.0
 
     max_ln_width = dict_segment['max_ln_width']
@@ -261,7 +260,7 @@ def process_single_line_segment(dict_segment):
             return clean_raster
 
         clean_raster = morph_raster(
-            corridor_thresh, in_canopy, exp_shk_cell, cell_size_x
+            corridor_thresh, clip_canopy, exp_shk_cell, cell_size_x
         )
 
         # creat mask for non-polygon area
@@ -292,7 +291,7 @@ def process_single_line_segment(dict_segment):
         return out_gdata, corridor_poly_gpd, centerline
 
     except Exception as e:
-        print(f'Exception: {e}')
+        print(f"process_single_line_segment: {e}")
         return None
 
 
