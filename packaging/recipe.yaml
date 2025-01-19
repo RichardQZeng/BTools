@@ -60,7 +60,7 @@ tests:
     files:
       source:
         - tests/
-
+        
     requirements:
       run:
         - pytest
@@ -69,14 +69,6 @@ tests:
       imports:
         - beratools
 
-# Exclude test data from the package
-files:
-  - include:
-      - beratools/*
-      - LICENSE
-      - README.md
-  - exclude:
-      - tests/*
 
 about:
   summary: An advanced forest line feature analysis platform
