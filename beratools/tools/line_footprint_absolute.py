@@ -15,9 +15,34 @@ import beratools.core.tool_base as bt_base
 import beratools.core.algo_centerline as algo_cl
 import beratools.tools.line_footprint_functions as lp_func
 
+class FootprintAbsolute():
+    def __init__(self):
+        pass
+
+    def compute(self):
+        pass
+
+def process_single_line_class(line_footprint):
+    line_footprint.compute()
+    return line_footprint
+
+
+def generate_line_class_list(
+    in_line,
+    in_chm,
+    corridor_th_value,
+    max_ln_width,
+    exp_shk_cell,
+    out_footprint,
+    out_centerline,
+    processes,
+    verbose,
+    layer=None,
+):
+    pass
+
 
 def line_footprint_abs(
-    callback,
     in_line,
     in_chm,
     corridor_th_value,
@@ -53,28 +78,25 @@ def line_footprint_abs(
     if "OLnSEG" not in line_seg.columns.array:
         line_seg["OLnSEG"] = 0
 
-    ori_total_feat = len(line_seg)
+    # ori_total_feat = len(line_seg)
 
-    proc_segments = False
-    if proc_segments:
-        print("Splitting lines into segments...")
-        line_seg = bt_common.split_into_segments(line_seg)
-        print("Splitting lines into segments... Done")
-    else:
-        line_seg = lp_func.split_into_equal_nth_segments(line_seg)
+    # proc_segments = False
+    # if proc_segments:
+    #     print("Splitting lines into segments...")
+    #     line_seg = bt_common.split_into_segments(line_seg)
+    #     print("Splitting lines into segments... Done")
+    # else:
+    # line_seg = lp_func.split_into_equal_nth_segments(line_seg)
 
     line_args = line_prepare(
-        callback,
         line_seg,
         in_chm,
         corridor_th_field,
         corridor_th_value,
         max_ln_width,
         exp_shk_cell,
-        proc_segments,
         out_footprint,
         out_centerline,
-        ori_total_feat,
     )
 
     # pass single line one at a time for footprint
@@ -191,8 +213,8 @@ def process_single_line_whole(line):
         else:
             print("Empty footprint returned.")
 
-    if len(line) > 0:
-        print(f"Processing line: {line[0]['OLnFID']}, done.", flush=True)
+    # if len(line) > 0:
+    #     print(f"Processing line: {line[0]['OLnFID']}, done.", flush=True)
 
     return footprint_merge, polys, centerline_list
 
@@ -322,10 +344,10 @@ def process_single_line_segment(dict_segment):
         out_data = pd.DataFrame({"OLnFID": [OID], "OLnSEG": [FID], "geometry": poly})
         out_gdf = gpd.GeoDataFrame(out_data, geometry="geometry", crs=shapefile_proj)
 
-        if not bt_const.GROUPING_SEGMENT:
-            print(
-                f"LP: Processing line ID: {dict_segment['OLnSEG']}, done.", flush=True
-            )
+        # if not bt_const.GROUPING_SEGMENT:
+        #     print(
+        #         f"LP: Processing line ID: {dict_segment['OLnSEG']}, done.", flush=True
+        #     )
 
         # find contiguous corridor polygon for centerline
         corridor_poly_gpd = algo_cl.find_corridor_polygon(
@@ -343,17 +365,14 @@ def process_single_line_segment(dict_segment):
 
 
 def line_prepare(
-    callback,
     line_seg,
     in_chm,
     corridor_th_field,
     corridor_th_value,
     max_ln_width,
     exp_shk_cell,
-    proc_seg,
     out_footprint,
     out_centerline,
-    ori_total_feat,
 ):
     # get the list of original columns names
     field_list_col = field_name_list(line_seg)
@@ -384,7 +403,7 @@ def line_prepare(
                 list_of_segment.append(feature_attributes)
                 i += 1
 
-        print(f"There are {ori_total_feat} lines to be processed.")
+        # print(f"There are {ori_total_feat} lines to be processed.")
     else:
         print("Input line feature is corrupted, exit!")
         exit()
@@ -396,7 +415,7 @@ def line_prepare(
         record["corridor_th_value"] = record["CorridorTh"]
         record["max_ln_width"] = max_ln_width
         record["exp_shk_cell"] = exp_shk_cell
-        record["proc_seg"] = proc_seg
+        # record["proc_seg"] = proc_seg
         record["out_footprint"] = out_footprint
         record["out_centerline"] = out_centerline
         record["org_col"] = field_list_col
@@ -425,6 +444,6 @@ if __name__ == "__main__":
 
     in_args, in_verbose = bt_common.check_arguments()
     line_footprint_abs(
-        print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose
+        **in_args.input, processes=int(in_args.processes), verbose=in_verbose
     )
     print(f"Current time: {time.strftime('%b %Y %H:%M:%S', time.localtime())}")
