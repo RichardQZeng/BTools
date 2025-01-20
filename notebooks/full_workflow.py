@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
 from beratools.core.constants import PARALLEL_MODE, ParallelMode
 from beratools.tools.centerline import centerline
-from beratools.tools.line_footprint_absolute import line_footprint
+from beratools.tools.line_footprint_absolute import line_footprint_abs
 from beratools.core.algo_footprint_canopy_rel import FootprintCanopy
 from beratools.tools.line_footprint_fixed import line_footprint_fixed
 import yaml
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     args_footprint_abs['processes'] =12
     args_footprint_abs["callback"] = None
     print(args_footprint_abs)
-    line_footprint(**args_footprint_abs)
+    line_footprint_abs(**args_footprint_abs)
 
     # canopy footprint
     # fp_params = params['args_footprint_canopy']

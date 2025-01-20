@@ -210,7 +210,7 @@ class FileSelector(QtWidgets.QWidget):
                 # If the .gpkg file doesn't exist, show empty layer
                 if not os.path.exists(self.value):
                     self.layer_combo.clear()  # Clear the combo box
-                    self.layer_combo.addItem("No layers available")  # Show "No layers available"
+                    self.layer_combo.addItem("layer_name")  # Show "layer_name"
             else:
                 self.layer_combo.setEditable(False)  # Set it as non-editable if output is False
                 self.load_gpkg_layers(self.value)  # Load layers if output is False
@@ -249,7 +249,7 @@ class FileSelector(QtWidgets.QWidget):
                     self.layer_combo.setEditable(True)
                     self.layer_combo.addItem("layer_name")
                 else:
-                    self.layer_combo.addItem("No layers available")
+                    self.layer_combo.addItem("layer_name")
 
             self.layer_combo.adjustSize()
         else:
@@ -340,7 +340,7 @@ class FileSelector(QtWidgets.QWidget):
             if result.lower().endswith('.gpkg'):
                 if not os.path.exists(result):
                     self.layer_combo.clear()
-                    self.layer_combo.addItem("No layers available")
+                    self.layer_combo.addItem("layer_name")
                 else:
                     self.load_gpkg_layers(result)
                     if self.output:
@@ -411,7 +411,10 @@ class FileSelector(QtWidgets.QWidget):
             else:
                 # File doesn't exist, clear the layer combo box and show message
                 self.layer_combo.clear()
-                self.layer_combo.addItem("No layers available")
+                self.layer_combo.addItem("layer_name")
+                if self.output:
+                    self.layer_combo.setEditable(True)
+
                 self.layer_combo.setVisible(True)  # Show the layer combo box but indicate no layers
         else:
             # If it's not a GeoPackage, hide the layer combo box
