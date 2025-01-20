@@ -15,6 +15,7 @@ if __name__ == "__main__":
 
 from beratools.core.constants import PARALLEL_MODE, ParallelMode
 from beratools.tools.centerline import centerline
+from beratools.tools.line_footprint_absolute import line_footprint
 from beratools.core.algo_footprint_canopy_rel import FootprintCanopy
 from beratools.tools.line_footprint_fixed import line_footprint_fixed
 import yaml
@@ -75,7 +76,7 @@ if __name__ == '__main__':
     script_dir = Path(__file__).parent
 
     args = check_arguments()
-    
+
     # Access the parameters
     platform = args.platform
     cores = args.cores
@@ -87,7 +88,7 @@ if __name__ == '__main__':
             file = script_dir / 'params_hpc.yml'  # Use pathlib to join paths
         elif platform == 'win':
             file = script_dir / 'params_win.yml'
-    
+
     # Print the received arguments (you can replace this with actual processing code)
     print(f"Platform: {platform}")
     print(f"Cores: {cores}")
@@ -109,10 +110,17 @@ if __name__ == '__main__':
         params = yaml.safe_load(in_params)
 
     # centerline
-    args_centerline = params['args_centerline']
-    print(args_centerline)
-    args_centerline["parallel_mode"] = PARALLEL_MODE
-    centerline(**args_centerline, processes=processes, verbose=verbose)
+    # args_centerline = params['args_centerline']
+    # args_centerline["parallel_mode"] = PARALLEL_MODE
+    # print(args_centerline)
+    # centerline(**args_centerline, processes=processes, verbose=verbose)
+
+    args_footprint_abs = params["args_footprint_abs"]
+    args_footprint_abs['verbose'] = False
+    args_footprint_abs['processes'] =12
+    args_footprint_abs["callback"] = None
+    print(args_footprint_abs)
+    line_footprint(**args_footprint_abs)
 
     # canopy footprint
     # fp_params = params['args_footprint_canopy']
