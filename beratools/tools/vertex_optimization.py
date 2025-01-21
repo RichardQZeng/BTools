@@ -32,7 +32,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 import fiona
-from shapely.geometry import shape, Point, MultiPoint, LineString, MultiLineString, GeometryCollection
+import shapely.geometry as sh_geom
 from shapely import STRtree
 
 import beratools.core.constants as bt_const
@@ -104,7 +104,7 @@ class Vertex:
 
         # Calculate anchor point for each vertex
         # point = Point(self.vertex["point"][0], self.vertex["point"][1])
-        point = Point(self.point())
+        point = sh_geom.Point(self.point())
         line_string = line[0]
         index = line[1]
         pts = points_in_line(line_string)
@@ -209,7 +209,7 @@ class Vertex:
         points = [pt_start_1, pt_end_1, pt_start_2, pt_end_2]
         for index, pt in enumerate(points):
             if pt:
-                if not self.cost_footprint.contains(Point(pt)):
+                if not self.cost_footprint.contains(sh_geom.Point(pt)):
                     points[index] = None
 
         if len(slopes) == 4 or len(slopes) == 3:
@@ -245,7 +245,7 @@ class Vertex:
 
         try:
             if len(self.anchors) == 4:
-                seed_line = LineString(self.anchors[0:2])
+                seed_line = sh_geom.LineString(self.anchors[0:2])
 
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
@@ -254,7 +254,7 @@ class Vertex:
                     raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
-                seed_line = LineString(self.anchors[2:4])
+                seed_line = sh_geom.LineString(self.anchors[2:4])
 
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
@@ -267,7 +267,7 @@ class Vertex:
                 if centerline_1 and centerline_2:
                     intersection = intersection_of_lines(centerline_1, centerline_2)
             elif len(self.anchors) == 2:
-                seed_line = LineString(self.anchors)
+                seed_line = sh_geom.LineString(self.anchors)
 
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
@@ -283,7 +283,7 @@ class Vertex:
             print(e)
 
         # Update vertices according to intersection, new center lines are returned
-        if type(intersection) is MultiPoint:
+        if type(intersection) is sh_geom.MultiPoint:
             intersection = intersection.centroid
 
         self.centerlines = [centerline_1, centerline_2]
@@ -327,12 +327,12 @@ class VertexGrouping:
 
         """
         if len(line_coords) == 2:
-            line = shape({'type': 'LineString', 'coordinates': line_coords})
+            line = sh_geom.shape({"type": "LineString", "coordinates": line_coords})
             if not np.isclose(line.length, 0.0):
                 return [line]
         elif len(line_coords) > 2:
             seg_list = zip(line_coords[:-1], line_coords[1:])
-            line_list = [shape({'type': 'LineString', 'coordinates': coords}) for coords in seg_list]
+            line_list = [sh_geom.shape({'type': 'LineString', 'coordinates': coords}) for coords in seg_list]
             return [line for line in line_list if not np.isclose(line.length, 0.0)]
 
         return None
@@ -351,14 +351,14 @@ class VertexGrouping:
                     continue
                 if line['geometry']['type'] != 'MultiLineString':
                     props[bt_const.BT_UID] = i
-                    self.segment_all.append([shape(line['geometry']), props])
+                    self.segment_all.append([sh_geom.shape(line['geometry']), props])
                     i += 1
                 else:
                     print('MultiLineString found.')
-                    geoms = shape(line['geometry']).geoms
+                    geoms = sh_geom.shape(line['geometry']).geoms
                     for item in geoms:
                         props[bt_const.BT_UID] = i
-                        self.segment_all.append([shape(item), props])
+                        self.segment_all.append([sh_geom.shape(item), props])
                         i += 1
 
         # split line segments at vertices
@@ -368,8 +368,15 @@ class VertexGrouping:
             line_segs = self.segments(list(line[0].coords))
             if line_segs:
                 for seg in line_segs:
-                    input_lines_temp.append({'line': shape(seg), 'line_no': line_no, 'prop': line[1],
-                                             'start_visited': False, 'end_visited': False})
+                    input_lines_temp.append(
+                        {
+                            "line": sh_geom.shape(seg),
+                            "line_no": line_no,
+                            "prop": line[1],
+                            "start_visited": False,
+                            "end_visited": False,
+                        }
+                    )
                     line_no += 1
 
             bt_base.print_msg('Splitting lines', line_no, len(self.segment_all))
@@ -404,12 +411,12 @@ class VertexGrouping:
 
             uid = seg['prop']['BT_UID']
             if not seg['start_visited']:
-                if self.points_are_close(point, Point(seg['line'].coords[0])):
+                if self.points_are_close(point, sh_geom.Point(seg['line'].coords[0])):
                     vertex.add_line(seg['line'], seg['line_no'], 0, uid)
                     seg['start_visited'] = True
 
             if not seg['end_visited']:
-                if self.points_are_close(point, Point(seg['line'].coords[-1])):
+                if self.points_are_close(point, sh_geom.Point(seg["line"].coords[-1])):
                     vertex.add_line(seg['line'], seg['line_no'], -1, uid)
                     seg['end_visited'] = True
 
@@ -464,7 +471,7 @@ def points_in_line(line):
         for point in list(line.coords):  # loops through every point in a line
             # loops through every vertex of every segment
             if point:  # adds all the vertices to segment_list, which creates an array
-                point_list.append(Point(point[0], point[1]))
+                point_list.append(sh_geom.Point(point[0], point[1]))
     except Exception as e:
         print(e)
 
@@ -484,7 +491,7 @@ def update_line_vertex(line, index, point):
     elif len(coords[index]) == 3:
         coords[index] = (point.x, point.y, 0.0)
 
-    return LineString(coords)
+    return sh_geom.LineString(coords)
 
 
 def intersection_of_lines(line_1, line_2):
@@ -506,9 +513,11 @@ def intersection_of_lines(line_1, line_2):
 
     # TODO: intersection may return GeometryCollection, LineString or MultiLineString
     if inter:
-        if (type(inter) is GeometryCollection or
-                type(inter) is LineString or
-                type(inter) is MultiLineString):
+        if (
+            type(inter) is sh_geom.GeometryCollection
+            or type(inter) is sh_geom.LineString
+            or type(inter) is sh_geom.MultiLineString
+        ):
             return inter.centroid
 
     return inter
@@ -518,7 +527,7 @@ def closest_point_to_line(point, line):
     if not line:
         return None
 
-    pt = line.interpolate(line.project(Point(point)))
+    pt = line.interpolate(line.project(sh_geom.Point(point)))
     return pt
 
 
@@ -567,7 +576,7 @@ def vertex_optimization(callback, in_line, in_raster, search_distance, line_radi
 
         if vertex.anchors:
             for pt in vertex.anchors:
-                anchor_list.append(Point(pt))
+                anchor_list.append(sh_geom.Point(pt))
 
         if vertex.centerlines:
             for line in vertex.centerlines:
