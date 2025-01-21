@@ -125,7 +125,7 @@ class Vertex:
 
         # TODO: check why two points are the same
         if np.isclose(dist_pt, 0.0):
-            print('Points are close, return')
+            print("Points are close, return")
             return None
 
         X = pt_1.x + (pt_2.x - pt_1.x) * self.search_distance / dist_pt
@@ -169,7 +169,11 @@ class Vertex:
             pt_end_2 = lines[index[3]][2]
         elif len(slopes) == 3:
             # find the largest difference between angles
-            angle_diff = [abs(slopes[0] - slopes[1]), abs(slopes[0] - slopes[2]), abs(slopes[1] - slopes[2])]
+            angle_diff = [
+                abs(slopes[0] - slopes[1]),
+                abs(slopes[0] - slopes[2]),
+                abs(slopes[1] - slopes[2]),
+            ]
             angle_diff_norm = [2 * np.pi - i if i > np.pi else i for i in angle_diff]
             index = np.argmax(angle_diff_norm)
             pairs = [(0, 1), (0, 2), (1, 2)]
@@ -298,7 +302,9 @@ class Vertex:
 
 
 class VertexGrouping:
-    def __init__(self, callback, in_line, in_raster, search_distance, line_radius, out_line):
+    def __init__(
+        self, callback, in_line, in_raster, search_distance, line_radius, out_line
+    ):
         self.in_line = in_line
         self.in_raster = in_raster
         self.line_radius = float(line_radius)
@@ -311,7 +317,9 @@ class VertexGrouping:
         self.sindex = None
 
         # calculate cost raster footprint
-        self.cost_footprint = bt_common.generate_raster_footprint(self.in_raster, latlon=False)
+        self.cost_footprint = bt_common.generate_raster_footprint(
+            self.in_raster, latlon=False
+        )
 
     @staticmethod
     def segments(line_coords):
@@ -332,7 +340,10 @@ class VertexGrouping:
                 return [line]
         elif len(line_coords) > 2:
             seg_list = zip(line_coords[:-1], line_coords[1:])
-            line_list = [sh_geom.shape({'type': 'LineString', 'coordinates': coords}) for coords in seg_list]
+            line_list = [
+                sh_geom.shape({"type": "LineString", "coordinates": coords})
+                for coords in seg_list
+            ]
             return [line for line in line_list if not np.isclose(line.length, 0.0)]
 
         return None
@@ -340,22 +351,22 @@ class VertexGrouping:
     def split_lines(self):
         with fiona.open(self.in_line) as open_line_file:
             # get input shapefile fields
-            self.in_schema = open_line_file.meta['schema']
-            self.in_schema['properties']['BT_UID'] = 'int:10'  # add field
+            self.in_schema = open_line_file.meta["schema"]
+            self.in_schema["properties"]["BT_UID"] = "int:10"  # add field
 
             i = 0
             self.crs = open_line_file.crs
             for line in open_line_file:
-                props = OrderedDict(line['properties'])
-                if not line['geometry']:
+                props = OrderedDict(line["properties"])
+                if not line["geometry"]:
                     continue
-                if line['geometry']['type'] != 'MultiLineString':
+                if line["geometry"]["type"] != "MultiLineString":
                     props[bt_const.BT_UID] = i
-                    self.segment_all.append([sh_geom.shape(line['geometry']), props])
+                    self.segment_all.append([sh_geom.shape(line["geometry"]), props])
                     i += 1
                 else:
-                    print('MultiLineString found.')
-                    geoms = sh_geom.shape(line['geometry']).geoms
+                    print("MultiLineString found.")
+                    geoms = sh_geom.shape(line["geometry"]).geoms
                     for item in geoms:
                         props[bt_const.BT_UID] = i
                         self.segment_all.append([sh_geom.shape(item), props])
@@ -379,12 +390,12 @@ class VertexGrouping:
                     )
                     line_no += 1
 
-            bt_base.print_msg('Splitting lines', line_no, len(self.segment_all))
+            bt_base.print_msg("Splitting lines", line_no, len(self.segment_all))
 
         self.segment_all = input_lines_temp
 
         # create spatial index for all line segments
-        self.sindex = STRtree([item['line'] for item in self.segment_all])
+        self.sindex = STRtree([item["line"] for item in self.segment_all])
 
     def create_vertex_group(self, point, line, line_no, end_no, uid):
         """
@@ -406,19 +417,19 @@ class VertexGrouping:
         # add more vertices to the new group
         for i in search:
             seg = self.segment_all[i]
-            if line_no == seg['line_no']:
+            if line_no == seg["line_no"]:
                 continue
 
-            uid = seg['prop']['BT_UID']
-            if not seg['start_visited']:
-                if self.points_are_close(point, sh_geom.Point(seg['line'].coords[0])):
-                    vertex.add_line(seg['line'], seg['line_no'], 0, uid)
-                    seg['start_visited'] = True
+            uid = seg["prop"]["BT_UID"]
+            if not seg["start_visited"]:
+                if self.points_are_close(point, sh_geom.Point(seg["line"].coords[0])):
+                    vertex.add_line(seg["line"], seg["line_no"], 0, uid)
+                    seg["start_visited"] = True
 
-            if not seg['end_visited']:
+            if not seg["end_visited"]:
                 if self.points_are_close(point, sh_geom.Point(seg["line"].coords[-1])):
-                    vertex.add_line(seg['line'], seg['line_no'], -1, uid)
-                    seg['end_visited'] = True
+                    vertex.add_line(seg["line"], seg["line_no"], -1, uid)
+                    seg["end_visited"] = True
 
         vertex.in_raster = self.in_raster
         if not bt_const.HAS_COST_RASTER:
@@ -430,7 +441,10 @@ class VertexGrouping:
 
     @staticmethod
     def points_are_close(pt1, pt2):
-        if abs(pt1.x - pt2.x) < DISTANCE_THRESHOLD and abs(pt1.y - pt2.y) < DISTANCE_THRESHOLD:
+        if (
+            abs(pt1.x - pt2.x) < DISTANCE_THRESHOLD
+            and abs(pt1.y - pt2.y) < DISTANCE_THRESHOLD
+        ):
             return True
         else:
             return False
@@ -438,28 +452,32 @@ class VertexGrouping:
     def group_vertices(self):
         try:
             self.split_lines()
-            print('split_lines done.')
+            print("split_lines done.")
 
             i = 0
             for line in self.segment_all:
-                pt_list = points_in_line(line['line'])
+                pt_list = points_in_line(line["line"])
                 if len(pt_list) == 0:
                     print(f"Line {line['line_no']} is empty")
                     continue
-                uid = line['prop']['BT_UID']
-                if not line['start_visited']:
-                    self.create_vertex_group(pt_list[0], line['line'], line['line_no'], 0, uid)
-                    line['start_visited'] = True
-                    i += 1
-                    bt_base.print_msg('Grouping vertices', i, len(self.segment_all))
-
-                if not line['end_visited']:
-                    self.create_vertex_group(pt_list[-1], line['line'], line['line_no'], -1, uid)
-                    line['end_visited'] = True
+                uid = line["prop"]["BT_UID"]
+                if not line["start_visited"]:
+                    self.create_vertex_group(
+                        pt_list[0], line["line"], line["line_no"], 0, uid
+                    )
+                    line["start_visited"] = True
                     i += 1
                     bt_base.print_msg("Grouping vertices", i, len(self.segment_all))
 
-            print('group_intersections done.')
+                if not line["end_visited"]:
+                    self.create_vertex_group(
+                        pt_list[-1], line["line"], line["line_no"], -1, uid
+                    )
+                    line["end_visited"] = True
+                    i += 1
+                    bt_base.print_msg("Grouping vertices", i, len(self.segment_all))
+
+            print("group_intersections done.")
 
         except Exception as e:
             print(e)
@@ -542,17 +560,34 @@ def process_single_line(vertex):
     return vertex
 
 
-def vertex_optimization(callback, in_line, in_raster, search_distance, line_radius, out_line, processes, verbose):
+def vertex_optimization(
+    callback,
+    in_line,
+    in_raster,
+    search_distance,
+    line_radius,
+    out_line,
+    processes,
+    verbose,
+):
     if not bt_common.compare_crs(
         bt_common.vector_crs(in_line), bt_common.raster_crs(in_raster)
     ):
         return
 
-    vg = VertexGrouping(callback, in_line, in_raster, search_distance, line_radius, out_line)
+    vg = VertexGrouping(
+        callback, in_line, in_raster, search_distance, line_radius, out_line
+    )
     vg.group_vertices()
 
-    vertices = bt_base.execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
-                                       processes, 1, verbose=verbose)
+    vertices = bt_base.execute_multiprocessing(
+        process_single_line,
+        vg.vertex_grp,
+        "Vertex Optimization",
+        processes,
+        1,
+        verbose=verbose,
+    )
 
     # No line generated, exit
     if len(vertices) <= 0:
@@ -567,8 +602,8 @@ def vertex_optimization(callback, in_line, in_raster, search_distance, line_radi
     # Dump all lines into point array for vertex updates
     feature_all = {}
     for i in vg.segment_all:
-        feature = [i['line'], i['prop']]
-        feature_all[i['line_no']] = feature
+        feature = [i["line"], i["prop"]]
+        feature_all[i["line_no"]] = feature
 
     for vertex in vertices:
         if not vertex:
@@ -608,13 +643,15 @@ def vertex_optimization(callback, in_line, in_raster, search_distance, line_radi
     line_path = Path(out_line)
     file_name = line_path.stem
     file_line = line_path.as_posix()
-    file_aux = line_path.with_stem(file_name + '_aux').with_suffix('.gpkg').as_posix()
+    file_aux = line_path.with_stem(file_name + "_aux").with_suffix(".gpkg").as_posix()
 
     fields = []
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    bt_common.save_features_to_file(file_line, vg.crs, all_lines, all_props, vg.in_schema)
+    bt_common.save_features_to_file(
+        file_line, vg.crs, all_lines, all_props, vg.in_schema
+    )
 
     bt_common.save_features_to_file(
         file_aux,
@@ -645,8 +682,10 @@ def vertex_optimization(callback, in_line, in_raster, search_distance, line_radi
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     in_args, in_verbose = bt_common.check_arguments()
     start_time = time.time()
-    vertex_optimization(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
-    print('Elapsed time: {}'.format(time.time() - start_time))
+    vertex_optimization(
+        print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose
+    )
+    print("Elapsed time: {}".format(time.time() - start_time))
