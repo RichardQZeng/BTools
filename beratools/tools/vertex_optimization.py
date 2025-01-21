@@ -26,31 +26,21 @@
 #
 # ---------------------------------------------------------------------------
 # System imports
-import sys
+import numpy as np
 import time
 from pathlib import Path
-from inspect import getsourcefile
+from collections import OrderedDict
 
 import fiona
 from shapely.geometry import shape, Point, MultiPoint, LineString, MultiLineString, GeometryCollection
 from shapely import STRtree
-from xrspatial import convolution
 
-from inspect import getsourcefile
+import beratools.core.constants as bt_const
+import beratools.tools.common as bt_common
+import beratools.core.tool_base as bt_base
+from beratools.core import algo_dijkstra
 
-
-if __name__ == '__main__':
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
-    btool_dir = current_file.parents[2]
-    sys.path.insert(0, btool_dir.as_posix())
-
-from beratools.core.constants import *
-from beratools.core.tool_base import *
-from beratools.tools.common import *
-from beratools.core.dijkstra_algorithm import *
-
-DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighbourhood
-# SEGMENT_LENGTH = 30  # Distance (meter) from intersection to anchor points
+DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighborhood
 
 
 class Vertex:
@@ -240,7 +230,7 @@ class Vertex:
             print(e)
 
         if not self.anchors:
-            if BT_DEBUGGING:
+            if bt_const.BT_DEBUGGING:
                 print("No anchors retrieved")
             return None
 
@@ -248,25 +238,29 @@ class Vertex:
         centerline_2 = None
         intersection = None
 
-        if CL_USE_SKIMAGE_GRAPH:
-            find_lc_path = find_least_cost_path_skimage
+        if bt_const.CL_USE_SKIMAGE_GRAPH:
+            find_lc_path = algo_dijkstra.find_least_cost_path_skimage
         else:
-            find_lc_path = find_least_cost_path
+            find_lc_path = algo_dijkstra.find_least_cost_path
 
         try:
             if len(self.anchors) == 4:
                 seed_line = LineString(self.anchors[0:2])
 
-                raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-                if not HAS_COST_RASTER:
-                    raster_clip, _ = cost_raster(raster_clip, out_meta)
+                raster_clip, out_meta = bt_common.clip_raster(
+                    self.in_raster, seed_line, self.line_radius
+                )
+                if not bt_const.HAS_COST_RASTER:
+                    raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
                 seed_line = LineString(self.anchors[2:4])
 
-                raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-                if not HAS_COST_RASTER:
-                    raster_clip, _ = cost_raster(raster_clip, out_meta)
+                raster_clip, out_meta = bt_common.clip_raster(
+                    self.in_raster, seed_line, self.line_radius
+                )
+                if not bt_const.HAS_COST_RASTER:
+                    raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
 
                 centerline_2 = find_lc_path(raster_clip, out_meta, seed_line)
 
@@ -275,9 +269,11 @@ class Vertex:
             elif len(self.anchors) == 2:
                 seed_line = LineString(self.anchors)
 
-                raster_clip, out_meta = clip_raster(self.in_raster, seed_line, self.line_radius)
-                if not HAS_COST_RASTER:
-                    raster_clip, _ = cost_raster(raster_clip, out_meta)
+                raster_clip, out_meta = bt_common.clip_raster(
+                    self.in_raster, seed_line, self.line_radius
+                )
+                if not bt_const.HAS_COST_RASTER:
+                    raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
@@ -292,7 +288,7 @@ class Vertex:
 
         self.centerlines = [centerline_1, centerline_2]
         self.pt_optimized = intersection
-        print(f'Processing vertex {self.point()[0]:.2f}, {self.point()[1]:.2f} done')
+        # print(f'Processing vertex {self.point()[0]:.2f}, {self.point()[1]:.2f} done')
 
     def lines(self):
         return self.vertex["lines"]
@@ -315,7 +311,7 @@ class VertexGrouping:
         self.sindex = None
 
         # calculate cost raster footprint
-        self.cost_footprint = generate_raster_footprint(self.in_raster, latlon=False)
+        self.cost_footprint = bt_common.generate_raster_footprint(self.in_raster, latlon=False)
 
     @staticmethod
     def segments(line_coords):
@@ -354,14 +350,14 @@ class VertexGrouping:
                 if not line['geometry']:
                     continue
                 if line['geometry']['type'] != 'MultiLineString':
-                    props[BT_UID] = i
+                    props[bt_const.BT_UID] = i
                     self.segment_all.append([shape(line['geometry']), props])
                     i += 1
                 else:
                     print('MultiLineString found.')
                     geoms = shape(line['geometry']).geoms
                     for item in geoms:
-                        props[BT_UID] = i
+                        props[bt_const.BT_UID] = i
                         self.segment_all.append([shape(item), props])
                         i += 1
 
@@ -376,7 +372,7 @@ class VertexGrouping:
                                              'start_visited': False, 'end_visited': False})
                     line_no += 1
 
-            print_msg('Splitting lines', line_no, len(self.segment_all))
+            bt_base.print_msg('Splitting lines', line_no, len(self.segment_all))
 
         self.segment_all = input_lines_temp
 
@@ -398,7 +394,7 @@ class VertexGrouping:
         """
         # all end points not added will stay with this vertex
         vertex = Vertex(point, line, line_no, end_no, uid, self.search_distance)
-        search = self.sindex.query(point.buffer(CL_POLYGON_BUFFER))
+        search = self.sindex.query(point.buffer(bt_const.CL_POLYGON_BUFFER))
 
         # add more vertices to the new group
         for i in search:
@@ -418,7 +414,7 @@ class VertexGrouping:
                     seg['end_visited'] = True
 
         vertex.in_raster = self.in_raster
-        if not HAS_COST_RASTER:
+        if not bt_const.HAS_COST_RASTER:
             vertex.in_raster = self.in_raster
 
         vertex.line_radius = self.line_radius
@@ -448,13 +444,13 @@ class VertexGrouping:
                     self.create_vertex_group(pt_list[0], line['line'], line['line_no'], 0, uid)
                     line['start_visited'] = True
                     i += 1
-                    print_msg('Grouping vertices', i, len(self.segment_all))
+                    bt_base.print_msg('Grouping vertices', i, len(self.segment_all))
 
                 if not line['end_visited']:
                     self.create_vertex_group(pt_list[-1], line['line'], line['line_no'], -1, uid)
                     line['end_visited'] = True
                     i += 1
-                    print_msg('Grouping vertices', i, len(self.segment_all))
+                    bt_base.print_msg("Grouping vertices", i, len(self.segment_all))
 
             print('group_intersections done.')
 
@@ -538,13 +534,15 @@ def process_single_line(vertex):
 
 
 def vertex_optimization(callback, in_line, in_raster, search_distance, line_radius, out_line, processes, verbose):
-    if not compare_crs(vector_crs(in_line), raster_crs(in_raster)):
+    if not bt_common.compare_crs(
+        bt_common.vector_crs(in_line), bt_common.raster_crs(in_raster)
+    ):
         return
 
     vg = VertexGrouping(callback, in_line, in_raster, search_distance, line_radius, out_line)
     vg.group_vertices()
 
-    vertices = execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
+    vertices = bt_base.execute_multiprocessing(process_single_line, vg.vertex_grp, 'Vertex Optimization',
                                        processes, 1, verbose=verbose)
 
     # No line generated, exit
@@ -556,9 +554,8 @@ def vertex_optimization(callback, in_line, in_raster, search_distance, line_radi
     anchor_list = []
     leastcost_list = []
     inter_list = []
-    cl_list = []
 
-    # Dump all polylines into point array for vertex updates
+    # Dump all lines into point array for vertex updates
     feature_all = {}
     for i in vg.segment_all:
         feature = [i['line'], i['prop']]
@@ -608,15 +605,39 @@ def vertex_optimization(callback, in_line, in_raster, search_distance, line_radi
     properties = []
     all_lines = [value[0] for key, value in feature_all.items()]
     all_props = [value[1] for key, value in feature_all.items()]
-    save_features_to_file(file_line, vg.crs, all_lines, all_props, vg.in_schema)
+    bt_common.save_features_to_file(file_line, vg.crs, all_lines, all_props, vg.in_schema)
 
-    save_features_to_file(file_aux, vg.crs, leastcost_list, properties, fields, driver='GPKG', layer='leastcost')
-    save_features_to_file(file_aux, vg.crs, anchor_list, properties, fields, driver='GPKG', layer='anchors')
-    save_features_to_file(file_aux, vg.crs, inter_list, properties, fields, driver='GPKG', layer='intersections')
+    bt_common.save_features_to_file(
+        file_aux,
+        vg.crs,
+        leastcost_list,
+        properties,
+        fields,
+        driver="GPKG",
+        layer="leastcost",
+    )
+    bt_common.save_features_to_file(
+        file_aux,
+        vg.crs,
+        anchor_list,
+        properties,
+        fields,
+        driver="GPKG",
+        layer="anchors",
+    )
+    bt_common.save_features_to_file(
+        file_aux,
+        vg.crs,
+        inter_list,
+        properties,
+        fields,
+        driver="GPKG",
+        layer="intersections",
+    )
 
 
 if __name__ == '__main__':
-    in_args, in_verbose = check_arguments()
+    in_args, in_verbose = bt_common.check_arguments()
     start_time = time.time()
     vertex_optimization(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     print('Elapsed time: {}'.format(time.time() - start_time))

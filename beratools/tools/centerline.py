@@ -8,7 +8,7 @@ import geopandas as gpd
 from shapely.geometry import LineString
 from beratools.core.logger import Logger
 import beratools.core.algo_centerline as bt_centerline
-import beratools.core.dijkstra_algorithm as bt_dijkstra
+import beratools.core.algo_dijkstra as bt_dijkstra
 import beratools.core.constants as bt_const
 import beratools.tools.common as bt_common
 import beratools.core.algo_common as algo_common
