@@ -327,8 +327,8 @@
                         },
                         {
                             "variable": "in_raster",
-                            "parameter": "CHM/Cost Raster",
-                            "description": "Input CHM/Cost raster used to calculate the least cost path.",
+                            "parameter": "CHM Raster",
+                            "description": "Input CHM raster used to optimize vertices.",
                             "type": "raster",
                             "typelab": "TIF",
                             "default": "",

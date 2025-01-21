@@ -1,7 +1,7 @@
 import numpy as np
 import geopandas as gpd
 from scipy import ndimage
-from shapely.geometry import LineString, MultiLineString
+import shapely.geometry as sh_geom
 
 import beratools.core.constants as bt_const
 
@@ -39,7 +39,7 @@ def has_multilinestring(gdf):
     """Check if any geometry is a MultiLineString."""
     # Filter out None values (invalid geometries) from the GeoDataFrame
     valid_geometries = gdf.geometry
-    return any(isinstance(geom, MultiLineString) for geom in valid_geometries)
+    return any(isinstance(geom, sh_geom.MultiLineString) for geom in valid_geometries)
 
 def clean_geometries(gdf):
     """
@@ -78,7 +78,7 @@ def prepare_lines_gdf(file_path, layer=None, proc_segments=True):
 
             # For each LineString, split the line into segments by the vertices
             for i in range(len(coords) - 1):
-                segment = LineString([coords[i], coords[i + 1]])
+                segment = sh_geom.LineString([coords[i], coords[i + 1]])
 
                 # Copy over all non-geometry columns from the parent row (excluding 'geometry')
                 attributes = {col: getattr(row, col) for col in gdf.columns if col != 'geometry'}
@@ -123,3 +123,53 @@ def morph_raster(corridor_thresh, canopy_raster, exp_shk_cell, cell_size_x):
     clean_raster = ndimage.gaussian_filter(file_shrink, sigma=0, mode="nearest")
 
     return clean_raster
+
+
+def closest_point_to_line(point, line):
+    if not line:
+        return None
+
+    pt = line.interpolate(line.project(sh_geom.Point(point)))
+    return pt
+
+
+def points_in_line(line):
+    point_list = []
+    try:
+        for point in list(line.coords):  # loops through every point in a line
+            # loops through every vertex of every segment
+            if point:  # adds all the vertices to segment_list, which creates an array
+                point_list.append(sh_geom.Point(point[0], point[1]))
+    except Exception as e:
+        print(e)
+
+    return point_list
+
+
+def intersection_of_lines(line_1, line_2):
+    """
+     only LINESTRING is dealt with for now
+    Parameters
+    ----------
+    line_1 :
+    line_2 :
+
+    Returns
+    -------
+
+    """
+    # intersection collection, may contain points and lines
+    inter = None
+    if line_1 and line_2:
+        inter = line_1.intersection(line_2)
+
+    # TODO: intersection may return GeometryCollection, LineString or MultiLineString
+    if inter:
+        if (
+            type(inter) is sh_geom.GeometryCollection
+            or type(inter) is sh_geom.LineString
+            or type(inter) is sh_geom.MultiLineString
+        ):
+            return inter.centroid
+
+    return inter

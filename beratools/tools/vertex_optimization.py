@@ -39,6 +39,7 @@ import beratools.core.constants as bt_const
 import beratools.tools.common as bt_common
 import beratools.core.tool_base as bt_base
 from beratools.core import algo_dijkstra
+import beratools.core.algo_common as algo_common
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighborhood
 
@@ -69,7 +70,7 @@ class Vertex:
         line: LineString
         end_index: 0 or -1 of the line vertices. Consider the multipart.
         """
-        pts = points_in_line(line)
+        pts = algo_common.points_in_line(line)
 
         if vertex_index == 0:
             pt_1 = pts[0]
@@ -107,7 +108,7 @@ class Vertex:
         point = sh_geom.Point(self.point())
         line_string = line[0]
         index = line[1]
-        pts = points_in_line(line_string)
+        pts = algo_common.points_in_line(line_string)
 
         pt_1 = None
         pt_2 = None
@@ -254,8 +255,8 @@ class Vertex:
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                if not bt_const.HAS_COST_RASTER:
-                    raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
+                # if not bt_const.HAS_COST_RASTER:
+                raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
                 seed_line = sh_geom.LineString(self.anchors[2:4])
@@ -263,26 +264,26 @@ class Vertex:
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                if not bt_const.HAS_COST_RASTER:
-                    raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
+                # if not bt_const.HAS_COST_RASTER:
+                raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
 
                 centerline_2 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1 and centerline_2:
-                    intersection = intersection_of_lines(centerline_1, centerline_2)
+                    intersection = algo_common.intersection_of_lines(centerline_1, centerline_2)
             elif len(self.anchors) == 2:
                 seed_line = sh_geom.LineString(self.anchors)
 
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                if not bt_const.HAS_COST_RASTER:
-                    raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
+                # if not bt_const.HAS_COST_RASTER:
+                raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
 
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1:
-                    intersection = closest_point_to_line(self.point(), centerline_1)
+                    intersection = algo_common.closest_point_to_line(self.point(), centerline_1)
         except Exception as e:
             print(e)
 
@@ -432,8 +433,8 @@ class VertexGrouping:
                     seg["end_visited"] = True
 
         vertex.in_raster = self.in_raster
-        if not bt_const.HAS_COST_RASTER:
-            vertex.in_raster = self.in_raster
+        # if not bt_const.HAS_COST_RASTER:
+        #     vertex.in_raster = self.in_raster
 
         vertex.line_radius = self.line_radius
         vertex.cost_footprint = self.cost_footprint
@@ -454,9 +455,11 @@ class VertexGrouping:
             self.split_lines()
             print("split_lines done.")
 
+            row_list = algo_common.prepare_lines_gdf(self.in_line, layer=None, proc_segments=True)
+
             i = 0
             for line in self.segment_all:
-                pt_list = points_in_line(line["line"])
+                pt_list = algo_common.points_in_line(line["line"])
                 if len(pt_list) == 0:
                     print(f"Line {line['line_no']} is empty")
                     continue
@@ -483,19 +486,6 @@ class VertexGrouping:
             print(e)
 
 
-def points_in_line(line):
-    point_list = []
-    try:
-        for point in list(line.coords):  # loops through every point in a line
-            # loops through every vertex of every segment
-            if point:  # adds all the vertices to segment_list, which creates an array
-                point_list.append(sh_geom.Point(point[0], point[1]))
-    except Exception as e:
-        print(e)
-
-    return point_list
-
-
 def update_line_vertex(line, index, point):
     if not line:
         return None
@@ -510,43 +500,6 @@ def update_line_vertex(line, index, point):
         coords[index] = (point.x, point.y, 0.0)
 
     return sh_geom.LineString(coords)
-
-
-def intersection_of_lines(line_1, line_2):
-    """
-     only LINESTRING is dealt with for now
-    Parameters
-    ----------
-    line_1 :
-    line_2 :
-
-    Returns
-    -------
-
-    """
-    # intersection collection, may contain points and lines
-    inter = None
-    if line_1 and line_2:
-        inter = line_1.intersection(line_2)
-
-    # TODO: intersection may return GeometryCollection, LineString or MultiLineString
-    if inter:
-        if (
-            type(inter) is sh_geom.GeometryCollection
-            or type(inter) is sh_geom.LineString
-            or type(inter) is sh_geom.MultiLineString
-        ):
-            return inter.centroid
-
-    return inter
-
-
-def closest_point_to_line(point, line):
-    if not line:
-        return None
-
-    pt = line.interpolate(line.project(sh_geom.Point(point)))
-    return pt
 
 
 def process_single_line(vertex):
