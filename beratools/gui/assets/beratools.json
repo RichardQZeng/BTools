@@ -563,7 +563,7 @@
                             "optional": false
                         },
                         {
-                            "variable": "corridor_th_value",
+                            "variable": "corridor_thresh",
                             "parameter": "Corridor Threshold",
                             "description": "The least cost corridor thresholds.",
                             "type": "number",
@@ -602,17 +602,6 @@
                             "default": "",
                             "output": true,
                             "optional": false
-                        },
-                        {
-                            "variable": "out_centerline",
-                            "parameter": "Output Centerline Shapefile",
-                            "description": "Output centerline polygons.",
-                            "layer": "out_layer_cl",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": true,
-                            "optional": true
                         }
                     ]
                 },
