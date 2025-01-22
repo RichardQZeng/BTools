@@ -63,3 +63,27 @@ include = [
 exclude = [
   "tests/*",
 ]
+
+# ruff settings
+[tool.ruff]
+
+# Set maximum line length to 88 characters as per PEP 8
+line-length = 88
+
+# Select categories of checks to perform
+select = ["E", "F", "W", "D"]
+
+# Ignore specific error codes
+ignore = ["W505", "D102", "E203", "D212", "D103", "D107", "D417", "E301", "E302", "E303"]
+
+# Exclude certain directories from linting (e.g., test and build directories)
+exclude = [
+    "dist/*",        # Ignore the build directory
+    "docs/*",         # Ignore documentation
+    "output/*",     # Ignore example code
+    "*/__init__.py"   # Ignore init files, typically they are left empty
+]
+
+
+# Target Python version
+target-version = "py39"

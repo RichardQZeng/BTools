@@ -1,3 +1,23 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+
+File: algo_vertex_optimization.py
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to move line vertices to the right
+    seismic line courses for improved alignment and analysis in
+    geospatial data processing.
+"""
+
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +32,7 @@ import beratools.tools.common as bt_common
 import beratools.core.tool_base as bt_base
 from beratools.core import algo_dijkstra
 import beratools.core.algo_common as algo_common
+
 
 def update_line_end_pt(line, index, new_vertex):
     if not line:
@@ -28,7 +49,10 @@ def update_line_end_pt(line, index, new_vertex):
 
     return sh_geom.LineString(coords)
 
-class SingleLine:
+
+class _SingleLine:
+    """Single line object with anchor point."""
+
     def __init__(self, line_gdf, line_no, end_no, search_distance):
         self.line_gdf = line_gdf
         self.line = self.line_gdf.geometry[0]
@@ -56,7 +80,8 @@ class SingleLine:
 
     def add_anchors_to_line(self):
         """
-        Append new vertex to vertex group, by calculating distance to existing vertices
+        Append new vertex to vertex group, by calculating distance to existing vertices.
+
         An anchor point will be added together with line
         """
         # Calculate anchor point for each vertex
@@ -88,7 +113,10 @@ class SingleLine:
         Y = pt_1.y + (pt_2.y - pt_1.y) * self.search_distance / dist_pt
         self.anchor = sh_geom.Point(X, Y)  # add anchor point
 
-class Vertex:
+
+class _Vertex:
+    """Vertex object with multiple lines."""
+
     def __init__(self, line_obj):
         self.vertex = line_obj.get_end_vertex()
         self.search_distance = line_obj.search_distance
@@ -108,12 +136,16 @@ class Vertex:
 
     def generate_anchor_pairs(self):
         """
-        Extend line following outward direction to length of search_distance
+        Extend line following outward direction to length of search_distance.
+
         Use the end point as anchor point.
+
             vertex: input intersection with all related lines
-            return: one or two pairs of anchors according to numbers of lines intersected.
-                    two pairs anchors return when 3 or 4 lines intersected
-                    one pair anchors return when 1 or 2 lines intersected
+            return:
+            one or two pairs of anchors according to numbers of lines
+            intersected.
+            two pairs anchors return when 3 or 4 lines intersected
+            one pair anchors return when 1 or 2 lines intersected.
         """
         lines = self.get_lines()
         vertex = self.get_vertex()
@@ -165,7 +197,8 @@ class Vertex:
             except Exception as e:
                 print(e)
 
-        # this scenario only use two anchors and find the closest point on least cost path
+        # this scenario only use two anchors
+        # and find the closest point on least cost path
         elif len(slopes) == 2:
             pt_start_1 = self.lines[0].anchor
             pt_end_1 = self.lines[1].anchor
@@ -235,7 +268,9 @@ class Vertex:
                 centerline_2 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1 and centerline_2:
-                    intersection = algo_common.intersection_of_lines(centerline_1, centerline_2)
+                    intersection = algo_common.intersection_of_lines(
+                        centerline_1, centerline_2
+                    )
             elif len(self.anchors) == 2:
                 seed_line = sh_geom.LineString(self.anchors)
 
@@ -246,7 +281,9 @@ class Vertex:
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1:
-                    intersection = algo_common.closest_point_to_line(self.get_vertex(), centerline_1)
+                    intersection = algo_common.closest_point_to_line(
+                        self.get_vertex(), centerline_1
+                    )
         except Exception as e:
             print(e)
 
@@ -266,8 +303,19 @@ class Vertex:
 
 
 class VertexGrouping:
+    """A class used to group vertices and perform vertex optimization."""
+
     def __init__(
-            self, in_line, in_raster, search_distance, line_radius, out_line, processes, verbose
+        self,
+        in_line,
+        in_raster,
+        search_distance,
+        line_radius,
+        out_line,
+        processes,
+        verbose,
+        in_layer=None,
+        out_layer=None,
     ):
         self.in_line = in_line
         self.in_raster = in_raster
@@ -277,6 +325,8 @@ class VertexGrouping:
         self.processes = processes
         self.verbose = verbose
         self.parallel_mode = bt_const.PARALLEL_MODE
+        self.in_layer = in_layer
+        self.out_layer = out_layer
 
         self.crs = None
         self.vertex_grp = []
@@ -295,16 +345,15 @@ class VertexGrouping:
 
     def create_vertex_group(self, line_obj):
         """
+        Create a new vertex group.
 
-        Args
-            line_obj :
-
-        Returns
+        Args:
+            line_obj : _SingleLine
 
         """
         # all end points not added will stay with this vertex
         vertex = line_obj.get_end_vertex()
-        vertex_obj = Vertex(line_obj)
+        vertex_obj = _Vertex(line_obj)
         search = self.sindex.query(vertex.buffer(bt_const.CL_POLYGON_BUFFER))
 
         # add more vertices to the new group
@@ -314,13 +363,13 @@ class VertexGrouping:
                 continue
 
             if not self.line_visited[i][0]:
-                new_line = SingleLine(line, i, 0, self.search_distance)
+                new_line = _SingleLine(line, i, 0, self.search_distance)
                 if new_line.touches_point(vertex):
                     vertex_obj.add_line(new_line)
                     self.line_visited[i][0] = True
 
             if not self.line_visited[i][-1]:
-                new_line = SingleLine(line, i, -1, self.search_distance)
+                new_line = _SingleLine(line, i, -1, self.search_distance)
                 if new_line.touches_point(vertex):
                     vertex_obj.add_line(new_line)
                     self.line_visited[i][-1] = True
@@ -332,14 +381,18 @@ class VertexGrouping:
         self.vertex_grp.append(vertex_obj)
 
     def create_all_vertex_groups(self):
-        self.line_list = algo_common.prepare_lines_gdf(self.in_line, layer=None, proc_segments=True)
+        self.line_list = algo_common.prepare_lines_gdf(
+            self.in_line, layer=self.in_layer, proc_segments=True
+        )
         self.sindex = STRtree([item.geometry[0] for item in self.line_list])
         self.line_visited = [{0: False, -1: False} for _ in range(len(self.line_list))]
 
         i = 0
         for line_no in range(len(self.line_list)):
             if not self.line_visited[line_no][0]:
-                line = SingleLine(self.line_list[line_no], line_no, 0, self.search_distance)
+                line = _SingleLine(
+                    self.line_list[line_no], line_no, 0, self.search_distance
+                )
 
                 if not line.is_valid:
                     print(f"Line {line['line_no']} is invalid")
@@ -350,7 +403,9 @@ class VertexGrouping:
                 i += 1
 
             if not self.line_visited[line_no][-1]:
-                line = SingleLine(self.line_list[line_no], line_no, -1, self.search_distance)
+                line = _SingleLine(
+                    self.line_list[line_no], line_no, -1, self.search_distance
+                )
 
                 if not line.is_valid:
                     print(f"Line {line['line_no']} is invalid")
@@ -367,12 +422,14 @@ class VertexGrouping:
                     continue
 
                 old_line = self.line_list[line.line_no].geometry[0]
-                self.line_list[line.line_no].geometry = [update_line_end_pt(old_line, line.end_no, vertex_obj.vertex_opt)]
+                self.line_list[line.line_no].geometry = [
+                    update_line_end_pt(old_line, line.end_no, vertex_obj.vertex_opt)
+                ]
 
     def save_all_layers(self, line_file):
         line_file = Path(line_file)
         lines = pd.concat(self.line_list)
-        lines.to_file(line_file)
+        lines.to_file(line_file, layer=self.out_layer)
 
         aux_file = line_file
         if line_file.suffix == ".shp":
@@ -398,9 +455,9 @@ class VertexGrouping:
         anchors = gpd.GeoDataFrame(geometry=anchors, crs=lines.crs)
         vertices = gpd.GeoDataFrame(geometry=vertices, crs=lines.crs)
 
-        lc_paths.to_file(aux_file, layer='lc_paths')
-        anchors.to_file(aux_file, layer='anchors')
-        vertices.to_file(aux_file, layer='vertices')
+        lc_paths.to_file(aux_file, layer="lc_paths")
+        anchors.to_file(aux_file, layer="anchors")
+        vertices.to_file(aux_file, layer="vertices")
 
     def compute(self):
         vertex_grp = bt_base.execute_multiprocessing(

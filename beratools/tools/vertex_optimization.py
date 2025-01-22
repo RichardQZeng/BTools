@@ -1,31 +1,21 @@
-#
-#    Copyright (C) 2021  Applied Geospatial Research Group
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, version 3.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <https://gnu.org/licenses/gpl-3.0>.
-#
-# ---------------------------------------------------------------------------
-#
-# vertex_optimization.py
-# Author: Richard Zeng
-# Date: 2021-Oct-26
-#
-# This script is part of the Forest Line Mapper (FLM) toolset
-# Webpage: https://github.com/appliedgrg/flm
-#
-# Move line vertices to right seismic line courses
-#
-# ---------------------------------------------------------------------------
-# System imports
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+
+File: vertex_optimization.py
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is the public interface for vertex optimization.
+"""
+
 import time
 import beratools.tools.common as bt_common
 import beratools.core.algo_vertex_optimization as bt_vo
@@ -38,6 +28,8 @@ def vertex_optimization(
     out_line,
     processes,
     verbose,
+    in_layer=None,
+    out_layer=None,
 ):
     if not bt_common.compare_crs(
         bt_common.vector_crs(in_line), bt_common.raster_crs(in_raster)
@@ -52,6 +44,8 @@ def vertex_optimization(
         out_line,
         processes,
         verbose,
+        in_layer,
+        out_layer,
     )
     vg.create_all_vertex_groups()
     vg.compute()

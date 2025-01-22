@@ -1,3 +1,22 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+
+File: algo_common.py
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide common algorithms
+    and utility functions/classes.
+"""
+
 import numpy as np
 import geopandas as gpd
 from scipy import ndimage
@@ -9,34 +28,40 @@ DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighborhood
 
 def process_single_item(cls_obj):
     """
-    Common function for universal multiprocessing
+    Process a class object for universal multiprocessing.
+
     Args:
         cls_obj: Class object to be processed
+
     Returns:
-        cls_obj: Class object after processing 
+        cls_obj: Class object after processing
+
     """
     cls_obj.compute()
     return cls_obj
 
 def read_geospatial_file(file_path, layer=None):
     """
-    Reads a geospatial file and returns a cleaned GeoDataFrame.
+    Read a geospatial file, clean the geometries and return a GeoDataFrame.
 
     Args:
         file_path (str): The path to the geospatial file (e.g., .shp, .gpkg).
-        layer (str, optional): The specific layer to read if the file is multi-layered (e.g., GeoPackage).
+        layer (str, optional): The specific layer to read if the file is
+        multi-layered (e.g., GeoPackage).
 
     Returns:
-        GeoDataFrame: The cleaned GeoDataFrame containing the data from the file with valid geometries only.
+        GeoDataFrame: The cleaned GeoDataFrame containing the data from the file
+        with valid geometries only.
         None: If there is an error reading the file or layer.
+
     """
     try:
         if layer is None:
-            gdf = gpd.read_file(file_path)  # Read the file without specifying a layer
+            # Read the file without specifying a layer
+            gdf = gpd.read_file(file_path)
         else:
-            gdf = gpd.read_file(
-                file_path, layer=layer
-            )  # Read the file with the specified layer
+            # Read the file with the specified layer
+            gdf = gpd.read_file(file_path, layer=layer)
 
         # Clean the geometries in the GeoDataFrame
         gdf = clean_geometries(gdf)
@@ -55,13 +80,15 @@ def has_multilinestring(gdf):
 
 def clean_geometries(gdf):
     """
-    Removes rows with invalid, None, or empty geometries from the GeoDataFrame.
+    Remove rows with invalid, None, or empty geometries from the GeoDataFrame.
 
     Args:
         gdf (GeoDataFrame): The GeoDataFrame to clean.
 
     Returns:
-        GeoDataFrame: The cleaned GeoDataFrame with valid, non-null, and non-empty geometries.
+        GeoDataFrame: The cleaned GeoDataFrame with valid, non-null,
+        and non-empty geometries.
+
     """
     # Remove rows where the geometry is invalid, None, or empty
     gdf = gdf[gdf.geometry.is_valid]  # Only keep valid geometries
@@ -72,12 +99,18 @@ def clean_geometries(gdf):
     return gdf
 
 def prepare_lines_gdf(file_path, layer=None, proc_segments=True):
-    """Split lines at vertices or return original rows, with handling for MultiLineString."""
+    """
+    Split lines at vertices or return original rows.
+
+    It handles for MultiLineString.
+
+    """
     # Check if there are any MultiLineString geometries
     gdf = read_geospatial_file(file_path, layer=layer)
 
+    # Explode MultiLineStrings into individual LineStrings
     if has_multilinestring(gdf):
-        gdf = gdf.explode(index_parts=False)  # Explode MultiLineStrings into individual LineStrings
+        gdf = gdf.explode(index_parts=False)
 
     split_gdf_list = []
 
@@ -92,15 +125,23 @@ def prepare_lines_gdf(file_path, layer=None, proc_segments=True):
             for i in range(len(coords) - 1):
                 segment = sh_geom.LineString([coords[i], coords[i + 1]])
 
-                # Copy over all non-geometry columns from the parent row (excluding 'geometry')
-                attributes = {col: getattr(row, col) for col in gdf.columns if col != 'geometry'}
-                single_row_gdf = gpd.GeoDataFrame([attributes], geometry=[segment], crs=gdf.crs)
+                # Copy over all non-geometry columns (excluding 'geometry')
+                attributes = {
+                    col: getattr(row, col) for col in gdf.columns if col != "geometry"
+                }
+                single_row_gdf = gpd.GeoDataFrame(
+                    [attributes], geometry=[segment], crs=gdf.crs
+                )
                 split_gdf_list.append(single_row_gdf)
 
         else:
-            # If proc_segment is False, just add the original row as a single-row GeoDataFrame
-            attributes = {col: getattr(row, col) for col in gdf.columns if col != 'geometry'}
-            single_row_gdf = gpd.GeoDataFrame([attributes], geometry=[line], crs=gdf.crs)
+            # If not proc_segment, add the original row as a single-row GeoDataFrame
+            attributes = {
+                col: getattr(row, col) for col in gdf.columns if col != "geometry"
+            }
+            single_row_gdf = gpd.GeoDataFrame(
+                [attributes], geometry=[line], crs=gdf.crs
+            )
             split_gdf_list.append(single_row_gdf)
 
     return split_gdf_list
@@ -160,14 +201,14 @@ def line_coord_list(line):
 
 def intersection_of_lines(line_1, line_2):
     """
-     only LINESTRING is dealt with for now
-    Parameters
-    ----------
+    Only LINESTRING is dealt with for now.
+
+    Args:
     line_1 :
     line_2 :
 
-    Returns
-    -------
+    Returns:
+    sh_geom.Point: intersection point
 
     """
     # intersection collection, may contain points and lines
@@ -186,12 +227,16 @@ def intersection_of_lines(line_1, line_2):
 
     return inter
 
-# TODO: use np.arctan2 instead of np.arctan
 def get_angle(line, vertex_index):
     """
-    Calculate the angle of the first or last segment
+    Calculate the angle of the first or last segment.
+
+    # TODO: use np.arctan2 instead of np.arctan
+
+    Args:
     line: LineString
     end_index: 0 or -1 of the line vertices. Consider the multipart.
+
     """
     pts = line_coord_list(line)
 

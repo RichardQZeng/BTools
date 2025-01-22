@@ -318,9 +318,10 @@
                         {
                             "variable": "in_line",
                             "parameter": "Forest Lines Feature Class",
-                            "description": "Input polyline shapefile.",
+                            "description": "Input vector layer.",
                             "type": "vector",
                             "typelab": "SHP",
+                            "layer": "in_layer",
                             "default": "",
                             "output": false,
                             "optional": false
@@ -361,6 +362,7 @@
                             "description": "Output optimized center-line shapefile.",
                             "type": "vector",
                             "typelab": "SHP",
+                            "layer":"out_layer",
                             "default": "",
                             "output": true,
                             "optional": false
