@@ -83,8 +83,12 @@ class SeedLine:
 
         # find contiguous corridor polygon and extract centerline
         df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta['crs'])
-        corridor_poly_gpd = bt_centerline.find_corridor_polygon(corridor_thresh_cl, out_transform, df)
-        center_line, status = bt_centerline.find_centerline(corridor_poly_gpd.geometry.iloc[0], lc_path)
+        corridor_poly_gpd = bt_centerline.find_corridor_polygon(
+            corridor_thresh_cl, out_transform, df
+        )
+        center_line, status = bt_centerline.find_centerline(
+            corridor_poly_gpd.geometry.iloc[0], lc_path
+        )
         self.line ['status'] = status.value
 
         self.lc_path = self.line.copy()
@@ -95,7 +99,9 @@ class SeedLine:
 
         self.corridor_poly_gpd = corridor_poly_gpd
 
-def generate_line_class_list(in_vector, in_raster, line_radius,  layer=None, proc_segments=True)-> list:
+def generate_line_class_list(
+    in_vector, in_raster, line_radius, layer=None, proc_segments=True
+) -> list:
     line_classes = []
     line_list = algo_common.prepare_lines_gdf(in_vector, layer, proc_segments)
 
@@ -121,7 +127,9 @@ def centerline(
     in_layer=None,
     out_layer=None
 ):
-    if not bt_common.compare_crs(bt_common.vector_crs(in_line), bt_common.raster_crs(in_raster)):
+    if not bt_common.compare_crs(
+        bt_common.vector_crs(in_line), bt_common.raster_crs(in_raster)
+    ):
         print("Line and CHM have different spatial references, please check.")
         return
 

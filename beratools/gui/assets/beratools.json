@@ -7,7 +7,7 @@
             "tools": [
                 {
                     "name": "Normalize LiDAR Data",
-                    "info": "Normalize LiDAR data using K-nearest neighbourhood Invert distance weighting (Knnidw).",
+                    "info": "Normalize LiDAR data using K-nearest neighborhood Invert distance weighting (Knnidw).",
                     "batch_processing": false,
                     "tool_type": "python",
                     "tool_api": "rpy_normalized_lidar_by",
@@ -2148,12 +2148,13 @@
                             "description": "Input polyline shapefile.",
                             "type": "vector",
                             "typelab": "SHP",
+                            "layer": "in_layer",
                             "default": "",
                             "output": false,
                             "optional": false
                         },
                         {
-                            "variable": "in_chm",
+                            "variable": "in_raster",
                             "parameter": "CHM Raster",
                             "description": "Input CHM raster image.",
                             "type": "raster",
@@ -2163,12 +2164,12 @@
                             "optional": false
                         },
                         {
-                            "variable": "tile_size",
-                            "parameter": "Maximum Tile Size",
-                            "description": "Maximum tile Size (width/height).",
+                            "variable": "n_clusters",
+                            "parameter": "Number of clusters",
+                            "description": "Number of clusters.",
                             "type": "number",
                             "typelab": "int",
-                            "default": 8000,
+                            "default": 5,
                             "output": false,
                             "optional": true
                         },
@@ -2183,11 +2184,11 @@
                             "optional": true
                         },
                         {
-                            "variable": "out_project",
-                            "parameter": "Output Tiling Project File",
-                            "description": "Output tiling project file name.",
+                            "variable": "out_file",
+                            "parameter": "Output Tiling Layer File and folder with tiles",
+                            "description": "Output tiling files.",
                             "type": "file",
-                            "typelab": "JSON",
+                            "typelab": "shp",
                             "default": "",
                             "output": true,
                             "optional": false
