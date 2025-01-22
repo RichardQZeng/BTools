@@ -26,10 +26,13 @@
 #
 # ---------------------------------------------------------------------------
 # System imports
-import numpy as np
 import time
 from pathlib import Path
 from collections import OrderedDict
+
+import numpy as np
+import pandas as pd
+import geopandas as gpd
 
 import fiona
 import shapely.geometry as sh_geom
@@ -100,7 +103,7 @@ class SingleLine:
 
         X = pt_1.x + (pt_2.x - pt_1.x) * self.search_distance / dist_pt
         Y = pt_1.y + (pt_2.y - pt_1.y) * self.search_distance / dist_pt
-        self.anchor = [X, Y]  # add anchor point
+        self.anchor = sh_geom.Point(X, Y)  # add anchor point
 
 class Vertex:
     def __init__(self, line_obj):
@@ -108,56 +111,56 @@ class Vertex:
         self.search_distance = line_obj.search_distance
 
         self.cost_footprint = None
-        self.pt_optimized = None
+        self.vertex_opt = None  # optimized vertex
         self.centerlines = None
         self.anchors = None
         self.in_raster = None
         self.line_radius = None
-        self.lines = []
+        self.lines = []  # SingleLine objects
 
         self.add_line(line_obj)
 
     def add_line(self, line_obj):
         self.lines.append(line_obj)
 
-    def add_anchors_to_line(self, line, uid):
-        """
-        Append new vertex to vertex group, by calculating distance to existing vertices
-        An anchor point will be added together with line
-        """
-        line[2]["UID"] = uid
-
-        # Calculate anchor point for each vertex
-        # point = Point(self.vertex["point"][0], self.vertex["point"][1])
-        point = sh_geom.Point(self.get_point())
-        line_string = line[0]
-        index = line[1]
-        pts = algo_common.line_coord_list(line_string)
-
-        pt_1 = None
-        pt_2 = None
-        if index == 0:
-            pt_1 = point
-            pt_2 = pts[1]
-        elif index == -1:
-            pt_1 = point
-            pt_2 = pts[-2]
-
-        # Calculate anchor point
-        dist_pt = 0.0
-        if pt_1 and pt_2:
-            dist_pt = pt_1.distance(pt_2)
-
-        # TODO: check why two points are the same
-        if np.isclose(dist_pt, 0.0):
-            print("Points are close, return")
-            return None
-
-        X = pt_1.x + (pt_2.x - pt_1.x) * self.search_distance / dist_pt
-        Y = pt_1.y + (pt_2.y - pt_1.y) * self.search_distance / dist_pt
-        line.insert(-1, [X, Y])  # add anchor point to list (the third element)
-
-        return line
+    # def add_anchors_to_line(self, line, uid):
+    #     """
+    #     Append new vertex to vertex group, by calculating distance to existing vertices
+    #     An anchor point will be added together with line
+    #     """
+    #     line[2]["UID"] = uid
+    #
+    #     # Calculate anchor point for each vertex
+    #     # point = Point(self.vertex["point"][0], self.vertex["point"][1])
+    #     point = sh_geom.Point(self.get_vertexget_vertex())
+    #     line_string = line[0]
+    #     index = line[1]
+    #     pts = algo_common.line_coord_list(line_string)
+    #
+    #     pt_1 = None
+    #     pt_2 = None
+    #     if index == 0:
+    #         pt_1 = point
+    #         pt_2 = pts[1]
+    #     elif index == -1:
+    #         pt_1 = point
+    #         pt_2 = pts[-2]
+    #
+    #     # Calculate anchor point
+    #     dist_pt = 0.0
+    #     if pt_1 and pt_2:
+    #         dist_pt = pt_1.distance(pt_2)
+    #
+    #     # TODO: check why two points are the same
+    #     if np.isclose(dist_pt, 0.0):
+    #         print("Points are close, return")
+    #         return None
+    #
+    #     X = pt_1.x + (pt_2.x - pt_1.x) * self.search_distance / dist_pt
+    #     Y = pt_1.y + (pt_2.y - pt_1.y) * self.search_distance / dist_pt
+    #     line.insert(-1, [X, Y])  # add anchor point to list (the third element)
+    #
+    #     return line
 
     def generate_anchor_pairs(self):
         """
@@ -169,7 +172,7 @@ class Vertex:
                     one pair anchors return when 1 or 2 lines intersected
         """
         lines = self.get_lines()
-        point = self.get_point()
+        vertex = self.get_vertex()
         slopes = []
         for line in self.lines:
             slopes.append(line.get_angle())
@@ -212,9 +215,9 @@ class Vertex:
             try:
                 pt_start_2 = lines[remain][2]
                 # symmetry point of pt_start_2 regarding vertex["point"]
-                X = point[0] - (pt_start_2[0] - point[0])
-                Y = point[1] - (pt_start_2[1] - point[1])
-                pt_end_2 = [X, Y]
+                X = vertex.x - (pt_start_2.x - vertex.x)
+                Y = vertex.y - (pt_start_2.y - vertex.y)
+                pt_end_2 = sh_geom.Point(X, Y)
             except Exception as e:
                 print(e)
 
@@ -225,9 +228,9 @@ class Vertex:
         elif len(slopes) == 1:
             pt_start_1 = self.lines[0].anchor
             # symmetry point of pt_start_1 regarding vertex["point"]
-            X = point.x - (pt_start_1[0] - point.x)
-            Y = point.y - (pt_start_1[1] - point.y)
-            pt_end_1 = [X, Y]
+            X = vertex.x - (pt_start_1.x - vertex.x)
+            Y = vertex.y - (pt_start_1.y - vertex.y)
+            pt_end_1 = sh_geom.Point(X, Y)
 
         if not pt_start_1 or not pt_end_1:
             print("Anchors not found")
@@ -305,7 +308,7 @@ class Vertex:
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1:
-                    intersection = algo_common.closest_point_to_line(self.get_point(), centerline_1)
+                    intersection = algo_common.closest_point_to_line(self.get_vertex(), centerline_1)
         except Exception as e:
             print(e)
 
@@ -314,13 +317,13 @@ class Vertex:
             intersection = intersection.centroid
 
         self.centerlines = [centerline_1, centerline_2]
-        self.pt_optimized = intersection
+        self.vertex_opt = intersection
 
     def get_lines(self):
         lines = [item.line for item in self.lines]
         return lines
 
-    def get_point(self):
+    def get_vertex(self):
         return self.vertex
 
 
@@ -505,21 +508,61 @@ class VertexGrouping:
         except Exception as e:
             print(e)
 
+    def update_line_end_pt(self, line, index, new_vertex):
+        if not line:
+            return None
 
-def update_line_vertex(line, index, point):
-    if not line:
-        return None
+        if index >= len(line.coords) or index < -1:
+            return line
 
-    if index >= len(line.coords) or index < -1:
-        return line
+        coords = list(line.coords)
+        if len(coords[index]) == 2:
+            coords[index] = (new_vertex.x, new_vertex.y)
+        elif len(coords[index]) == 3:
+            coords[index] = (new_vertex.x, new_vertex.y, 0.0)
 
-    coords = list(line.coords)
-    if len(coords[index]) == 2:
-        coords[index] = (point.x, point.y)
-    elif len(coords[index]) == 3:
-        coords[index] = (point.x, point.y, 0.0)
+        return sh_geom.LineString(coords)
+    
+    def update_all_lines(self):
+        for vertex_obj in self.vertex_grp:
+            for line in vertex_obj.lines:
+                if not vertex_obj.vertex_opt:
+                    continue
 
-    return sh_geom.LineString(coords)
+                old_line = self.line_list[line.line_no].geometry[0]
+                self.line_list[line.line_no].geometry = [self.update_line_end_pt(old_line, line.end_no, vertex_obj.vertex_opt)]
+
+    def save_all_layers(self, line_file):
+        lines = pd.concat(self.line_list)
+        lines.to_file(line_file)
+
+        file_aux = line_file
+        if line_file.suffix == ".shp":
+            file_stem = line_file.stem
+            file_aux = line_file.with_stem(file_stem + "_aux").with_suffix(".gpkg")
+
+        lc_paths = []
+        anchors = []
+        vertices = []
+        for item in self.vertex_grp:
+            if item.centerlines:
+                lc_paths.extend(item.centerlines)
+            if item.anchors:
+                anchors.extend(item.anchors)
+            if item.vertex_opt:
+                vertices.append(item.vertex_opt)
+
+        lc_paths = [item for item in lc_paths if item is not None]
+        anchors = [item for item in anchors if item is not None]
+        vertices = [item for item in vertices if item is not None]
+
+        lc_paths = gpd.GeoDataFrame(geometry=lc_paths, crs=lines.crs)
+        anchors = gpd.GeoDataFrame(geometry=anchors, crs=lines.crs)
+        vertices = gpd.GeoDataFrame(geometry=vertices, crs=lines.crs)
+
+        lc_paths.to_file(file_aux, layer='lc_paths')
+        anchors.to_file(file_aux, layer='anchors')
+        vertices.to_file(file_aux, layer='vertices')
 
 
 def process_single_line(vertex):
@@ -563,97 +606,12 @@ def vertex_optimization(
         mode=bt_const.ParallelMode.SEQUENTIAL
     )
 
-    # No line generated, exit
-    if len(vertices) <= 0:
-        print("No lines optimized.")
-        return
+    vg.update_all_lines()
 
-    # Flatten vertices which is a list of list
-    anchor_list = []
-    leastcost_list = []
-    inter_list = []
+    line_file = Path(out_line)
+    file_aux = line_file
 
-    # Dump all lines into point array for vertex updates
-    feature_all = {}
-    # for i in vg.segment_all:
-    #     feature = [i["line"], i["prop"]]
-    #     feature_all[i["line_no"]] = feature
-
-    for vertex in vertices:
-        if not vertex:
-            continue
-
-        if vertex.anchors:
-            for pt in vertex.anchors:
-                anchor_list.append(sh_geom.Point(pt))
-
-        if vertex.centerlines:
-            for line in vertex.centerlines:
-                if line:
-                    leastcost_list.append(line)
-
-        if vertex.pt_optimized:
-            inter_list.append(vertex.pt_optimized)
-
-        for line in vertex.get_lines():
-            index = line[1]
-            line_no = line[3]["line_no"]
-            pt_array = feature_all[line_no][0]
-
-            if not pt_array or not vertex.pt_optimized:
-                continue
-
-            new_intersection = vertex.pt_optimized
-
-            updated_line = pt_array
-            if index == 0 or index == -1:
-                try:
-                    updated_line = update_line_vertex(pt_array, index, new_intersection)
-                except Exception as e:
-                    print(e)
-
-            feature_all[line_no][0] = updated_line
-
-    line_path = Path(out_line)
-    file_name = line_path.stem
-    file_line = line_path.as_posix()
-    file_aux = line_path.with_stem(file_name + "_aux").with_suffix(".gpkg").as_posix()
-
-    fields = []
-    properties = []
-    all_lines = [value[0] for key, value in feature_all.items()]
-    all_props = [value[1] for key, value in feature_all.items()]
-    bt_common.save_features_to_file(
-        file_line, vg.crs, all_lines, all_props, vg.in_schema
-    )
-
-    bt_common.save_features_to_file(
-        file_aux,
-        vg.crs,
-        leastcost_list,
-        properties,
-        fields,
-        driver="GPKG",
-        layer="leastcost",
-    )
-    bt_common.save_features_to_file(
-        file_aux,
-        vg.crs,
-        anchor_list,
-        properties,
-        fields,
-        driver="GPKG",
-        layer="anchors",
-    )
-    bt_common.save_features_to_file(
-        file_aux,
-        vg.crs,
-        inter_list,
-        properties,
-        fields,
-        driver="GPKG",
-        layer="intersections",
-    )
+    vg.save_all_layers(line_file)
 
 
 if __name__ == "__main__":
