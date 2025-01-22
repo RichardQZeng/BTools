@@ -5,6 +5,7 @@ import shapely.geometry as sh_geom
 
 import beratools.core.constants as bt_const
 
+DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighborhood
 
 def read_geospatial_file(file_path, layer=None):
     """
@@ -133,7 +134,7 @@ def closest_point_to_line(point, line):
     return pt
 
 
-def points_in_line(line):
+def line_coord_list(line):
     point_list = []
     try:
         for point in list(line.coords):  # loops through every point in a line
@@ -173,3 +174,45 @@ def intersection_of_lines(line_1, line_2):
             return inter.centroid
 
     return inter
+
+# TODO: use np.arctan2 instead of np.arctan
+def get_angle(line, vertex_index):
+    """
+    Calculate the angle of the first or last segment
+    line: LineString
+    end_index: 0 or -1 of the line vertices. Consider the multipart.
+    """
+    pts = line_coord_list(line)
+
+    if vertex_index == 0:
+        pt_1 = pts[0]
+        pt_2 = pts[1]
+    elif vertex_index == -1:
+        pt_1 = pts[-1]
+        pt_2 = pts[-2]
+
+    delta_x = pt_2.x - pt_1.x
+    delta_y = pt_2.y - pt_1.y
+    if np.isclose(pt_1.x, pt_2.x):
+        angle = np.pi / 2
+        if delta_y > 0:
+            angle = np.pi / 2
+        elif delta_y < 0:
+            angle = -np.pi / 2
+    else:
+        angle = np.arctan(delta_y / delta_x)
+
+        # arctan is in range [-pi/2, pi/2], regulate all angles to [[-pi/2, 3*pi/2]]
+        if delta_x < 0:
+            angle += np.pi  # the second or fourth quadrant
+
+    return angle
+
+def points_are_close(pt1, pt2):
+    if (
+        abs(pt1.x - pt2.x) < DISTANCE_THRESHOLD
+        and abs(pt1.y - pt2.y) < DISTANCE_THRESHOLD
+    ):
+        return True
+    else:
+        return False

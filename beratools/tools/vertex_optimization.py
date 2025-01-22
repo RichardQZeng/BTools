@@ -41,60 +41,84 @@ import beratools.core.tool_base as bt_base
 from beratools.core import algo_dijkstra
 import beratools.core.algo_common as algo_common
 
-DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighborhood
 
+class SingleLine:
+    def __init__(self, line_gdf, line_no, end_no, search_distance):
+        self.line_gdf = line_gdf
+        self.line = self.line_gdf.geometry[0]
+        self.line_no = line_no
+        self.end_no = end_no
+        self.search_distance = search_distance
+        self.anchor = None
+
+        self.add_anchors_to_line()
+
+    def is_valid(self):
+        return self.line.is_valid
+    
+    def line_coord_list(self):
+        return algo_common.line_coord_list(self.line)
+    
+    def get_end_vertex(self):
+        return self.line_coord_list()[self.end_no]
+    
+    def touches_point(self, vertex):
+        return algo_common.points_are_close(vertex, self.get_end_vertex())
+
+    def get_angle(self):
+        return algo_common.get_angle(self.line, self.end_no)
+
+    def add_anchors_to_line(self):
+        """
+        Append new vertex to vertex group, by calculating distance to existing vertices
+        An anchor point will be added together with line
+        """
+        # Calculate anchor point for each vertex
+        point = self.get_end_vertex()
+        line_string = self.line
+        index = self.end_no
+        pts = algo_common.line_coord_list(line_string)
+
+        pt_1 = None
+        pt_2 = None
+        if index == 0:
+            pt_1 = point
+            pt_2 = pts[1]
+        elif index == -1:
+            pt_1 = point
+            pt_2 = pts[-2]
+
+        # Calculate anchor point
+        dist_pt = 0.0
+        if pt_1 and pt_2:
+            dist_pt = pt_1.distance(pt_2)
+
+        # TODO: check why two points are the same
+        if np.isclose(dist_pt, 0.0):
+            print("Points are close, return")
+            return None
+
+        X = pt_1.x + (pt_2.x - pt_1.x) * self.search_distance / dist_pt
+        Y = pt_1.y + (pt_2.y - pt_1.y) * self.search_distance / dist_pt
+        self.anchor = [X, Y]  # add anchor point
 
 class Vertex:
-    def __init__(self, point, line, line_no, end_no, uid, search_distance):
+    def __init__(self, line_obj):
+        self.vertex = line_obj.get_end_vertex()
+        self.search_distance = line_obj.search_distance
+
         self.cost_footprint = None
         self.pt_optimized = None
         self.centerlines = None
         self.anchors = None
         self.in_raster = None
-        self.search_distance = search_distance
         self.line_radius = None
-        self.vertex = {"point": [point.x, point.y], "lines": []}
-        self.add_line(line, line_no, end_no, uid)
+        self.lines = []
 
-    def add_line(self, line, line_no, end_no, uid):
-        item = [line, end_no, {"line_no": line_no}]
-        item = self.add_anchors_to_line(item, uid)
-        if item:
-            self.vertex["lines"].append(item)
+        self.add_line(line_obj)
 
-    # TODO: use np.arctan2 instead of np.arctan
-    @staticmethod
-    def get_angle(line, vertex_index):
-        """
-        Calculate the angle of the first or last segment
-        line: LineString
-        end_index: 0 or -1 of the line vertices. Consider the multipart.
-        """
-        pts = algo_common.points_in_line(line)
-
-        if vertex_index == 0:
-            pt_1 = pts[0]
-            pt_2 = pts[1]
-        elif vertex_index == -1:
-            pt_1 = pts[-1]
-            pt_2 = pts[-2]
-
-        delta_x = pt_2.x - pt_1.x
-        delta_y = pt_2.y - pt_1.y
-        if np.isclose(pt_1.x, pt_2.x):
-            angle = np.pi / 2
-            if delta_y > 0:
-                angle = np.pi / 2
-            elif delta_y < 0:
-                angle = -np.pi / 2
-        else:
-            angle = np.arctan(delta_y / delta_x)
-
-            # arctan is in range [-pi/2, pi/2], regulate all angles to [[-pi/2, 3*pi/2]]
-            if delta_x < 0:
-                angle += np.pi  # the second or fourth quadrant
-
-        return angle
+    def add_line(self, line_obj):
+        self.lines.append(line_obj)
 
     def add_anchors_to_line(self, line, uid):
         """
@@ -105,10 +129,10 @@ class Vertex:
 
         # Calculate anchor point for each vertex
         # point = Point(self.vertex["point"][0], self.vertex["point"][1])
-        point = sh_geom.Point(self.point())
+        point = sh_geom.Point(self.get_point())
         line_string = line[0]
         index = line[1]
-        pts = algo_common.points_in_line(line_string)
+        pts = algo_common.line_coord_list(line_string)
 
         pt_1 = None
         pt_2 = None
@@ -144,13 +168,11 @@ class Vertex:
                     two pairs anchors return when 3 or 4 lines intersected
                     one pair anchors return when 1 or 2 lines intersected
         """
-        lines = self.lines()
-        point = self.point()
+        lines = self.get_lines()
+        point = self.get_point()
         slopes = []
-        for line in lines:
-            line_seg = line[0]
-            pt_index = line[1]
-            slopes.append(self.get_angle(line_seg, pt_index))
+        for line in self.lines:
+            slopes.append(line.get_angle())
 
         index = 0  # the index of line which paired with first line.
         pt_start_1 = None
@@ -163,11 +185,11 @@ class Vertex:
             index = np.argsort(slopes)
 
             # first anchor pair (first and third in the sorted array)
-            pt_start_1 = lines[index[0]][2]
-            pt_end_1 = lines[index[2]][2]
+            pt_start_1 = self.lines[index[0]].anchor
+            pt_end_1 = self.lines[index[2]].anchor
 
-            pt_start_2 = lines[index[1]][2]
-            pt_end_2 = lines[index[3]][2]
+            pt_start_2 = self.lines[index[1]].anchor
+            pt_end_2 = self.lines[index[3]].anchor
         elif len(slopes) == 3:
             # find the largest difference between angles
             angle_diff = [
@@ -181,8 +203,8 @@ class Vertex:
             pair = pairs[index]
 
             # first anchor pair
-            pt_start_1 = lines[pair[0]][2]
-            pt_end_1 = lines[pair[1]][2]
+            pt_start_1 = self.lines[pair[0]].anchor
+            pt_end_1 = self.lines[pair[1]].anchor
 
             # the rest one index
             remain = list({0, 1, 2} - set(pair))[0]  # the remaining index
@@ -198,13 +220,13 @@ class Vertex:
 
         # this scenario only use two anchors and find the closest point on least cost path
         elif len(slopes) == 2:
-            pt_start_1 = lines[0][2]
-            pt_end_1 = lines[1][2]
+            pt_start_1 = self.lines[0].anchor
+            pt_end_1 = self.lines[1].anchor
         elif len(slopes) == 1:
-            pt_start_1 = lines[0][2]
+            pt_start_1 = self.lines[0].anchor
             # symmetry point of pt_start_1 regarding vertex["point"]
-            X = point[0] - (pt_start_1[0] - point[0])
-            Y = point[1] - (pt_start_1[1] - point[1])
+            X = point.x - (pt_start_1[0] - point.x)
+            Y = point.y - (pt_start_1[1] - point.y)
             pt_end_1 = [X, Y]
 
         if not pt_start_1 or not pt_end_1:
@@ -283,7 +305,7 @@ class Vertex:
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1:
-                    intersection = algo_common.closest_point_to_line(self.point(), centerline_1)
+                    intersection = algo_common.closest_point_to_line(self.get_point(), centerline_1)
         except Exception as e:
             print(e)
 
@@ -293,13 +315,13 @@ class Vertex:
 
         self.centerlines = [centerline_1, centerline_2]
         self.pt_optimized = intersection
-        # print(f'Processing vertex {self.point()[0]:.2f}, {self.point()[1]:.2f} done')
 
-    def lines(self):
-        return self.vertex["lines"]
+    def get_lines(self):
+        lines = [item.line for item in self.lines]
+        return lines
 
-    def point(self):
-        return self.vertex["point"]
+    def get_point(self):
+        return self.vertex
 
 
 class VertexGrouping:
@@ -316,6 +338,9 @@ class VertexGrouping:
         self.crs = None
         self.vertex_grp = []
         self.sindex = None
+
+        self.line_list = []
+        self.line_visited = None
 
         # calculate cost raster footprint
         self.cost_footprint = bt_common.generate_raster_footprint(
@@ -398,87 +423,82 @@ class VertexGrouping:
         # create spatial index for all line segments
         self.sindex = STRtree([item["line"] for item in self.segment_all])
 
-    def create_vertex_group(self, point, line, line_no, end_no, uid):
+    def create_vertex_group(self, line_obj):
         """
 
         Parameters
         ----------
         point :
-        line :
-        end_no : head or tail of line, 0, -1
+        line_obj :
 
         Returns
         -------
 
         """
         # all end points not added will stay with this vertex
-        vertex = Vertex(point, line, line_no, end_no, uid, self.search_distance)
-        search = self.sindex.query(point.buffer(bt_const.CL_POLYGON_BUFFER))
+        vertex = line_obj.get_end_vertex()
+        vertex_obj = Vertex(line_obj)
+        search = self.sindex.query(vertex.buffer(bt_const.CL_POLYGON_BUFFER))
 
         # add more vertices to the new group
         for i in search:
-            seg = self.segment_all[i]
-            if line_no == seg["line_no"]:
+            line = self.line_list[i]
+            if i == line_obj.line_no:
                 continue
 
-            uid = seg["prop"]["BT_UID"]
-            if not seg["start_visited"]:
-                if self.points_are_close(point, sh_geom.Point(seg["line"].coords[0])):
-                    vertex.add_line(seg["line"], seg["line_no"], 0, uid)
-                    seg["start_visited"] = True
+            if not self.line_visited[i][0]:
+                new_line = SingleLine(line, i, 0, self.search_distance)
+                if new_line.touches_point(vertex):
+                    vertex_obj.add_line(new_line)
+                    self.line_visited[i][0] = True
 
-            if not seg["end_visited"]:
-                if self.points_are_close(point, sh_geom.Point(seg["line"].coords[-1])):
-                    vertex.add_line(seg["line"], seg["line_no"], -1, uid)
-                    seg["end_visited"] = True
+            if not self.line_visited[i][-1]:
+                new_line = SingleLine(line, i, -1, self.search_distance)
+                if new_line.touches_point(vertex):
+                    vertex_obj.add_line(new_line)
+                    self.line_visited[i][-1] = True
 
-        vertex.in_raster = self.in_raster
-        # if not bt_const.HAS_COST_RASTER:
-        #     vertex.in_raster = self.in_raster
+        vertex_obj.in_raster = self.in_raster
 
-        vertex.line_radius = self.line_radius
-        vertex.cost_footprint = self.cost_footprint
-        self.vertex_grp.append(vertex)
+        vertex_obj.line_radius = self.line_radius
+        vertex_obj.cost_footprint = self.cost_footprint
+        self.vertex_grp.append(vertex_obj)
 
-    @staticmethod
-    def points_are_close(pt1, pt2):
-        if (
-            abs(pt1.x - pt2.x) < DISTANCE_THRESHOLD
-            and abs(pt1.y - pt2.y) < DISTANCE_THRESHOLD
-        ):
-            return True
-        else:
-            return False
-
-    def group_vertices(self):
+    def create_all_vertex_groups(self):
         try:
             self.split_lines()
             print("split_lines done.")
 
-            row_list = algo_common.prepare_lines_gdf(self.in_line, layer=None, proc_segments=True)
+            self.line_list = algo_common.prepare_lines_gdf(self.in_line, layer=None, proc_segments=True)
+            self.line_visited = [{0: False, -1: False} for _ in range(len(self.line_list))]
 
             i = 0
-            for line in self.segment_all:
-                pt_list = algo_common.points_in_line(line["line"])
-                if len(pt_list) == 0:
-                    print(f"Line {line['line_no']} is empty")
-                    continue
-                uid = line["prop"]["BT_UID"]
-                if not line["start_visited"]:
-                    self.create_vertex_group(
-                        pt_list[0], line["line"], line["line_no"], 0, uid
-                    )
-                    line["start_visited"] = True
-                    i += 1
-                    bt_base.print_msg("Grouping vertices", i, len(self.segment_all))
+            for line_no in range(len(self.line_list)):
+                if not self.line_visited[line_no][0]:
+                    line = SingleLine(self.line_list[line_no], line_no, 0, self.search_distance)
+                    pt_list = line.line_coord_list()
 
-                if not line["end_visited"]:
-                    self.create_vertex_group(
-                        pt_list[-1], line["line"], line["line_no"], -1, uid
-                    )
-                    line["end_visited"] = True
+                    if not line.is_valid:
+                        print(f"Line {line['line_no']} is invalid")
+                        continue
+
+                    self.create_vertex_group(line)
+                    self.line_visited[line_no][0] = True
                     i += 1
-                    bt_base.print_msg("Grouping vertices", i, len(self.segment_all))
+
+                if not self.line_visited[line_no][-1]:
+                    line = SingleLine(self.line_list[line_no], line_no, -1, self.search_distance)
+                    pt_list = line.line_coord_list()
+
+                    if not line.is_valid:
+                        print(f"Line {line['line_no']} is invalid")
+                        continue
+
+                    self.create_vertex_group(line)
+                    self.line_visited[line_no][-1] = True
+                    i += 1
+
+                bt_base.print_msg("Grouping vertices", i, len(self.segment_all))
 
             print("group_intersections done.")
 
@@ -531,7 +551,7 @@ def vertex_optimization(
     vg = VertexGrouping(
         callback, in_line, in_raster, search_distance, line_radius, out_line
     )
-    vg.group_vertices()
+    vg.create_all_vertex_groups()
 
     vertices = bt_base.execute_multiprocessing(
         process_single_line,
@@ -540,6 +560,7 @@ def vertex_optimization(
         processes,
         1,
         verbose=verbose,
+        mode=bt_const.ParallelMode.SEQUENTIAL
     )
 
     # No line generated, exit
@@ -554,9 +575,9 @@ def vertex_optimization(
 
     # Dump all lines into point array for vertex updates
     feature_all = {}
-    for i in vg.segment_all:
-        feature = [i["line"], i["prop"]]
-        feature_all[i["line_no"]] = feature
+    # for i in vg.segment_all:
+    #     feature = [i["line"], i["prop"]]
+    #     feature_all[i["line_no"]] = feature
 
     for vertex in vertices:
         if not vertex:
@@ -574,7 +595,7 @@ def vertex_optimization(
         if vertex.pt_optimized:
             inter_list.append(vertex.pt_optimized)
 
-        for line in vertex.lines():
+        for line in vertex.get_lines():
             index = line[1]
             line_no = line[3]["line_no"]
             pt_array = feature_all[line_no][0]
