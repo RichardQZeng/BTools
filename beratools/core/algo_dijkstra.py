@@ -337,7 +337,7 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
         path, cost = sk_graph.route_through_array(matrix, start_node, end_node)
         costs = [0.0 for i in range(len(path))]
     except Exception as e:
-        print(e)
+        print(f"dijkstra_np: {e}")
         return None
 
     return [(path, costs, end_tuple)]
@@ -388,7 +388,7 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
         end_tuple = (min(end_tuple[0], mat_size), end_tuple[1], end_tuple[2])
 
     except Exception as e:
-        print(e)
+        print(f"find_least_cost_path: {e}")
 
     if USE_NUMPY_FOR_DIJKSTRA:
         result = dijkstra_np(start_tuple, end_tuple, matrix)
@@ -397,11 +397,9 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
         result = dijkstra(start_tuple, end_tuples, matrix, find_nearest)
 
     if result is None:
-        # raise Exception
         return default_return
 
     if len(result) == 0:
-        # raise Exception
         print('No result returned.')
         return default_return
 
@@ -439,7 +437,7 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     try:
         path_new = sk_graph.route_through_array(cost_clip[0], [row1, col1], [row2, col2])
     except Exception as e:
-        print(e)
+        print(f"find_least_cost_path_skimage: {e}")
         return None
 
     if path_new[0]:

@@ -7,6 +7,17 @@ import beratools.core.constants as bt_const
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighborhood
 
+def process_single_item(cls_obj):
+    """
+    Common function for universal multiprocessing
+    Args:
+        cls_obj: Class object to be processed
+    Returns:
+        cls_obj: Class object after processing 
+    """
+    cls_obj.compute()
+    return cls_obj
+
 def read_geospatial_file(file_path, layer=None):
     """
     Reads a geospatial file and returns a cleaned GeoDataFrame.
