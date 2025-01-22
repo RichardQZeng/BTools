@@ -11,7 +11,7 @@ if __name__ == "__main__":
     sys.path.insert(0, btool_dir.as_posix())
 
 from beratools.core.logger import Logger
-from beratools.core.linegrouping import LineGrouping
+from beratools.core.algo_line_grouping import LineGrouping
 from beratools.core.constants import *
 from common import *
 

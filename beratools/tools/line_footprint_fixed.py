@@ -12,7 +12,7 @@ from shapely.geometry import Polygon, MultiPolygon, MultiLineString, mapping, Po
 import beratools.tools.common as bt_common
 from beratools.core.tool_base import execute_multiprocessing
 import beratools.core.constants as bt_const
-from beratools.core.linegrouping import LineGrouping
+from beratools.core.algo_line_grouping import LineGrouping
 
 
 def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):

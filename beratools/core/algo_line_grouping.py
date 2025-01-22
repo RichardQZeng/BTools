@@ -9,7 +9,7 @@ import networkit as nk
 import shapely
 import shapely.geometry as shp_geom
 
-from beratools.core.mergelines import MergeLines
+from beratools.core.algo_merge_lines import MergeLines
 
 TRIMMING_EFFECT_AREA = 50  # meters
 

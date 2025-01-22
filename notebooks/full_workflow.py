@@ -16,7 +16,7 @@ if __name__ == "__main__":
 from beratools.core.constants import PARALLEL_MODE, ParallelMode
 from beratools.tools.centerline import centerline
 from beratools.tools.line_footprint_absolute import line_footprint_abs
-from beratools.core.algo_footprint_canopy_rel import FootprintCanopy
+from beratools.core.algo_footprint_rel import FootprintCanopy
 from beratools.tools.line_footprint_fixed import line_footprint_fixed
 import yaml
 from pprint import pprint
