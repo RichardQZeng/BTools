@@ -45,6 +45,21 @@ from beratools.core import algo_dijkstra
 import beratools.core.algo_common as algo_common
 
 
+def update_line_end_pt(line, index, new_vertex):
+    if not line:
+        return None
+
+    if index >= len(line.coords) or index < -1:
+        return line
+
+    coords = list(line.coords)
+    if len(coords[index]) == 2:
+        coords[index] = (new_vertex.x, new_vertex.y)
+    elif len(coords[index]) == 3:
+        coords[index] = (new_vertex.x, new_vertex.y, 0.0)
+
+    return sh_geom.LineString(coords)
+
 class SingleLine:
     def __init__(self, line_gdf, line_no, end_no, search_distance):
         self.line_gdf = line_gdf
@@ -122,45 +137,6 @@ class Vertex:
 
     def add_line(self, line_obj):
         self.lines.append(line_obj)
-
-    # def add_anchors_to_line(self, line, uid):
-    #     """
-    #     Append new vertex to vertex group, by calculating distance to existing vertices
-    #     An anchor point will be added together with line
-    #     """
-    #     line[2]["UID"] = uid
-    #
-    #     # Calculate anchor point for each vertex
-    #     # point = Point(self.vertex["point"][0], self.vertex["point"][1])
-    #     point = sh_geom.Point(self.get_vertexget_vertex())
-    #     line_string = line[0]
-    #     index = line[1]
-    #     pts = algo_common.line_coord_list(line_string)
-    #
-    #     pt_1 = None
-    #     pt_2 = None
-    #     if index == 0:
-    #         pt_1 = point
-    #         pt_2 = pts[1]
-    #     elif index == -1:
-    #         pt_1 = point
-    #         pt_2 = pts[-2]
-    #
-    #     # Calculate anchor point
-    #     dist_pt = 0.0
-    #     if pt_1 and pt_2:
-    #         dist_pt = pt_1.distance(pt_2)
-    #
-    #     # TODO: check why two points are the same
-    #     if np.isclose(dist_pt, 0.0):
-    #         print("Points are close, return")
-    #         return None
-    #
-    #     X = pt_1.x + (pt_2.x - pt_1.x) * self.search_distance / dist_pt
-    #     Y = pt_1.y + (pt_2.y - pt_1.y) * self.search_distance / dist_pt
-    #     line.insert(-1, [X, Y])  # add anchor point to list (the third element)
-    #
-    #     return line
 
     def generate_anchor_pairs(self):
         """
@@ -350,82 +326,6 @@ class VertexGrouping:
             self.in_raster, latlon=False
         )
 
-    @staticmethod
-    def segments(line_coords):
-        """
-        Split LineString to segments at vertices
-        Parameters
-        ----------
-        self :
-        line_coords :
-
-        Returns
-        -------
-
-        """
-        if len(line_coords) == 2:
-            line = sh_geom.shape({"type": "LineString", "coordinates": line_coords})
-            if not np.isclose(line.length, 0.0):
-                return [line]
-        elif len(line_coords) > 2:
-            seg_list = zip(line_coords[:-1], line_coords[1:])
-            line_list = [
-                sh_geom.shape({"type": "LineString", "coordinates": coords})
-                for coords in seg_list
-            ]
-            return [line for line in line_list if not np.isclose(line.length, 0.0)]
-
-        return None
-
-    def split_lines(self):
-        with fiona.open(self.in_line) as open_line_file:
-            # get input shapefile fields
-            self.in_schema = open_line_file.meta["schema"]
-            self.in_schema["properties"]["BT_UID"] = "int:10"  # add field
-
-            i = 0
-            self.crs = open_line_file.crs
-            for line in open_line_file:
-                props = OrderedDict(line["properties"])
-                if not line["geometry"]:
-                    continue
-                if line["geometry"]["type"] != "MultiLineString":
-                    props[bt_const.BT_UID] = i
-                    self.segment_all.append([sh_geom.shape(line["geometry"]), props])
-                    i += 1
-                else:
-                    print("MultiLineString found.")
-                    geoms = sh_geom.shape(line["geometry"]).geoms
-                    for item in geoms:
-                        props[bt_const.BT_UID] = i
-                        self.segment_all.append([sh_geom.shape(item), props])
-                        i += 1
-
-        # split line segments at vertices
-        input_lines_temp = []
-        line_no = 0
-        for line in self.segment_all:
-            line_segs = self.segments(list(line[0].coords))
-            if line_segs:
-                for seg in line_segs:
-                    input_lines_temp.append(
-                        {
-                            "line": sh_geom.shape(seg),
-                            "line_no": line_no,
-                            "prop": line[1],
-                            "start_visited": False,
-                            "end_visited": False,
-                        }
-                    )
-                    line_no += 1
-
-            bt_base.print_msg("Splitting lines", line_no, len(self.segment_all))
-
-        self.segment_all = input_lines_temp
-
-        # create spatial index for all line segments
-        self.sindex = STRtree([item["line"] for item in self.segment_all])
-
     def create_vertex_group(self, line_obj):
         """
 
@@ -468,61 +368,37 @@ class VertexGrouping:
         self.vertex_grp.append(vertex_obj)
 
     def create_all_vertex_groups(self):
-        try:
-            self.split_lines()
-            print("split_lines done.")
+        self.line_list = algo_common.prepare_lines_gdf(self.in_line, layer=None, proc_segments=True)
+        self.sindex = STRtree([item.geometry[0] for item in self.line_list])
+        self.line_visited = [{0: False, -1: False} for _ in range(len(self.line_list))]
 
-            self.line_list = algo_common.prepare_lines_gdf(self.in_line, layer=None, proc_segments=True)
-            self.line_visited = [{0: False, -1: False} for _ in range(len(self.line_list))]
+        i = 0
+        for line_no in range(len(self.line_list)):
+            if not self.line_visited[line_no][0]:
+                line = SingleLine(self.line_list[line_no], line_no, 0, self.search_distance)
+                pt_list = line.line_coord_list()
 
-            i = 0
-            for line_no in range(len(self.line_list)):
-                if not self.line_visited[line_no][0]:
-                    line = SingleLine(self.line_list[line_no], line_no, 0, self.search_distance)
-                    pt_list = line.line_coord_list()
+                if not line.is_valid:
+                    print(f"Line {line['line_no']} is invalid")
+                    continue
 
-                    if not line.is_valid:
-                        print(f"Line {line['line_no']} is invalid")
-                        continue
+                self.create_vertex_group(line)
+                self.line_visited[line_no][0] = True
+                i += 1
 
-                    self.create_vertex_group(line)
-                    self.line_visited[line_no][0] = True
-                    i += 1
 
-                if not self.line_visited[line_no][-1]:
-                    line = SingleLine(self.line_list[line_no], line_no, -1, self.search_distance)
-                    pt_list = line.line_coord_list()
+            if not self.line_visited[line_no][-1]:
+                line = SingleLine(self.line_list[line_no], line_no, -1, self.search_distance)
+                pt_list = line.line_coord_list()
 
-                    if not line.is_valid:
-                        print(f"Line {line['line_no']} is invalid")
-                        continue
+                if not line.is_valid:
+                    print(f"Line {line['line_no']} is invalid")
+                    continue
 
-                    self.create_vertex_group(line)
-                    self.line_visited[line_no][-1] = True
-                    i += 1
+                self.create_vertex_group(line)
+                self.line_visited[line_no][-1] = True
+                i += 1
 
-                bt_base.print_msg("Grouping vertices", i, len(self.segment_all))
-
-            print("group_intersections done.")
-
-        except Exception as e:
-            print(e)
-
-    def update_line_end_pt(self, line, index, new_vertex):
-        if not line:
-            return None
-
-        if index >= len(line.coords) or index < -1:
-            return line
-
-        coords = list(line.coords)
-        if len(coords[index]) == 2:
-            coords[index] = (new_vertex.x, new_vertex.y)
-        elif len(coords[index]) == 3:
-            coords[index] = (new_vertex.x, new_vertex.y, 0.0)
-
-        return sh_geom.LineString(coords)
-    
     def update_all_lines(self):
         for vertex_obj in self.vertex_grp:
             for line in vertex_obj.lines:
@@ -530,16 +406,17 @@ class VertexGrouping:
                     continue
 
                 old_line = self.line_list[line.line_no].geometry[0]
-                self.line_list[line.line_no].geometry = [self.update_line_end_pt(old_line, line.end_no, vertex_obj.vertex_opt)]
+                self.line_list[line.line_no].geometry = [update_line_end_pt(old_line, line.end_no, vertex_obj.vertex_opt)]
 
     def save_all_layers(self, line_file):
+        line_file = Path(line_file)
         lines = pd.concat(self.line_list)
         lines.to_file(line_file)
 
-        file_aux = line_file
+        aux_file = line_file
         if line_file.suffix == ".shp":
             file_stem = line_file.stem
-            file_aux = line_file.with_stem(file_stem + "_aux").with_suffix(".gpkg")
+            aux_file = line_file.with_stem(file_stem + "_aux").with_suffix(".gpkg")
 
         lc_paths = []
         anchors = []
@@ -560,9 +437,9 @@ class VertexGrouping:
         anchors = gpd.GeoDataFrame(geometry=anchors, crs=lines.crs)
         vertices = gpd.GeoDataFrame(geometry=vertices, crs=lines.crs)
 
-        lc_paths.to_file(file_aux, layer='lc_paths')
-        anchors.to_file(file_aux, layer='anchors')
-        vertices.to_file(file_aux, layer='vertices')
+        lc_paths.to_file(aux_file, layer='lc_paths')
+        anchors.to_file(aux_file, layer='anchors')
+        vertices.to_file(aux_file, layer='vertices')
 
 
 def process_single_line(vertex):
@@ -607,11 +484,7 @@ def vertex_optimization(
     )
 
     vg.update_all_lines()
-
-    line_file = Path(out_line)
-    file_aux = line_file
-
-    vg.save_all_layers(line_file)
+    vg.save_all_layers(out_line)
 
 
 if __name__ == "__main__":
