@@ -23,8 +23,8 @@ import yaml
 from enum import StrEnum
 
 import shapely
-import shapely.ops as shp_ops
-import shapely.geometry as shp_geom
+import shapely.ops as sh_ops
+import shapely.geometry as sh_geom
 import rasterio.features as ras_feat 
 from skimage.graph import MCP_Flexible
 
@@ -177,7 +177,7 @@ class LineInfo:
             if line_buffer.is_empty or shapely.is_missing(line_buffer):
                 return None
             if line_buffer.has_z:
-                line_buffer = shp_ops.transform(
+                line_buffer = sh_ops.transform(
                     lambda x, y, z=None: (x, y), line_buffer
                 )
 
@@ -327,7 +327,7 @@ class LineInfo:
                 or not None
                 or ~the_ring.area == 0
             ):
-                if isinstance(the_ring, shapely.shp_geom.MultiPolygon) or isinstance(
+                if isinstance(the_ring, sh_geom.MultiPolygon) or isinstance(
                     the_ring, shapely.Polygon
                 ):
                     rings.append(the_ring)  # Append the ring to the rings list
@@ -353,7 +353,7 @@ class LineInfo:
             single_sided=True,
         )
 
-        self.buffer_left = shp_ops.unary_union([buffer_left_1, buffer_left_2])
+        self.buffer_left = sh_ops.unary_union([buffer_left_1, buffer_left_2])
 
         buffer_right_1 = line.buffer(
             distance=-self.max_ln_width - 1,
@@ -362,7 +362,7 @@ class LineInfo:
         )
         buffer_right_2 = line.buffer(distance=1, cap_style=3, single_sided=True)
 
-        self.buffer_right = shp_ops.unary_union([buffer_right_1, buffer_right_2])
+        self.buffer_right = sh_ops.unary_union([buffer_right_1, buffer_right_2])
 
     def dyn_canopy_cost_raster(self, side):
         in_chm_raster = self.in_chm
@@ -441,7 +441,7 @@ class LineInfo:
 
         # Work out the corridor from both end of the centerline
         try:
-            if len(in_cost_r.shp_geom.shape) > 2:
+            if len(in_cost_r.sh_geom.shape) > 2:
                 in_cost_r = np.squeeze(in_cost_r, axis=0)
 
             algo_cost.remove_nan_from_array(in_cost_r)
@@ -453,7 +453,7 @@ class LineInfo:
             multipoint_along_line = [
                 feat.interpolate(distance) for distance in distances
             ]
-            multipoint_along_line.append(shp_geom.Point(segment_list[-1]))
+            multipoint_along_line.append(sh_geom.Point(segment_list[-1]))
             # Rasterize points along line
             rasterized_points_Alongln = ras_feat.rasterize(
                 multipoint_along_line,
@@ -507,8 +507,8 @@ class LineInfo:
             # create a shapely shp_geom.MultiPolygon
             multi_polygon = []
             for poly, value in out_polygon:
-                multi_polygon.append(shp_geom.shape(poly))
-            poly = shp_geom.MultiPolygon(multi_polygon)
+                multi_polygon.append(sh_geom.shape(poly))
+            poly = sh_geom.MultiPolygon(multi_polygon)
 
             # create a pandas DataFrame for the FP
             out_data = pd.DataFrame(

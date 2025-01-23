@@ -115,23 +115,23 @@ if __name__ == '__main__':
     # print(args_centerline)
     # centerline(**args_centerline, processes=processes, verbose=verbose)
 
-    args_footprint_abs = params["args_footprint_abs"]
-    args_footprint_abs['verbose'] = False
-    args_footprint_abs['processes'] =12
-    args_footprint_abs["callback"] = None
-    print(args_footprint_abs)
-    line_footprint_abs(**args_footprint_abs)
+    # canopy footprint abs
+    # args_footprint_abs = params["args_footprint_abs"]
+    # args_footprint_abs['verbose'] = False
+    # args_footprint_abs['processes'] =12
+    # args_footprint_abs["callback"] = None
+    # print(args_footprint_abs)
+    # line_footprint_abs(**args_footprint_abs)
 
-    # canopy footprint
-    # fp_params = params['args_footprint_canopy']
-    # in_file = fp_params['in_file']
-    # in_chm = fp_params["in_chm"]
-    # out_file_percentile = fp_params["out_file_percentile"]
-    # out_file_fp = fp_params["out_file_fp"]
+    # canopy footprint relative
+    fp_params = params['args_footprint_rel']
+    in_file = fp_params['in_line']
+    in_chm = fp_params["in_chm"]
+    out_file_fp = fp_params["out_footprint"]
 
-    # footprint = FootprintCanopy(in_file, in_chm)
-    # footprint.compute(PARALLEL_MODE)
-    # footprint.save_footprint(out_file_fp)
+    footprint = FootprintCanopy(in_file, in_chm)
+    footprint.compute(PARALLEL_MODE)
+    footprint.save_footprint(out_file_fp)
 
     # ground footprint
     # args_line_footprint_fixed = params["args_line_footprint_fixed"]
