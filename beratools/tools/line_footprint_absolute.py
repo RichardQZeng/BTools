@@ -1,3 +1,19 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide main interface for canopy footprint tool.
+    The tool is used to generate the footprint of a line based on absolute threshold.
+"""
 import time
 import numpy as np
 import pandas as pd
@@ -13,6 +29,8 @@ import beratools.core.algo_centerline as algo_cl
 import beratools.core.algo_common as algo_common
 
 class FootprintAbsolute:
+    """Class to compute the footprint of a line based on absolute threshold."""
+
     def __init__(
         self,
         line_seg,
@@ -32,10 +50,7 @@ class FootprintAbsolute:
         self.centerline = None
 
     def compute(self):
-        """
-            this function takes single line to work the line footprint
-            (regardless it process the whole line or individual segment)
-            """
+        """Generate line footprint."""
         in_chm = self.in_chm
         corridor_thresh = self.corridor_thresh
         line_gpd = self.line_seg
@@ -137,7 +152,9 @@ def generate_line_class_list(
     line_list = algo_common.prepare_lines_gdf(in_line, in_layer, proc_segments=False)
 
     for line in line_list:
-        line_classes.append(FootprintAbsolute(line, in_chm, corridor_thresh, max_ln_width, exp_shk_cell))
+        line_classes.append(
+            FootprintAbsolute(line, in_chm, corridor_thresh, max_ln_width, exp_shk_cell)
+        )
 
     return line_classes
 
@@ -161,7 +178,9 @@ def line_footprint_abs(
     footprint_list = []
     poly_list = []
 
-    line_class_list = generate_line_class_list(in_line, in_chm, corridor_thresh, max_ln_width, exp_shk_cell, in_layer)
+    line_class_list = generate_line_class_list(
+        in_line, in_chm, corridor_thresh, max_ln_width, exp_shk_cell, in_layer
+    )
 
     feat_list = bt_base.execute_multiprocessing(
         process_single_line,

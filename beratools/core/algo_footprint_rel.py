@@ -1,3 +1,19 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng, Maverick Fong
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide main interface for canopy footprint tool.
+    The tool is used to generate the footprint of a line based on relative threshold.
+"""
 import math
 import numpy as np
 import pandas as pd
