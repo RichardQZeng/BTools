@@ -1,3 +1,19 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    This file is intended to be hosting algorithms and utility functions/classes 
+    for centerline tool.
+"""
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -43,7 +59,7 @@ def snap_end_to_end(in_line, line_reference):
     if type(in_line) is shp_geom.MultiLineString:
         in_line = shp_ops.linemerge(in_line)
         if type(in_line) is shp_geom.MultiLineString:
-            print(f'algo_centerline: shp_geom.MultiLineString found {in_line.centroid}, pass.')
+            print(f'algo_centerline: MultiLineString found {in_line.centroid}, pass.')
             return None
 
     pts = list(in_line.coords)
@@ -73,11 +89,15 @@ def snap_end_to_end(in_line, line_reference):
 
 def find_centerline(poly, input_line):
     """
+    Find centerline from polygon and input line.
+
     Args:
         poly : shp_geom.Polygon
         input_line ( shp_geom.LineString): Least cost path or seed line
 
     Returns:
+    centerline (shp_geom.LineString): Centerline
+    status (bt_common.CenterlineStatus): Status of centerline generation
 
     """
     default_return = input_line, bt_common.CenterlineStatus.FAILED
@@ -87,7 +107,7 @@ def find_centerline(poly, input_line):
 
     poly = shapely.segmentize(poly, max_segment_length=bt_common.CL_SEGMENTIZE_LENGTH)
 
-    poly = poly.buffer(bt_common.CL_POLYGON_BUFFER)  # buffer polygon to reduce MultiPolygons
+    poly = poly.buffer(bt_common.CL_POLYGON_BUFFER)  # buffer to reduce MultiPolygons
     if type(poly) is shp_geom.MultiPolygon:
         print('shp_geom.MultiPolygon encountered, skip.')
         return default_return
@@ -101,16 +121,23 @@ def find_centerline(poly, input_line):
 
     line_coords = list(input_line.coords)
 
-    # TODO add more code to filter voronoi vertices
+    # TODO add more code to filter Voronoi vertices
     src_geom = shp_geom.Point(line_coords[0]).buffer(bt_common.CL_BUFFER_CLIP*3).intersection(poly)
     dst_geom = shp_geom.Point(line_coords[-1]).buffer(bt_common.CL_BUFFER_CLIP*3).intersection(poly)
     src_geom = None
     dst_geom = None
 
     try:
-        centerline = get_centerline(poly, segmentize_maxlen=1, max_points=3000,
-                                    simplification=0.05, smooth_sigma=bt_common.CL_SMOOTH_SIGMA, max_paths=1,
-                                    src_geom=src_geom, dst_geom=dst_geom)
+        centerline = get_centerline(
+            poly,
+            segmentize_maxlen=1,
+            max_points=3000,
+            simplification=0.05,
+            smooth_sigma=bt_common.CL_SMOOTH_SIGMA,
+            max_paths=1,
+            src_geom=src_geom,
+            dst_geom=dst_geom,
+        )
     except Exception as e:
         print(f'find_centerline: {e}')
         return default_return
@@ -148,14 +175,14 @@ def find_centerline(poly, input_line):
 
     centerline = snap_end_to_end(centerline, input_line)
 
-    # Check if centerline is valid. If not, regenerate by splitting polygon into two halves.
+    # Check centerline. If valid, regenerate by splitting polygon into two halves.
     if not centerline_is_valid(centerline, input_line):
         try:
             print('Regenerating line ...')
             centerline = regenerate_centerline(poly, input_line)
             return centerline, bt_common.CenterlineStatus.REGENERATE_SUCCESS
         except Exception as e:
-            print('find_centerline: {e}')
+            print(f'find_centerline: {e}')
             return input_line, bt_common.CenterlineStatus.REGENERATE_FAILED
 
     return centerline, bt_common.CenterlineStatus.SUCCESS
@@ -205,15 +232,14 @@ def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
 
 def process_single_centerline(row_and_path):
     """
+    Find centerline.
 
-    Parameters
-    ----------
-    row_and_path:
-        list of row (polygon and props) and least cost path
-        first is GeoPandas row, second is input line, (least cost path)
+    Args:
+    row_and_path (list of row (gdf and lc_path)): and least cost path
+    first is GeoPandas row, second is input line, (least cost path)
 
-    Returns
-    -------
+    Returns:
+    row: GeoPandas row with centerline
 
     """
     row = row_and_path[0]
@@ -235,7 +261,9 @@ def find_centerlines(poly_gpd, line_seg, processes):
             row = poly_gpd.loc[[i]]
             if 'OLnSEG' in line_seg.columns:
                 line_id, Seg_id = row['OLnFID'].iloc[0], row['OLnSEG'].iloc[0]
-                lc_path = line_seg.loc[(line_seg.OLnFID == line_id) & (line_seg.OLnSEG == Seg_id)]['geometry'].iloc[0]
+                lc_path = line_seg.loc[
+                    (line_seg.OLnFID == line_id) & (line_seg.OLnSEG == Seg_id)
+                ]["geometry"].iloc[0]
             else:
                 line_id = row['OLnFID'].iloc[0]
                 lc_path = line_seg.loc[(line_seg.OLnFID == line_id)]['geometry'].iloc[0]
@@ -244,28 +272,38 @@ def find_centerlines(poly_gpd, line_seg, processes):
     except Exception as e:
         print(f"find_centerlines: {e}")
 
-    centerline_gpd = bt_base.execute_multiprocessing(process_single_centerline, rows_and_paths,
-                                             'find_centerlines', processes, 1)
+    centerline_gpd = bt_base.execute_multiprocessing(
+        process_single_centerline, rows_and_paths, "find_centerlines", processes, 1
+    )
     return pd.concat(centerline_gpd)
 
 
 def regenerate_centerline(poly, input_line):
     """
-    Regenerates centerline when initial poly is not valid
+    Regenerates centerline when initial poly is not valid.
 
     Args:
-        input_line (shp_geom.LineString): This can be input seed line or least cost path. Only two end points will be used
+        input_line (shp_geom.LineString): Seed line or least cost path.
+        Only two end points will be used
 
     Returns:
         shp_geom.MultiLineString
 
     """
-    line_1 = shp_ops.substring(input_line, start_dist=0.0, end_dist=input_line.length / 2)
-    line_2 = shp_ops.substring(input_line, start_dist=input_line.length / 2, end_dist=input_line.length)
+    line_1 = shp_ops.substring(
+        input_line, start_dist=0.0, end_dist=input_line.length / 2
+    )
+    line_2 = shp_ops.substring(
+        input_line, start_dist=input_line.length / 2, end_dist=input_line.length
+    )
 
-    pts = shapely.force_2d([shp_geom.Point(list(input_line.coords)[0]),
-                            shp_geom.Point(list(line_1.coords)[-1]),
-                            shp_geom.Point(list(input_line.coords)[-1])])
+    pts = shapely.force_2d(
+        [
+            shp_geom.Point(list(input_line.coords)[0]),
+            shp_geom.Point(list(line_1.coords)[-1]),
+            shp_geom.Point(list(input_line.coords)[-1]),
+        ]
+    )
     perp = algo_common.generate_perpendicular_line_precise(pts)
 
     # shp_geom.MultiPolygon is rare, but need to be dealt with
@@ -280,7 +318,7 @@ def regenerate_centerline(poly, input_line):
 
         poly_geoms = list(compress(poly_geoms, poly_valid))
         if len(poly_geoms) != 1:  # still multi polygon
-            print('regenerate_centerline: Multi or none polygon found, pass.')
+            print("regenerate_centerline: Multi or none polygon found, pass.")
 
         poly = shp_geom.Polygon(poly_geoms[0])
 
@@ -288,7 +326,7 @@ def regenerate_centerline(poly, input_line):
     poly_split = shp_ops.split(poly_exterior, perp)
 
     if len(poly_split.geoms) < 2:
-        print('regenerate_centerline: polygon shp_ops.split failed, pass.')
+        print("regenerate_centerline: polygon shp_ops.split failed, pass.")
         return None
 
     poly_1 = poly_split.geoms[0]
@@ -311,15 +349,15 @@ def regenerate_centerline(poly, input_line):
     center_line_2 = center_line_2[0]
 
     if not center_line_1 or not center_line_2:
-        print('Regenerate line: centerline is None')
+        print("Regenerate line: centerline is None")
         return None
 
     try:
         if center_line_1.is_empty or center_line_2.is_empty:
-            print('Regenerate line: centerline is empty')
+            print("Regenerate line: centerline is empty")
             return None
     except Exception as e:
         print(f"regenerate_centerline: {e}")
 
-    print('Centerline is regenerated.')
+    print("Centerline is regenerated.")
     return shp_ops.linemerge(shp_geom.MultiLineString([center_line_1, center_line_2]))
