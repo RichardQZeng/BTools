@@ -35,10 +35,14 @@ import beratools.core.algo_common as algo_common
 
 
 class Side(StrEnum):
+    """Constants for left and right side."""
+
     left = "left"
     right = "right"
 
 class FootprintCanopy:
+    """Relative canopy footprint class."""
+
     def __init__(self, in_geom, in_chm):
         data = gpd.read_file(in_geom)
         self.lines = []
@@ -70,6 +74,8 @@ class FootprintCanopy:
         self.lines_percentile.to_file(out_percentile)
 
 class BufferRing:
+    """Buffer ring class."""
+
     def __init__(self, ring_poly, side):
         self.geometry = ring_poly
         self.side = side
@@ -77,6 +83,8 @@ class BufferRing:
         self.Dyn_Canopy_Threshold = 0.05
 
 class LineInfo:
+    """Class to store line information."""
+
     def __init__(self, line_gdf, in_chm):
         self.line = line_gdf
         self.in_chm = in_chm
@@ -268,7 +276,8 @@ class LineInfo:
         except IndexError:
             pass
 
-        # if still is no result found, lower to 10% (1.1), if no result found then default is used
+        # if still no result found, lower to 10% (1.1), 
+        # if no result found then default is used
         if not found:
             if 0.5 >= median_percentile:
                 cut_dist = 4 * scale_down  # 3
@@ -295,10 +304,11 @@ class LineInfo:
 
     def multi_ring_buffer(self, df, nrings, ringdist):
         """
-        Buffers an input DataFrames geometry nring (number of rings) times, with a distance between
-        rings of ringdist and returns a list of non overlapping buffers
-        """
+        Buffers an input DataFrames geometry nring (number of rings) times.
 
+        Compute with a distance between rings of ringdist and returns 
+        a list of non overlapping buffers
+        """
         rings = []  # A list to hold the individual buffers
         line = df.geometry.iloc[0]
         for ring in np.arange(0, ringdist, nrings):  # For each ring (1, 2, 3, ..., nrings)
@@ -507,7 +517,9 @@ class LineInfo:
                     "geometry": [poly]
                 }
             )
-            out_gdata = gpd.GeoDataFrame(out_data, geometry="geometry", crs=shapefile_proj)
+            out_gdata = gpd.GeoDataFrame(
+                out_data, geometry="geometry", crs=shapefile_proj
+            )
 
             return out_gdata
 
