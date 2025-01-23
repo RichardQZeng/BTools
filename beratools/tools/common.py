@@ -13,7 +13,6 @@ Description:
 
     This file is intended to be hosting common classes/functions for BERA Tools
 """
-import math
 import json
 import shlex
 import argparse
@@ -26,14 +25,14 @@ import pyogrio
 import shapely
 import shapely.ops as sh_ops
 import shapely.geometry as sh_geom
+from osgeo import gdal
 
 import rasterio
+from rasterio import mask
 from scipy import ndimage
 import xarray as xr
 import xrspatial 
-
 import geopandas as gpd
-import skimage.graph as sk_graph
 
 import beratools.core.constants as bt_const
 
@@ -41,12 +40,12 @@ import beratools.core.constants as bt_const
 warnings.simplefilter(action="ignore", category=UserWarning)
 
 # restore .shx for shapefile for using GDAL or pyogrio
-osgeo.gdal.SetConfigOption("SHAPE_RESTORE_SHX", "YES")
+gdal.SetConfigOption("SHAPE_RESTORE_SHX", "YES")
 pyogrio.set_gdal_config_options({"SHAPE_RESTORE_SHX": "YES"})
 
 # suppress all kinds of warnings
 if not bt_const.BT_DEBUGGING:
-    osgeo.gdal.SetConfigOption("CPL_LOG", "NUL")  # GDAL warning
+    gdal.SetConfigOption("CPL_LOG", "NUL")  # GDAL warning
     warnings.filterwarnings("ignore")  # suppress warnings
     warnings.simplefilter(
         action="ignore", category=UserWarning
@@ -69,7 +68,7 @@ def clip_raster(
 
         clip_geo_buffer = [clip_geom.buffer(buffer)]
         out_image: np.ndarray
-        out_image, out_transform = rasterio.mask.mask(
+        out_image, out_transform = mask.mask(
             raster_file, clip_geo_buffer, crop=True, nodata=ras_nodata, filled=True
         )
         if np.isnan(ras_nodata):

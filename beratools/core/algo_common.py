@@ -23,15 +23,19 @@ import numpy as np
 import geopandas as gpd
 
 import pyproj
-import osgeo
+from osgeo import gdal
 import shapely
 import rasterio
 from scipy import ndimage
 import shapely.geometry as sh_geom
 import shapely.ops as sh_ops
 import shapely.affinity as sh_aff
+import skimage.graph as sk_graph
+
+import xrspatial 
 
 import beratools.core.constants as bt_const
+import beratools.core.algo_cost as algo_cost
 
 DISTANCE_THRESHOLD = 2  # 1 meter for intersection neighborhood
 
@@ -285,7 +289,7 @@ def points_are_close(pt1, pt2):
 def generate_raster_footprint(in_raster, latlon=True):
     inter_img = "image_overview.tif"
 
-    src_ds = osgeo.gdal.Open(in_raster)
+    src_ds = gdal.Open(in_raster)
     width, height = src_ds.RasterXSize, src_ds.RasterYSize
     src_crs = src_ds.GetSpatialRef().ExportToWkt()
 
@@ -298,14 +302,14 @@ def generate_raster_footprint(in_raster, latlon=True):
             inter_img = in_raster
         else:
             if width >= height:
-                options = osgeo.gdal.TranslateOptions(width=1024, height=0)
+                options = gdal.TranslateOptions(width=1024, height=0)
             else:
-                options = osgeo.gdal.TranslateOptions(width=0, height=1024)
+                options = gdal.TranslateOptions(width=0, height=1024)
 
             inter_img = Path(tmp_folder).joinpath(inter_img).as_posix()
-            osgeo.gdal.Translate(inter_img, src_ds, options=options)
+            gdal.Translate(inter_img, src_ds, options=options)
 
-            shapes = osgeo.gdal.Footprint(None, inter_img, dstSRS=src_crs, format="GeoJSON")
+            shapes = gdal.Footprint(None, inter_img, dstSRS=src_crs, format="GeoJSON")
             target_feat = shapes["features"][0]
             geom = sh_geom.shape(target_feat["geometry"])
 
@@ -425,7 +429,7 @@ def corridor_raster(
         # change all nan to BT_NODATA_COST for workaround
         if len(raster_clip.shape) > 2:
             raster_clip = np.squeeze(raster_clip, axis=0)
-        remove_nan_from_array(raster_clip)
+        algo_cost.remove_nan_from_array(raster_clip)
 
         # generate the cost raster to source point
         mcp_source = sk_graph.MCP_Geometric(raster_clip, sampling=cell_size)
@@ -465,13 +469,13 @@ def cost_raster(in_raster, meta):
     cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
 
     kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, 2.5)
-    dyn_canopy_ndarray = dyn_np_cc_map(in_raster, bt_const.FP_CORRIDOR_THRESHOLD, bt_const.BT_NODATA)
-    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
+    dyn_canopy_ndarray = algo_cost.dyn_np_cc_map(in_raster, bt_const.FP_CORRIDOR_THRESHOLD, bt_const.BT_NODATA)
+    cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
+    cc_smooth = algo_cost.dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
 
     # TODO avoidance, re-use this code
     avoidance = max(min(float(0.4), 1), 0)
-    cost_clip = dyn_np_cost_raster(
+    cost_clip = algo_cost.dyn_np_cost_raster(
         dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, 0.4, 1.5
     )
 
@@ -502,13 +506,13 @@ def cost_raster_2nd_version(
     cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
 
     kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, tree_radius)
-    dyn_canopy_ndarray = dyn_np_cc_map(in_raster, canopy_ht_threshold, bt_const.BT_NODATA)
-    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
-    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
+    dyn_canopy_ndarray = algo_cost.dyn_np_cc_map(in_raster, canopy_ht_threshold, bt_const.BT_NODATA)
+    cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
+    cc_smooth = algo_cost.dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
 
     # TODO avoidance, re-use this code
     avoidance = max(min(float(canopy_avoid), 1), 0)
-    cost_clip = dyn_np_cost_raster(
+    cost_clip = algo_cost.dyn_np_cost_raster(
         dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
     )
 
