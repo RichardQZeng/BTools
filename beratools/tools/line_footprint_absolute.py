@@ -169,8 +169,7 @@ def line_footprint_abs(
     processes,
     verbose,
     in_layer=None,
-    out_layer_fp=None,
-    out_layer_cl=None,
+    out_layer=None,
 ):
     max_ln_width = float(max_ln_width)
     exp_shk_cell = int(exp_shk_cell)
@@ -199,7 +198,7 @@ def line_footprint_abs(
 
     results = gpd.GeoDataFrame(pd.concat(footprint_list))
     results = results.reset_index(drop=True)
-    results.to_file(out_footprint, layer=out_layer_fp)
+    results.to_file(out_footprint, layer=out_layer)
 
 
 if __name__ == "__main__":

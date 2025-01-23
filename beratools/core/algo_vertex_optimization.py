@@ -336,7 +336,7 @@ class VertexGrouping:
         self.line_visited = None
 
         # calculate cost raster footprint
-        self.cost_footprint = bt_common.generate_raster_footprint(
+        self.cost_footprint = algo_common.generate_raster_footprint(
             self.in_raster, latlon=False
         )
 
