@@ -10,6 +10,7 @@ import shapely.ops
 from shapely.geometry import Polygon, MultiPolygon, MultiLineString, mapping, Point
 
 import beratools.tools.common as bt_common
+import beratools.core.algo_common as algo_common
 from beratools.core.tool_base import execute_multiprocessing
 import beratools.core.constants as bt_const
 from beratools.core.algo_line_grouping import LineGrouping
@@ -44,7 +45,7 @@ def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):
             continue
 
         inter_poly = poly_gdf.loc[spatial_index.query(line)]
-        try: 
+        try:
             line_args.append(
                 [line_gdf.loc[[row.Index]], inter_poly, n_samples, offset, row.Index]
             )
@@ -72,7 +73,7 @@ def generate_sample_points(line, n_samples=10):
     except Exception as e:  # TODO: check the code
         print(e)
         line = shapely.ops.linemerge(line)
-        tuple_coord = mapping(line)['coordinates']
+        tuple_coord = mapping(line)["coordinates"]
         pts = list(chain(*tuple_coord))
 
     return [Point(item) for item in pts]
@@ -85,7 +86,9 @@ def process_single_line(line_arg):
     offset = line_arg[3]
     # line_id = line_arg[4]
 
-    widths, line, perp_lines, perp_lines_original = calculate_average_width(row.iloc[0].geometry, inter_poly, offset, n_samples)
+    widths, line, perp_lines, perp_lines_original = calculate_average_width(
+        row.iloc[0].geometry, inter_poly, offset, n_samples
+    )
 
     # Calculate the 75th percentile width
     # filter zeros in width array
@@ -101,13 +104,13 @@ def process_single_line(line_arg):
         print(e)
 
     # Store the 75th percentile width as a new attribute
-    row['avg_width'] = q3_width
-    row['max_width'] = q4_width
+    row["avg_width"] = q3_width
+    row["max_width"] = q4_width
 
-    row['geometry'] = line
+    row["geometry"] = line
     try:
-        row['perp_lines'] = perp_lines
-        row['perp_lines_original'] = perp_lines_original
+        row["perp_lines"] = perp_lines
+        row["perp_lines_original"] = perp_lines_original
     except Exception as e:
         print(e)
 
@@ -126,23 +129,31 @@ def generate_fixed_width_footprint(line_gdf, max_width=False):
     # Create a new GeoDataFrame with the buffer polygons
     buffer_gdf = line_gdf.copy(deep=True)
 
-    mean_avg_width = line_gdf['avg_width'].mean()
-    mean_max_width = line_gdf['max_width'].mean()
+    mean_avg_width = line_gdf["avg_width"].mean()
+    mean_max_width = line_gdf["max_width"].mean()
 
-    line_gdf['avg_width'].fillna(mean_avg_width, inplace=True)
-    line_gdf['max_width'].fillna(mean_max_width, inplace=True)
+    line_gdf["avg_width"].fillna(mean_avg_width, inplace=True)
+    line_gdf["max_width"].fillna(mean_max_width, inplace=True)
 
-    line_gdf['avg_width'].replace(0.0, mean_avg_width, inplace=True)
-    line_gdf['max_width'].replace(0.0, mean_max_width, inplace=True)
+    line_gdf["avg_width"].replace(0.0, mean_avg_width, inplace=True)
+    line_gdf["max_width"].replace(0.0, mean_max_width, inplace=True)
 
     if not max_width:
-        print('Using quantile 75% width')
-        buffer_gdf['geometry'] = line_gdf.apply(
-            lambda row: row.geometry.buffer(row.avg_width / 2) if row.geometry is not None else None, axis=1)
+        print("Using quantile 75% width")
+        buffer_gdf["geometry"] = line_gdf.apply(
+            lambda row: row.geometry.buffer(row.avg_width / 2)
+            if row.geometry is not None
+            else None,
+            axis=1,
+        )
     else:
-        print('Using quantile 90% + 20% width')
-        buffer_gdf['geometry'] = line_gdf.apply(
-            lambda row: row.geometry.buffer(row.max_width * 1.2 / 2) if row.geometry is not None else None, axis=1)
+        print("Using quantile 90% + 20% width")
+        buffer_gdf["geometry"] = line_gdf.apply(
+            lambda row: row.geometry.buffer(row.max_width * 1.2 / 2)
+            if row.geometry is not None
+            else None,
+            axis=1,
+        )
 
     return buffer_gdf
 
@@ -172,7 +183,9 @@ def calculate_average_width(line, polygon, offset, n_samples):
 
     valid_widths = 0
     sample_points = generate_sample_points(line, n_samples=n_samples)
-    sample_points_pairs = list(zip(sample_points[:-2], sample_points[1:-1], sample_points[2:]))
+    sample_points_pairs = list(
+        zip(sample_points[:-2], sample_points[1:-1], sample_points[2:])
+    )
     widths = np.zeros(len(sample_points_pairs))
     perp_lines = []
     perp_lines_original = []
@@ -189,10 +202,14 @@ def calculate_average_width(line, polygon, offset, n_samples):
     polygon_no_holes = gpd.GeoDataFrame(geometry=poly_list, crs=polygon.crs)
 
     for i, points in enumerate(sample_points_pairs):
-        perp_line = bt_common.generate_perpendicular_line_precise(points, offset=offset)
+        perp_line = algo_common.generate_perpendicular_line_precise(
+            points, offset=offset
+        )
         perp_lines_original.append(perp_line)
 
-        polygon_intersect = polygon_no_holes.iloc[polygon_no_holes.sindex.query(perp_line)]
+        polygon_intersect = polygon_no_holes.iloc[
+            polygon_no_holes.sindex.query(perp_line)
+        ]
         intersections = polygon_intersect.intersection(perp_line)
 
         line_list = []
@@ -215,7 +232,12 @@ def calculate_average_width(line, polygon, offset, n_samples):
         except Exception as e:
             print(e)
 
-    return widths, line, MultiLineString(perp_lines), MultiLineString(perp_lines_original)
+    return (
+        widths,
+        line,
+        MultiLineString(perp_lines),
+        MultiLineString(perp_lines_original),
+    )
 
 
 def line_footprint_fixed(
@@ -255,8 +277,8 @@ def line_footprint_fixed(
     perp_lines_original_gdf = buffer_gdf.copy(deep=True)
 
     # save fixed width footprint
-    buffer_gdf = buffer_gdf.drop(columns=['perp_lines'])
-    buffer_gdf = buffer_gdf.drop(columns=['perp_lines_original'])
+    buffer_gdf = buffer_gdf.drop(columns=["perp_lines"])
+    buffer_gdf = buffer_gdf.drop(columns=["perp_lines_original"])
     buffer_gdf.crs = perp_lines_gdf.crs
     buffer_gdf.reset_index(inplace=True, drop=True)
 
@@ -268,31 +290,37 @@ def line_footprint_fixed(
     lg.save_file(out_footprint)
 
     # perpendicular lines
-    layer = 'perp_lines'
+    layer = "perp_lines"
     out_footprint = Path(out_footprint)
-    out_aux_gpkg = out_footprint.with_stem(out_footprint.stem + '_aux').with_suffix('.gpkg')
-    perp_lines_gdf = perp_lines_gdf.set_geometry('perp_lines')
-    perp_lines_gdf = perp_lines_gdf.drop(columns=['perp_lines_original'])
-    perp_lines_gdf = perp_lines_gdf.drop(columns=['geometry'])
+    out_aux_gpkg = out_footprint.with_stem(out_footprint.stem + "_aux").with_suffix(
+        ".gpkg"
+    )
+    perp_lines_gdf = perp_lines_gdf.set_geometry("perp_lines")
+    perp_lines_gdf = perp_lines_gdf.drop(columns=["perp_lines_original"])
+    perp_lines_gdf = perp_lines_gdf.drop(columns=["geometry"])
     perp_lines_gdf.crs = buffer_gdf.crs
     perp_lines_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    layer = 'perp_lines_original'
-    perp_lines_original_gdf = perp_lines_original_gdf.set_geometry('perp_lines_original')
-    perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=['perp_lines'])
-    perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=['geometry'])
+    layer = "perp_lines_original"
+    perp_lines_original_gdf = perp_lines_original_gdf.set_geometry(
+        "perp_lines_original"
+    )
+    perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=["perp_lines"])
+    perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=["geometry"])
     perp_lines_original_gdf.crs = buffer_gdf.crs
     perp_lines_original_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    layer = 'centerline_simplified'
-    line_attr = line_attr.drop(columns='perp_lines')
+    layer = "centerline_simplified"
+    line_attr = line_attr.drop(columns="perp_lines")
     line_attr.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    callback('Fixed width footprint tool finished.')
+    callback("Fixed width footprint tool finished.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     in_args, in_verbose = bt_common.check_arguments()
     start_time = time.time()
-    line_footprint_fixed(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
-    print('Elapsed time: {}'.format(time.time() - start_time))
+    line_footprint_fixed(
+        print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose
+    )
+    print("Elapsed time: {}".format(time.time() - start_time))

@@ -257,14 +257,14 @@ class _Vertex:
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
+                raster_clip, _ = algo_common.cost_raster(raster_clip, out_meta)
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
                 seed_line = sh_geom.LineString(self.anchors[2:4])
 
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
+                raster_clip, _ = algo_common.cost_raster(raster_clip, out_meta)
                 centerline_2 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1 and centerline_2:
@@ -277,7 +277,7 @@ class _Vertex:
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                raster_clip, _ = bt_common.cost_raster(raster_clip, out_meta)
+                raster_clip, _ = algo_common.cost_raster(raster_clip, out_meta)
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1:

@@ -16,11 +16,20 @@ Description:
     The purpose of this script is to provide common algorithms
     and utility functions/classes.
 """
-
+import math
+import tempfile
+from pathlib import Path
 import numpy as np
 import geopandas as gpd
+
+import pyproj
+import osgeo
+import shapely
+import rasterio
 from scipy import ndimage
 import shapely.geometry as sh_geom
+import shapely.ops as sh_ops
+import shapely.affinity as sh_aff
 
 import beratools.core.constants as bt_const
 
@@ -272,3 +281,239 @@ def points_are_close(pt1, pt2):
         return True
     else:
         return False
+
+def generate_raster_footprint(in_raster, latlon=True):
+    inter_img = "image_overview.tif"
+
+    src_ds = osgeo.gdal.Open(in_raster)
+    width, height = src_ds.RasterXSize, src_ds.RasterYSize
+    src_crs = src_ds.GetSpatialRef().ExportToWkt()
+
+    geom = None
+    with tempfile.TemporaryDirectory() as tmp_folder:
+        if bt_const.BT_DEBUGGING:
+            print("Temporary folder: {}".format(tmp_folder))
+
+        if max(width, height) <= 1024:
+            inter_img = in_raster
+        else:
+            if width >= height:
+                options = osgeo.gdal.TranslateOptions(width=1024, height=0)
+            else:
+                options = osgeo.gdal.TranslateOptions(width=0, height=1024)
+
+            inter_img = Path(tmp_folder).joinpath(inter_img).as_posix()
+            osgeo.gdal.Translate(inter_img, src_ds, options=options)
+
+            shapes = osgeo.gdal.Footprint(None, inter_img, dstSRS=src_crs, format="GeoJSON")
+            target_feat = shapes["features"][0]
+            geom = sh_geom.shape(target_feat["geometry"])
+
+    if latlon:
+        out_crs = pyproj.CRS("EPSG:4326")
+        transformer = pyproj.Transformer.from_crs(pyproj.CRS(src_crs), out_crs)
+
+        geom = sh_ops.transform(transformer.transform, geom)
+
+    return geom
+
+def save_raster_to_file(in_raster_mem, in_meta, out_raster_file):
+    """
+    Save raster matrix in memory to file.
+
+    Args:
+        in_raster_mem: numpy raster
+        in_meta: input meta
+        out_raster_file: output raster file
+
+    """
+    with rasterio.open(out_raster_file, "w", **in_meta) as dest:
+        dest.write(in_raster_mem, indexes=1)
+
+def generate_perpendicular_line_precise(points, offset=20):
+    """
+    Generate a perpendicular line to the input line at the given point.
+
+    Args:
+        points (list[Point]): The points on the line where the perpendicular should be generated.
+        offset (float): The length of the perpendicular line.
+
+    Returns:
+        shapely.geometry.LineString: The generated perpendicular line.
+
+    """
+    # Compute the angle of the line
+    center = points[1]
+    perp_line = None
+
+    if len(points) == 2:
+        head = points[0]
+        tail = points[1]
+
+        delta_x = head.x - tail.x
+        delta_y = head.y - tail.y
+        angle = 0.0
+
+        if math.isclose(delta_x, 0.0):
+            angle = math.pi / 2
+        else:
+            angle = math.atan(delta_y / delta_x)
+
+        start = [center.x + offset / 2.0, center.y]
+        end = [center.x - offset / 2.0, center.y]
+        line = sh_geom.LineString([start, end])
+        perp_line = sh_aff.rotate(line, angle + math.pi / 2.0, origin=center, use_radians=True)
+    elif len(points) == 3:
+        head = points[0]
+        tail = points[2]
+
+        angle_1 = _line_angle(center, head)
+        angle_2 = _line_angle(center, tail)
+        angle_diff = (angle_2 - angle_1) / 2.0
+        head_new = sh_geom.Point(
+            center.x + offset / 2.0 * math.cos(angle_1),
+            center.y + offset / 2.0 * math.sin(angle_1),
+        )
+        if head.has_z:
+            head_new = shapely.force_3d(head_new)
+        try:
+            perp_seg_1 = sh_geom.LineString([center, head_new])
+            perp_seg_1 = sh_aff.rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
+            perp_seg_2 = sh_aff.rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
+            perp_line = sh_geom.LineString(
+                [list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]]
+            )
+        except Exception as e:
+            print(e)
+
+    return perp_line
+
+
+def _line_angle(point_1, point_2):
+    """
+    Calculate the angle of the line.
+
+    Args:
+        point_1, point_2: start and end points of shapely line
+
+    """
+    delta_y = point_2.y - point_1.y
+    delta_x = point_2.x - point_1.x
+
+    angle = math.atan2(delta_y, delta_x)
+    return angle
+
+def corridor_raster(
+    raster_clip, out_meta, source, destination, cell_size, corridor_threshold
+):
+    """
+    Calculate corridor raster.
+
+    Args:
+        raster_clip (raster):
+        out_meta : raster file meta
+        source (list of point tuple(s)): start point in row/col
+        destination (list of point tuple(s)): end point in row/col
+        cell_size (tuple): (cell_size_x, cell_size_y)
+        corridor_threshold (double)
+
+    Returns:
+    corridor raster
+    
+    """
+    try:
+        # change all nan to BT_NODATA_COST for workaround
+        if len(raster_clip.shape) > 2:
+            raster_clip = np.squeeze(raster_clip, axis=0)
+        remove_nan_from_array(raster_clip)
+
+        # generate the cost raster to source point
+        mcp_source = sk_graph.MCP_Geometric(raster_clip, sampling=cell_size)
+        source_cost_acc = mcp_source.find_costs(source)[0]
+        del mcp_source
+
+        # # # generate the cost raster to destination point
+        mcp_dest = sk_graph.MCP_Geometric(raster_clip, sampling=cell_size)
+        dest_cost_acc = mcp_dest.find_costs(destination)[0]
+
+        # Generate corridor
+        corridor = source_cost_acc + dest_cost_acc
+        corridor = np.ma.masked_invalid(corridor)
+
+        # Calculate minimum value of corridor raster
+        if np.ma.min(corridor) is not None:
+            corr_min = float(np.ma.min(corridor))
+        else:
+            corr_min = 0.5
+
+        # normalize corridor raster by deducting corr_min
+        corridor_norm = corridor - corr_min
+        corridor_thresh_cl = np.ma.where(corridor_norm >= corridor_threshold, 1.0, 0.0)
+
+    except Exception as e:
+        print(e)
+        print("corridor_raster: Exception occurred.")
+        return None
+
+    return corridor_thresh_cl
+
+
+def cost_raster(in_raster, meta):
+    if len(in_raster.shape) > 2:
+        in_raster = np.squeeze(in_raster, axis=0)
+
+    cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
+
+    kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, 2.5)
+    dyn_canopy_ndarray = dyn_np_cc_map(in_raster, bt_const.FP_CORRIDOR_THRESHOLD, bt_const.BT_NODATA)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
+
+    # TODO avoidance, re-use this code
+    avoidance = max(min(float(0.4), 1), 0)
+    cost_clip = dyn_np_cost_raster(
+        dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, 0.4, 1.5
+    )
+
+    # TODO use nan or BT_DATA?
+    cost_clip[in_raster == bt_const.BT_NODATA] = np.nan
+    dyn_canopy_ndarray[in_raster == bt_const.BT_NODATA] = np.nan
+
+    return cost_clip, dyn_canopy_ndarray
+
+def cost_raster_2nd_version(
+    in_raster,
+    meta,
+    tree_radius,
+    canopy_ht_threshold,
+    max_line_dist,
+    canopy_avoid,
+    cost_raster_exponent,
+):
+    """
+    General version of cost_raster.
+
+    To be merged later: variables and consistent nodata solution
+
+    """
+    if len(in_raster.shape) > 2:
+        in_raster = np.squeeze(in_raster, axis=0)
+
+    cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
+
+    kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, tree_radius)
+    dyn_canopy_ndarray = dyn_np_cc_map(in_raster, canopy_ht_threshold, bt_const.BT_NODATA)
+    cc_std, cc_mean = dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
+
+    # TODO avoidance, re-use this code
+    avoidance = max(min(float(canopy_avoid), 1), 0)
+    cost_clip = dyn_np_cost_raster(
+        dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
+    )
+
+    # TODO use nan or BT_DATA?
+    cost_clip[in_raster == bt_const.BT_NODATA] = np.nan
+    dyn_canopy_ndarray[in_raster == bt_const.BT_NODATA] = np.nan
+
+    return cost_clip, dyn_canopy_ndarray

@@ -5,8 +5,6 @@ This script is licensed under the GNU General Public License v3.0.
 See <https://gnu.org/licenses/gpl-3.0> for full license details.
 
 ---------------------------------------------------------------------------
-
-File: tiler.py
 Author: Richard Zeng
 
 Description:

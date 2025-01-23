@@ -11,19 +11,22 @@ import shapely.geometry as shp_geom
 from label_centerlines import get_centerline
 import beratools.core.tool_base as bt_base
 import beratools.core.constants as bt_common
+import beratools.core.algo_common as algo_common
 
 
 def centerline_is_valid(centerline, input_line):
-    """Check if centerline is valid
+    """
+    Check if centerline is valid.
 
     Args:
         centerline (_type_): _description_
-        input_line (shp_geom.LineString): This can be input seed line or least cost path. Only two end points are used.
+        input_line (shp_geom.LineString): Seed line or least cost path. 
+        Only two end points are used.
 
     Returns:
         bool: True if line is valid
-    """
 
+    """
     if not centerline:
         return False
 
@@ -263,7 +266,7 @@ def regenerate_centerline(poly, input_line):
     pts = shapely.force_2d([shp_geom.Point(list(input_line.coords)[0]),
                             shp_geom.Point(list(line_1.coords)[-1]),
                             shp_geom.Point(list(input_line.coords)[-1])])
-    perp = bt_common.generate_perpendicular_line_precise(pts)
+    perp = algo_common.generate_perpendicular_line_precise(pts)
 
     # shp_geom.MultiPolygon is rare, but need to be dealt with
     # remove polygon of area less than bt_common.CL_CLEANUP_POLYGON_BY_AREA

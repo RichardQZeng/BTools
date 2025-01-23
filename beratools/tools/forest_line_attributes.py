@@ -51,7 +51,7 @@ def line_split(callback, HasOLnFID, in_cl, seg_length, max_ln_width, sampling_ty
             # get geometry from record
             in_line = in_cl_line.loc[[row]]
             in_ln_feat = in_line.iloc[0].geometry
-            lines = cut_line(in_ln_feat, seg_length)
+            lines = cut_line_by_length(in_ln_feat, seg_length)
 
             for seg in lines:
                 line_data = in_line.copy()

@@ -15,6 +15,7 @@ from skimage.graph import MCP_Flexible
 import beratools.tools.common as bt_common
 import beratools.core.constants as bt_const
 import beratools.core.tool_base as bt_base
+import beratools.core.algo_common as algo_common
 
 
 class Side(StrEnum):
@@ -371,7 +372,7 @@ class LineInfo:
 
         try:
             clipped_rasterC, out_meta = bt_common.clip_raster(in_chm_raster, line_buffer, 0)
-            negative_cost_clip, dyn_canopy_ndarray = bt_common.cost_raster_2nd_version(
+            negative_cost_clip, dyn_canopy_ndarray = algo_common.cost_raster_2nd_version(
                 clipped_rasterC,
                 out_meta,
                 tree_radius,
@@ -465,7 +466,7 @@ class LineInfo:
                 corridor_th_value = bt_const.FP_CORRIDOR_THRESHOLD / cell_size_x
 
             corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-            clean_raster = bt_common.morph_raster(
+            clean_raster = algo_common.morph_raster(
                 corridor_thresh, in_canopy_r, exp_shk_cell, cell_size_x
             )
 

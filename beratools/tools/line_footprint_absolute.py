@@ -1,6 +1,4 @@
 import time
-import itertools
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -68,7 +66,7 @@ class FootprintAbsolute:
         cell_size_x = out_transform[0]
         cell_size_y = -out_transform[4]
 
-        clip_cost, clip_canopy = bt_common.cost_raster(clip_cost, out_meta)
+        clip_cost, clip_canopy = algo_common.cost_raster(clip_cost, out_meta)
 
         # Work out the corridor from both end of the centerline
         if len(clip_canopy.shape) > 2:
@@ -78,7 +76,7 @@ class FootprintAbsolute:
         source = [transformer.rowcol(x1, y1)]
         destination = [transformer.rowcol(x2, y2)]
 
-        corridor_thresh = bt_common.corridor_raster(
+        corridor_thresh = algo_common.corridor_raster(
             clip_cost,
             out_meta,
             source,
