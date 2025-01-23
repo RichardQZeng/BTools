@@ -5,8 +5,7 @@ import json
 import pandas as pd
 from pathlib import Path
 
-from PyQt5 import QtCore
-from PyQt5.QtWidgets import QDialog
+from PyQt5 import QtWidgets
 from beratools.gui.bt_data import BTData
 import beratools.tools.common as bt_common
 from beratools.gui.batch_processing_dlg import BPDialog
@@ -88,7 +87,7 @@ def batch_processing(callback, batch_tool_name, in_project, processes, verbose):
     data = pd.read_csv(csv_file)
     task_data = data.to_dict(orient='records')
 
-    if flag == QDialog.Accepted and task_data:
+    if flag == QtWidgets.QDialog.Accepted and task_data:
         steps = len(task_data)
         step = 0
 
@@ -131,6 +130,6 @@ def generate_task_params(task):
 
 if __name__ == '__main__':
     in_args, in_verbose = bt_common.check_arguments()
-    app = QtCore.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     batch_processing(print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose)
     sys.exit(app.exec_())
