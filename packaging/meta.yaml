@@ -27,7 +27,6 @@ requirements:
     - dask
     - dask-expr
     - distributed
-    - fiona
     - gdal
     - geopandas
     - pip

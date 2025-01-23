@@ -23,7 +23,6 @@ import numpy as np
 from osgeo import gdal
 import osgeo
 from osgeo.osr import SpatialReference
-import fiona
 import shapely
 from shapely.affinity import rotate
 from shapely.ops import split, transform
@@ -129,30 +128,30 @@ def clip_lines(clip_geom, buffer, in_line_file, out_line_file):
     return out_line
 
 
-def read_geoms_from_shapefile(in_file):
-    geoms = []
-    with fiona.open(in_file) as open_file:
-        for geom in open_file:
-            geoms.append(geom['geometry'])
+# def read_geoms_from_shapefile(in_file):
+#     geoms = []
+#     with fiona.open(in_file) as open_file:
+#         for geom in open_file:
+#             geoms.append(geom['geometry'])
 
-    return geoms
+#     return geoms
 
 
-def read_feature_from_shapefile(in_file):
-    """ Read feature from shapefile
+# def read_feature_from_shapefile(in_file):
+#     """ Read feature from shapefile
 
-    Args:
-        in_file (str): file name
+#     Args:
+#         in_file (str): file name
 
-    Returns:
-        list: list of features
-    """
-    shapes = []
-    with fiona.open(in_file) as open_file:
-        for feat in open_file:
-            shapes.append([shape(feat.geometry), feat.properties])
+#     Returns:
+#         list: list of features
+#     """
+#     shapes = []
+#     with fiona.open(in_file) as open_file:
+#         for feat in open_file:
+#             shapes.append([shape(feat.geometry), feat.properties])
 
-    return shapes
+#     return shapes
 
 
 def generate_raster_footprint(in_raster, latlon=True):
@@ -213,15 +212,15 @@ def replace_Nodata2Inf(matrix, nodata):
 
 
 # Split LineString to segments at vertices
-def segments(line_coords):
-    if len(line_coords) < 2:
-        return None
-    elif len(line_coords) == 2:
-        return [fiona.Geometry.from_dict({'type': 'LineString', 'coordinates': line_coords})]
-    else:
-        seg_list = zip(line_coords[:-1], line_coords[1:])
-        line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]
-        return [fiona.Geometry.from_dict(line) for line in line_list]
+# def segments(line_coords):
+#     if len(line_coords) < 2:
+#         return None
+#     elif len(line_coords) == 2:
+#         return [fiona.Geometry.from_dict({'type': 'LineString', 'coordinates': line_coords})]
+#     else:
+#         seg_list = zip(line_coords[:-1], line_coords[1:])
+#         line_list = [{'type': 'LineString', 'coordinates': coords} for coords in seg_list]
+#         return [fiona.Geometry.from_dict(line) for line in line_list]
 
 
 def extract_string_from_printout(str_print, str_extract):
@@ -254,67 +253,67 @@ def check_arguments():
     return args, verbose
 
 
-def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
-                          driver='ESRI Shapefile', layer=None):
-    """
+# def save_features_to_file(out_file, crs, geoms, properties=None, schema=None,
+#                           driver='ESRI Shapefile', layer=None):
+#     """
 
-    Args:
-        out_file :
-        crs :
-        geoms : shapely geometry objects
-        schema :
-        properties :
-        driver:
-        layer:
-    """
-    # remove all None items
-    # TODO: check geom type consistency
-    if len(geoms) < 1:
-        return
+#     Args:
+#         out_file :
+#         crs :
+#         geoms : shapely geometry objects
+#         schema :
+#         properties :
+#         driver:
+#         layer:
+#     """
+#     # remove all None items
+#     # TODO: check geom type consistency
+#     if len(geoms) < 1:
+#         return
 
-    try:
-        geom_type = mapping(geoms[0])['type']
-    except Exception as e:
-        print(e)
+#     try:
+#         geom_type = mapping(geoms[0])['type']
+#     except Exception as e:
+#         print(e)
 
-    if not schema:
-        props_tuple = zip([], [])  # if lengths are not the same, ValueError raises
-        props_schema = [(item, type(value).__name__) for item, value in props_tuple]
+#     if not schema:
+#         props_tuple = zip([], [])  # if lengths are not the same, ValueError raises
+#         props_schema = [(item, type(value).__name__) for item, value in props_tuple]
 
-        schema = {
-            'geometry': geom_type,
-            'properties': OrderedDict([])
-        }
+#         schema = {
+#             'geometry': geom_type,
+#             'properties': OrderedDict([])
+#         }
 
-        properties = None
+#         properties = None
 
-    print('Writing to file {}'.format(out_file), flush=True)
+#     print('Writing to file {}'.format(out_file), flush=True)
 
-    try:
-        out_line_file = fiona.open(out_file, 'w', driver, schema, crs, layer=layer)
-    except Exception as e:
-        print(e)
-        out_line_file.close()
-        return
+#     try:
+#         out_line_file = fiona.open(out_file, 'w', driver, schema, crs, layer=layer)
+#     except Exception as e:
+#         print(e)
+#         out_line_file.close()
+#         return
 
-    if properties:
-        feat_tuple = zip_longest(geoms, properties)
-    else:  # properties are None
-        feat_tuple = [(item, None) for item in geoms]
+#     if properties:
+#         feat_tuple = zip_longest(geoms, properties)
+#     else:  # properties are None
+#         feat_tuple = [(item, None) for item in geoms]
 
-    try:
-        for geom, prop in feat_tuple:
-            if geom:
-                feature = {
-                    'geometry': mapping(geom),
-                    'properties': prop
-                }
+#     try:
+#         for geom, prop in feat_tuple:
+#             if geom:
+#                 feature = {
+#                     'geometry': mapping(geom),
+#                     'properties': prop
+#                 }
 
-                out_line_file.write(feature)
-    except Exception as e:
-        print(e)
+#                 out_line_file.write(feature)
+#     except Exception as e:
+#         print(e)
 
-    out_line_file.close()
+#     out_line_file.close()
 
 
 def vector_crs(in_vector):

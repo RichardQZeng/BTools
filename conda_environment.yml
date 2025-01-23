@@ -13,7 +13,6 @@ dependencies:
   - dask
   - dask-expr
   - distributed
-  - fiona
   - gdal=3.9.3
   - geopandas
   - pyogrio>=0.9.0

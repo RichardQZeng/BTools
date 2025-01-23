@@ -403,70 +403,6 @@
                     ]
                 },
                 {
-                    "name": "Least Cost Path from CHM",
-                    "info": "Finding Least Cost path from Corridor between line vertices using CHM.",
-                    "multiprocessing": true,
-                    "batch_processing": true,
-                    "tool_type": "python",
-                    "tool_api": "least_cost_path_from_chm",
-                    "paramFile": "\\Scripts\\FLM_CL_params.txt",
-                    "image": "../Images/FLM_IO_CenterLine.gif",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Mapping/Centerline.html",
-                    "parameters":[
-                        {
-							"variable": "in_line",
-                            "parameter": "Forest Lines Feature Class",
-                            "description": "Input polyline shapefile.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-							"variable": "in_chm",
-                            "parameter": "CHM Raster",
-                            "description": "Input raster image used to calculate the least cost path.",
-                            "type": "raster",
-                            "typelab": "TIF",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-							"variable": "line_radius",
-                            "parameter": "Line Processing Radius",
-                            "description": "Maximum processing distance from input lines. A large search radius may increase processing times whereas a small radius may cause undesired clipping.",
-                            "type": "number",
-                            "typelab": "float",
-                            "default": 15.0,
-                            "output": false,
-                            "optional": true
-                        },
-                        {
-							"variable": "proc_segments",
-                            "parameter": "Process Segments",
-                            "description": "If set to True, will process each segment between each vertex of the input lines separately. If set to False, will process each line from start to end ignoring midpoints. The default is True, since it is assumed that the input lines for this tool are lines manually digitized at regional-scale with sparse vertices at a fine-scale. If using fine-scale (1:1,000) lines as input this may be set to False.",
-                            "type": "list",
-                            "typelab": "bool",
-                            "data": [true, false],
-                            "default": true,
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-							"variable": "out_line",
-                            "parameter": "Output Centerline",
-                            "description": "Output centerline shapefile.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
-                },
-                {
                     "name": "Centerline",
                     "info": "Determines the least cost path between vertices of the input lines.",
                     "multiprocessing": true,
@@ -830,49 +766,6 @@
             "category": "Attribution",
             "description":"Tools used to generate attributes in the lines created with the Mapping Tools.",
             "tools": [
-                {
-                    "name": "Forest Line Ecosite Type",
-                    "info": "Assign ecosite type to line segments",
-                    "multiprocessing": true,
-                    "batch_processing": true,
-                    "tool_type": "python",
-                    "tool_api": "forest_line_ecosite",
-                    "paramFile": "\\Scripts\\FLM_FLA_params.txt",
-                    "image": "../Images/FLM_IO_ForestLineEcosite.gif",
-                    "tech_link": "https://forest-line-mapper.readthedocs.io/en/latest/Tools/Attribution/ForestLineEcosite.html",
-                    "parameters":[
-                        {
-                            "variable": "in_line",
-                            "parameter": "Input Lines",
-                            "description": "Input forest line center shapefile which will be segmented and attributed.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "in_ecosite",
-                            "parameter": "Input Ecosite Polygons",
-                            "description": "Input ecosite type polygons.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": false,
-                            "optional": false
-                        },
-                        {
-                            "variable": "out_line",
-                            "parameter": "Output Attributed Segments",
-                            "description": "Output features that will be created.",
-                            "type": "vector",
-                            "typelab": "SHP",
-                            "default": "",
-                            "output": true,
-                            "optional": false
-                        }
-                    ]
-                },
                 {
                     "name": "Forest Line Attributes",
                     "info": "Calculates a series of attributes related to forest line shape, size and microtopography. Line-derived attributes include: length, bearing, orientation and sinuosity; Polygon-derived attributes include: area, average width, perimeter and perimeter-area ratio; CHM-derived attributes include: average vegetation height, vegetation volume and vegetation roughness.",
