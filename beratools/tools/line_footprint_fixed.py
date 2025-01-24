@@ -1,3 +1,18 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng, Maverick Fong
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    This file hosts the line_footprint_fixed tool.
+"""
 import time
 import math
 from itertools import chain
@@ -19,6 +34,8 @@ FP_FIXED_WIDTH_DEFAULT = 5.0
 
 def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):
     """
+    Generate arguments for each line in the GeoDataFrame.
+
     Args:
         line_gdf
         poly_gdf
@@ -65,8 +82,9 @@ def generate_sample_points(line, n_samples=10):
         line (LineString): The line along which to generate points.
         n_samples (int): The number of points to generate (default is 10).
 
-    Returns
+    Returns:
         list:  List of shapely Point objects.
+
     """
     # TODO: determine line type
     try:
@@ -120,12 +138,15 @@ def process_single_line(line_arg):
 
 def generate_fixed_width_footprint(line_gdf, max_width=False):
     """
-    Creates a buffer around each line in the GeoDataFrame using its 'max_width' attribute and
+    Create a buffer around each line.
+     
+    In the GeoDataFrame using its 'max_width' attribute and
     saves the resulting polygons in a new shapefile.
 
-    Parameters:
-    - line_gdf: A GeoDataFrame containing LineString geometries with 'max_width' attribute.
-    - output_file_path: The path where the output shapefile will be stored.
+    Args:
+    line_gdf: GeoDataFrame containing LineString with 'max_width' attribute.
+    max_width: Use max width or not to produce buffer.
+
     """
     # Create a new GeoDataFrame with the buffer polygons
     buffer_gdf = line_gdf.copy(deep=True)
@@ -163,12 +184,14 @@ def smooth_linestring(line, tolerance=1.0):
     """
     Smooths a LineString geometry using the Ramer-Douglas-Peucker algorithm.
 
-    Parameters:
-    - line: The LineString geometry to smooth.
-    - tolerance: The maximum distance from a point to a line for the point to be considered part of the line.
+    Args:
+    line: The LineString geometry to smooth.
+    tolerance: The maximum distance from a point to a line for the point 
+        to be considered part of the line.
 
     Returns:
     The smoothed LineString geometry.
+
     """
     # simplified_line = line.simplify(tolerance)
     simplified_line = line
@@ -176,9 +199,7 @@ def smooth_linestring(line, tolerance=1.0):
 
 
 def calculate_average_width(line, polygon, offset, n_samples):
-    """
-    Calculates the average width of a polygon perpendicular to the given line.
-    """
+    """Calculate the average width of a polygon perpendicular to the given line."""
     # Smooth the line
     line = smooth_linestring(line, tolerance=1.0)
 

@@ -14,8 +14,6 @@ Description:
     This file hosts cost raster related functions.
 """
 import numpy as np
-import xrspatial
-import xarray as xr
 import scipy
 import beratools.core.constants as bt_const
 
@@ -45,8 +43,10 @@ def cost_raster(
     kernel = circle_kernel_refactor(2 * kernel_radius + 1, kernel_radius)
     dyn_canopy_ndarray = dyn_np_cc_map(in_raster, canopy_ht_threshold)
 
-    cc_std, cc_mean = dyn_fs_raster_stdmean_refactor(dyn_canopy_ndarray, kernel)
-    cc_smooth = dyn_smooth_cost_refactor(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
+    cc_std, cc_mean = cost_focal_stats(dyn_canopy_ndarray, kernel)
+    cc_smooth = cost_norm_dist_transform(
+        dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y]
+    )
 
     cost_clip = dyn_np_cost_raster_refactor(
         dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
@@ -74,7 +74,7 @@ def dyn_np_cc_map(in_chm, canopy_ht_threshold):
     canopy_ndarray = np.ma.where(in_chm >= canopy_ht_threshold, 1.0, 0.0).astype(float)
     return canopy_ndarray
 
-def dyn_fs_raster_stdmean_refactor(canopy_ndarray, kernel):
+def cost_focal_stats(canopy_ndarray, kernel):
     mask = canopy_ndarray.mask
     in_ndarray = np.ma.where(mask, np.nan, canopy_ndarray)
 
@@ -95,7 +95,7 @@ def dyn_fs_raster_stdmean_refactor(canopy_ndarray, kernel):
 
     return std_array, mean_array
 
-def dyn_smooth_cost_refactor(canopy_ndarray, max_line_dist, sampling):
+def cost_norm_dist_transform(canopy_ndarray, max_line_dist, sampling):
     """Compute a distance-based cost map based on the proximity of valid data points."""
     # Convert masked array to a regular array and fill the masked areas with np.nan
     in_ndarray = canopy_ndarray.filled(np.nan)
@@ -105,7 +105,7 @@ def dyn_smooth_cost_refactor(canopy_ndarray, max_line_dist, sampling):
         np.logical_not(np.isnan(in_ndarray)), sampling=sampling
     )
     
-    # Apply the mask back to set the distances to np.nan where the original mask was True
+    # Apply the mask back to set the distances to np.nan
     euc_dist_array[canopy_ndarray.mask] = np.nan
     
     # Calculate the smoothness (cost) array

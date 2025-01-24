@@ -1,3 +1,18 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng, Maverick Fong
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    This file hosts code to deal with line grouping and merging, cleanups.
+"""
 import numpy as np
 import enum
 from collections import defaultdict
@@ -47,7 +62,7 @@ TRANSECT_LENGTH = 20
 
 
 def points_in_line(line):
-    """return point list of line"""
+    """Get point list of line."""
     point_list = []
     try:
         for point in list(line.coords):  # loops through every point in a line
@@ -62,9 +77,12 @@ def points_in_line(line):
 
 def get_angle(line, end_index):
     """
-    Calculate the angle of the first or last segment
+    Calculate the angle of the first or last segment.
+
+    Args:
     line: sh_geom.LineString
     end_index: 0 or -1 of the line vertices. Consider the multipart.
+
     """
     pts = points_in_line(line)
 
@@ -127,11 +145,11 @@ class VertexNode:
             self.add_line(SingleLine(line_id, line, sim_line, vertex_index, group))
 
     def set_vertex(self, line, vertex_index):
-        """Set vertex coordinates"""
+        """Set vertex coordinates."""
         self.vertex = shapely.force_2d(shapely.get_point(line, vertex_index))
 
     def add_line(self, line_class):
-        """Common function for adding line when creating or merging other VertexNode"""
+        """Add line when creating or merging other VertexNode."""
         self.line_list.append(line_class)
         self.set_vertex(line_class.line, line_class.vertex_index)
 
@@ -151,7 +169,7 @@ class VertexNode:
                 i.update_line(line)
 
     def merge(self, vertex):
-        """merge other VertexNode if they have same vertex coords"""
+        """Merge other VertexNode if they have same vertex coords."""
         self.add_line(vertex.line_list[0])
 
     def trim_end(self, idx, poly):
@@ -188,10 +206,7 @@ class VertexNode:
         return idx, poly
 
     def trim_intersection(self, polys):
-        """
-        polys: GeoSeries of polygons
-        """
-        # other classes
+        """Trim intersection of lines and polygons."""
         poly_trim_list = []
         primary_lines = []
 
@@ -262,7 +277,7 @@ class VertexNode:
             self.vertex_class = VertexClass.SINGLE_WAY
 
     def has_group_attr(self):
-        """If all values in group list are valid value, return True"""
+        """If all values in group list are valid value, return True."""
         for i in self.line_list:
             if not i.group:
                 return False
@@ -301,7 +316,7 @@ class VertexNode:
                 self.line_connected.append(value)
 
     def group_line_by_angle(self):
-        """generate connectivity of all lines"""
+        """Generate connectivity of all lines."""
         if len(self.line_list) == 1:
             return
 
@@ -346,6 +361,8 @@ class VertexNode:
 
 
 class LineGrouping:
+    """Class to group lines and merge them."""
+    
     def __init__(self, in_line):
         # remove empty and null geometry
         self.lines = in_line.copy()
@@ -435,9 +452,7 @@ class LineGrouping:
             group += 1
 
     def update_line_in_vertex_node(self, line_id, line):
-        """
-        Update line in VertexNode after trimming
-        """
+        """Update line in VertexNode after trimming."""
         idx = self.v_index.query(line)
         for i in idx:
             v = self.vertex_list[i]
@@ -482,7 +497,9 @@ class LineGrouping:
                     self.polys.at[p_trim.poly_index, "geometry"] = p_trim.poly_cleanup
                     self.lines.at[p_trim.line_index, "geometry"] = p_trim.line_cleanup
                     # update VertexNode's line
-                    self.update_line_in_vertex_node(p_trim.line_index, p_trim.line_cleanup)
+                    self.update_line_in_vertex_node(
+                        p_trim.line_index, p_trim.line_cleanup
+                    )
 
     def get_merged_lines_original(self):
         return self.lines.dissolve(by=GROUP_ATTRIBUTE)
@@ -498,6 +515,7 @@ class LineGrouping:
     def run_regrouping(self):
         """
         Run this when new lines are added to grouped file.
+
         Some new lines has empty group attributes
         """
         pass
@@ -530,8 +548,9 @@ class LineGrouping:
 
     def check_geom_validity(self):
         """
-        Check sh_geom.MultiLineString and sh_geom.MultiPolygon in line and polygon dataframe
-        Save multis to sperate layers for user to double check
+        Check MultiLineString and MultiPolygon in line and polygon dataframe.
+
+        Save to separate layers for user to double check
         """
         #  remove null geometry
         # TODO make sure lines and polygons match in pairs
@@ -575,7 +594,7 @@ class LineGrouping:
 
 @dataclass
 class PolygonTrimming:
-    """Store polygon and line to trim. Primary polygon is used to trim both"""
+    """Store polygon and line to trim. Primary polygon is used to trim both."""
 
     poly_primary: sh_geom.MultiPolygon = field(default=None)
     poly_index: int = field(default=-1)
