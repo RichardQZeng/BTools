@@ -27,7 +27,7 @@ import queue
 from collections import defaultdict
 
 import rasterio
-import shapely.geometry as shp_geom
+import shapely.geometry as sh_geom
 import skimage.graph as sk_graph
 import beratools.core.constants as bt_const
 
@@ -59,7 +59,7 @@ class MinCostPathHelper:
     def create_path_feature_from_points(path_points, attr_vals):
         path_points_raw = [[pt.x, pt.y] for pt in path_points]
 
-        return shp_geom.LineString(path_points_raw), attr_vals
+        return sh_geom.LineString(path_points_raw), attr_vals
 
     @staticmethod
     def block2matrix_numpy(block, nodata):
@@ -369,15 +369,15 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
             type(pt_start[1]) is tuple or
             type(pt_end[0]) is tuple or
             type(pt_end[1]) is tuple):
-        print("shp_geom.Point initialization error. Input is tuple.")
+        print("sh_geom.Point initialization error. Input is tuple.")
         return default_return
 
     start_tuples = []
     end_tuples = []
     start_tuple = []
     try:
-        start_tuples = [(transformer.rowcol(pt_start[0], pt_start[1]), shp_geom.Point(pt_start[0], pt_start[1]), 0)]
-        end_tuples = [(transformer.rowcol(pt_end[0], pt_end[1]), shp_geom.Point(pt_end[0], pt_end[1]), 1)]
+        start_tuples = [(transformer.rowcol(pt_start[0], pt_start[1]), sh_geom.Point(pt_start[0], pt_start[1]), 0)]
+        end_tuples = [(transformer.rowcol(pt_end[0], pt_end[1]), sh_geom.Point(pt_end[0], pt_end[1]), 1)]
         start_tuple = start_tuples[0]
         end_tuple = end_tuples[0]
 
@@ -416,7 +416,7 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
     # feat_attr = (start_tuple[2], end_tuple[2], total_cost)
     lc_path = None
     if len(path_points) >= 2:
-        lc_path = shp_geom.LineString(path_points)
+        lc_path = sh_geom.LineString(path_points)
 
     return lc_path
 
@@ -449,6 +449,6 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
         print('No least cost path detected, pass.')
         return None
     else:
-        lc_path_new = shp_geom.LineString(lc_path_new)
+        lc_path_new = sh_geom.LineString(lc_path_new)
 
     return lc_path_new

@@ -32,6 +32,7 @@ import beratools.tools.common as bt_common
 import beratools.core.constants as bt_const
 import beratools.core.tool_base as bt_base
 import beratools.core.algo_common as algo_common
+import beratools.core.algo_cost as algo_cost
 
 
 class Side(StrEnum):
@@ -441,7 +442,7 @@ class LineInfo:
 
         # Work out the corridor from both end of the centerline
         try:
-            if len(in_cost_r.sh_geom.shape) > 2:
+            if len(in_cost_r.shape) > 2:
                 in_cost_r = np.squeeze(in_cost_r, axis=0)
 
             algo_cost.remove_nan_from_array(in_cost_r)
@@ -457,7 +458,7 @@ class LineInfo:
             # Rasterize points along line
             rasterized_points_Alongln = ras_feat.rasterize(
                 multipoint_along_line,
-                out_shape=in_cost_r.shp_geom.shape,
+                out_shape=in_cost_r.shape,
                 transform=in_transform,
                 fill=0,
                 all_touched=True,
