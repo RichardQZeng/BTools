@@ -61,3 +61,61 @@ def dyn_np_cost_raster(
     result = np.power(eM, float(cost_raster_exponent))
 
     return result
+
+# Function using scipy.ndimage.generic_filter (new version)
+def dyn_fs_raster_stdmean_scipy(canopy_ndarray, kernel, nodata):
+    # Ensure the input array is a float type to accommodate NaN values
+    in_ndarray = canopy_ndarray.astype(float)
+
+    # Mask the array where the nodata values are present
+    mask = in_ndarray == nodata
+    in_ndarray[mask] = np.NaN  # Replace nodata values with NaN
+
+    # Function to compute mean and standard deviation
+    def calc_mean(arr):
+        return np.nanmean(arr)
+
+    def calc_std(arr):
+        return np.nanstd(arr)
+
+    # Apply the generic_filter function to compute mean and std
+    mean_array = ndimage.generic_filter(in_ndarray, calc_mean, footprint=kernel, mode='nearest')
+    std_array = ndimage.generic_filter(in_ndarray, calc_std, footprint=kernel, mode='nearest')
+
+    return std_array, mean_array
+
+from scipy.spatial.distance import cdist
+
+# Function to create a circular kernel using Scipy
+def circle_kernel_scipy(size, radius):
+    """
+
+    Parameters
+    ----------
+    size :
+    radius :
+
+    Returns
+    -------
+
+    Examples:
+    kernel_scipy = create_circle_kernel_scipy(17, 8)
+    will replicate xrspatial kernel
+    cell_x = 0.3
+    cell_y = 0.3
+    tree_radius = 2.5
+    xrspatial.convolution.circle_kernel(cell_x, cell_y, tree_radius)
+
+    """
+    # Create grid points (mesh)
+    y, x = np.ogrid[:size, :size]
+
+    # Center of the kernel
+    center_x, center_y = (size - 1) / 2, (size - 1) / 2
+
+    # Calculate the distance from the center
+    distance = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
+
+    # Create a circular kernel
+    kernel = distance <= radius
+    return kernel.astype(float)
