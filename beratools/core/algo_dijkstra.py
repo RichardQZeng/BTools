@@ -369,7 +369,7 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
             type(pt_start[1]) is tuple or
             type(pt_end[0]) is tuple or
             type(pt_end[1]) is tuple):
-        print("sh_geom.Point initialization error. Input is tuple.")
+        print("Point initialization error. Input is tuple.")
         return default_return
 
     start_tuples = []

@@ -191,7 +191,7 @@ class VertexNode:
         # check geom_type
         none_poly = False
         for geom in split_poly.geoms:
-            if geom.geom_type != "sh_geom.Polygon":
+            if geom.geom_type != "Polygon":
                 none_poly = True
 
         if none_poly:
@@ -533,7 +533,7 @@ class LineGrouping:
         num = 0
         for i in out_line_gdf.itertuples():
             num += 1
-            if i.geometry.geom_type == "sh_geom.MultiLineString":
+            if i.geometry.geom_type == "MultiLineString":
                 worker = MergeLines(i.geometry)
                 merged_line = worker.merge_all_lines()
                 if merged_line:
@@ -561,7 +561,7 @@ class LineGrouping:
 
         # save sh_geom.MultiLineString and sh_geom.MultiPolygon
         self.invalid_polys = self.polys[
-            (self.polys.geometry.geom_type == "sh_geom.MultiPolygon")
+            (self.polys.geometry.geom_type == "MultiPolygon")
         ]
 
         # check lines
@@ -572,7 +572,7 @@ class LineGrouping:
         self.valid_lines.reset_index(inplace=True, drop=True)
 
         self.invalid_lines = self.merged_lines_trimmed[
-            (self.merged_lines_trimmed.geometry.geom_type == "sh_geom.MultiLineString")
+            (self.merged_lines_trimmed.geometry.geom_type == "MultiLineString")
         ]
         self.invalid_lines.reset_index(inplace=True, drop=True)
 
@@ -609,9 +609,9 @@ class PolygonTrimming:
             return
 
         diff = self.poly_cleanup.difference(self.poly_primary)
-        if diff.geom_type == "sh_geom.Polygon":
+        if diff.geom_type == "Polygon":
             self.poly_cleanup = diff
-        elif diff.geom_type == "sh_geom.MultiPolygon":
+        elif diff.geom_type == "MultiPolygon":
             area = self.poly_cleanup.area
             reserved = []
             for i in diff.geoms:
@@ -630,9 +630,9 @@ class PolygonTrimming:
         if diff.geom_type == "GeometryCollection":
             geoms = []
             for item in diff.geoms:
-                if item.geom_type == "sh_geom.LineString":
+                if item.geom_type == "LineString":
                     geoms.append(item)
-                elif item.geom_type == "sh_geom.MultiLineString":
+                elif item.geom_type == "MultiLineString":
                     print("trim: sh_geom.MultiLineString detected, please check")
             if len(geoms) == 0:
                 return
@@ -641,9 +641,9 @@ class PolygonTrimming:
             else:
                 diff = sh_geom.MultiLineString(geoms)
 
-        if diff.geom_type == "sh_geom.LineString":
+        if diff.geom_type == "LineString":
             self.line_cleanup = diff
-        elif diff.geom_type == "sh_geom.MultiLineString":
+        elif diff.geom_type == "MultiLineString":
             length = self.line_cleanup.length
             reserved = []
             for i in diff.geoms:
