@@ -49,7 +49,7 @@ class BTData(object):
         self.get_user_folder()
 
         # set maximum available cpu core for tools
-        self.max_cpu_cores = min(bt_const.BT_MAXIMUM_CPU_CORES, os.cpu_count())
+        self.max_cpu_cores = os.cpu_count()
 
         # load bera tools
         self.tool_history = []

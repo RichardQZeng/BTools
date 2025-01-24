@@ -1,13 +1,13 @@
 import time
+import math
 from itertools import chain
 from pathlib import Path
 
-from math import isclose
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-import shapely.ops
-from shapely.geometry import Polygon, MultiPolygon, MultiLineString, mapping, Point
+import shapely.ops as sh_ops
+import shapely.geometry as sh_geom
 
 import beratools.tools.common as bt_common
 import beratools.core.algo_common as algo_common
@@ -15,6 +15,7 @@ from beratools.core.tool_base import execute_multiprocessing
 import beratools.core.constants as bt_const
 from beratools.core.algo_line_grouping import LineGrouping
 
+FP_FIXED_WIDTH_DEFAULT = 5.0
 
 def prepare_line_args(line_gdf, poly_gdf, n_samples, offset):
     """
@@ -72,11 +73,11 @@ def generate_sample_points(line, n_samples=10):
         pts = line.coords
     except Exception as e:  # TODO: check the code
         print(e)
-        line = shapely.ops.linemerge(line)
-        tuple_coord = mapping(line)["coordinates"]
+        line = sh_ops.linemerge(line)
+        tuple_coord = sh_geom.mapping(line)["coordinates"]
         pts = list(chain(*tuple_coord))
 
-    return [Point(item) for item in pts]
+    return [sh_geom.Point(item) for item in pts]
 
 
 def process_single_line(line_arg):
@@ -92,11 +93,11 @@ def process_single_line(line_arg):
 
     # Calculate the 75th percentile width
     # filter zeros in width array
-    arr_filter = [False if isclose(i, 0.0) else True for i in widths]
+    arr_filter = [False if math.isclose(i, 0.0) else True for i in widths]
     widths = widths[arr_filter]
 
-    q3_width = bt_const.FP_FIXED_WIDTH_DEFAULT
-    q4_width = bt_const.FP_FIXED_WIDTH_DEFAULT
+    q3_width = FP_FIXED_WIDTH_DEFAULT
+    q4_width = FP_FIXED_WIDTH_DEFAULT
     try:
         q3_width = np.percentile(widths, 40)
         q4_width = np.percentile(widths, 90)
@@ -193,11 +194,11 @@ def calculate_average_width(line, polygon, offset, n_samples):
     # remove polygon holes
     poly_list = []
     for geom in polygon.geometry:
-        if type(geom) is MultiPolygon:
+        if type(geom) is sh_geom.MultiPolygon:
             for item in geom.geoms:
-                poly_list.append(Polygon(list(item.exterior.coords)))
+                poly_list.append(sh_geom.Polygon(list(item.exterior.coords)))
         else:
-            poly_list.append(Polygon(list(geom.exterior.coords)))
+            poly_list.append(sh_geom.Polygon(list(geom.exterior.coords)))
 
     polygon_no_holes = gpd.GeoDataFrame(geometry=poly_list, crs=polygon.crs)
 
@@ -216,7 +217,7 @@ def calculate_average_width(line, polygon, offset, n_samples):
         try:
             for inter in intersections:
                 if not inter.is_empty:
-                    if type(inter) is MultiLineString:
+                    if type(inter) is sh_geom.MultiLineString:
                         line_list += list(inter.geoms)
                     else:
                         line_list.append(inter)
@@ -235,8 +236,8 @@ def calculate_average_width(line, polygon, offset, n_samples):
     return (
         widths,
         line,
-        MultiLineString(perp_lines),
-        MultiLineString(perp_lines_original),
+        sh_geom.MultiLineString(perp_lines),
+        sh_geom.MultiLineString(perp_lines_original),
     )
 
 

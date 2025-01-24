@@ -1,8 +1,69 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    This file hosts cost raster related functions.
+"""
 import numpy as np
 import xrspatial
 import xarray as xr
-from scipy import ndimage
+import scipy
 import beratools.core.constants as bt_const
+
+def cost_raster(
+    in_raster,
+    meta,
+    tree_radius=2.5,
+    canopy_ht_threshold=bt_const.FP_CORRIDOR_THRESHOLD,
+    max_line_dist=2.5,
+    canopy_avoid=0.4,
+    cost_raster_exponent=1.5,
+):
+    """
+    General version of cost_raster.
+
+    To be merged later: variables and consistent nodata solution
+
+    """
+    if len(in_raster.shape) > 2:
+        in_raster = np.squeeze(in_raster, axis=0)
+    
+    # regulate canopy_avoid between 0 and 1
+    avoidance = max(0, min(1, canopy_avoid))
+    cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
+
+    # kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, tree_radius)
+    # dyn_canopy_ndarray = dyn_np_cc_map(in_raster, canopy_ht_threshold, bt_const.BT_NODATA)
+    # cc_std, cc_mean = dyn_fs_raster_stdmean_refactor(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
+    # cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
+    # cost_clip = dyn_np_cost_raster(
+    #     dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
+    # )
+    kernel_radius = int(tree_radius / cell_x)
+    kernel = circle_kernel_refactor(2 * kernel_radius + 1, kernel_radius)
+    dyn_canopy_ndarray = dyn_np_cc_map(in_raster, canopy_ht_threshold)
+    
+    cc_std, cc_mean = dyn_fs_raster_stdmean_refactor(dyn_canopy_ndarray, kernel)
+    cc_smooth = dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
+
+    cost_clip = dyn_np_cost_raster_refactor(
+        dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
+    )
+
+    # TODO use nan or BT_DATA?
+    cost_clip[in_raster == bt_const.BT_NODATA] = np.nan
+    dyn_canopy_ndarray[in_raster == bt_const.BT_NODATA] = np.nan
+
+    return cost_clip, dyn_canopy_ndarray
 
 def remove_nan_from_array(matrix):
     with np.nditer(matrix, op_flags=["readwrite"]) as it:
@@ -10,41 +71,91 @@ def remove_nan_from_array(matrix):
             if np.isnan(x[...]):
                 x[...] = bt_const.BT_NODATA_COST
 
-def dyn_np_cc_map(in_chm, canopy_ht_threshold, nodata):
-    canopy_ndarray = np.ma.where(in_chm >= canopy_ht_threshold, 1.0, 0.0).astype(float)
-    canopy_ndarray.fill_value = nodata
+def remove_nan_from_array_refactor(matrix, replacement_value):
+    # Use boolean indexing to replace nan values
+    matrix[np.isnan(matrix)] = replacement_value
 
+def dyn_np_cc_map(in_chm, canopy_ht_threshold):
+    """
+    Create a new canopy raster.
+
+    MaskedArray based on the threshold comparison of in_chm (canopy height model) 
+    with canopy_ht_threshold. It assigns 1.0 where the condition is True (canopy) 
+    and 0.0 where the condition is False (non-canopy).
+
+    """
+    canopy_ndarray = np.ma.where(in_chm >= canopy_ht_threshold, 1.0, 0.0).astype(float)
     return canopy_ndarray
 
 def dyn_fs_raster_stdmean(canopy_ndarray, kernel, nodata):
     # This function uses xrspatial which can handle large data but slow
     mask = canopy_ndarray.mask
-    in_ndarray = np.ma.where(mask == True, np.NaN, canopy_ndarray)
+    in_ndarray = np.ma.where(mask == True, np.nan, canopy_ndarray)
     result_ndarray = xrspatial.focal.focal_stats(
         xr.DataArray(in_ndarray.data), kernel, stats_funcs=["std", "mean"]
     )
 
-    # Assign std and mean ndarray (return array contain NaN value)
+    # Assign std and mean ndarray (return array contain nan value)
     reshape_std_ndarray = result_ndarray[0].data
     reshape_mean_ndarray = result_ndarray[1].data
 
     return reshape_std_ndarray, reshape_mean_ndarray
 
+# Function using scipy.ndimage.generic_filter (new version)
+def dyn_fs_raster_stdmean_refactor(canopy_ndarray, kernel):
+    mask = canopy_ndarray.mask
+    in_ndarray = np.ma.where(mask, np.nan, canopy_ndarray)
+
+    # Function to compute mean and standard deviation
+    def calc_mean(arr):
+        return np.nanmean(arr)
+
+    def calc_std(arr):
+        return np.nanstd(arr)
+
+    # Apply the generic_filter function to compute mean and std
+    mean_array = scipy.ndimage.generic_filter(
+        in_ndarray, calc_mean, footprint=kernel, mode="nearest"
+    )
+    std_array = scipy.ndimage.generic_filter(
+        in_ndarray, calc_std, footprint=kernel, mode="nearest"
+    )
+
+    return std_array, mean_array
 
 def dyn_smooth_cost(canopy_ndarray, max_line_dist, sampling):
     mask = canopy_ndarray.mask
-    in_ndarray = np.ma.where(mask == True, np.NaN, canopy_ndarray)
-    # scipy way to do Euclidean distance transform
-    euc_dist_array = ndimage.distance_transform_edt(
+    in_ndarray = np.ma.where(mask == True, np.nan, canopy_ndarray)
+
+    euc_dist_array = scipy.ndimage.distance_transform_edt(
         np.logical_not(np.isnan(in_ndarray.data)), sampling=sampling
     )
-    euc_dist_array[mask == True] = np.NaN
+    euc_dist_array[mask == True] = np.nan
     smooth1 = float(max_line_dist) - euc_dist_array
     smooth1[smooth1 <= 0.0] = 0.0
     smooth_cost_array = smooth1 / float(max_line_dist)
 
     return smooth_cost_array
 
+def dyn_smooth_cost_refactor(canopy_ndarray, max_line_dist, sampling):
+    """Compute a distance-based cost map based on the proximity of valid data points."""
+    # Convert masked array to a regular array and fill the masked areas with np.nan
+    in_ndarray = canopy_ndarray.filled(np.nan)
+    
+    # Compute the Euclidean distance transform (edt) where the valid values are
+    euc_dist_array = scipy.ndimage.distance_transform_edt(
+        np.logical_not(np.isnan(in_ndarray)), sampling=sampling
+    )
+    
+    # Apply the mask back to set the distances to np.nan where the original mask was True
+    euc_dist_array[canopy_ndarray.mask] = np.nan
+    
+    # Calculate the smoothness (cost) array
+    normalized_cost = float(max_line_dist) - euc_dist_array
+    normalized_cost[normalized_cost <= 0.0] = 0.0
+    smooth_cost_array = normalized_cost / float(max_line_dist)
+
+    return smooth_cost_array
 
 def dyn_np_cost_raster(
     canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
@@ -62,41 +173,52 @@ def dyn_np_cost_raster(
 
     return result
 
-# Function using scipy.ndimage.generic_filter (new version)
-def dyn_fs_raster_stdmean_scipy(canopy_ndarray, kernel, nodata):
-    # Ensure the input array is a float type to accommodate NaN values
-    in_ndarray = canopy_ndarray.astype(float)
+def dyn_np_cost_raster_refactor(
+    canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
+):
+    # Calculate the lower and upper bounds for canopy cover (mean ± std deviation)
+    lower_bound = cc_mean - cc_std
+    upper_bound = cc_mean + cc_std
 
-    # Mask the array where the nodata values are present
-    mask = in_ndarray == nodata
-    in_ndarray[mask] = np.NaN  # Replace nodata values with NaN
+    # Calculate the ratio between the lower and upper bounds
+    ratio_lower_upper = np.divide(
+        lower_bound,
+        upper_bound,
+        where=upper_bound != 0,
+        out=np.zeros(lower_bound.shape, dtype=float),
+    )
 
-    # Function to compute mean and standard deviation
-    def calc_mean(arr):
-        return np.nanmean(arr)
+    # Normalize the ratio to a scale between 0 and 1
+    normalized_ratio = (1 + ratio_lower_upper) / 2
 
-    def calc_std(arr):
-        return np.nanstd(arr)
+    # Adjust where the sum of mean and std deviation is less than or equal to zero
+    adjusted_cover = cc_mean + cc_std
+    adjusted_ratio = np.where(adjusted_cover <= 0, 0, normalized_ratio)
 
-    # Apply the generic_filter function to compute mean and std
-    mean_array = ndimage.generic_filter(in_ndarray, calc_mean, footprint=kernel, mode='nearest')
-    std_array = ndimage.generic_filter(in_ndarray, calc_std, footprint=kernel, mode='nearest')
+    # Combine canopy cover ratio with smoothing, weighted by avoidance factor
+    weighted_cover = adjusted_ratio * (1 - avoidance) + (cc_smooth * avoidance)
 
-    return std_array, mean_array
+    # Final cost modification based on canopy presence (masked by canopy_ndarray)
+    final_cost = np.where(canopy_ndarray.data == 1, 1, weighted_cover)
 
-from scipy.spatial.distance import cdist
+    # Apply the exponential transformation to the cost values
+    exponent_cost = np.exp(final_cost)
 
-# Function to create a circular kernel using Scipy
-def circle_kernel_scipy(size, radius):
+    # Raise the cost to the specified exponent
+    result_cost_raster = np.power(exponent_cost, float(cost_raster_exponent))
+
+    return result_cost_raster
+
+def circle_kernel_refactor(size, radius):
     """
+    Create a circular kernel using Scipy.
 
-    Parameters
-    ----------
-    size :
-    radius :
+    Args:
+    size : kernel size
+    radius : radius of the circle
 
-    Returns
-    -------
+    Returns:
+    kernel (ndarray): A circular kernel.
 
     Examples:
     kernel_scipy = create_circle_kernel_scipy(17, 8)

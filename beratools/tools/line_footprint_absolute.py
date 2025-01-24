@@ -27,6 +27,7 @@ import beratools.core.constants as bt_const
 import beratools.core.tool_base as bt_base
 import beratools.core.algo_centerline as algo_cl
 import beratools.core.algo_common as algo_common
+import beratools.core.algo_cost as algo_cost
 
 class FootprintAbsolute:
     """Class to compute the footprint of a line based on absolute threshold."""
@@ -81,7 +82,7 @@ class FootprintAbsolute:
         cell_size_x = out_transform[0]
         cell_size_y = -out_transform[4]
 
-        clip_cost, clip_canopy = algo_common.cost_raster(clip_cost, out_meta)
+        clip_cost, clip_canopy = algo_cost.cost_raster(clip_cost, out_meta)
 
         # Work out the corridor from both end of the centerline
         if len(clip_canopy.shape) > 2:

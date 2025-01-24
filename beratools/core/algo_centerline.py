@@ -26,7 +26,7 @@ import shapely.geometry as sh_geom
 
 from label_centerlines import get_centerline
 import beratools.core.tool_base as bt_base
-import beratools.core.constants as bt_common
+import beratools.core.constants as bt_const
 import beratools.core.algo_common as algo_common
 
 
@@ -48,8 +48,8 @@ def centerline_is_valid(centerline, input_line):
 
     # centerline length less the half of least cost path
     if (centerline.length < input_line.length / 2 or
-            centerline.distance(sh_geom.Point(input_line.coords[0])) > bt_common.BT_EPSILON or
-            centerline.distance(sh_geom.Point(input_line.coords[-1])) > bt_common.BT_EPSILON):
+            centerline.distance(sh_geom.Point(input_line.coords[0])) > bt_const.BT_EPSILON or
+            centerline.distance(sh_geom.Point(input_line.coords[-1])) > bt_const.BT_EPSILON):
         return False
 
     return True
@@ -100,30 +100,32 @@ def find_centerline(poly, input_line):
     status (bt_common.CenterlineStatus): Status of centerline generation
 
     """
-    default_return = input_line, bt_common.CenterlineStatus.FAILED
+    default_return = input_line, bt_const.CenterlineStatus.FAILED
     if not poly:
         print('find_centerline: No polygon found')
         return default_return
 
-    poly = shapely.segmentize(poly, max_segment_length=bt_common.CL_SEGMENTIZE_LENGTH)
+    poly = shapely.segmentize(
+        poly, max_segment_length=bt_const.CenterlineParams.SEGMENTIZE_LENGTH
+    )
 
-    poly = poly.buffer(bt_common.CL_POLYGON_BUFFER)  # buffer to reduce MultiPolygons
+    poly = poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER)  # buffer to reduce MultiPolygons
     if type(poly) is sh_geom.MultiPolygon:
         print('sh_geom.MultiPolygon encountered, skip.')
         return default_return
 
     exterior_pts = list(poly.exterior.coords)
 
-    if bt_common.CL_DELETE_HOLES:
+    if bt_const.CL_DELETE_HOLES:
         poly = sh_geom.Polygon(exterior_pts)
-    if bt_common.CL_SIMPLIFY_POLYGON:
-        poly = poly.simplify(bt_common.CL_SIMPLIFY_LENGTH)
+    if bt_const.CL_SIMPLIFY_POLYGON:
+        poly = poly.simplify(bt_const.CenterlineParams.SIMPLIFY_LENGTH)
 
     line_coords = list(input_line.coords)
 
     # TODO add more code to filter Voronoi vertices
-    src_geom = sh_geom.Point(line_coords[0]).buffer(bt_common.CL_BUFFER_CLIP * 3).intersection(poly)
-    dst_geom = sh_geom.Point(line_coords[-1]).buffer(bt_common.CL_BUFFER_CLIP * 3).intersection(poly)
+    src_geom = sh_geom.Point(line_coords[0]).buffer(bt_const.CenterlineParams.BUFFER_CLIP * 3).intersection(poly)
+    dst_geom = sh_geom.Point(line_coords[-1]).buffer(bt_const.CenterlineParams.BUFFER_CLIP * 3).intersection(poly)
     src_geom = None
     dst_geom = None
 
@@ -133,7 +135,7 @@ def find_centerline(poly, input_line):
             segmentize_maxlen=1,
             max_points=3000,
             simplification=0.05,
-            smooth_sigma=bt_common.CL_SMOOTH_SIGMA,
+            smooth_sigma=bt_const.CenterlineParams.SMOOTH_SIGMA,
             max_paths=1,
             src_geom=src_geom,
             dst_geom=dst_geom,
@@ -148,7 +150,7 @@ def find_centerline(poly, input_line):
     if type(centerline) is sh_geom.MultiLineString:
         if len(centerline.geoms) > 1:
             print(" Multiple centerline segments detected, no further processing.")
-            return centerline, bt_common.CenterlineStatus.SUCCESS  # TODO: inspect
+            return centerline, bt_const.CenterlineStatus.SUCCESS  # TODO: inspect
         elif len(centerline.geoms) == 1:
             centerline = centerline.geoms[0]
         else:
@@ -157,10 +159,10 @@ def find_centerline(poly, input_line):
     cl_coords = list(centerline.coords)
 
     # trim centerline at two ends
-    head_buffer = sh_geom.Point(cl_coords[0]).buffer(bt_common.CL_BUFFER_CLIP)
+    head_buffer = sh_geom.Point(cl_coords[0]).buffer(bt_const.CenterlineParams.BUFFER_CLIP)
     centerline = centerline.difference(head_buffer)
 
-    end_buffer = sh_geom.Point(cl_coords[-1]).buffer(bt_common.CL_BUFFER_CLIP)
+    end_buffer = sh_geom.Point(cl_coords[-1]).buffer(bt_const.CenterlineParams.BUFFER_CLIP)
     centerline = centerline.difference(end_buffer)
 
     if not centerline:
@@ -180,12 +182,12 @@ def find_centerline(poly, input_line):
         try:
             print('Regenerating line ...')
             centerline = regenerate_centerline(poly, input_line)
-            return centerline, bt_common.CenterlineStatus.REGENERATE_SUCCESS
+            return centerline, bt_const.CenterlineStatus.REGENERATE_SUCCESS
         except Exception as e:
             print(f'find_centerline: {e}')
-            return input_line, bt_common.CenterlineStatus.REGENERATE_FAILED
+            return input_line, bt_const.CenterlineStatus.REGENERATE_FAILED
 
-    return centerline, bt_common.CenterlineStatus.SUCCESS
+    return centerline, bt_const.CenterlineStatus.SUCCESS
 
 
 def find_corridor_polygon(corridor_thresh, in_transform, line_gpd):
@@ -307,13 +309,13 @@ def regenerate_centerline(poly, input_line):
     perp = algo_common.generate_perpendicular_line_precise(pts)
 
     # sh_geom.MultiPolygon is rare, but need to be dealt with
-    # remove polygon of area less than bt_common.CL_CLEANUP_POLYGON_BY_AREA
-    poly = poly.buffer(bt_common.CL_POLYGON_BUFFER)
+    # remove polygon of area less than CenterlineParams.CLEANUP_POLYGON_BY_AREA
+    poly = poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER)
     if type(poly) is sh_geom.MultiPolygon:
         poly_geoms = list(poly.geoms)
         poly_valid = [True] * len(poly_geoms)
         for i, item in enumerate(poly_geoms):
-            if item.area < bt_common.CL_CLEANUP_POLYGON_BY_AREA:
+            if item.area < bt_const.CenterlineParams.CLEANUP_POLYGON_BY_AREA:
                 poly_valid[i] = False
 
         poly_geoms = list(compress(poly_geoms, poly_valid))
@@ -322,7 +324,7 @@ def regenerate_centerline(poly, input_line):
 
         poly = sh_geom.Polygon(poly_geoms[0])
 
-    poly_exterior = sh_geom.Polygon(poly.buffer(bt_common.CL_POLYGON_BUFFER).exterior)
+    poly_exterior = sh_geom.Polygon(poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER).exterior)
     poly_split = sh_ops.split(poly_exterior, perp)
 
     if len(poly_split.geoms) < 2:

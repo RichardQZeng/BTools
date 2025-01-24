@@ -32,6 +32,7 @@ import beratools.tools.common as bt_common
 import beratools.core.tool_base as bt_base
 from beratools.core import algo_dijkstra
 import beratools.core.algo_common as algo_common
+import beratools.core.algo_cost as algo_cost
 
 
 def update_line_end_pt(line, index, new_vertex):
@@ -257,14 +258,14 @@ class _Vertex:
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                raster_clip, _ = algo_common.cost_raster(raster_clip, out_meta)
+                raster_clip, _ = algo_cost.cost_raster(raster_clip, out_meta)
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
                 seed_line = sh_geom.LineString(self.anchors[2:4])
 
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                raster_clip, _ = algo_common.cost_raster(raster_clip, out_meta)
+                raster_clip, _ = algo_cost.cost_raster(raster_clip, out_meta)
                 centerline_2 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1 and centerline_2:
@@ -277,7 +278,7 @@ class _Vertex:
                 raster_clip, out_meta = bt_common.clip_raster(
                     self.in_raster, seed_line, self.line_radius
                 )
-                raster_clip, _ = algo_common.cost_raster(raster_clip, out_meta)
+                raster_clip, _ = algo_cost.cost_raster(raster_clip, out_meta)
                 centerline_1 = find_lc_path(raster_clip, out_meta, seed_line)
 
                 if centerline_1:
@@ -354,7 +355,7 @@ class VertexGrouping:
         # all end points not added will stay with this vertex
         vertex = line_obj.get_end_vertex()
         vertex_obj = _Vertex(line_obj)
-        search = self.sindex.query(vertex.buffer(bt_const.CL_POLYGON_BUFFER))
+        search = self.sindex.query(vertex.buffer(bt_const.CenterlineParams.POLYGON_BUFFER))
 
         # add more vertices to the new group
         for i in search:

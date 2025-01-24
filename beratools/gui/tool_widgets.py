@@ -12,6 +12,7 @@ from PyQt5 import QtGui
 
 import beratools.core.constants as bt_const
 
+BT_LABEL_MIN_WIDTH = 130
 
 class ToolWidgets(QtWidgets.QWidget):
     signal_save_tool_params = QtCore.pyqtSignal(object)
@@ -517,7 +518,7 @@ class OptionsInput(QtWidgets.QWidget):
             self.value = params['saved_value']
 
         self.label = QtWidgets.QLabel(self.name)
-        self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
         self.combobox = QtWidgets.QComboBox()
         self.combobox.currentIndexChanged.connect(self.selection_change)
 
@@ -578,7 +579,7 @@ class DataInput(QtWidgets.QWidget):
             self.value = params['saved_value']
 
         self.label = QtWidgets.QLabel(self.name)
-        self.label.setMinimumWidth(bt_const.BT_LABEL_MIN_WIDTH)
+        self.label.setMinimumWidth(BT_LABEL_MIN_WIDTH)
         self.data_input = None
 
         if "Integer" in self.parameter_type:

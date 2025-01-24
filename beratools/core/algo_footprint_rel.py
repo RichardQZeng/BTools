@@ -399,7 +399,7 @@ class LineInfo:
 
         try:
             clipped_rasterC, out_meta = bt_common.clip_raster(in_chm_raster, line_buffer, 0)
-            negative_cost_clip, dyn_canopy_ndarray = algo_common.cost_raster(
+            negative_cost_clip, dyn_canopy_ndarray = algo_cost.cost_raster(
                 clipped_rasterC,
                 out_meta,
                 tree_radius,

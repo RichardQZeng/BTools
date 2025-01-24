@@ -429,6 +429,7 @@ def corridor_raster(
         # change all nan to BT_NODATA_COST for workaround
         if len(raster_clip.shape) > 2:
             raster_clip = np.squeeze(raster_clip, axis=0)
+
         algo_cost.remove_nan_from_array(raster_clip)
 
         # generate the cost raster to source point
@@ -493,39 +494,3 @@ def corridor_raster(
 
 #     return cost_clip, dyn_canopy_ndarray
 
-def cost_raster(
-    in_raster,
-    meta,
-    tree_radius=2.5,
-    canopy_ht_threshold=bt_const.FP_CORRIDOR_THRESHOLD,
-    max_line_dist=2.5,
-    canopy_avoid=0.4,
-    cost_raster_exponent=1.5,
-):
-    """
-    General version of cost_raster.
-
-    To be merged later: variables and consistent nodata solution
-
-    """
-    if len(in_raster.shape) > 2:
-        in_raster = np.squeeze(in_raster, axis=0)
-
-    cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
-
-    kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, tree_radius)
-    dyn_canopy_ndarray = algo_cost.dyn_np_cc_map(in_raster, canopy_ht_threshold, bt_const.BT_NODATA)
-    cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean_scipy(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
-    cc_smooth = algo_cost.dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
-
-    # TODO avoidance, re-use this code
-    avoidance = max(min(float(canopy_avoid), 1), 0)
-    cost_clip = algo_cost.dyn_np_cost_raster(
-        dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, avoidance, cost_raster_exponent
-    )
-
-    # TODO use nan or BT_DATA?
-    cost_clip[in_raster == bt_const.BT_NODATA] = np.nan
-    dyn_canopy_ndarray[in_raster == bt_const.BT_NODATA] = np.nan
-
-    return cost_clip, dyn_canopy_ndarray

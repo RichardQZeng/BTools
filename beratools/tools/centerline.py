@@ -28,6 +28,7 @@ import beratools.core.algo_dijkstra as bt_dijkstra
 import beratools.core.constants as bt_const
 import beratools.tools.common as bt_common
 import beratools.core.algo_common as algo_common
+import beratools.core.algo_cost as algo_cost
 
 from beratools.core.tool_base import execute_multiprocessing
 
@@ -53,7 +54,7 @@ class SeedLine:
         default_return = (seed_line, seed_line, None)
 
         ras_clip, out_meta = bt_common.clip_raster(in_raster, seed_line, line_radius)
-        cost_clip, _ = algo_common.cost_raster(ras_clip, out_meta)
+        cost_clip, _ = algo_cost.cost_raster(ras_clip, out_meta)
 
         lc_path = line
         try:
@@ -88,7 +89,7 @@ class SeedLine:
         ras_clip, out_meta = bt_common.clip_raster(
             in_raster, lc_path, line_radius * 0.9
         )
-        cost_clip, _ = algo_common.cost_raster(ras_clip, out_meta)
+        cost_clip, _ = algo_cost.cost_raster(ras_clip, out_meta)
 
         out_transform = out_meta["transform"]
         transformer = rasterio.transform.AffineTransformer(out_transform)
