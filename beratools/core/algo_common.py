@@ -462,37 +462,45 @@ def corridor_raster(
     return corridor_thresh_cl
 
 
-def cost_raster(in_raster, meta):
-    if len(in_raster.shape) > 2:
-        in_raster = np.squeeze(in_raster, axis=0)
+# def cost_raster(
+#     in_raster,
+#     meta,
+#     tree_radius=2.5,
+#     canopy_ht_threshold=bt_const.FP_CORRIDOR_THRESHOLD,
+#     max_line_dist=2.5,
+#     canopy_avoid=0.4,
+#     cost_raster_exponent=1.5,
+# ):
+#     if len(in_raster.shape) > 2:
+#         in_raster = np.squeeze(in_raster, axis=0)
 
-    cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
+#     cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
 
-    kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, 2.5)
-    dyn_canopy_ndarray = algo_cost.dyn_np_cc_map(in_raster, bt_const.FP_CORRIDOR_THRESHOLD, bt_const.BT_NODATA)
-    cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
-    cc_smooth = algo_cost.dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
+#     kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, 2.5)
+#     dyn_canopy_ndarray = algo_cost.dyn_np_cc_map(in_raster, bt_const.FP_CORRIDOR_THRESHOLD, bt_const.BT_NODATA)
+#     cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
+#     cc_smooth = algo_cost.dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
 
-    # TODO avoidance, re-use this code
-    avoidance = max(min(float(0.4), 1), 0)
-    cost_clip = algo_cost.dyn_np_cost_raster(
-        dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, 0.4, 1.5
-    )
+#     # TODO avoidance, re-use this code
+#     avoidance = max(min(float(0.4), 1), 0)
+#     cost_clip = algo_cost.dyn_np_cost_raster(
+#         dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, 0.4, 1.5
+#     )
 
-    # TODO use nan or BT_DATA?
-    cost_clip[in_raster == bt_const.BT_NODATA] = np.nan
-    dyn_canopy_ndarray[in_raster == bt_const.BT_NODATA] = np.nan
+#     # TODO use nan or BT_DATA?
+#     cost_clip[in_raster == bt_const.BT_NODATA] = np.nan
+#     dyn_canopy_ndarray[in_raster == bt_const.BT_NODATA] = np.nan
 
-    return cost_clip, dyn_canopy_ndarray
+#     return cost_clip, dyn_canopy_ndarray
 
-def cost_raster_2nd_version(
+def cost_raster(
     in_raster,
     meta,
-    tree_radius,
-    canopy_ht_threshold,
-    max_line_dist,
-    canopy_avoid,
-    cost_raster_exponent,
+    tree_radius=2.5,
+    canopy_ht_threshold=bt_const.FP_CORRIDOR_THRESHOLD,
+    max_line_dist=2.5,
+    canopy_avoid=0.4,
+    cost_raster_exponent=1.5,
 ):
     """
     General version of cost_raster.
@@ -507,7 +515,7 @@ def cost_raster_2nd_version(
 
     kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, tree_radius)
     dyn_canopy_ndarray = algo_cost.dyn_np_cc_map(in_raster, canopy_ht_threshold, bt_const.BT_NODATA)
-    cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
+    cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean_scipy(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
     cc_smooth = algo_cost.dyn_smooth_cost(dyn_canopy_ndarray, max_line_dist, [cell_x, cell_y])
 
     # TODO avoidance, re-use this code
