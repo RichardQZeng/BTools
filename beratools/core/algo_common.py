@@ -430,7 +430,7 @@ def corridor_raster(
         if len(raster_clip.shape) > 2:
             raster_clip = np.squeeze(raster_clip, axis=0)
 
-        algo_cost.remove_nan_from_array(raster_clip)
+        algo_cost.remove_nan_from_array_refactor(raster_clip)
 
         # generate the cost raster to source point
         mcp_source = sk_graph.MCP_Geometric(raster_clip, sampling=cell_size)

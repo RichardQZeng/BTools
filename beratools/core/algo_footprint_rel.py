@@ -445,7 +445,7 @@ class LineInfo:
             if len(in_cost_r.shape) > 2:
                 in_cost_r = np.squeeze(in_cost_r, axis=0)
 
-            algo_cost.remove_nan_from_array(in_cost_r)
+            algo_cost.remove_nan_from_array_refactor(in_cost_r)
             in_cost_r[in_cost_r == no_data] = np.inf
 
             # generate 1m interval points along line

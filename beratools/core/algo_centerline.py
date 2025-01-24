@@ -27,7 +27,10 @@ import shapely.geometry as sh_geom
 from label_centerlines import get_centerline
 import beratools.core.tool_base as bt_base
 import beratools.core.constants as bt_const
+import beratools.tools.common as bt_common
 import beratools.core.algo_common as algo_common
+import beratools.core.algo_cost as algo_cost
+import beratools.core.algo_dijkstra as bt_dijkstra
 
 
 def centerline_is_valid(centerline, input_line):
@@ -47,9 +50,13 @@ def centerline_is_valid(centerline, input_line):
         return False
 
     # centerline length less the half of least cost path
-    if (centerline.length < input_line.length / 2 or
-            centerline.distance(sh_geom.Point(input_line.coords[0])) > bt_const.BT_EPSILON or
-            centerline.distance(sh_geom.Point(input_line.coords[-1])) > bt_const.BT_EPSILON):
+    if (
+        centerline.length < input_line.length / 2
+        or centerline.distance(sh_geom.Point(input_line.coords[0]))
+        > bt_const.BT_EPSILON
+        or centerline.distance(sh_geom.Point(input_line.coords[-1]))
+        > bt_const.BT_EPSILON
+    ):
         return False
 
     return True
@@ -97,7 +104,7 @@ def find_centerline(poly, input_line):
 
     Returns:
     centerline (sh_geom.LineString): Centerline
-    status (bt_common.CenterlineStatus): Status of centerline generation
+    status (CenterlineStatus): Status of centerline generation
 
     """
     default_return = input_line, bt_const.CenterlineStatus.FAILED
@@ -109,7 +116,8 @@ def find_centerline(poly, input_line):
         poly, max_segment_length=bt_const.CenterlineParams.SEGMENTIZE_LENGTH
     )
 
-    poly = poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER)  # buffer to reduce MultiPolygons
+    # buffer to reduce MultiPolygons
+    poly = poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER)  
     if type(poly) is sh_geom.MultiPolygon:
         print('sh_geom.MultiPolygon encountered, skip.')
         return default_return
@@ -124,8 +132,16 @@ def find_centerline(poly, input_line):
     line_coords = list(input_line.coords)
 
     # TODO add more code to filter Voronoi vertices
-    src_geom = sh_geom.Point(line_coords[0]).buffer(bt_const.CenterlineParams.BUFFER_CLIP * 3).intersection(poly)
-    dst_geom = sh_geom.Point(line_coords[-1]).buffer(bt_const.CenterlineParams.BUFFER_CLIP * 3).intersection(poly)
+    src_geom = (
+        sh_geom.Point(line_coords[0])
+        .buffer(bt_const.CenterlineParams.BUFFER_CLIP * 3)
+        .intersection(poly)
+    )
+    dst_geom = (
+        sh_geom.Point(line_coords[-1])
+        .buffer(bt_const.CenterlineParams.BUFFER_CLIP * 3)
+        .intersection(poly)
+    )
     src_geom = None
     dst_geom = None
 
@@ -159,18 +175,22 @@ def find_centerline(poly, input_line):
     cl_coords = list(centerline.coords)
 
     # trim centerline at two ends
-    head_buffer = sh_geom.Point(cl_coords[0]).buffer(bt_const.CenterlineParams.BUFFER_CLIP)
+    head_buffer = sh_geom.Point(cl_coords[0]).buffer(
+        bt_const.CenterlineParams.BUFFER_CLIP
+    )
     centerline = centerline.difference(head_buffer)
 
-    end_buffer = sh_geom.Point(cl_coords[-1]).buffer(bt_const.CenterlineParams.BUFFER_CLIP)
+    end_buffer = sh_geom.Point(cl_coords[-1]).buffer(
+        bt_const.CenterlineParams.BUFFER_CLIP
+    )
     centerline = centerline.difference(end_buffer)
 
+    # No centerline detected, use input line instead.
     if not centerline:
-        # print('No centerline detected, use input line instead.')
         return default_return
     try:
+        # Empty centerline detected, use input line instead.
         if centerline.is_empty:
-            # print('Empty centerline detected, use input line instead.')
             return default_return
     except Exception as e:
         print(f'find_centerline: {e}')
@@ -324,7 +344,9 @@ def regenerate_centerline(poly, input_line):
 
         poly = sh_geom.Polygon(poly_geoms[0])
 
-    poly_exterior = sh_geom.Polygon(poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER).exterior)
+    poly_exterior = sh_geom.Polygon(
+        poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER).exterior
+    )
     poly_split = sh_ops.split(poly_exterior, perp)
 
     if len(poly_split.geoms) < 2:
@@ -363,3 +385,94 @@ def regenerate_centerline(poly, input_line):
 
     print("Centerline is regenerated.")
     return sh_ops.linemerge(sh_geom.MultiLineString([center_line_1, center_line_2]))
+
+class SeedLine:
+    """Class to store seed line and least cost path."""
+
+    def __init__(self, line_gdf, ras_file, proc_segments, line_radius):
+        self.line = line_gdf
+        self.raster = ras_file
+        self.line_radius = line_radius
+        self.lc_path = None
+        self.centerline = None
+        self.corridor_poly_gpd = None
+
+    def compute(self):
+        line = self.line.geometry[0]
+        line_radius = self.line_radius
+        in_raster = self.raster
+        seed_line = line  # LineString
+        default_return = (seed_line, seed_line, None)
+
+        ras_clip, out_meta = bt_common.clip_raster(in_raster, seed_line, line_radius)
+        cost_clip, _ = algo_cost.cost_raster(ras_clip, out_meta)
+
+        lc_path = line
+        try:
+            if bt_const.CL_USE_SKIMAGE_GRAPH:
+                # skimage shortest path
+                lc_path = bt_dijkstra.find_least_cost_path_skimage(
+                    cost_clip, out_meta, seed_line
+                )
+            else:
+                lc_path = bt_dijkstra.find_least_cost_path(
+                    cost_clip, out_meta, seed_line
+                )
+        except Exception as e:
+            print(e)
+            return default_return
+
+        if lc_path:
+            lc_path_coords = lc_path.coords
+        else:
+            lc_path_coords = []
+
+        self.lc_path = lc_path
+
+        # search for centerline
+        if len(lc_path_coords) < 2:
+            print("No least cost path detected, use input line.")
+            self.line["status"] = bt_const.CenterlineStatus.FAILED.value
+            return default_return
+
+        # get corridor raster
+        lc_path = sh_geom.LineString(lc_path_coords)
+        ras_clip, out_meta = bt_common.clip_raster(
+            in_raster, lc_path, line_radius * 0.9
+        )
+        cost_clip, _ = algo_cost.cost_raster(ras_clip, out_meta)
+
+        out_transform = out_meta["transform"]
+        transformer = rasterio.transform.AffineTransformer(out_transform)
+        cell_size = (out_transform[0], -out_transform[4])
+
+        x1, y1 = lc_path_coords[0]
+        x2, y2 = lc_path_coords[-1]
+        source = [transformer.rowcol(x1, y1)]
+        destination = [transformer.rowcol(x2, y2)]
+        corridor_thresh_cl = algo_common.corridor_raster(
+            cost_clip,
+            out_meta,
+            source,
+            destination,
+            cell_size,
+            bt_const.FP_CORRIDOR_THRESHOLD,
+        )
+
+        # find contiguous corridor polygon and extract centerline
+        df = gpd.GeoDataFrame(geometry=[seed_line], crs=out_meta["crs"])
+        corridor_poly_gpd = find_corridor_polygon(
+            corridor_thresh_cl, out_transform, df
+        )
+        center_line, status = find_centerline(
+            corridor_poly_gpd.geometry.iloc[0], lc_path
+        )
+        self.line["status"] = status.value
+
+        self.lc_path = self.line.copy()
+        self.lc_path.geometry = [lc_path]
+
+        self.centerline = self.line.copy()
+        self.centerline.geometry = [center_line]
+
+        self.corridor_poly_gpd = corridor_poly_gpd
