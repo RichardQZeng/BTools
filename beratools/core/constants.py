@@ -8,7 +8,6 @@ ASSETS_PATH = "assets"
 
 BT_DEBUGGING = False
 BT_SHOW_ADVANCED_OPTIONS = False
-HAS_COST_RASTER = False
 
 BT_UID = 'BT_UID'
 

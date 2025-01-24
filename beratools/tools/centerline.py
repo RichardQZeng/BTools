@@ -52,10 +52,8 @@ class SeedLine:
         seed_line = line  # LineString
         default_return = (seed_line, seed_line, None)
 
-        cost_clip, out_meta = bt_common.clip_raster(in_raster, seed_line, line_radius)
-
-        if not bt_const.HAS_COST_RASTER:
-            cost_clip, _ = algo_common.cost_raster(cost_clip, out_meta)
+        ras_clip, out_meta = bt_common.clip_raster(in_raster, seed_line, line_radius)
+        cost_clip, _ = algo_common.cost_raster(ras_clip, out_meta)
 
         lc_path = line
         try:
@@ -87,11 +85,10 @@ class SeedLine:
 
         # get corridor raster
         lc_path = LineString(lc_path_coords)
-        cost_clip, out_meta = bt_common.clip_raster(
+        ras_clip, out_meta = bt_common.clip_raster(
             in_raster, lc_path, line_radius * 0.9
         )
-        if not bt_const.HAS_COST_RASTER:
-            cost_clip, _ = algo_common.cost_raster(cost_clip, out_meta)
+        cost_clip, _ = algo_common.cost_raster(ras_clip, out_meta)
 
         out_transform = out_meta["transform"]
         transformer = rasterio.transform.AffineTransformer(out_transform)
@@ -155,7 +152,7 @@ def centerline(
     processes,
     verbose,
     callback=print,
-    parallel_mode=bt_const.PARALLEL_MODE,
+    parallel_mode=bt_const.ParallelMode.SEQUENTIAL,
     in_layer=None,
     out_layer=None,
 ):
