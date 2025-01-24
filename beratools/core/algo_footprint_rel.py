@@ -505,7 +505,7 @@ class LineInfo:
             # Process: ndarray to shapely Polygon
             out_polygon = ras_feat.shapes(clean_raster, mask=mask, transform=in_transform)
 
-            # create a shapely shp_geom.MultiPolygon
+            # create a shapely MultiPolygon
             multi_polygon = []
             for poly, value in out_polygon:
                 multi_polygon.append(sh_geom.shape(poly))
