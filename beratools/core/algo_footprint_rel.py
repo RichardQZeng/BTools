@@ -52,14 +52,14 @@ class FootprintCanopy:
             line = LineInfo(data.iloc[[idx]], in_chm)
             self.lines.append(line)
 
-    @staticmethod
-    def process_single_line(line):
-        line.compute()
-        return line
-    
     def compute(self, parallel_mode):
         result = bt_base.execute_multiprocessing(
-            self.process_single_line, self.lines, "Canopy Footprint", 18, 1, parallel_mode
+            algo_common.process_single_item,
+            self.lines,
+            "Canopy Footprint",
+            18,
+            1,
+            parallel_mode,
         )
 
         fp = [item.footprint for item in result]
@@ -191,7 +191,9 @@ class LineInfo:
             clipped_raster = np.squeeze(clipped_raster, axis=0)
 
             # mask all -9999 (nodata) value cells
-            masked_raster = np.ma.masked_where(clipped_raster == bt_const.BT_NODATA, clipped_raster)
+            masked_raster = np.ma.masked_where(
+                clipped_raster == bt_const.BT_NODATA, clipped_raster
+            )
             filled_raster = np.ma.filled(masked_raster, np.nan)
 
             # Calculate the percentile
@@ -312,7 +314,8 @@ class LineInfo:
         """
         rings = []  # A list to hold the individual buffers
         line = df.geometry.iloc[0]
-        for ring in np.arange(0, ringdist, nrings):  # For each ring (1, 2, 3, ..., nrings)
+        # For each ring (1, 2, 3, ..., nrings)
+        for ring in np.arange(0, ringdist, nrings):  
             big_ring = line.buffer(
                 nrings + ring, single_sided=True, cap_style="flat"
             )  # Create one big buffer
@@ -398,7 +401,9 @@ class LineInfo:
         cost_raster_exponent = float(exponent)
 
         try:
-            clipped_rasterC, out_meta = bt_common.clip_raster(in_chm_raster, line_buffer, 0)
+            clipped_rasterC, out_meta = bt_common.clip_raster(
+                in_chm_raster, line_buffer, 0
+            )
             negative_cost_clip, dyn_canopy_ndarray = algo_cost.cost_raster(
                 clipped_rasterC,
                 out_meta,
@@ -503,7 +508,9 @@ class LineInfo:
                 clean_raster = clean_raster.astype(np.int32)
 
             # Process: ndarray to shapely Polygon
-            out_polygon = ras_feat.shapes(clean_raster, mask=mask, transform=in_transform)
+            out_polygon = ras_feat.shapes(
+                clean_raster, mask=mask, transform=in_transform
+            )
 
             # create a shapely MultiPolygon
             multi_polygon = []
@@ -529,6 +536,7 @@ class LineInfo:
 
 
 if __name__ == "__main__":
+    """This part is to be another version of relative canopy footprint tool."""
     current_file = Path(__file__).resolve()
     current_folder = current_file.parent
     with open(current_folder.joinpath('params_win.yml')) as in_params:
