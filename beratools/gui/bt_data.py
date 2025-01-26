@@ -78,9 +78,7 @@ class BTData(object):
         self.start_minimized = False
 
     def set_bera_dir(self, path_str):
-        """ 
-        Sets the directory to the BERA Tools executable file.
-        """
+        """Set the directory to the BERA Tools executable file."""
         self.current_file_path = path_str
 
     def add_tool_history(self, tool, params):

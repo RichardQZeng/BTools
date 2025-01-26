@@ -13,13 +13,15 @@ Description:
 
     This file hosts code to deal with line grouping and merging, cleanups.
 """
-import numpy as np
 import enum
-from collections import defaultdict
+import numpy as np
+
 from itertools import chain
 from typing import Union
+from collections import defaultdict
 from dataclasses import dataclass, field
 
+import geopandas as gpd
 import networkit as nk
 import shapely
 import shapely.geometry as sh_geom
@@ -363,9 +365,9 @@ class VertexNode:
 class LineGrouping:
     """Class to group lines and merge them."""
     
-    def __init__(self, in_line):
+    def __init__(self, in_line, layer=None) -> None:
         # remove empty and null geometry
-        self.lines = in_line.copy()
+        self.lines = gpd.read_file(in_line, layer=layer)
         self.lines = self.lines[
             ~self.lines.geometry.isna() & ~self.lines.geometry.is_empty
         ]

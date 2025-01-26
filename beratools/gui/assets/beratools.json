@@ -386,6 +386,7 @@
                             "description": "Input polyline shapefile.",
                             "type": "vector",
                             "typelab": "SHP",
+                            "layer": "in_layer",
                             "default": "",
                             "output": false,
                             "optional": false
@@ -396,6 +397,7 @@
                             "description": "Output grouped lines shapefile.",
                             "type": "vector",
                             "typelab": "SHP",
+                            "layer": "out_layer",
                             "default": "",
                             "output": true,
                             "optional": false
