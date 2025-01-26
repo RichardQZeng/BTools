@@ -1,3 +1,18 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    Batch processing dialog.
+"""
 import sys
 import pandas as pd
 from PyQt5 import QtCore
@@ -9,7 +24,7 @@ from beratools.gui.bt_data import BTData
 bt = BTData()
 
 
-class PandasModel(QtCore.QAbstractTableModel):
+class _PandasModel(QtCore.QAbstractTableModel):
     def __init__(self, df=pd.DataFrame(), parent=None):
         QtCore.QAbstractTableModel.__init__(self, parent=None)
         self._df = df
@@ -35,7 +50,11 @@ class PandasModel(QtCore.QAbstractTableModel):
                 return QtCore.QVariant()
 
     def flags(self, index):
-        return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
+        return (
+            QtCore.Qt.ItemIsEnabled
+            | QtCore.Qt.ItemIsSelectable
+            | QtCore.Qt.ItemIsEditable
+        )
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         if index.isValid():
@@ -64,12 +83,13 @@ class PandasModel(QtCore.QAbstractTableModel):
     def sort(self, column, order):
         col_name = self._df.columns.tolist()[column]
         self.layoutAboutToBeChanged.emit()
-        self._df.sort_values(col_name, ascending=order == QtCore.Qt.AscendingOrder, inplace=True)
+        self._df.sort_values(
+            col_name, ascending=order == QtCore.Qt.AscendingOrder, inplace=True
+        )
         self._df.reset_index(inplace=True, drop=True)
         self.layoutChanged.emit()
 
     def insertRows(self, position, rows=1, index=QtCore.QModelIndex()):
-        print("\n\t\t ...insertRows() Starting position: '%s'" % position, 'with the total rows to be inserted: ', rows)
         self.beginInsertRows(QtCore.QModelIndex(), position, position + rows - 1)
         for i in range(rows):
             self._df.loc[len(self._df)] = self.default_record
@@ -78,7 +98,6 @@ class PandasModel(QtCore.QAbstractTableModel):
         return True
 
     def removeRows(self, position, rows=1, index=QtCore.QModelIndex()):
-        print("\n\t\t ...removeRows() Starting position: '%s'" % position, 'with the total rows to be removed: ', rows)
         self.beginRemoveRows(QtCore.QModelIndex(), position, position + rows - 1)
         for i in range(rows):
             self._df.drop(self._df.index[position + i], inplace=True)
@@ -96,6 +115,8 @@ class PandasModel(QtCore.QAbstractTableModel):
 
 
 class BPDialog(QtWidgets.QDialog):
+    """Batch Processing Dialog."""
+
     # signals
     signal_update_tool_widgets = QtCore.pyqtSignal(int)
 
@@ -112,16 +133,22 @@ class BPDialog(QtWidgets.QDialog):
         # table view
         self.table_view = QtWidgets.QTableView()
         self.table_view.verticalHeader().setVisible(True)
-        self.model = PandasModel()
+        self.model = _PandasModel()
         self.table_view.setModel(self.model)
         self.table_view.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.table_view.setSelectionBehavior(self.table_view.SelectRows)
         self.table_view.setSelectionMode(self.table_view.ExtendedSelection)
 
         self.table_view.clicked.connect(self.table_view_clicked)
-        self.table_view.verticalHeader().sectionClicked.connect(self.table_view_vertical_header_clicked)
-        QtWidgets.QShortcut(QtCore.Qt.Key_Up, self.table_view, activated=self.table_view_key_up)
-        QtWidgets.QShortcut(QtCore.Qt.Key_Down, self.table_view, activated=self.table_view_key_down)
+        self.table_view.verticalHeader().sectionClicked.connect(
+            self.table_view_vertical_header_clicked
+        )
+        QtWidgets.QShortcut(
+            QtCore.Qt.Key_Up, self.table_view, activated=self.table_view_key_up
+        )
+        QtWidgets.QShortcut(
+            QtCore.Qt.Key_Down, self.table_view, activated=self.table_view_key_down
+        )
 
         # create form
         self.tool_name = tool_name
@@ -301,8 +328,13 @@ class BPDialog(QtWidgets.QDialog):
         if self.model.setChanged:
             print("is changed, saving?")
             quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-            reply = QtWidgets.QMessageBox.question(self, 'Save Confirmation',
-                                         quit_msg, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.Yes)
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                "Save Confirmation",
+                quit_msg,
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.Yes,
+            )
             if reply == QtWidgets.QMessageBox.Yes:
                 self.write_csv_update()
             else:
@@ -318,9 +350,14 @@ class BPDialog(QtWidgets.QDialog):
             print(self.model.setChanged)
             if self.model.setChanged:
                 print("is changed, saving?")
-                quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-                reply = QtWidgets.QMessageBox.question(self, 'Save Confirmation',
-                                             quit_msg, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.Yes)
+                quit_msg = "<b>The document was changed.<br>Save the changes?</ b>"
+                reply = QtWidgets.QMessageBox.question(
+                    self,
+                    "Save Confirmation",
+                    quit_msg,
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.Yes,
+                )
                 if reply == QtWidgets.QMessageBox.Yes:
                     self.open_csv(self.last_files.currentText())
                 else:
@@ -336,7 +373,7 @@ class BPDialog(QtWidgets.QDialog):
             f.close()
             self.filename = path
 
-            self.model = PandasModel(df)
+            self.model = _PandasModel(df)
             self.table_view.setModel(self.model)
             self.table_view.resizeColumnsToContents()
             self.table_view.selectRow(0)
@@ -349,26 +386,38 @@ class BPDialog(QtWidgets.QDialog):
         model = self.table_view.model()
         for column in range(self.model.columnCount()):
             start = model.index(0, column)
-            matches = model.match(start, QtCore.Qt.DisplayRole, text, -1, QtCore.Qt.MatchContains)
+            matches = model.match(
+                start, QtCore.Qt.DisplayRole, text, -1, QtCore.Qt.MatchContains
+            )
             if matches:
                 for index in matches:
-                    # print(index.row(), index.column())
-                    self.table_view.selectionModel().select(index, QtCore.QItemSelectionModel.Select)
+                    self.table_view.selectionModel().select(
+                        index, QtCore.QItemSelectionModel.Select
+                    )
 
     def open_file(self, path=None):
         print(self.model.setChanged)
         if self.model.setChanged:
             print("is changed, saving?")
-            quit_msg = "<b>The document was changed.<br>Do you want to save the changes?</ b>"
-            reply = QtWidgets.QMessageBox.question(self, 'Save Confirmation',
-                                         quit_msg, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.Yes)
+            quit_msg = "<b>The document was changed.<br>Save the changes?</ b>"
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                "Save Confirmation",
+                quit_msg,
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.Yes,
+            )
             if reply == QtWidgets.QMessageBox.Yes:
                 self.write_csv_update()
             else:
                 print("not saved, loading ...")
                 return
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", QtCore.QDir.homePath() + "/Document/CSV/",
-                                              "CSV Files (*.csv)")
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Open File",
+            QtCore.QDir.homePath() + "/Document/CSV/",
+            "CSV Files (*.csv)",
+        )
         if path:
             return path
 
@@ -378,10 +427,16 @@ class BPDialog(QtWidgets.QDialog):
             print(file_name + " loaded")
             f = open(file_name, 'r+b')
             with f:
-                df = pd.read_csv(f, sep='\t|;|,|\s+', keep_default_na=False, engine='python',
-                                 skipinitialspace=True, skip_blank_lines=True)
+                df = pd.read_csv(
+                    f,
+                    sep="\t|;|,|\s+",
+                    keep_default_na=False,
+                    engine="python",
+                    skipinitialspace=True,
+                    skip_blank_lines=True,
+                )
                 f.close()
-                self.model = PandasModel(df)
+                self.model = _PandasModel(df)
                 self.table_view.setModel(self.model)
                 self.table_view.resizeColumnsToContents()
                 self.table_view.selectRow(0)
@@ -390,7 +445,10 @@ class BPDialog(QtWidgets.QDialog):
         self.last_files.insertItem(1, file_name)
 
     def write_csv(self):
-        file_name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Open File", self.filename, "CSV Files (*.csv)")
+        file_name, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Open File", self.filename, "CSV Files (*.csv)"
+        )
+
         if file_name:
             print(file_name + " saved")
             f = open(file_name, 'w')
