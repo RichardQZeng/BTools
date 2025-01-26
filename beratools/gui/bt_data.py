@@ -88,6 +88,15 @@ class BTData(object):
         self.settings['tool_history'][tool] = params
         self.settings['tool_history'].move_to_end(tool, last=False)
 
+    def remove_tool_history_item(self, index):
+        key = list(self.settings['tool_history'].keys())[index]
+        self.settings['tool_history'].pop(key)
+        self.save_tool_info()
+
+    def remove_tool_history_all(self):
+        self.settings.pop("tool_history")
+        self.save_tool_info()
+
     def save_tool_info(self):
         if self.recent_tool:
             if 'gui_parameters' not in self.settings.keys():

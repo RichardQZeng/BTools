@@ -311,9 +311,11 @@ class BTListView(QtWidgets.QWidget):
     def delete_selected_item(self):
         selection = self.sel_model.currentIndex()
         self.list_model.removeRow(selection.row())
+        bt.remove_tool_history_item(selection.row())
 
     def clear_all_items(self):
         self.list_model.setStringList([])
+        bt.remove_tool_history_all()
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -483,7 +485,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def save_tool_parameter(self):
         # Retrieve tool parameters from GUI
         args = self.tool_widget.get_widgets_arguments()
-        bt.load_saved_tool_info()
+        # bt.load_saved_tool_info()
         bt.add_tool_history(self.tool_api, args)
         bt.save_tool_info()
 
