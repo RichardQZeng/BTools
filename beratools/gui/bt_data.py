@@ -1,11 +1,18 @@
-""" This file is intended to be a helper for running BERA tools from a Python script.
 """
+Copyright (C) 2025 Applied Geospatial Research Group.
 
-# This script is part of the BERA Tools geospatial library.
-# Created: 23/03/2023
-# Author: Richard Zeng
-# License: MIT
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
 
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide main interface for GUI related settings.
+"""
 import os
 import platform
 import json
@@ -17,18 +24,17 @@ running_windows = platform.system() == 'Windows'
 
 
 def default_callback(value):
-    """ 
-    A simple default callback that outputs using the print function. When
-    tools are called without providing a custom callback, this function
+    """
+    Define default callback that outputs using the print function.
+    
+    When tools are called without providing a custom callback, this function
     will be used to print to standard output.
     """
     print(value)
 
 
 class BTData(object):
-    """ 
-    An object for interfacing with the BERA Tools executable.
-    """
+    """An object for interfacing with the BERA Tools executable."""
 
     def __init__(self):
         if running_windows:
@@ -68,7 +74,9 @@ class BTData(object):
         self.setting_file = None
         self.get_data_folder()
         self.get_setting_file()
-        self.gui_setting_file = Path(self.current_file_path).joinpath(bt_const.ASSETS_PATH, r'gui.json')
+        self.gui_setting_file = Path(self.current_file_path).joinpath(
+            bt_const.ASSETS_PATH, r"gui.json"
+        )
 
         self.load_saved_tool_info()
         self.load_gui_data()
@@ -153,9 +161,7 @@ class BTData(object):
         self.setting_file = self.data_folder.joinpath('saved_tool_parameters.json')
 
     def set_max_procs(self, val=-1):
-        """ 
-        Sets the flag used by BERA Tools to determine whether to use compression for output rasters.
-        """
+        """Set the maximum cores to use."""
         self.max_procs = val
         self.save_setting('max_procs', val)
 
@@ -167,7 +173,8 @@ class BTData(object):
 
     def run_tool(self, tool_api, args, callback=None):
         """
-        Runs a tool and specifies tool arguments.
+        Run a tool and specifies tool arguments.
+
         Returns 0 if completes without error.
         Returns 1 if error encountered (details are sent to callback).
         Returns 2 if process is cancelled by user.
@@ -206,9 +213,7 @@ class BTData(object):
         return tool_type, tool_args
 
     def about(self):
-        """ 
-        Retrieves the help description for BERA Tools.
-        """
+        """Retrieve the description for BERA Tools."""
         try:
             about_text = 'BERA Tools provide a series of tools developed by AppliedGRG lab.\n\n'
             about_text += self.ascii_art
@@ -217,9 +222,7 @@ class BTData(object):
             return err
 
     def license(self):
-        """ 
-        Retrieves the license information for BERA Tools.
-        """
+        """Retrieve the license information for BERA Tools."""
         try:
             with open(Path(self.current_file_path).joinpath(r'..\..\LICENSE.txt'), 'r') as f:
                 ret = f.read()
@@ -235,12 +238,14 @@ class BTData(object):
 
         saved_parameters = {}
         json_file = Path(self.setting_file)
-        if json_file.exists():
-            with open(json_file) as open_file:
-                try:
-                    saved_parameters = json.load(open_file, object_pairs_hook=OrderedDict)
-                except json.decoder.JSONDecodeError:
-                    pass
+        if not json_file.exists():
+            return
+
+        with open(json_file) as open_file:
+            try:
+                saved_parameters = json.load(open_file, object_pairs_hook=OrderedDict)
+            except json.decoder.JSONDecodeError:
+                pass
 
         self.settings = saved_parameters
 
@@ -327,11 +332,13 @@ class BTData(object):
 
     def sort_toolboxes(self):
         for toolbox in self.toolbox_list:
-            if toolbox.find('/') == (-1):  # Does not contain a sub toolbox, i.e. does not contain '/'
-                self.upper_toolboxes.append(toolbox)  # add to both upper toolbox list and lower toolbox list
+            # Does not contain a sub toolbox, i.e. does not contain '/'
+            if toolbox.find('/') == (-1):  
+                # add to both upper toolbox list and lower toolbox list
+                self.upper_toolboxes.append(toolbox)
                 self.lower_toolboxes.append(toolbox)
             else:  # Contains a sub toolbox
-                self.lower_toolboxes.append(toolbox)  # add to only the lower toolbox list
+                self.lower_toolboxes.append(toolbox)  # add to the lower toolbox list
 
     def get_bera_toolboxes(self):
         toolboxes = []

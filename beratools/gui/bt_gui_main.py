@@ -1,3 +1,18 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide main GUI functions.
+"""
 import os
 import sys
 import json
@@ -21,8 +36,9 @@ bt = bt_data.BTData()
 
 def simple_percent_parser(output):
     """
-    Matches lines using the progress_re regex,
-    returning a single integer for the % progress.
+    Match lines using the progress_re regex.
+
+    Return a single integer for the % progress.
     """
     m = progress_re.search(output)
     if m:
@@ -30,14 +46,14 @@ def simple_percent_parser(output):
         return int(pc_complete)
 
 
-class SearchProxyModel(QtCore.QSortFilterProxyModel):
+class _SearchProxyModel(QtCore.QSortFilterProxyModel):
 
     def setFilterRegExp(self, pattern):
         if isinstance(pattern, str):
             pattern = QtCore.QRegExp(
                 pattern, QtCore.Qt.CaseInsensitive, QtCore.QRegExp.FixedString
             )
-        super(SearchProxyModel, self).setFilterRegExp(pattern)
+        super(_SearchProxyModel, self).setFilterRegExp(pattern)
 
     def _accept_index(self, idx):
         if idx.isValid():
@@ -55,6 +71,8 @@ class SearchProxyModel(QtCore.QSortFilterProxyModel):
 
 
 class BTTreeView(QtWidgets.QWidget):
+    """Tree view for BERA Tools GUI."""
+
     tool_changed = QtCore.pyqtSignal(str)  # tool selection changed
 
     def __init__(self, parent=None):
@@ -64,7 +82,7 @@ class BTTreeView(QtWidgets.QWidget):
         self.tool_search = QtWidgets.QLineEdit()
         self.tool_search.setPlaceholderText('Search...')
 
-        self.tags_model = SearchProxyModel()
+        self.tags_model = _SearchProxyModel()
         self.tree_model = QtGui.QStandardItemModel()
         self.tags_model.setSourceModel(self.tree_model)
         # self.tags_model.setDynamicSortFilter(True)
@@ -127,9 +145,13 @@ class BTTreeView(QtWidgets.QWidget):
     def add_tool_list_to_tree(self, toolbox_list, sorted_tools):
         first_child = None
         for i, toolbox in enumerate(toolbox_list):
-            parent = QtGui.QStandardItem(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'close.gif')), toolbox)
+            parent = QtGui.QStandardItem(
+                QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, "close.gif")), toolbox
+            )
             for j, tool in enumerate(sorted_tools[i]):
-                child = QtGui.QStandardItem(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'tool.gif')), tool)
+                child = QtGui.QStandardItem(
+                    QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, "tool.gif")), tool
+                )
                 if i == 0 and j == 0:
                     first_child = child
 
@@ -155,16 +177,20 @@ class BTTreeView(QtWidgets.QWidget):
     def tree_item_expanded(self, index):
         source_index = self.tags_model.mapToSource(index)
         item = self.tree_model.itemFromIndex(source_index)
-        if item:
-            if item.hasChildren():
-                item.setIcon(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'open.gif')))
+        if not item:
+            return
+
+        if item.hasChildren():
+            item.setIcon(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'open.gif')))
 
     def tree_item_collapsed(self, index):
         source_index = self.tags_model.mapToSource(index)
         item = self.tree_model.itemFromIndex(source_index)
-        if item:
-            if item.hasChildren():
-                item.setIcon(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'close.gif')))
+        if not item:
+            return
+        
+        if item.hasChildren():
+            item.setIcon(QtGui.QIcon(os.path.join(bt_const.ASSETS_PATH, 'close.gif')))
 
     def get_tool_index(self, tool_name):
         item = self.tree_model.findItems(
@@ -192,6 +218,8 @@ class BTTreeView(QtWidgets.QWidget):
 
 
 class ClickSlider(QtWidgets.QSlider):
+    """Custom slider for BERA Tools GUI."""
+
     def mousePressEvent(self, event):
         super(ClickSlider, self).mousePressEvent(event)
         if event.button() == QtCore.Qt.LeftButton:
@@ -202,8 +230,12 @@ class ClickSlider(QtWidgets.QSlider):
     def pixel_pos_to_range_value(self, pos):
         opt = QtWidgets.QStyleOptionSlider()
         self.initStyleOption(opt)
-        gr = self.style().subControlRect(QtWidgets.QStyle.CC_Slider, opt, QtWidgets.QStyle.SC_SliderGroove, self)
-        sr = self.style().subControlRect(QtWidgets.QStyle.CC_Slider, opt, QtWidgets.QStyle.SC_SliderHandle, self)
+        gr = self.style().subControlRect(
+            QtWidgets.QStyle.CC_Slider, opt, QtWidgets.QStyle.SC_SliderGroove, self
+        )
+        sr = self.style().subControlRect(
+            QtWidgets.QStyle.CC_Slider, opt, QtWidgets.QStyle.SC_SliderHandle, self
+        )
 
         if self.orientation() == QtCore.Qt.Horizontal:
             slider_length = sr.width()
@@ -215,11 +247,18 @@ class ClickSlider(QtWidgets.QSlider):
             slider_max = gr.bottom() - slider_length + 1
         pr = pos - sr.center() + sr.topLeft()
         p = pr.x() if self.orientation() == QtCore.Qt.Horizontal else pr.y()
-        return QtWidgets.QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), p - slider_min,
-                                              slider_max - slider_min, opt.upsideDown)
+        return QtWidgets.QStyle.sliderValueFromPosition(
+            self.minimum(),
+            self.maximum(),
+            p - slider_min,
+            slider_max - slider_min,
+            opt.upsideDown,
+        )
 
 
 class BTSlider(QtWidgets.QWidget):
+    """Slider for BERA Tools GUI."""
+
     def __init__(self, current, maximum, parent=None):
         super(BTSlider, self).__init__(parent)
 
@@ -252,6 +291,8 @@ class BTSlider(QtWidgets.QWidget):
 
 
 class BTListView(QtWidgets.QWidget):
+    """List view for BERA Tools GUI."""
+
     tool_changed = QtCore.pyqtSignal(str)
 
     def __init__(self, data_list=None, parent=None):
@@ -319,6 +360,8 @@ class BTListView(QtWidgets.QWidget):
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    """Main window for BERA Tools GUI."""
+
     def __init__(self):
         super().__init__()
 
@@ -537,9 +580,7 @@ class MainWindow(QtWidgets.QMainWindow):
         webbrowser.open_new_tab(self.get_current_tool_parameters()['tech_link'])
 
     def custom_callback(self, value):
-        """
-        A custom callback for dealing with tool output.
-        """
+        """Define custom callback that deals with tool output."""
         value = str(value)
         value.strip()
         if value != '':
@@ -551,11 +592,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if "%" in value:
             try:
                 str_progress = bt_common.extract_string_from_printout(value, '%')
-                value = value.replace(str_progress, '').strip()  # remove progress string
+
+                # remove progress string
+                value = value.replace(str_progress, '').strip()  
                 progress = float(str_progress.replace("%", "").strip())
                 self.progress_bar.setValue(int(progress))
             except ValueError as e:
-                print("custom_callback: Problem converting parsed data into number: ", e)
+                print("custom_callback: Problem parsing data into number: ", e)
             except Exception as e:
                 print(e)
         elif 'PROGRESS_LABEL' in value:
@@ -604,7 +647,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.process.readyReadStandardOutput.connect(self.handle_stdout)
             self.process.readyReadStandardError.connect(self.handle_stderr)
             self.process.stateChanged.connect(self.handle_state)
-            self.process.finished.connect(self.process_finished)  # Clean up once complete.
+
+            # Clean up once complete.
+            self.process.finished.connect(self.process_finished)  
             self.process.start(tool_type, tool_args)
 
         while self.process is not None:
