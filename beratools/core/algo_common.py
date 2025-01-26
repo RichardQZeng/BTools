@@ -32,8 +32,6 @@ import shapely.ops as sh_ops
 import shapely.affinity as sh_aff
 import skimage.graph as sk_graph
 
-import xrspatial 
-
 import beratools.core.constants as bt_const
 import beratools.core.algo_cost as algo_cost
 

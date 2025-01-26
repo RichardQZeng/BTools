@@ -164,11 +164,11 @@ def circle_kernel_refactor(size, radius):
 
     Examples:
     kernel_scipy = create_circle_kernel_scipy(17, 8)
-    will replicate xrspatial kernel
+    will replicate xarray-spatial kernel
     cell_x = 0.3
     cell_y = 0.3
     tree_radius = 2.5
-    xrspatial.convolution.circle_kernel(cell_x, cell_y, tree_radius)
+    convolution.circle_kernel(cell_x, cell_y, tree_radius)
 
     """
     # Create grid points (mesh)
