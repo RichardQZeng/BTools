@@ -1,3 +1,19 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    This file is intended to be hosting algorithms and utility functions/classes 
+    for merging lines.
+"""
 import networkit as nk
 from shapely.geometry import mapping
 from shapely import Point, MultiLineString, LineString, reverse
@@ -6,7 +22,8 @@ from operator import itemgetter
 
 
 class MergeLines:
-    """ Merge line segments in MultiLineString """
+    """Merge line segments in MultiLineString."""
+
     def __init__(self, multi_line):
         self.G = None
         self.line_segs = None
@@ -18,7 +35,9 @@ class MergeLines:
 
     def create_graph(self):
         self.line_segs = list(self.multi_line.geoms)
-        self.line_segs = [line for line in self.line_segs if line.length > 1e-3]  # TODO: check empty line and null geoms
+
+        # TODO: check empty line and null geoms
+        self.line_segs = [line for line in self.line_segs if line.length > 1e-3]  
         self.multi_line = MultiLineString(self.line_segs)
         m = mapping(self.multi_line)
         self.end = [(i[0], i[-1]) for i in m['coordinates']]
@@ -27,7 +46,10 @@ class MergeLines:
         self.G.addNodes(2)
         self.G.addEdge(0, 1)
 
-        self.node_poly = [Point(self.end[0][0]).buffer(1),  Point(self.end[0][1]).buffer(1)]
+        self.node_poly = [
+            Point(self.end[0][0]).buffer(1),
+            Point(self.end[0][1]).buffer(1),
+        ]
 
         for i, line in enumerate(self.end[1:]):
             node_exists = False
@@ -53,7 +75,7 @@ class MergeLines:
                 node_end = self.G.addNode()
                 self.node_poly.append(pt_buffer)
 
-            edge = self.G.addEdge(node_start, node_end)
+            self.G.addEdge(node_start, node_end)
 
     def get_components(self):
         cc = nk.components.ConnectedComponents(self.G)
@@ -158,7 +180,7 @@ class MergeLines:
             if line:
                 lines.extend(self.get_merged_line_for_component(c))
             else:  # TODO: check line
-                print(f"merge_all_lines: failed to merge line: {self.multi_line.bounds}")
+                print(f"merge_all_lines: failed to merge: {self.multi_line.bounds}")
 
         # print('Merge lines done.')
 

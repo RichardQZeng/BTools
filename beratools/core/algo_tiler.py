@@ -33,14 +33,14 @@ def create_square_buffer(polygon, buffer_size):
     """
     Create a square buffer around the bounding box of the input polygon.
 
-    Parameters:
+    Args:
     polygon (shapely.geometry.Polygon): The input polygon.
     buffer_size (float): The side length of the square buffer.
 
     Returns:
-    shapely.geometry.Polygon: A square buffer around the bounding box of the input polygon.
-    """
+    shapely.geometry.Polygon: A square buffer around the bounding box of the polygon.
 
+    """
     # Get the bounding box of the polygon (returns (minx, miny, maxx, maxy))
     bbox = polygon.bounds  # (minx, miny, maxx, maxy)
 
@@ -49,7 +49,7 @@ def create_square_buffer(polygon, buffer_size):
     center_y = (bbox[1] + bbox[3]) / 2
 
     # Create a square buffer around the bounding box using the specified buffer_size
-    square_buffer = Polygon([
+    square_buffer = sh_geom.Polygon([
         (center_x - buffer_size / 2, center_y - buffer_size / 2),  # Bottom-left
         (center_x - buffer_size / 2, center_y + buffer_size / 2),  # Top-left
         (center_x + buffer_size / 2, center_y + buffer_size / 2),  # Top-right

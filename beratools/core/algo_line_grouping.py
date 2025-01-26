@@ -365,9 +365,9 @@ class VertexNode:
 class LineGrouping:
     """Class to group lines and merge them."""
     
-    def __init__(self, in_line, layer=None) -> None:
+    def __init__(self, in_line_gdf) -> None:
         # remove empty and null geometry
-        self.lines = gpd.read_file(in_line, layer=layer)
+        self.lines = in_line_gdf.copy()
         self.lines = self.lines[
             ~self.lines.geometry.isna() & ~self.lines.geometry.is_empty
         ]

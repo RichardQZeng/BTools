@@ -337,7 +337,7 @@ def generate_perpendicular_line_precise(points, offset=20):
     Generate a perpendicular line to the input line at the given point.
 
     Args:
-        points (list[Point]): The points on the line where the perpendicular should be generated.
+        points (list[Point]): The points where to generate the perpendicular lines.
         offset (float): The length of the perpendicular line.
 
     Returns:
@@ -364,7 +364,9 @@ def generate_perpendicular_line_precise(points, offset=20):
         start = [center.x + offset / 2.0, center.y]
         end = [center.x - offset / 2.0, center.y]
         line = sh_geom.LineString([start, end])
-        perp_line = sh_aff.rotate(line, angle + math.pi / 2.0, origin=center, use_radians=True)
+        perp_line = sh_aff.rotate(
+            line, angle + math.pi / 2.0, origin=center, use_radians=True
+        )
     elif len(points) == 3:
         head = points[0]
         tail = points[2]
@@ -380,8 +382,12 @@ def generate_perpendicular_line_precise(points, offset=20):
             head_new = shapely.force_3d(head_new)
         try:
             perp_seg_1 = sh_geom.LineString([center, head_new])
-            perp_seg_1 = sh_aff.rotate(perp_seg_1, angle_diff, origin=center, use_radians=True)
-            perp_seg_2 = sh_aff.rotate(perp_seg_1, math.pi, origin=center, use_radians=True)
+            perp_seg_1 = sh_aff.rotate(
+                perp_seg_1, angle_diff, origin=center, use_radians=True
+            )
+            perp_seg_2 = sh_aff.rotate(
+                perp_seg_1, math.pi, origin=center, use_radians=True
+            )
             perp_line = sh_geom.LineString(
                 [list(perp_seg_1.coords)[1], list(perp_seg_2.coords)[1]]
             )
@@ -459,36 +465,3 @@ def corridor_raster(
         return None
 
     return corridor_thresh_cl
-
-
-# def cost_raster(
-#     in_raster,
-#     meta,
-#     tree_radius=2.5,
-#     canopy_ht_threshold=bt_const.FP_CORRIDOR_THRESHOLD,
-#     max_line_dist=2.5,
-#     canopy_avoid=0.4,
-#     cost_raster_exponent=1.5,
-# ):
-#     if len(in_raster.shape) > 2:
-#         in_raster = np.squeeze(in_raster, axis=0)
-
-#     cell_x, cell_y = meta["transform"][0], -meta["transform"][4]
-
-#     kernel = xrspatial.convolution.circle_kernel(cell_x, cell_y, 2.5)
-#     dyn_canopy_ndarray = algo_cost.dyn_np_cc_map(in_raster, bt_const.FP_CORRIDOR_THRESHOLD, bt_const.BT_NODATA)
-#     cc_std, cc_mean = algo_cost.dyn_fs_raster_stdmean(dyn_canopy_ndarray, kernel, bt_const.BT_NODATA)
-#     cc_smooth = algo_cost.dyn_smooth_cost(dyn_canopy_ndarray, 2.5, [cell_x, cell_y])
-
-#     # TODO avoidance, re-use this code
-#     avoidance = max(min(float(0.4), 1), 0)
-#     cost_clip = algo_cost.dyn_np_cost_raster(
-#         dyn_canopy_ndarray, cc_mean, cc_std, cc_smooth, 0.4, 1.5
-#     )
-
-#     # TODO use nan or BT_DATA?
-#     cost_clip[in_raster == bt_const.BT_NODATA] = np.nan
-#     dyn_canopy_ndarray[in_raster == bt_const.BT_NODATA] = np.nan
-
-#     return cost_clip, dyn_canopy_ndarray
-

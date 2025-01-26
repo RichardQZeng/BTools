@@ -25,14 +25,11 @@ class Logger(object):
 
     def print(self, msg, flush=True):
         """
-        This is for including print in logging
-        Parameters
-        ----------
+        Re-define print in logging.
+
+        Args:
         msg :
         flush :
-
-        Returns
-        -------
 
         """
         self.logger.info(msg)
@@ -41,27 +38,8 @@ class Logger(object):
                 handler.flush()
 
     def setup_logger(self):
-        """
-        # log = setup_logger('', r'PATH_TO_LOG_FILE')
-        # log.debug("Debug message, should only appear in the file.")
-
-        # for i in range(0, 10000):
-        #     print("From print(): Info message, should appear in file and stdout.")
-        #     log.info("Info message, should appear in file and stdout.")
-        #     log.warning("Warning message, should appear in file and stdout.")
-        #     log.error("Error message, should appear in file and stdout.")
-        #     log.error("parsing, should appear in file and stdout.")
-        Parameters
-        ----------
-        name :
-        console_level :
-        file_level :
-
-        Returns
-        -------
-
-        """
-        # Change root logger level from WARNING (default) to NOTSET in order for all messages to be delegated.
+        # Change root logger level from WARNING (default) to NOTSET 
+        # in order for all messages to be delegated.
         logging.getLogger().setLevel(logging.NOTSET)
         log_file = bt.get_logger_file_name(self.name)
 

@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-
 """
-Least Cost Path Algorithm
+Least Cost Path Algorithm.
 
 This algorithm is adapted from the QGIS plugin:
 Find the least cost path with given cost raster and points
@@ -36,6 +34,8 @@ USE_NUMPY_FOR_DIJKSTRA = True
 
 
 class MinCostPathHelper:
+    """Helper class for the cost matrix."""
+
     @staticmethod
     def _point_to_row_col(point_xy, ras_transform):
         col, row = ras_transform.rowcol(point_xy.x(), point_xy.y())
@@ -49,8 +49,14 @@ class MinCostPathHelper:
 
     @staticmethod
     def create_points_from_path(ras_transform, min_cost_path, start_point, end_point):
-        path_points = list(map(lambda row_col: MinCostPathHelper._row_col_to_point(row_col, ras_transform),
-                               min_cost_path))
+        path_points = list(
+            map(
+                lambda row_col: MinCostPathHelper._row_col_to_point(
+                    row_col, ras_transform
+                ),
+                min_cost_path,
+            )
+        )
         path_points[0] = (start_point.x, start_point.y)
         path_points[-1] = (end_point.x, end_point.y)
         return path_points
@@ -80,8 +86,16 @@ class MinCostPathHelper:
         contains_negative = False
         width, height = block.shape
         # TODO: deal with nodata
-        matrix = [[None if np.isclose(block[i][j], nodata) or np.isclose(block[i][j], bt_const.BT_NODATA)
-                   else block[i][j] for j in range(height)] for i in range(width)]
+        matrix = [
+            [
+                None
+                if np.isclose(block[i][j], nodata)
+                or np.isclose(block[i][j], bt_const.BT_NODATA)
+                else block[i][j]
+                for j in range(height)
+            ]
+            for i in range(width)
+        ]
 
         for row in matrix:
             for v in row:
@@ -127,15 +141,22 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
 
         @staticmethod
         def min_manhattan(curr_node, end_nodes):
-            return min(map(lambda node: Grid.manhattan_distance(curr_node, node), end_nodes))
+            return min(
+                map(lambda node: Grid.manhattan_distance(curr_node, node), end_nodes)
+            )
 
         @staticmethod
         def max_manhattan(curr_node, end_nodes):
-            return max(map(lambda node: Grid.manhattan_distance(curr_node, node), end_nodes))
+            return max(
+                map(lambda node: Grid.manhattan_distance(curr_node, node), end_nodes)
+            )
 
         @staticmethod
         def all_manhattan(curr_node, end_nodes):
-            return {end_node: Grid.manhattan_distance(curr_node, end_node) for end_node in end_nodes}
+            return {
+                end_node: Grid.manhattan_distance(curr_node, end_node)
+                for end_node in end_nodes
+            }
 
         def simple_cost(self, cur, nex):
             cx, cy = cur
@@ -207,7 +228,12 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
                 if curr_bound < bound:
                     bound = curr_bound
                     if feedback:
-                        feedback.setProgress(1 + 100 * (1 - bound / total_manhattan) * (1 - bound / total_manhattan))
+                        feedback.setProgress(
+                            1
+                            + 100
+                            * (1 - bound / total_manhattan)
+                            * (1 - bound / total_manhattan)
+                        )
 
         # destination
         if current_node in end_row_cols:
@@ -244,7 +270,7 @@ def dijkstra(start_tuple, end_tuples, block, find_nearest, feedback=None):
 
 
 def valid_node(node, size_of_grid):
-    """Checks if node is within the grid boundaries."""
+    """Check if node is within the grid boundaries."""
     if node[0] < 0 or node[0] >= size_of_grid:
         return False
     if node[1] < 0 or node[1] >= size_of_grid:
@@ -313,17 +339,18 @@ def backtrack(initial_node, desired_node, distances):
 
 
 def dijkstra_np(start_tuple, end_tuple, matrix):
-    """Dijkstra's algorithm for finding the shortest path between two nodes in a graph.
+    """
+    Dijkstra's algorithm for finding the shortest path between two nodes in a graph.
 
     Args:
         start_node (list): [row,col] coordinates of the initial node
         end_node (list): [row,col] coordinates of the desired node
-        matrix (array 2d): 2d numpy array that contains any matrix as 1s and free space as 0s
+        matrix (array 2d): numpy array that contains matrix as 1s and free space as 0s
 
     Returns:
         list[list]: list of list of nodes that form the shortest path
-    """
 
+    """
     # source and destination are free
     start_node = start_tuple[0]
     end_node = end_tuple[0]
@@ -343,7 +370,9 @@ def dijkstra_np(start_tuple, end_tuple, matrix):
     return [(path, costs, end_tuple)]
 
 
-def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_linear_reference=False):
+def find_least_cost_path(
+    out_image, in_meta, line, find_nearest=True, output_linear_reference=False
+):
     default_return = None
     ras_nodata = in_meta['nodata']
 
@@ -355,9 +384,13 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
         out_image = np.squeeze(out_image, axis=0)
 
     if USE_NUMPY_FOR_DIJKSTRA:
-        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(out_image, ras_nodata)
+        matrix, contains_negative = MinCostPathHelper.block2matrix_numpy(
+            out_image, ras_nodata
+        )
     else:
-        matrix, contains_negative = MinCostPathHelper.block2matrix(out_image, ras_nodata)
+        matrix, contains_negative = MinCostPathHelper.block2matrix(
+            out_image, ras_nodata
+        )
 
     if contains_negative:
         print('ERROR: Raster has negative values.')
@@ -376,8 +409,20 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
     end_tuples = []
     start_tuple = []
     try:
-        start_tuples = [(transformer.rowcol(pt_start[0], pt_start[1]), sh_geom.Point(pt_start[0], pt_start[1]), 0)]
-        end_tuples = [(transformer.rowcol(pt_end[0], pt_end[1]), sh_geom.Point(pt_end[0], pt_end[1]), 1)]
+        start_tuples = [
+            (
+                transformer.rowcol(pt_start[0], pt_start[1]),
+                sh_geom.Point(pt_start[0], pt_start[1]),
+                0,
+            )
+        ]
+        end_tuples = [
+            (
+                transformer.rowcol(pt_end[0], pt_end[1]),
+                sh_geom.Point(pt_end[0], pt_end[1]),
+                1,
+            )
+        ]
         start_tuple = start_tuples[0]
         end_tuple = end_tuples[0]
 
@@ -405,8 +450,9 @@ def find_least_cost_path(out_image, in_meta, line, find_nearest=True, output_lin
 
     path_points = None
     for path, costs, end_tuple in result:
-        path_points = MinCostPathHelper.create_points_from_path(transformer, path,
-                                                                start_tuple[1], end_tuple[1])
+        path_points = MinCostPathHelper.create_points_from_path(
+            transformer, path, start_tuple[1], end_tuple[1]
+        )
         if output_linear_reference:
             # TODO: code not reached
             # add linear reference
@@ -435,7 +481,9 @@ def find_least_cost_path_skimage(cost_clip, in_meta, seed_line):
     row2, col2 = transformer.rowcol(x2, y2)
 
     try:
-        path_new = sk_graph.route_through_array(cost_clip[0], [row1, col1], [row2, col2])
+        path_new = sk_graph.route_through_array(
+            cost_clip[0], [row1, col1], [row2, col2]
+        )
     except Exception as e:
         print(f"find_least_cost_path_skimage: {e}")
         return None

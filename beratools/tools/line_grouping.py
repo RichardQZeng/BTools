@@ -15,6 +15,7 @@ Description:
 """
 import logging
 import time
+import geopandas as gpd
 
 from beratools.core.logger import Logger
 from beratools.core.algo_line_grouping import LineGrouping
@@ -22,7 +23,8 @@ import beratools.tools.common as bt_common
 
 def line_grouping(callback, in_line, out_line, processes, verbose, in_layer=None, out_layer=None):
     print("line_grouping started")
-    lg = LineGrouping(in_line, in_layer)
+    in_line_gdf = gpd.read_file(in_line, layer=in_layer)
+    lg = LineGrouping(in_line_gdf)
     lg.run_grouping()
     lg.lines.to_file(out_line, layer=out_layer)
 
