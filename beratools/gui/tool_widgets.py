@@ -1,3 +1,18 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide all kinds of widgets for tool parameters.
+"""
 import os
 import sys
 import json
@@ -8,13 +23,12 @@ from collections import OrderedDict
 
 from PyQt5 import QtWidgets
 from PyQt5 import QtCore
-from PyQt5 import QtGui
-
-import beratools.core.constants as bt_const
 
 BT_LABEL_MIN_WIDTH = 130
 
 class ToolWidgets(QtWidgets.QWidget):
+    """ToolWidgets class for creating widgets for tool parameters."""
+
     signal_save_tool_params = QtCore.pyqtSignal(object)
 
     def __init__(self, tool_name, tool_args, show_advanced, parent=None):
@@ -46,7 +60,7 @@ class ToolWidgets(QtWidgets.QWidget):
             if v:
                 args.update(v)
             else:
-                print(f'[Missing argument]: {widget.name} parameter not specified.', 'missing')
+                print(f'[Missing argument]: {widget.name} not specified.', 'missing')
                 param_missing = True
 
         if param_missing:
@@ -61,10 +75,7 @@ class ToolWidgets(QtWidgets.QWidget):
             pt = p['parameter_type']
             widget = None
 
-            if 'ExistingFileOrFloat' in pt:
-                widget = FileOrFloat(json_str, None)
-                param_num = param_num + 1
-            elif 'ExistingFile' in pt or 'NewFile' in pt or 'Directory' in pt:
+            if 'ExistingFile' in pt or 'NewFile' in pt or 'Directory' in pt:
                 widget = FileSelector(json_str, None)
                 param_num = param_num + 1
             elif 'FileList' in pt:
@@ -103,7 +114,9 @@ class ToolWidgets(QtWidgets.QWidget):
             # hide optional widgets
             if widget:
                 if widget.optional and widget.label:
-                    widget.label.setStyleSheet("QtWidgets.QLabel { background-color : transparent; color : blue; }")
+                    widget.label.setStyleSheet(
+                        "QtWidgets.QLabel { background-color : transparent; color : blue; }"
+                    )
 
                 if not self.show_advanced and widget.optional:
                     widget.hide()
@@ -136,14 +149,17 @@ def get_layers(gpkg_file):
 
         # Check if layers_info is in the expected format
         if isinstance(layers_info, np.ndarray) and all(
-                isinstance(layer, np.ndarray) and len(layer) >= 2 for layer in layers_info):
-            # Create a dictionary where the key is the layer name and the value is the geometry type
-            # layers_dict = {layer[0]: layer[1] for layer in layers_info}
+            isinstance(layer, np.ndarray) and len(layer) >= 2 for layer in layers_info
+        ):
+            # Create a dictionary where the key is the layer name 
+            # and the value is the geometry type
             layers_dict = OrderedDict((layer[0], layer[1]) for layer in layers_info)
             return layers_dict
         else:
             # If the format is not correct, raise an exception with a detailed message
-            raise ValueError("Expected a list of lists or tuples with layer name and geometry type.")
+            raise ValueError(
+                "Expected a list of lists or tuples with layer name and geometry type."
+            )
 
     except Exception as e:
         print(f"Error retrieving layers from GeoPackage '{gpkg_file}': {e}")
@@ -151,6 +167,8 @@ def get_layers(gpkg_file):
 
 
 class FileSelector(QtWidgets.QWidget):
+    """FileSelector class for creating file selection widgets."""
+
     def __init__(self, json_str, parent=None):
         super(FileSelector, self).__init__(parent)
 
@@ -191,7 +209,8 @@ class FileSelector(QtWidgets.QWidget):
         # ComboBox for displaying GeoPackage layers
         self.layer_combo = QtWidgets.QComboBox()
         self.layer_combo.setVisible(False)  # Initially hidden
-        self.layer_combo.currentTextChanged.connect(self.set_layer)  # Connect layer change event
+        # Connect layer change event
+        self.layer_combo.currentTextChanged.connect(self.set_layer)  
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.in_file)
         self.layout.addWidget(self.layer_combo)
@@ -206,14 +225,14 @@ class FileSelector(QtWidgets.QWidget):
         if self.value.lower().endswith('.gpkg'):
             self.layer_combo.setVisible(True)  # Show the combo box if it's a .gpkg
             if self.output:
-                self.layer_combo.setEditable(True)  # Ensure it's editable if output is True
+                self.layer_combo.setEditable(True)  # Ensure editable if output is True
                 self.layer_combo.addItem("")  # Add an empty item to the combo box
                 # If the .gpkg file doesn't exist, show empty layer
                 if not os.path.exists(self.value):
                     self.layer_combo.clear()  # Clear the combo box
                     self.layer_combo.addItem("layer_name")  # Show "layer_name"
             else:
-                self.layer_combo.setEditable(False)  # Set it as non-editable if output is False
+                self.layer_combo.setEditable(False)  # Non-editable if output is False
                 self.load_gpkg_layers(self.value)  # Load layers if output is False
 
         # check saved layer existence, if True then set it to selected
@@ -241,7 +260,10 @@ class FileSelector(QtWidgets.QWidget):
                         self.load_gpkg_layers(self.value)
                 else:  # output is False
                     self.layer_combo.setEditable(False)
-                    if self.layer_combo.count() == 0 or self.layer_combo.itemText(0) == "layer_name":
+                    if (
+                        self.layer_combo.count() == 0
+                        or self.layer_combo.itemText(0) == "layer_name"
+                    ):
                         self.layer_combo.clear()
                         self.load_gpkg_layers(self.value)
             else:  # gpkg does not exist
@@ -274,10 +296,10 @@ class FileSelector(QtWidgets.QWidget):
 
             if 'RasterAndVector' in self.file_type:
                 file_types = """Shapefiles (*.shp);; 
-                                    Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.rdc *.asc *grd)"""
+                                Raster files (*.dep *.tif *.tiff *.bil *.flt *.sdat *.asc *grd)"""
             elif 'Raster' in self.file_type:
                 file_types = """Tiff raster files (*.tif *.tiff);; 
-                                    Other raster files (*.dep *.bil *.flt *.sdat *.rdc *.asc *grd)"""
+                                Other raster files (*.dep *.bil *.flt *.sdat *.asc *grd)"""
             elif 'Lidar' in self.file_type:
                 file_types = "LiDAR files (*.las *.zlidar *.laz *.zip)"
             elif 'Vector' in self.file_type:
@@ -294,7 +316,7 @@ class FileSelector(QtWidgets.QWidget):
             elif 'json' in self.file_type or 'JSON' in self.file_type:
                 file_types = "JSON files (*.json)"
 
-            # Check for GeoPackage/Shapefile first in filter order based on current value
+            # Check for GeoPackage/Shapefile first in filter order by current value
             if self.value.lower().endswith('.gpkg'):
                 file_types = """GeoPackage (*.gpkg);;
                                Shapefiles (*.shp);;
@@ -348,8 +370,9 @@ class FileSelector(QtWidgets.QWidget):
                         self.layer_combo.setEditable(True)
             else:
                 self.layer_combo.setVisible(False)
-
-            self.update_combo_visibility()  # Update combo visibility after file selection
+            
+            # Update combo visibility after file selection
+            self.update_combo_visibility()  
         except Exception as e:
             print(e)
             msg_box = QtWidgets.QMessageBox()
@@ -358,9 +381,7 @@ class FileSelector(QtWidgets.QWidget):
             msg_box.exec()
 
     def load_gpkg_layers(self, gpkg_file):
-        """
-        Load layers from a GeoPackage and populate the combo box using get_layers.
-        """
+        """Load layers from a GeoPackage and populate the combo box using get_layers."""
         try:
             # Print the file path to verify it's correct
             # print(f"Attempting to load layers from: {gpkg_file}")
@@ -375,7 +396,8 @@ class FileSelector(QtWidgets.QWidget):
             # Clear any existing layers in the combo box
             self.layer_combo.clear()
 
-            # Iterate over the layers dictionary and add each layer name with geometry type to the combo box
+            # Iterate over the layers dictionary 
+            # and add each layer name with geometry type to the combo box
             for layer_name, geometry_type in self.gpkg_layers.items():
                 self.layer_combo.addItem(f"{layer_name} ({geometry_type})")
 
@@ -416,7 +438,8 @@ class FileSelector(QtWidgets.QWidget):
                 if self.output:
                     self.layer_combo.setEditable(True)
 
-                self.layer_combo.setVisible(True)  # Show the layer combo box but indicate no layers
+                # Show the layer combo box but indicate no layers
+                self.layer_combo.setVisible(True)  
         else:
             # If it's not a GeoPackage, hide the layer combo box
             self.layer_combo.setVisible(False)
@@ -436,7 +459,8 @@ class FileSelector(QtWidgets.QWidget):
         if not ext:  # If there's no extension
             if not value.endswith("."):  # If the user hasn't typed a dot at the end
                 # Don't force the .txt extension unless the filename doesn't have one
-                if not value.endswith(".gpkg") and not value.endswith(".shp"):  # Add default extension for other cases
+                # Add default extension for other cases
+                if not value.endswith(".gpkg") and not value.endswith(".shp"):  
                     value = f"{base_name}.txt"
             # If the value ends with a dot (like `file.`), don't append anything yet
 
@@ -452,14 +476,16 @@ class FileSelector(QtWidgets.QWidget):
     def set_layer(self, layer):
         # Store only the selected layer's name (key) from the combo box display
         # The layer is in the format: "layer_name (geometry_type)"
-        self.selected_layer = layer.split(" ")[0]  # Get only the layer name (before the space)
+         # Get only the layer name (before the space)
+        self.selected_layer = layer.split(" ")[0] 
         # print(f"Selected Layer: {self.selected_layer}")
 
     def get_value(self):
         # Return both the file path and the selected layer
         value = {self.flag: self.value}
         if self.layer_flag and self.selected_layer:
-            value.update({self.layer_flag: self.selected_layer})  # Store the layer name (key)
+            # Store the layer name (key)
+            value.update({self.layer_flag: self.selected_layer})  
 
         return value
 
@@ -467,7 +493,7 @@ class FileSelector(QtWidgets.QWidget):
         """
         Search saved layer in combo box items.
 
-        Returns
+        Returns:
         If found, then return the index, or return -1
 
         """
@@ -480,26 +506,26 @@ class FileSelector(QtWidgets.QWidget):
 
         return -1
 
-
-class FileOrFloat(QtWidgets.QWidget):
-    def __init__(self, json_str, parent=None):
-        super(FileOrFloat, self).__init__(parent)
-        pass
-
-
+# TODO: check if this class is needed
 class MultiFileSelector(QtWidgets.QWidget):
+    """MultiFileSelector class for creating multiple file selection widgets."""
+
     def __init__(self, json_str, parent=None):
         super(MultiFileSelector, self).__init__(parent)
         pass
 
-
+# TODO: check if this class is needed
 class BooleanInput(QtWidgets.QWidget):
+    """BooleanInput class for creating boolean input widgets."""
+
     def __init__(self, json_str, parent=None):
         super(BooleanInput, self).__init__(parent)
         pass
 
 
 class OptionsInput(QtWidgets.QWidget):
+    """OptionsInput class for creating option selection widgets."""
+
     def __init__(self, json_str, parent=None):
         super(OptionsInput, self).__init__(parent)
 
@@ -526,7 +552,8 @@ class OptionsInput(QtWidgets.QWidget):
         default_index = -1
         self.option_list = params['parameter_type']['OptionList']
         if self.option_list:
-            self.option_list = [str(item) for item in self.option_list]  # convert to strings
+            # convert to strings
+            self.option_list = [str(item) for item in self.option_list]  
         values = ()
         for v in self.option_list:
             values += (v,)
@@ -562,6 +589,8 @@ class OptionsInput(QtWidgets.QWidget):
 
 
 class DataInput(QtWidgets.QWidget):
+    """DataInput class for creating data input widgets."""
+
     def __init__(self, json_str, parent=None):
         super(DataInput, self).__init__(parent)
 
@@ -617,7 +646,7 @@ class DataInput(QtWidgets.QWidget):
             if not self.optional:
                 msg_box = QtWidgets.QMessageBox()
                 msg_box.setIcon(QtWidgets.QMessageBox.Warning)
-                msg_box.setText("Unspecified non-optional parameter {}.".format(self.flag))
+                msg_box.setText("Unknown non-optional parameter {}.".format(self.flag))
                 msg_box.exec()
 
         return None
@@ -634,6 +663,8 @@ class DataInput(QtWidgets.QWidget):
 
 
 class DoubleSlider(QtWidgets.QSlider):
+    """DoubleSlider class for creating double slider widgets."""
+
     # create our signal that we can connect to if necessary
     doubleValueChanged = QtCore.pyqtSignal(float)
 
@@ -670,10 +701,17 @@ class DoubleSlider(QtWidgets.QSlider):
 
     def sliderChange(self, change):
         if change == QtWidgets.QAbstractSlider.SliderValueChange:
-            sr = self.style().subControlRect(QtWidgets.QStyle.CC_Slider, self.opt, QtWidgets.QStyle.SC_SliderHandle)
+            sr = self.style().subControlRect(
+                QtWidgets.QStyle.CC_Slider, self.opt, QtWidgets.QStyle.SC_SliderHandle
+            )
             bottom_right_corner = sr.bottomLeft()
-            QtWidgets.QToolTip.showText(self.mapToGlobal(QtCore.QPoint(bottom_right_corner.x(), bottom_right_corner.y())),
-                              str(self.value()), self)
+            QtWidgets.QToolTip.showText(
+                self.mapToGlobal(
+                    QtCore.QPoint(bottom_right_corner.x(), bottom_right_corner.y())
+                ),
+                str(self.value()),
+                self,
+            )
 
 
 if __name__ == '__main__':
