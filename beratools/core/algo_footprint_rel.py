@@ -223,17 +223,16 @@ class LineInfo:
         return per_array
 
     def rate_of_change(self, percentile_array, side):
-        x = percentile_array
-
         # Since the x interval is 1 unit, the array 'diff' is the rate of change (slope)
-        diff = np.ediff1d(x)
-        cut_dist = len(x) / 5
+        diff = np.ediff1d(percentile_array)
+        cut_dist = len(percentile_array) / 5
 
-        median_percentile = np.nanmedian(x)
+        median_percentile = np.nanmedian(percentile_array)
         if not np.isnan(median_percentile):
             cut_percentile = float(math.floor(median_percentile))
         else:
             cut_percentile = 0.5
+
         found = False
         changes = 1.50
         Change = np.insert(diff, 0, 0)
@@ -244,10 +243,10 @@ class LineInfo:
         try:
             while not found and changes >= 1.1:
                 for ii in range(0, len(Change) - 1):
-                    if x[ii] >= 0.5:
+                    if percentile_array[ii] >= 0.5:
                         if (Change[ii]) >= changes:
                             cut_dist = (ii + 1) * scale_down
-                            cut_percentile = math.floor(x[ii])
+                            cut_percentile = math.floor(percentile_array[ii])
 
                             if 0.5 >= cut_percentile:
                                 if cut_dist > 5:
@@ -370,10 +369,10 @@ class LineInfo:
 
     def dyn_canopy_cost_raster(self, side):
         in_chm_raster = self.in_chm
-        tree_radius = self.tree_radius
-        max_line_dist = self.max_line_dist
-        canopy_avoid = self.canopy_avoidance
-        exponent = self.exponent
+        # tree_radius = self.tree_radius
+        # max_line_dist = self.max_line_dist
+        # canopy_avoid = self.canopy_avoidance
+        # exponent = self.exponent
         line_df = self.line
         out_meta = self.out_meta
 
@@ -395,10 +394,10 @@ class LineInfo:
             canopy_ht_threshold = 0.5
 
         # get the round up integer number for tree search radius
-        tree_radius = float(tree_radius)
-        max_line_dist = float(max_line_dist)
-        canopy_avoid = float(canopy_avoid)
-        cost_raster_exponent = float(exponent)
+        # tree_radius = float(tree_radius)
+        # max_line_dist = float(max_line_dist)
+        # canopy_avoid = float(canopy_avoid)
+        # cost_raster_exponent = float(exponent)
 
         try:
             clipped_rasterC, out_meta = bt_common.clip_raster(
@@ -407,11 +406,11 @@ class LineInfo:
             negative_cost_clip, dyn_canopy_ndarray = algo_cost.cost_raster(
                 clipped_rasterC,
                 out_meta,
-                tree_radius,
+                self.tree_radius,
                 canopy_ht_threshold,
-                max_line_dist,
-                canopy_avoid,
-                cost_raster_exponent,
+                self.max_line_dist,
+                self.canopy_avoidance,
+                self.exponent,
             )
 
             return dyn_canopy_ndarray, negative_cost_clip, out_meta, Cut_Dist
@@ -549,7 +548,7 @@ if __name__ == "__main__":
     out_file_fp = fp_params["out_file_fp"]
 
     footprint = FootprintCanopy(in_file, in_chm)
-    footprint.compute()
+    footprint.compute(bt_const.PARALLEL_MODE)
 
     footprint.save_line_percentile(out_file_percentile)
     footprint.save_footprint(out_file_fp)
