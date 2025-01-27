@@ -263,7 +263,6 @@ def calculate_average_width(line, polygon, offset, n_samples):
 
 
 def line_footprint_fixed(
-    callback,
     in_line,
     in_footprint,
     n_samples,
@@ -339,13 +338,13 @@ def line_footprint_fixed(
     line_attr = line_attr.drop(columns="perp_lines")
     line_attr.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
-    callback("Fixed width footprint tool finished.")
+    print("Fixed width footprint tool finished.")
 
 
 if __name__ == "__main__":
     in_args, in_verbose = bt_common.check_arguments()
     start_time = time.time()
     line_footprint_fixed(
-        print, **in_args.input, processes=int(in_args.processes), verbose=in_verbose
+        **in_args.input, processes=int(in_args.processes), verbose=in_verbose
     )
     print("Elapsed time: {}".format(time.time() - start_time))

@@ -15,24 +15,23 @@ Description:
     The tool is used to generate the footprint of a line based on relative threshold.
 """
 import math
-import numpy as np
-import pandas as pd
-import geopandas as gpd
-from pathlib import Path
-import yaml
+import time
 from enum import StrEnum
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio.features as ras_feat
 import shapely
-import shapely.ops as sh_ops
 import shapely.geometry as sh_geom
-import rasterio.features as ras_feat 
+import shapely.ops as sh_ops
 from skimage.graph import MCP_Flexible
 
-import beratools.tools.common as bt_common
-import beratools.core.constants as bt_const
-import beratools.core.tool_base as bt_base
 import beratools.core.algo_common as algo_common
 import beratools.core.algo_cost as algo_cost
+import beratools.core.constants as bt_const
+import beratools.core.tool_base as bt_base
+import beratools.tools.common as bt_common
 
 
 class Side(StrEnum):
@@ -44,15 +43,15 @@ class Side(StrEnum):
 class FootprintCanopy:
     """Relative canopy footprint class."""
 
-    def __init__(self, in_geom, in_chm):
-        data = gpd.read_file(in_geom)
+    def __init__(self, in_geom, in_chm, in_layer=None):
+        data = gpd.read_file(in_geom, layer=in_layer)
         self.lines = []
 
         for idx in data.index:
             line = LineInfo(data.iloc[[idx]], in_chm)
             self.lines.append(line)
 
-    def compute(self, parallel_mode):
+    def compute(self, parallel_mode=bt_const.PARALLEL_MODE):
         result = bt_base.execute_multiprocessing(
             algo_common.process_single_item,
             self.lines,
@@ -68,8 +67,8 @@ class FootprintCanopy:
         percentile = [item.line for item in result]
         self.lines_percentile = pd.concat(percentile)
 
-    def save_footprint(self, out_footprint):
-        self.footprints.to_file(out_footprint)
+    def save_footprint(self, out_footprint, layer=None):
+        self.footprints.to_file(out_footprint, layer=layer)
 
     def save_line_percentile(self, out_percentile):
         self.lines_percentile.to_file(out_percentile)
@@ -536,19 +535,16 @@ class LineInfo:
 
 if __name__ == "__main__":
     """This part is to be another version of relative canopy footprint tool."""
-    current_file = Path(__file__).resolve()
-    current_folder = current_file.parent
-    with open(current_folder.joinpath('params_win.yml')) as in_params:
-        params = yaml.safe_load(in_params)
+    in_args, in_verbose = bt_common.check_arguments()
+    start_time = time.time()
 
-    fp_params = params['args_footprint_canopy']
-    in_file = fp_params['in_file']
-    in_chm = fp_params["in_chm"]
-    out_file_percentile = fp_params["out_file_percentile"]
-    out_file_fp = fp_params["out_file_fp"]
+    in_line = in_args.input['in_line']
+    in_chm = in_args.input["in_chm"]
+    out_file_fp = in_args.input["out_footprint"]
 
-    footprint = FootprintCanopy(in_file, in_chm)
+    footprint = FootprintCanopy(in_line, in_chm)
     footprint.compute(bt_const.PARALLEL_MODE)
 
-    footprint.save_line_percentile(out_file_percentile)
-    footprint.save_footprint(out_file_fp)
+    # footprint.save_line_percentile(out_file_percentile)
+    footprint.save_footprint(out_file_fp, layer=in_args.input['out_layer'])
+    print("Elapsed time: {}".format(time.time() - start_time))

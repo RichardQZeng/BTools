@@ -71,7 +71,7 @@ exclude = [
 line-length = 88
 
 # Select categories of checks to perform
-select = ["E", "F", "D"]
+select = ["E", "F", "D", "I"]
 
 # Ignore specific error codes
 ignore = ["W505", "D102", "E203", "D212", "D103", "D107", "D417", "E301", "E302", "E303", "W292", "W391"]

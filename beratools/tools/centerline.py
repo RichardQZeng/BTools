@@ -96,6 +96,14 @@ def centerline(
         corridor_poly_list.append(item.corridor_poly_gpd)
 
     # Concatenate the lists of GeoDataFrames into single GeoDataFrames
+    if (
+        len(lc_path_list) == 0
+        or len(centerline_list) == 0
+        or len(corridor_poly_list) == 0
+    ):
+        print("No centerline generated.")
+        return 1
+
     lc_path_list = pd.concat(lc_path_list, ignore_index=True)
     centerline_list = pd.concat(centerline_list, ignore_index=True)
     corridor_polys = pd.concat(corridor_poly_list, ignore_index=True)
