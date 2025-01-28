@@ -1,11 +1,41 @@
-import os
+"""Test configuration file for the BERA Tools package."""
+
+import logging
 import sys
-import pytest
-from unittest.mock import patch
+import warnings
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, Path(__file__).parents[1].as_posix())
 
+def pytest_configure(config):
+    # Ignore the FutureWarning for the specific warning from osgeo.osr
+    warnings.simplefilter("ignore", category=FutureWarning)
+    warnings.simplefilter("ignore", category=DeprecationWarning)  # networkit
+
+    warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning,
+        message=".*osr.UseExceptions() nor osr.DontUseExceptions() *",
+    )
+
+    # networkit
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        message=".*Importing display from IPython.core.display is deprecated.*",
+    )
+
+    # Set the global logging level to ERROR to suppress DEBUG and INFO logs
+    logging.basicConfig(level=logging.ERROR)
+
+    # Set logger to ERROR to suppress debug logs
+    logging.getLogger('pyogrio').setLevel(logging.ERROR)
+    logging.getLogger('rasterio').setLevel(logging.ERROR)
+    logging.getLogger('rasterio.env').setLevel(logging.ERROR)
+    logging.getLogger('label_centerlines._src').setLevel(logging.ERROR)
+    
 # Fixture to get the path to the 'data' directory
 @pytest.fixture
 def testdata_dir():
@@ -24,7 +54,7 @@ def tool_arguments(testdata_dir):
             'out_line': testdata_dir.joinpath('centerline.gpkg').as_posix(),
             'out_layer': 'centerline',
             'processes': 8,
-            'verbose': True
+            'verbose': False
         },
         "args_footprint_abs": {
             'in_line': testdata_dir.joinpath('centerline.gpkg').as_posix(),
@@ -36,7 +66,7 @@ def tool_arguments(testdata_dir):
             'out_footprint': testdata_dir.joinpath('footprint_abs.shp').as_posix(),
             'out_layer': 'footprint_abs',
             'processes': 8,
-            'verbose': True
+            'verbose': False
         },
         "args_footprint_rel": {
             'in_line': testdata_dir.joinpath('centerline.gpkg').as_posix(),
@@ -51,7 +81,7 @@ def tool_arguments(testdata_dir):
             'exponent': 0,
             'canopy_thresh_percentage': 50,
             'processes': 8,
-            'verbose': True
+            'verbose': False
         },
         "args_line_footprint_fixed": {
             'in_line': testdata_dir.joinpath('centerline.gpkg').as_posix(),
@@ -64,6 +94,6 @@ def tool_arguments(testdata_dir):
             'out_footprint': testdata_dir.joinpath('footprint_final.gpkg').as_posix(),
             'out_layer': 'footprint_fixed',
             'processes': 8,
-            'verbose': True
+            'verbose': False
         }
     }
