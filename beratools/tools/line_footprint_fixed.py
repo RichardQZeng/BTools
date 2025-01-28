@@ -13,22 +13,22 @@ Description:
 
     This file hosts the line_footprint_fixed tool.
 """
-import time
 import math
+import time
 from itertools import chain
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-import shapely.ops as sh_ops
 import shapely.geometry as sh_geom
+import shapely.ops as sh_ops
 
-import beratools.tools.common as bt_common
 import beratools.core.algo_common as algo_common
-from beratools.core.tool_base import execute_multiprocessing
 import beratools.core.constants as bt_const
+import beratools.tools.common as bt_common
 from beratools.core.algo_line_grouping import LineGrouping
+from beratools.core.tool_base import execute_multiprocessing
 
 FP_FIXED_WIDTH_DEFAULT = 5.0
 
@@ -154,11 +154,12 @@ def generate_fixed_width_footprint(line_gdf, max_width=False):
     mean_avg_width = line_gdf["avg_width"].mean()
     mean_max_width = line_gdf["max_width"].mean()
 
-    line_gdf["avg_width"].fillna(mean_avg_width, inplace=True)
-    line_gdf["max_width"].fillna(mean_max_width, inplace=True)
+    # Use .loc to avoid chained assignment
+    line_gdf.loc[line_gdf["avg_width"].isna(), "avg_width"] = mean_avg_width
+    line_gdf.loc[line_gdf["max_width"].isna(), "max_width"] = mean_max_width
 
-    line_gdf["avg_width"].replace(0.0, mean_avg_width, inplace=True)
-    line_gdf["max_width"].replace(0.0, mean_max_width, inplace=True)
+    line_gdf.loc[line_gdf["avg_width"] == 0.0, "avg_width"] = mean_avg_width
+    line_gdf.loc[line_gdf["max_width"] == 0.0, "max_width"] = mean_max_width
 
     if not max_width:
         print("Using quantile 75% width")
@@ -303,7 +304,8 @@ def line_footprint_fixed(
     # save fixed width footprint
     buffer_gdf = buffer_gdf.drop(columns=["perp_lines"])
     buffer_gdf = buffer_gdf.drop(columns=["perp_lines_original"])
-    buffer_gdf.crs = perp_lines_gdf.crs
+    # buffer_gdf.crs = perp_lines_gdf.crs
+    buffer_gdf = buffer_gdf.set_crs(perp_lines_gdf.crs, allow_override=True)
     buffer_gdf.reset_index(inplace=True, drop=True)
 
     # save original merged lines
@@ -322,7 +324,8 @@ def line_footprint_fixed(
     perp_lines_gdf = perp_lines_gdf.set_geometry("perp_lines")
     perp_lines_gdf = perp_lines_gdf.drop(columns=["perp_lines_original"])
     perp_lines_gdf = perp_lines_gdf.drop(columns=["geometry"])
-    perp_lines_gdf.crs = buffer_gdf.crs
+    # perp_lines_gdf.crs = buffer_gdf.crs
+    perp_lines_gdf = perp_lines_gdf.set_crs(buffer_gdf.crs, allow_override=True)
     perp_lines_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
     layer = "perp_lines_original"
@@ -331,7 +334,10 @@ def line_footprint_fixed(
     )
     perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=["perp_lines"])
     perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=["geometry"])
-    perp_lines_original_gdf.crs = buffer_gdf.crs
+    # perp_lines_original_gdf.crs = buffer_gdf.crs
+    perp_lines_original_gdf = perp_lines_original_gdf.set_crs(
+        buffer_gdf.crs, allow_override=True
+    )
     perp_lines_original_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
     layer = "centerline_simplified"

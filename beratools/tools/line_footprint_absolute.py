@@ -189,7 +189,6 @@ def line_footprint_abs(
         processes,
         1,
         verbose=verbose,
-        mode=bt_const.ParallelMode.SEQUENTIAL,
     )
 
     if feat_list:

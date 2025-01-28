@@ -1,15 +1,29 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide fundamental utilities for tools.
+"""
+import concurrent.futures as con_futures
 import warnings
-from tqdm.auto import tqdm
-import concurrent.futures
 from multiprocessing.pool import Pool
 
-import pandas as pd
-import geopandas as gpd
-
 import dask.distributed as dask_dist
+import geopandas as gpd
+import pandas as pd
 from dask import config as dask_cfg
-# import ray
+from tqdm.auto import tqdm
 
+# import ray
 import beratools.core.constants as bt_const
 
 # settings for dask
@@ -19,6 +33,8 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 class ToolBase(object):
+    """Base class for tools."""
+
     def __init__(self):
         pass
 
@@ -61,12 +77,12 @@ def execute_multiprocessing(
 ):
     out_result = []
     step = 0
-    print("Using {} CPU cores".format(processes), flush=True)
     total_steps = len(in_data)
 
     try:
         if mode == bt_const.ParallelMode.MULTIPROCESSING:
             print("Multiprocessing started...", flush=True)
+            print("Using {} CPU cores".format(processes), flush=True)
 
             with Pool(processes) as pool:
                 # print(multiprocessing.active_children())
@@ -84,6 +100,7 @@ def execute_multiprocessing(
             pool.close()
             pool.join()
         elif mode == bt_const.ParallelMode.SEQUENTIAL:
+            print("Sequential processing started...", flush=True)
             with tqdm(total=total_steps, disable=verbose) as pbar:
                 for line in in_data:
                     result_item = in_func(line)
@@ -96,10 +113,12 @@ def execute_multiprocessing(
                     else:
                         pbar.update()
         elif mode == bt_const.ParallelMode.CONCURRENT:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
+            print("Concurrent processing started...", flush=True)
+            print("Using {} CPU cores".format(processes), flush=True)
+            with con_futures.ProcessPoolExecutor(max_workers=processes) as executor:
                 futures = [executor.submit(in_func, line) for line in in_data]
                 with tqdm(total=total_steps, disable=verbose) as pbar:
-                    for future in concurrent.futures.as_completed(futures):
+                    for future in con_futures.as_completed(futures):
                         result_item = future.result()
                         if result_is_valid(result_item):
                             out_result.append(result_item)
@@ -110,6 +129,8 @@ def execute_multiprocessing(
                         else:
                             pbar.update()
         elif mode == bt_const.ParallelMode.DASK:
+            print("Dask processing started...", flush=True)
+            print("Using {} CPU cores".format(processes), flush=True)
             dask_client = dask_dist.Client(threads_per_worker=1, n_workers=processes)
             print(f"Local Dask client: {dask_client}")
             try:
@@ -128,10 +149,12 @@ def execute_multiprocessing(
                         else:
                             pbar.update()
             except Exception as e:
+                print(f'ParallelMode.DASK: {e}')
                 dask_client.close()
 
             dask_client.close()
         elif mode == bt_const.ParallelMode.SLURM:
+            print("Slurm Dask processing started...", flush=True)
             dask_client = dask_dist.Client(scheduler_file=scheduler_file)
             print(f"Slurm cluster Dask client: {dask_client}")
             try:
@@ -144,6 +167,7 @@ def execute_multiprocessing(
                     if result_is_valid(result):
                         out_result.append(i.result())
             except Exception as e:
+                print(f'ParallelMode.SLURM: {e}')
                 dask_client.close()
 
             dask_client.close()

@@ -532,19 +532,34 @@ class LineInfo:
         except Exception as e:
             print("Exception: {}".format(e))
 
+def line_footprint_rel(
+    in_line,
+    in_chm,
+    out_footprint,
+    max_ln_width=32,
+    tree_radius=1.5,
+    max_line_dist=1.5,
+    canopy_avoidance=0.0,
+    exponent=1.0,
+    canopy_thresh_percentage=50,
+    processes=8,
+    verbose=True,
+    in_layer=None,
+    out_layer=None,
+):
+    """Another version of relative canopy footprint tool."""
+    footprint = FootprintCanopy(in_line, in_chm, in_layer)
+    footprint.compute(bt_const.PARALLEL_MODE)
+
+    # footprint.save_line_percentile(out_file_percentile)
+    footprint.save_footprint(out_footprint, out_layer)
 
 if __name__ == "__main__":
     """This part is to be another version of relative canopy footprint tool."""
     in_args, in_verbose = bt_common.check_arguments()
     start_time = time.time()
+    line_footprint_rel(
+        **in_args.input, processes=int(in_args.processes), verbose=in_verbose
+    )
 
-    in_line = in_args.input['in_line']
-    in_chm = in_args.input["in_chm"]
-    out_file_fp = in_args.input["out_footprint"]
-
-    footprint = FootprintCanopy(in_line, in_chm)
-    footprint.compute(bt_const.PARALLEL_MODE)
-
-    # footprint.save_line_percentile(out_file_percentile)
-    footprint.save_footprint(out_file_fp, layer=in_args.input['out_layer'])
     print("Elapsed time: {}".format(time.time() - start_time))
