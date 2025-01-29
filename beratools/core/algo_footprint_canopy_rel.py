@@ -1,61 +1,64 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+---------------------------------------------------------------------------
+Author: Richard Zeng, Maverick Fong
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide main interface for canopy footprint tool.
+    The tool is used to generate the footprint of a line based on relative threshold.
+"""
 import math
-import geopandas as gpd
-import pandas as pd
-import numpy as np
-import shapely
-from shapely import ops
-from shapely.geometry import Point, MultiPolygon, shape
-from rasterio.features import shapes, rasterize
-from skimage.graph import MCP_Flexible
+import time
 from enum import StrEnum
-import yaml
 
-import sys
-from pathlib import Path
-from inspect import getsourcefile
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio.features as ras_feat
+import shapely
+import shapely.geometry as sh_geom
+import shapely.ops as sh_ops
+from skimage.graph import MCP_Flexible
 
-if __name__ == "__main__":
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
-    current_folder = current_file.parent
-    btool_dir = current_file.parents[1]
-    sys.path.insert(0, btool_dir.as_posix())
-
-from beratools.tools.common import (
-    clip_raster,
-    cost_raster_2nd_version,
-    remove_nan_from_array,
-    morph_raster,
-)
-
-from beratools.core.constants import BT_NODATA, FP_CORRIDOR_THRESHOLD
-from beratools.tools.common import execute_multiprocessing
+import beratools.core.algo_common as algo_common
+import beratools.core.algo_cost as algo_cost
+import beratools.core.constants as bt_const
+import beratools.core.tool_base as bt_base
+import beratools.tools.common as bt_common
 
 
 class Side(StrEnum):
+    """Constants for left and right side."""
+
     left = "left"
     right = "right"
 
-
 class FootprintCanopy:
-    def __init__(self, in_geom, in_chm):
-        data = gpd.read_file(in_geom)
+    """Relative canopy footprint class."""
+
+    def __init__(self, in_geom, in_chm, in_layer=None):
+        data = gpd.read_file(in_geom, layer=in_layer)
         self.lines = []
 
         for idx in data.index:
             line = LineInfo(data.iloc[[idx]], in_chm)
             self.lines.append(line)
 
-    @staticmethod
-    def process_single_line(line):
-        line.compute()
-        return line
-
-    def compute(self):
-        # for item in self.lines:
-        #     item.compute()
-        #     print("line computation done")
-        result = execute_multiprocessing(
-            self.process_single_line, self.lines, "Canopy Footprint", 18, 1
+    def compute(self, processes, parallel_mode=bt_const.PARALLEL_MODE):
+        result = bt_base.execute_multiprocessing(
+            algo_common.process_single_item,
+            self.lines,
+            "Canopy Footprint",
+            processes,
+            1,
+            parallel_mode,
         )
 
         fp = [item.footprint for item in result]
@@ -64,13 +67,15 @@ class FootprintCanopy:
         percentile = [item.line for item in result]
         self.lines_percentile = pd.concat(percentile)
 
-    def save_footprint(self, out_footprint):
-        self.footprints.to_file(out_footprint)
+    def save_footprint(self, out_footprint, layer=None):
+        self.footprints.to_file(out_footprint, layer=layer)
 
-    def savve_line_percentile(self, out_percentile):
+    def save_line_percentile(self, out_percentile):
         self.lines_percentile.to_file(out_percentile)
 
 class BufferRing:
+    """Buffer ring class."""
+
     def __init__(self, ring_poly, side):
         self.geometry = ring_poly
         self.side = side
@@ -78,7 +83,16 @@ class BufferRing:
         self.Dyn_Canopy_Threshold = 0.05
 
 class LineInfo:
-    def __init__(self, line_gdf, in_chm):
+    """Class to store line information."""
+
+    def __init__(self, 
+                 line_gdf, in_chm, 
+                 max_ln_width=32,
+                 tree_radius=1.5,
+                 max_line_dist=1.5,
+                 canopy_avoidance=0.0,
+                 exponent=1.0,
+                 canopy_thresh_percentage=50):
         self.line = line_gdf
         self.in_chm = in_chm
         self.line_simp = self.line.geometry.simplify(
@@ -98,12 +112,12 @@ class LineInfo:
         self.RDist_Cut = np.nan
         self.LDist_Cut = np.nan
 
-        self.canopy_thresh_percentage = 50
-        self.canopy_avoidance = 0.0
-        self.exponent = 1.0
-        self.max_ln_width = 32
-        self.max_line_dist = 1.5
-        self.tree_radius = 1.5
+        self.canopy_thresh_percentage = canopy_thresh_percentage
+        self.canopy_avoidance = canopy_avoidance
+        self.exponent = exponent
+        self.max_ln_width = max_ln_width
+        self.max_line_dist = max_line_dist
+        self.tree_radius = tree_radius
 
         self.nodata = -9999
         self.dyn_canopy_ndarray = None
@@ -115,7 +129,7 @@ class LineInfo:
         self.footprint = None
 
     def compute(self):
-        self.prepar_ring_buffer()
+        self.prepare_ring_buffer()
 
         ring_list = []
         for item in self.buffer_rings:
@@ -145,10 +159,10 @@ class LineInfo:
         self.footprint = self.footprint.dissolve()
         self.footprint.geometry = self.footprint.buffer(-0.005)
 
-    def prepar_ring_buffer(self):
+    def prepare_ring_buffer(self):
         nrings = 1
         ringdist = 15
-        ring_list = self.multiringbuffer(self.line_simp, nrings, ringdist)
+        ring_list = self.multi_ring_buffer(self.line_simp, nrings, ringdist)
         for i in ring_list:
             if BufferRing(i, Side.left):
                 self.buffer_rings.append(BufferRing(i, Side.left))
@@ -157,7 +171,7 @@ class LineInfo:
 
         nrings = -1
         ringdist = -15
-        ring_list = self.multiringbuffer(self.line_simp, nrings, ringdist)
+        ring_list = self.multi_ring_buffer(self.line_simp, nrings, ringdist)
         for i in ring_list:
             if BufferRing(i, Side.right):
                 self.buffer_rings.append(BufferRing(i, Side.right))
@@ -170,18 +184,22 @@ class LineInfo:
             if line_buffer.is_empty or shapely.is_missing(line_buffer):
                 return None
             if line_buffer.has_z:
-                line_buffer = ops.transform(lambda x, y, z=None: (x, y), line_buffer)
+                line_buffer = sh_ops.transform(
+                    lambda x, y, z=None: (x, y), line_buffer
+                )
 
         except Exception as e:
             print(f"cal_percentileRing: {e}")
 
         # TODO: temporary workaround for exception causing not percentile defined
         try:
-            clipped_raster, _ = clip_raster(self.in_chm, line_buffer, 0)
+            clipped_raster, _ = bt_common.clip_raster(self.in_chm, line_buffer, 0)
             clipped_raster = np.squeeze(clipped_raster, axis=0)
 
             # mask all -9999 (nodata) value cells
-            masked_raster = np.ma.masked_where(clipped_raster == BT_NODATA, clipped_raster)
+            masked_raster = np.ma.masked_where(
+                clipped_raster == bt_const.BT_NODATA, clipped_raster
+            )
             filled_raster = np.ma.filled(masked_raster, np.nan)
 
             # Calculate the percentile
@@ -211,17 +229,16 @@ class LineInfo:
         return per_array
 
     def rate_of_change(self, percentile_array, side):
-        x = percentile_array
-
         # Since the x interval is 1 unit, the array 'diff' is the rate of change (slope)
-        diff = np.ediff1d(x)
-        cut_dist = len(x) / 5
+        diff = np.ediff1d(percentile_array)
+        cut_dist = len(percentile_array) / 5
 
-        median_percentile = np.nanmedian(x)
+        median_percentile = np.nanmedian(percentile_array)
         if not np.isnan(median_percentile):
             cut_percentile = float(math.floor(median_percentile))
         else:
             cut_percentile = 0.5
+
         found = False
         changes = 1.50
         Change = np.insert(diff, 0, 0)
@@ -232,10 +249,10 @@ class LineInfo:
         try:
             while not found and changes >= 1.1:
                 for ii in range(0, len(Change) - 1):
-                    if x[ii] >= 0.5:
+                    if percentile_array[ii] >= 0.5:
                         if (Change[ii]) >= changes:
                             cut_dist = (ii + 1) * scale_down
-                            cut_percentile = math.floor(x[ii])
+                            cut_percentile = math.floor(percentile_array[ii])
 
                             if 0.5 >= cut_percentile:
                                 if cut_dist > 5:
@@ -267,7 +284,8 @@ class LineInfo:
         except IndexError:
             pass
 
-        # if still is no result found, lower to 10% (1.1), if no result found then default is used
+        # if still no result found, lower to 10% (1.1), 
+        # if no result found then default is used
         if not found:
             if 0.5 >= median_percentile:
                 cut_dist = 4 * scale_down  # 3
@@ -292,15 +310,17 @@ class LineInfo:
             self.LDist_Cut = cut_dist
             self.CL_CutHt = float(cut_percentile)
 
-    def multiringbuffer(self, df, nrings, ringdist):
+    def multi_ring_buffer(self, df, nrings, ringdist):
         """
-        Buffers an input DataFrames geometry nring (number of rings) times, with a distance between
-        rings of ringdist and returns a list of non overlapping buffers
-        """
+        Buffers an input DataFrames geometry nring (number of rings) times.
 
+        Compute with a distance between rings of ringdist and returns 
+        a list of non overlapping buffers
+        """
         rings = []  # A list to hold the individual buffers
         line = df.geometry.iloc[0]
-        for ring in np.arange(0, ringdist, nrings):  # For each ring (1, 2, 3, ..., nrings)
+        # For each ring (1, 2, 3, ..., nrings)
+        for ring in np.arange(0, ringdist, nrings):  
             big_ring = line.buffer(
                 nrings + ring, single_sided=True, cap_style="flat"
             )  # Create one big buffer
@@ -316,7 +336,7 @@ class LineInfo:
                 or not None
                 or ~the_ring.area == 0
             ):
-                if isinstance(the_ring, shapely.MultiPolygon) or isinstance(
+                if isinstance(the_ring, sh_geom.MultiPolygon) or isinstance(
                     the_ring, shapely.Polygon
                 ):
                     rings.append(the_ring)  # Append the ring to the rings list
@@ -342,7 +362,7 @@ class LineInfo:
             single_sided=True,
         )
 
-        self.buffer_left = ops.unary_union([buffer_left_1, buffer_left_2])
+        self.buffer_left = sh_ops.unary_union([buffer_left_1, buffer_left_2])
 
         buffer_right_1 = line.buffer(
             distance=-self.max_ln_width - 1,
@@ -351,14 +371,14 @@ class LineInfo:
         )
         buffer_right_2 = line.buffer(distance=1, cap_style=3, single_sided=True)
 
-        self.buffer_right = ops.unary_union([buffer_right_1, buffer_right_2])
+        self.buffer_right = sh_ops.unary_union([buffer_right_1, buffer_right_2])
 
     def dyn_canopy_cost_raster(self, side):
         in_chm_raster = self.in_chm
-        tree_radius = self.tree_radius
-        max_line_dist = self.max_line_dist
-        canopy_avoid = self.canopy_avoidance
-        exponent = self.exponent
+        # tree_radius = self.tree_radius
+        # max_line_dist = self.max_line_dist
+        # canopy_avoid = self.canopy_avoidance
+        # exponent = self.exponent
         line_df = self.line
         out_meta = self.out_meta
 
@@ -380,21 +400,23 @@ class LineInfo:
             canopy_ht_threshold = 0.5
 
         # get the round up integer number for tree search radius
-        tree_radius = float(tree_radius)
-        max_line_dist = float(max_line_dist)
-        canopy_avoid = float(canopy_avoid)
-        cost_raster_exponent = float(exponent)
+        # tree_radius = float(tree_radius)
+        # max_line_dist = float(max_line_dist)
+        # canopy_avoid = float(canopy_avoid)
+        # cost_raster_exponent = float(exponent)
 
         try:
-            clipped_rasterC, out_meta = clip_raster(in_chm_raster, line_buffer, 0)
-            negative_cost_clip, dyn_canopy_ndarray = cost_raster_2nd_version(
+            clipped_rasterC, out_meta = bt_common.clip_raster(
+                in_chm_raster, line_buffer, 0
+            )
+            negative_cost_clip, dyn_canopy_ndarray = algo_cost.cost_raster(
                 clipped_rasterC,
                 out_meta,
-                tree_radius,
+                self.tree_radius,
                 canopy_ht_threshold,
-                max_line_dist,
-                canopy_avoid,
-                cost_raster_exponent,
+                self.max_line_dist,
+                self.canopy_avoidance,
+                self.exponent,
             )
 
             return dyn_canopy_ndarray, negative_cost_clip, out_meta, Cut_Dist
@@ -433,7 +455,7 @@ class LineInfo:
             if len(in_cost_r.shape) > 2:
                 in_cost_r = np.squeeze(in_cost_r, axis=0)
 
-            remove_nan_from_array(in_cost_r)
+            algo_cost.remove_nan_from_array_refactor(in_cost_r)
             in_cost_r[in_cost_r == no_data] = np.inf
 
             # generate 1m interval points along line
@@ -442,9 +464,9 @@ class LineInfo:
             multipoint_along_line = [
                 feat.interpolate(distance) for distance in distances
             ]
-            multipoint_along_line.append(Point(segment_list[-1]))
+            multipoint_along_line.append(sh_geom.Point(segment_list[-1]))
             # Rasterize points along line
-            rasterized_points_Alongln = rasterize(
+            rasterized_points_Alongln = ras_feat.rasterize(
                 multipoint_along_line,
                 out_shape=in_cost_r.shape,
                 transform=in_transform,
@@ -478,10 +500,10 @@ class LineInfo:
             # Set minimum as zero and save minimum file
             corridor_th_value = Cut_Dist / cell_size_x
             if corridor_th_value < 0:  # if no threshold found, use default value
-                corridor_th_value = FP_CORRIDOR_THRESHOLD / cell_size_x
+                corridor_th_value = bt_const.FP_CORRIDOR_THRESHOLD / cell_size_x
 
             corridor_thresh = np.ma.where(corridor_norm >= corridor_th_value, 1.0, 0.0)
-            clean_raster = morph_raster(
+            clean_raster = algo_common.morph_raster(
                 corridor_thresh, in_canopy_r, exp_shk_cell, cell_size_x
             )
 
@@ -491,13 +513,15 @@ class LineInfo:
                 clean_raster = clean_raster.astype(np.int32)
 
             # Process: ndarray to shapely Polygon
-            out_polygon = shapes(clean_raster, mask=mask, transform=in_transform)
+            out_polygon = ras_feat.shapes(
+                clean_raster, mask=mask, transform=in_transform
+            )
 
             # create a shapely MultiPolygon
             multi_polygon = []
             for poly, value in out_polygon:
-                multi_polygon.append(shape(poly))
-            poly = MultiPolygon(multi_polygon)
+                multi_polygon.append(sh_geom.shape(poly))
+            poly = sh_geom.MultiPolygon(multi_polygon)
 
             # create a pandas DataFrame for the FP
             out_data = pd.DataFrame(
@@ -506,28 +530,43 @@ class LineInfo:
                     "geometry": [poly]
                 }
             )
-            out_gdata = gpd.GeoDataFrame(out_data, geometry="geometry", crs=shapefile_proj)
+            out_gdata = gpd.GeoDataFrame(
+                out_data, geometry="geometry", crs=shapefile_proj
+            )
 
             return out_gdata
 
         except Exception as e:
             print("Exception: {}".format(e))
 
+def line_footprint_rel(
+    in_line,
+    in_chm,
+    out_footprint,
+    processes,
+    verbose=True,
+    in_layer=None,
+    out_layer=None,
+    max_ln_width=32,
+    tree_radius=1.5,
+    max_line_dist=1.5,
+    canopy_avoidance=0.0,
+    exponent=1.0,
+    canopy_thresh_percentage=50,
+):
+    """Another version of relative canopy footprint tool."""
+    footprint = FootprintCanopy(in_line, in_chm, in_layer)
+    footprint.compute(processes, bt_const.PARALLEL_MODE)
+
+    # footprint.save_line_percentile(out_file_percentile)
+    footprint.save_footprint(out_footprint, out_layer)
 
 if __name__ == "__main__":
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
-    current_folder = current_file.parent
-    with open(current_folder.joinpath('params_win.yml')) as in_params:
-        params = yaml.safe_load(in_params)
+    """This part is to be another version of relative canopy footprint tool."""
+    in_args, in_verbose = bt_common.check_arguments()
+    start_time = time.time()
+    line_footprint_rel(
+        **in_args.input, processes=int(in_args.processes), verbose=in_verbose
+    )
 
-    fp_params = params['args_footprint_canopy']
-    in_file = fp_params['in_file']
-    in_chm = fp_params["in_chm"]
-    out_file_percentile = fp_params["out_file_percentile"]
-    out_file_fp = fp_params["out_file_fp"]
-
-    footprint = FootprintCanopy(in_file, in_chm)
-    footprint.compute()
-
-    footprint.savve_line_percentile(out_file_percentile)
-    footprint.save_footprint(out_file_fp)
+    print("Elapsed time: {}".format(time.time() - start_time))
