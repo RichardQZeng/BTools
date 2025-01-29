@@ -4,9 +4,7 @@
 /data
 .data
 /beratools/gui/icons/grass
-/beratools/__pycache__
-/beratools/tools/__pycache__
-/beratools/gui/__pycache__
+__pycache__
 *.pyc
 *.whl
 /dist
