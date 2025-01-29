@@ -10,6 +10,9 @@ import os
 from pathlib import Path
 from pprint import pprint
 
+import sys
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
 import yaml
 
 from beratools.core.algo_footprint_rel import line_footprint_rel
