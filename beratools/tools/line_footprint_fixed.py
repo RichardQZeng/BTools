@@ -105,6 +105,7 @@ def process_single_line(line_arg):
     offset = line_arg[3]
     # line_id = line_arg[4]
 
+    # TODO: deal with case when inter_poly is empty
     widths, line, perp_lines, perp_lines_original = calculate_average_width(
         row.iloc[0].geometry, inter_poly, offset, n_samples
     )
