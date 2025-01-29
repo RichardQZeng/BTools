@@ -11,7 +11,7 @@ from pathlib import Path
 from pprint import pprint
 
 import sys
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(Path(__file__).resolve().parents[1].as_posix())
 
 import yaml
 
