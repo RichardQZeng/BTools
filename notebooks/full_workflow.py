@@ -1,27 +1,24 @@
-# usage: python full_workflow.py -c 10 -p win/hpc -f some.yml
+"""
+Provide a full workflow that runs the centerline, canopy and ground footprint tools.
 
-import os
+usage: 
+    python full_workflow.py -c 10 -p win/hpc -f some.yml
+"""
 
-import sys
 import argparse
+import os
 from pathlib import Path
-from inspect import getsourcefile
+from pprint import pprint
 
-if __name__ == "__main__":
-    current_file = Path(getsourcefile(lambda: 0)).resolve()
-    current_folder = current_file.parent
-    btool_dir = current_file.parents[1]
-    sys.path.insert(0, btool_dir.as_posix())
+import yaml
 
+from beratools.core.algo_footprint_rel import line_footprint_rel
 from beratools.core.constants import PARALLEL_MODE, ParallelMode
 from beratools.tools.centerline import centerline
 from beratools.tools.line_footprint_absolute import line_footprint_abs
-from beratools.core.algo_footprint_rel import FootprintCanopy
 from beratools.tools.line_footprint_fixed import line_footprint_fixed
-import yaml
-from pprint import pprint
-print = pprint
 
+print = pprint
 
 gdal_env = os.environ.get("GDAL_DATA")
 gdal_env
@@ -31,7 +28,7 @@ verbose = False
 
 def check_arguments():
     # Create the argument parser
-    parser = argparse.ArgumentParser(description="Run the full workflow tiler script with specific parameters.")
+    parser = argparse.ArgumentParser(description="Run the full workflow parameters.")
     
     # Add arguments for each parameter
     parser.add_argument(
@@ -103,41 +100,32 @@ if __name__ == '__main__':
 
     print(f'Parallel mode: {PARALLEL_MODE.name}')
 
-    yml_file = current_folder.joinpath("params_" + platform).with_suffix(".yml")
+    yml_file = Path(__file__).parent.joinpath("params_" + platform).with_suffix(".yml")
     print(f"Config file: {yml_file}")
 
     with open(yml_file) as in_params:
         params = yaml.safe_load(in_params)
 
     # centerline
-    # args_centerline = params['args_centerline']
-    # args_centerline["parallel_mode"] = PARALLEL_MODE
-    # print(args_centerline)
-    # centerline(**args_centerline, processes=processes, verbose=verbose)
+    args_centerline = params['args_centerline']
+    args_centerline['processes'] = processes
+    print(args_centerline)
+    centerline(**args_centerline)
 
     # canopy footprint abs
-    # args_footprint_abs = params["args_footprint_abs"]
-    # args_footprint_abs['verbose'] = False
-    # args_footprint_abs['processes'] =12
-    # args_footprint_abs["callback"] = None
-    # print(args_footprint_abs)
-    # line_footprint_abs(**args_footprint_abs)
+    args_footprint_abs = params["args_footprint_abs"]
+    args_footprint_abs['processes'] = processes
+    print(args_footprint_abs)
+    line_footprint_abs(**args_footprint_abs)
 
     # canopy footprint relative
-    fp_params = params['args_footprint_rel']
-    in_file = fp_params['in_line']
-    in_chm = fp_params["in_chm"]
-    out_file_fp = fp_params["out_footprint"]
-
-    footprint = FootprintCanopy(in_file, in_chm)
-    footprint.compute(PARALLEL_MODE)
-    footprint.save_footprint(out_file_fp)
+    args_footprint_rel = params["args_footprint_rel"]
+    args_footprint_rel['processes'] = processes
+    print(args_footprint_rel)
+    line_footprint_rel(**args_footprint_rel)
 
     # ground footprint
-    # args_line_footprint_fixed = params["args_line_footprint_fixed"]
-    # args_line_footprint_fixed["parallel_mode"] = PARALLEL_MODE
-    # print(args_line_footprint_fixed)
-
-    # line_footprint_fixed(
-    #     callback=print, **args_line_footprint_fixed, processes=processes, verbose=verbose
-    # )
+    args_line_footprint_fixed = params["args_line_footprint_fixed"]
+    args_line_footprint_fixed['processes'] = processes
+    print(args_line_footprint_fixed)
+    line_footprint_fixed(**args_line_footprint_fixed)

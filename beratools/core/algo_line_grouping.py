@@ -14,15 +14,13 @@ Description:
     This file hosts code to deal with line grouping and merging, cleanups.
 """
 import enum
-import numpy as np
-
-from itertools import chain
-from typing import Union
 from collections import defaultdict
 from dataclasses import dataclass, field
+from itertools import chain
+from typing import Union
 
-import geopandas as gpd
 import networkit as nk
+import numpy as np
 import shapely
 import shapely.geometry as sh_geom
 

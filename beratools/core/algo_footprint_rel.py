@@ -51,12 +51,12 @@ class FootprintCanopy:
             line = LineInfo(data.iloc[[idx]], in_chm)
             self.lines.append(line)
 
-    def compute(self, parallel_mode=bt_const.PARALLEL_MODE):
+    def compute(self, processes, parallel_mode=bt_const.PARALLEL_MODE):
         result = bt_base.execute_multiprocessing(
             algo_common.process_single_item,
             self.lines,
             "Canopy Footprint",
-            18,
+            processes,
             1,
             parallel_mode,
         )
@@ -85,7 +85,14 @@ class BufferRing:
 class LineInfo:
     """Class to store line information."""
 
-    def __init__(self, line_gdf, in_chm):
+    def __init__(self, 
+                 line_gdf, in_chm, 
+                 max_ln_width=32,
+                 tree_radius=1.5,
+                 max_line_dist=1.5,
+                 canopy_avoidance=0.0,
+                 exponent=1.0,
+                 canopy_thresh_percentage=50):
         self.line = line_gdf
         self.in_chm = in_chm
         self.line_simp = self.line.geometry.simplify(
@@ -105,12 +112,12 @@ class LineInfo:
         self.RDist_Cut = np.nan
         self.LDist_Cut = np.nan
 
-        self.canopy_thresh_percentage = 50
-        self.canopy_avoidance = 0.0
-        self.exponent = 1.0
-        self.max_ln_width = 32
-        self.max_line_dist = 1.5
-        self.tree_radius = 1.5
+        self.canopy_thresh_percentage = canopy_thresh_percentage
+        self.canopy_avoidance = canopy_avoidance
+        self.exponent = exponent
+        self.max_ln_width = max_ln_width
+        self.max_line_dist = max_line_dist
+        self.tree_radius = tree_radius
 
         self.nodata = -9999
         self.dyn_canopy_ndarray = None
@@ -536,20 +543,20 @@ def line_footprint_rel(
     in_line,
     in_chm,
     out_footprint,
+    processes,
+    verbose=True,
+    in_layer=None,
+    out_layer=None,
     max_ln_width=32,
     tree_radius=1.5,
     max_line_dist=1.5,
     canopy_avoidance=0.0,
     exponent=1.0,
     canopy_thresh_percentage=50,
-    processes=8,
-    verbose=True,
-    in_layer=None,
-    out_layer=None,
 ):
     """Another version of relative canopy footprint tool."""
     footprint = FootprintCanopy(in_line, in_chm, in_layer)
-    footprint.compute(bt_const.PARALLEL_MODE)
+    footprint.compute(processes, bt_const.PARALLEL_MODE)
 
     # footprint.save_line_percentile(out_file_percentile)
     footprint.save_footprint(out_footprint, out_layer)
