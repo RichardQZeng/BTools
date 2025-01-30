@@ -73,7 +73,7 @@ if __name__ == '__main__':
     # Set default file based on platform if not provided
     if not yml_file:
         if platform == 'Linux':
-            yml_file = script_dir.joinpath('params_hpc.yml')  # Use pathlib to join paths
+            yml_file = script_dir.joinpath('params_hpc.yml')
         elif platform == 'Windows':
             yml_file = script_dir.joinpath('params_win.yml')
 
