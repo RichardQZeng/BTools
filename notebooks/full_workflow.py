@@ -73,9 +73,9 @@ if __name__ == '__main__':
     # Set default file based on platform if not provided
     if not yml_file:
         if platform == 'Linux':
-            yml_file = script_dir / 'params_hpc.yml'  # Use pathlib to join paths
-        elif platform == 'win':
-            yml_file = script_dir / 'params_win.yml'
+            yml_file = script_dir.joinpath('params_hpc.yml')  # Use pathlib to join paths
+        elif platform == 'Windows':
+            yml_file = script_dir.joinpath('params_win.yml')
 
     # Get available CPU cores
     processes = os.cpu_count()
@@ -95,14 +95,14 @@ if __name__ == '__main__':
     args_centerline['processes'] = processes
     print(args_centerline)
     centerline(**args_centerline)
-
+    
     # canopy footprint abs
     print_message("Starting canopy footprint abs")
     args_footprint_abs = params["args_footprint_abs"]
     args_footprint_abs['processes'] = processes
     print(args_footprint_abs)
     line_footprint_abs(**args_footprint_abs)
-
+    
     # canopy footprint relative
     print_message("Starting canopy footprint rel")
     args_footprint_rel = params["args_footprint_rel"]
@@ -114,5 +114,6 @@ if __name__ == '__main__':
     print_message("Starting ground footprint")
     args_footprint_fixed = params["args_footprint_fixed"]
     args_footprint_fixed['processes'] = processes
+    args_footprint_fixed['parallel_mode'] = ParallelMode.SEQUENTIAL
     print(args_footprint_fixed)
     line_footprint_fixed(**args_footprint_fixed)
