@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     # ground footprint
     print_message("Starting ground footprint")
-    args_line_footprint_fixed = params["args_line_footprint_fixed"]
-    args_line_footprint_fixed['processes'] = processes
-    print(args_line_footprint_fixed)
-    line_footprint_fixed(**args_line_footprint_fixed)
+    args_footprint_fixed = params["args_footprint_fixed"]
+    args_footprint_fixed['processes'] = processes
+    print(args_footprint_fixed)
+    line_footprint_fixed(**args_footprint_fixed)
