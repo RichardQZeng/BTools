@@ -56,6 +56,11 @@ def check_arguments():
     print(f"Parsed arguments: {args}")
     return args
 
+def print_message(message):
+    print('-'*50)
+    print(message)
+    print('-'*50)
+
 if __name__ == '__main__':
     script_dir = Path(__file__).parent
 
@@ -85,32 +90,28 @@ if __name__ == '__main__':
         params = yaml.safe_load(in_params)
 
     # centerline
-    print("Starting centerline")
-    print('-'*50)
+    print_message("Starting centerline")
     args_centerline = params['args_centerline']
     args_centerline['processes'] = processes
     print(args_centerline)
     centerline(**args_centerline)
 
     # canopy footprint abs
-    print("Starting canopy footprint abs")
-    print('-'*50)
+    print_message("Starting canopy footprint abs")
     args_footprint_abs = params["args_footprint_abs"]
     args_footprint_abs['processes'] = processes
     print(args_footprint_abs)
     line_footprint_abs(**args_footprint_abs)
 
     # canopy footprint relative
-    print("Starting canopy footprint rel")
-    print('-'*50)
+    print_message("Starting canopy footprint rel")
     args_footprint_rel = params["args_footprint_rel"]
     args_footprint_rel['processes'] = processes
     print(args_footprint_rel)
     line_footprint_rel(**args_footprint_rel)
 
     # ground footprint
-    print("Starting ground footprint")
-    print('-'*50)
+    print_message("Starting ground footprint")
     args_line_footprint_fixed = params["args_line_footprint_fixed"]
     args_line_footprint_fixed['processes'] = processes
     print(args_line_footprint_fixed)
