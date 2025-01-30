@@ -275,13 +275,13 @@ def line_footprint_fixed(
     verbose,
     parallel_mode=bt_const.PARALLEL_MODE,
     in_layer=None,
-    in_layer_ft=None,
+    in_layer_fp=None,
     out_layer=None
 ):
     n_samples = int(n_samples)
     offset = float(offset)
     line_gdf = gpd.read_file(in_line, layer=in_layer)
-    poly_gdf = gpd.read_file(in_footprint, layer=in_layer_ft)
+    poly_gdf = gpd.read_file(in_footprint, layer=in_layer_fp)
 
     lg = LineGrouping(line_gdf)
     lg.run_grouping()

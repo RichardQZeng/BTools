@@ -87,7 +87,7 @@ def tool_arguments(testdata_dir):
             'in_line': testdata_dir.joinpath('centerline.gpkg').as_posix(),
             'in_footprint': testdata_dir.joinpath('footprint_rel.gpkg').as_posix(),
             'in_layer': 'centerline',
-            'in_layer_ft': 'footprint_rel',
+            'in_layer_fp': 'footprint_rel',
             'n_samples': 15,
             'offset': 30,
             'max_width': True,
