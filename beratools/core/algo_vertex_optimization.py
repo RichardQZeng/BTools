@@ -20,19 +20,18 @@ Description:
 
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-
 import shapely.geometry as sh_geom
 from shapely import STRtree
 
-import beratools.core.constants as bt_const
-import beratools.tools.common as bt_common
-import beratools.core.tool_base as bt_base
-from beratools.core import algo_dijkstra
 import beratools.core.algo_common as algo_common
 import beratools.core.algo_cost as algo_cost
+import beratools.core.constants as bt_const
+import beratools.core.tool_base as bt_base
+import beratools.tools.common as bt_common
+from beratools.core import algo_dijkstra
 
 
 def update_line_end_pt(line, index, new_vertex):
@@ -246,7 +245,7 @@ class _Vertex:
         centerline_2 = None
         intersection = None
 
-        if bt_const.CL_USE_SKIMAGE_GRAPH:
+        if bt_const.CenterlineFlags.USE_SKIMAGE_GRAPH:
             find_lc_path = algo_dijkstra.find_least_cost_path_skimage
         else:
             find_lc_path = algo_dijkstra.find_least_cost_path
@@ -355,7 +354,7 @@ class VertexGrouping:
         # all end points not added will stay with this vertex
         vertex = line_obj.get_end_vertex()
         vertex_obj = _Vertex(line_obj)
-        search = self.sindex.query(vertex.buffer(bt_const.CenterlineParams.POLYGON_BUFFER))
+        search = self.sindex.query(vertex.buffer(bt_const.SMALL_BUFFER))
 
         # add more vertices to the new group
         for i in search:

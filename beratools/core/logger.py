@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import sys
+
 from beratools.gui.bt_data import BTData
 
 bt = BTData()

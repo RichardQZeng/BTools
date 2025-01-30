@@ -15,7 +15,9 @@ Description:
 """
 import numpy as np
 import scipy
+
 import beratools.core.constants as bt_const
+
 
 def cost_raster(
     in_raster,

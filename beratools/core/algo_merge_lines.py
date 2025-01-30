@@ -14,11 +14,12 @@ Description:
     This file is intended to be hosting algorithms and utility functions/classes 
     for merging lines.
 """
-import networkit as nk
-from shapely.geometry import mapping
-from shapely import Point, MultiLineString, LineString, reverse
 from itertools import pairwise
 from operator import itemgetter
+
+import networkit as nk
+from shapely import LineString, MultiLineString, Point, reverse
+from shapely.geometry import mapping
 
 
 class MergeLines:

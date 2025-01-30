@@ -14,24 +14,39 @@ Description:
     This file is intended to be hosting algorithms and utility functions/classes 
     for centerline tool.
 """
-import numpy as np
-import pandas as pd
-import geopandas as gpd
+import enum
 from itertools import compress
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
 import rasterio
 import shapely
-import shapely.ops as sh_ops
 import shapely.geometry as sh_geom
-
+import shapely.ops as sh_ops
 from label_centerlines import get_centerline
-import beratools.core.tool_base as bt_base
-import beratools.core.constants as bt_const
-import beratools.tools.common as bt_common
+
 import beratools.core.algo_common as algo_common
 import beratools.core.algo_cost as algo_cost
 import beratools.core.algo_dijkstra as bt_dijkstra
+import beratools.core.constants as bt_const
+import beratools.core.tool_base as bt_base
+import beratools.tools.common as bt_common
 
+
+class CenterlineParams(float, enum.Enum):
+    BUFFER_CLIP = 5.0
+    SEGMENTIZE_LENGTH = 1.0
+    SIMPLIFY_LENGTH = 0.5
+    SMOOTH_SIGMA = 0.8
+    CLEANUP_POLYGON_BY_AREA = 1.0
+
+@enum.unique
+class CenterlineStatus(enum.IntEnum):
+    SUCCESS = 1
+    FAILED = 2
+    REGENERATE_SUCCESS = 3
+    REGENERATE_FAILED = 4
 
 def centerline_is_valid(centerline, input_line):
     """
@@ -117,16 +132,16 @@ def find_centerline(poly, input_line):
     )
 
     # buffer to reduce MultiPolygons
-    poly = poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER)  
+    poly = poly.buffer(bt_const.SMALL_BUFFER)  
     if type(poly) is sh_geom.MultiPolygon:
         print('sh_geom.MultiPolygon encountered, skip.')
         return default_return
 
     exterior_pts = list(poly.exterior.coords)
 
-    if bt_const.CL_DELETE_HOLES:
+    if bt_const.CenterlineFlags.DELETE_HOLES:
         poly = sh_geom.Polygon(exterior_pts)
-    if bt_const.CL_SIMPLIFY_POLYGON:
+    if bt_const.CenterlineFlags.SIMPLIFY_POLYGON:
         poly = poly.simplify(bt_const.CenterlineParams.SIMPLIFY_LENGTH)
 
     line_coords = list(input_line.coords)
@@ -330,7 +345,7 @@ def regenerate_centerline(poly, input_line):
 
     # sh_geom.MultiPolygon is rare, but need to be dealt with
     # remove polygon of area less than CenterlineParams.CLEANUP_POLYGON_BY_AREA
-    poly = poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER)
+    poly = poly.buffer(bt_const.SMALL_BUFFER)
     if type(poly) is sh_geom.MultiPolygon:
         poly_geoms = list(poly.geoms)
         poly_valid = [True] * len(poly_geoms)
@@ -345,7 +360,7 @@ def regenerate_centerline(poly, input_line):
         poly = sh_geom.Polygon(poly_geoms[0])
 
     poly_exterior = sh_geom.Polygon(
-        poly.buffer(bt_const.CenterlineParams.POLYGON_BUFFER).exterior
+        poly.buffer(bt_const.SMALL_BUFFER).exterior
     )
     poly_split = sh_ops.split(poly_exterior, perp)
 
@@ -409,8 +424,7 @@ class SeedLine:
 
         lc_path = line
         try:
-            if bt_const.CL_USE_SKIMAGE_GRAPH:
-                # skimage shortest path
+            if bt_const.CenterlineFlags.USE_SKIMAGE_GRAPH:
                 lc_path = bt_dijkstra.find_least_cost_path_skimage(
                     cost_clip, out_meta, seed_line
                 )

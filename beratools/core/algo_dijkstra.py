@@ -19,14 +19,15 @@ the Free Software Foundation; either version 2 of the License, or
 # This will get replaced with a git SHA1 when you do a git archive
 __revision__ = '$Format:%H$'
 
-import numpy as np
 import math
 import queue
 from collections import defaultdict
 
+import numpy as np
 import rasterio
 import shapely.geometry as sh_geom
 import skimage.graph as sk_graph
+
 import beratools.core.constants as bt_const
 
 sqrt2 = math.sqrt(2)

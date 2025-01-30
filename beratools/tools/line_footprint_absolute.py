@@ -15,19 +15,19 @@ Description:
     The tool is used to generate the footprint of a line based on absolute threshold.
 """
 import time
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-
-import shapely
 import rasterio
+import shapely
 
-import beratools.tools.common as bt_common
-import beratools.core.constants as bt_const
-import beratools.core.tool_base as bt_base
 import beratools.core.algo_centerline as algo_cl
 import beratools.core.algo_common as algo_common
 import beratools.core.algo_cost as algo_cost
+import beratools.core.tool_base as bt_base
+import beratools.tools.common as bt_common
+
 
 class FootprintAbsolute:
     """Class to compute the footprint of a line based on absolute threshold."""

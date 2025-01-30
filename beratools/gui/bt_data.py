@@ -13,14 +13,16 @@ Description:
 
     The purpose of this script is to provide main interface for GUI related settings.
 """
+import json
 import os
 import platform
-import json
-from pathlib import Path
 from collections import OrderedDict
+from pathlib import Path
+
 import beratools.core.constants as bt_const
 
 running_windows = platform.system() == 'Windows'
+BT_SHOW_ADVANCED_OPTIONS = False
 
 
 def default_callback(value):
