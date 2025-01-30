@@ -89,6 +89,9 @@ def centerline(
         verbose=verbose,
         mode=parallel_mode,
     )
+    if not result:
+        print("No centerlines found.")
+        return
 
     for item in result:
         lc_path_list.append(item.lc_path)

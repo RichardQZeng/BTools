@@ -49,7 +49,7 @@ class BTData(object):
         self.user_folder = Path('')
         self.data_folder = Path('')
         self.verbose = True
-        self.show_advanced = bt_const.BT_SHOW_ADVANCED_OPTIONS
+        self.show_advanced = BT_SHOW_ADVANCED_OPTIONS
         self.max_procs = -1
         self.recent_tool = None
         self.ascii_art = None
