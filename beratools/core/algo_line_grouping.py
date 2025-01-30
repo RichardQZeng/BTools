@@ -27,7 +27,7 @@ import shapely.geometry as sh_geom
 from beratools.core.algo_merge_lines import MergeLines
 
 TRIMMING_EFFECT_AREA = 50  # meters
-
+SMALL_BUFFER = 1
 
 @enum.unique
 class VertexClass(enum.IntEnum):
@@ -278,8 +278,10 @@ class VertexNode:
 
     def has_group_attr(self):
         """If all values in group list are valid value, return True."""
+
+        # TODO: if some line has no group, give advice
         for i in self.line_list:
-            if not i.group:
+            if i.group is None:
                 return False
 
         return True
@@ -408,18 +410,17 @@ class LineGrouping:
 
         v_points = []
         for i in self.vertex_list:
-            v_points.append(i.vertex.buffer(1))  # small polygon around vertices
+            v_points.append(i.vertex.buffer(SMALL_BUFFER))  # small polygon around vertices
 
+        # Spatial index of all vertices
         self.v_index = shapely.STRtree(v_points)
 
         vertex_visited = [False] * len(self.vertex_list)
-
         for i, pt in enumerate(v_points):
             if vertex_visited[i]:
                 continue
 
             s_list = self.v_index.query(pt)
-
             vertex = self.vertex_list[i]
             if len(s_list) > 1:
                 for j in s_list:
@@ -530,16 +531,14 @@ class LineGrouping:
     def run_line_merge(in_line_gdf):
         out_line_gdf = in_line_gdf.dissolve(by=GROUP_ATTRIBUTE, as_index=False)
         out_line_gdf.geometry = out_line_gdf.line_merge()
-        num = 0
-        for i in out_line_gdf.itertuples():
-            num += 1
-            if i.geometry.geom_type == "MultiLineString":
-                worker = MergeLines(i.geometry)
+
+        for row in out_line_gdf.itertuples():
+            if isinstance(row.geometry, sh_geom.MultiLineString):
+                worker = MergeLines(row.geometry)
                 merged_line = worker.merge_all_lines()
                 if merged_line:
-                    out_line_gdf.at[i.Index, "geometry"] = merged_line
+                    out_line_gdf.at[row.Index, "geometry"] = merged_line
 
-        print("Merge all lines done.")
         out_line_gdf.reset_index(inplace=True, drop=True)
         return out_line_gdf
 
@@ -577,7 +576,7 @@ class LineGrouping:
         self.invalid_lines.reset_index(inplace=True, drop=True)
 
     def save_file(self, out_file):
-        self.run_line_merge_trimmed()
+        # self.run_line_merge_trimmed()
 
         if not self.valid_lines.empty:
             self.valid_lines.to_file(out_file, layer="merged_lines")

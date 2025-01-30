@@ -305,7 +305,6 @@ def line_footprint_fixed(
     # save fixed width footprint
     buffer_gdf = buffer_gdf.drop(columns=["perp_lines"])
     buffer_gdf = buffer_gdf.drop(columns=["perp_lines_original"])
-    # buffer_gdf.crs = perp_lines_gdf.crs
     buffer_gdf = buffer_gdf.set_crs(perp_lines_gdf.crs, allow_override=True)
     buffer_gdf.reset_index(inplace=True, drop=True)
 
@@ -325,7 +324,6 @@ def line_footprint_fixed(
     perp_lines_gdf = perp_lines_gdf.set_geometry("perp_lines")
     perp_lines_gdf = perp_lines_gdf.drop(columns=["perp_lines_original"])
     perp_lines_gdf = perp_lines_gdf.drop(columns=["geometry"])
-    # perp_lines_gdf.crs = buffer_gdf.crs
     perp_lines_gdf = perp_lines_gdf.set_crs(buffer_gdf.crs, allow_override=True)
     perp_lines_gdf.to_file(out_aux_gpkg.as_posix(), layer=layer)
 
@@ -335,7 +333,6 @@ def line_footprint_fixed(
     )
     perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=["perp_lines"])
     perp_lines_original_gdf = perp_lines_original_gdf.drop(columns=["geometry"])
-    # perp_lines_original_gdf.crs = buffer_gdf.crs
     perp_lines_original_gdf = perp_lines_original_gdf.set_crs(
         buffer_gdf.crs, allow_override=True
     )
