@@ -1,3 +1,17 @@
+"""
+Copyright (C) 2025 Applied Geospatial Research Group.
+
+This script is licensed under the GNU General Public License v3.0.
+See <https://gnu.org/licenses/gpl-3.0> for full license details.
+
+Author: Richard Zeng
+
+Description:
+    This script is part of the BERA Tools.
+    Webpage: https://github.com/appliedgrg/beratools
+
+    The purpose of this script is to provide logger functions.
+"""
 import logging
 import logging.handlers
 import sys
@@ -5,7 +19,6 @@ import sys
 from beratools.gui.bt_data import BTData
 
 bt = BTData()
-
 
 class NoParsingFilter(logging.Filter):
     def filter(self, record):

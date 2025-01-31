@@ -4,7 +4,6 @@ Copyright (C) 2025 Applied Geospatial Research Group.
 This script is licensed under the GNU General Public License v3.0.
 See <https://gnu.org/licenses/gpl-3.0> for full license details.
 
----------------------------------------------------------------------------
 Author: Richard Zeng
 
 Description:
@@ -15,11 +14,13 @@ Description:
 """
 import logging
 import time
+
 import geopandas as gpd
 
-from beratools.core.logger import Logger
-from beratools.core.algo_line_grouping import LineGrouping
 import beratools.tools.common as bt_common
+from beratools.core.algo_line_grouping import LineGrouping
+from beratools.core.logger import Logger
+
 
 def line_grouping(callback, in_line, out_line, processes, verbose, in_layer=None, out_layer=None):
     print("line_grouping started")

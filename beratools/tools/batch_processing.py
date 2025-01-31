@@ -1,14 +1,15 @@
-import os
-import sys
 import csv
 import json
-import pandas as pd
+import os
+import sys
 from pathlib import Path
 
+import pandas as pd
 from PyQt5 import QtWidgets
-from beratools.gui.bt_data import BTData
+
 import beratools.tools.common as bt_common
 from beratools.gui.batch_processing_dlg import BPDialog
+from beratools.gui.bt_data import BTData
 
 bt = BTData()
 

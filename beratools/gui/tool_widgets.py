@@ -4,7 +4,6 @@ Copyright (C) 2025 Applied Geospatial Research Group.
 This script is licensed under the GNU General Public License v3.0.
 See <https://gnu.org/licenses/gpl-3.0> for full license details.
 
----------------------------------------------------------------------------
 Author: Richard Zeng
 
 Description:
@@ -13,16 +12,15 @@ Description:
 
     The purpose of this script is to provide all kinds of widgets for tool parameters.
 """
+import json
 import os
 import sys
-import json
-import pyogrio
-import numpy as np
-from pathlib import Path
 from collections import OrderedDict
+from pathlib import Path
 
-from PyQt5 import QtWidgets
-from PyQt5 import QtCore
+import numpy as np
+import pyogrio
+from PyQt5 import QtCore, QtWidgets
 
 BT_LABEL_MIN_WIDTH = 130
 

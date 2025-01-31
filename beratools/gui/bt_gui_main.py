@@ -4,7 +4,6 @@ Copyright (C) 2025 Applied Geospatial Research Group.
 This script is licensed under the GNU General Public License v3.0.
 See <https://gnu.org/licenses/gpl-3.0> for full license details.
 
----------------------------------------------------------------------------
 Author: Richard Zeng
 
 Description:
@@ -13,21 +12,19 @@ Description:
 
     The purpose of this script is to provide main GUI functions.
 """
+import json
 import os
 import sys
-import json
 import webbrowser
-from re import compile
 from pathlib import Path
+from re import compile
 
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
-from PyQt5 import QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 
-from beratools.gui.tool_widgets import ToolWidgets
-from beratools.gui import bt_data
-import beratools.tools.common as bt_common
 import beratools.core.constants as bt_const
+import beratools.tools.common as bt_common
+from beratools.gui import bt_data
+from beratools.gui.tool_widgets import ToolWidgets
 
 # A regular expression, to extract the % complete.
 progress_re = compile("Total complete: (\d+)%")

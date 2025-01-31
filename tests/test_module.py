@@ -1,5 +1,4 @@
 from click.testing import CliRunner
-
 from label_centerlines import __version__, get_centerline
 from label_centerlines.cli import main
 

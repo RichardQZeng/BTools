@@ -4,9 +4,6 @@ Copyright (C) 2025 Applied Geospatial Research Group.
 This script is licensed under the GNU General Public License v3.0.
 See <https://gnu.org/licenses/gpl-3.0> for full license details.
 
----------------------------------------------------------------------------
-
-File: algo_common.py
 Author: Richard Zeng
 
 Description:
