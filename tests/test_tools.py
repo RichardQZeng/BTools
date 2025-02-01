@@ -63,14 +63,15 @@ def test_line_footprint_fixed_tool_e2e(tool_arguments):
     )
 
 
-# Optionally, a test for cleaning up test output files
+# A test for cleaning up test output files
 @pytest.fixture
 def test_output_files(testdata_dir):
     return [
-        testdata_dir.joinpath('centerline.shp'),
-        testdata_dir.joinpath('footprint_abs.shp'),
+        testdata_dir.joinpath('centerline.gpkg'),
+        testdata_dir.joinpath('footprint_abs.gpkg'),
         testdata_dir.joinpath('footprint_rel.gpkg'),
-        testdata_dir.joinpath('footprint_final.gpkg')
+        testdata_dir.joinpath('footprint_final.gpkg'),
+        testdata_dir.joinpath('footprint_final_aux.gpkg')
     ]
 
 def test_cleanup_output_files(test_output_files):
@@ -115,3 +116,12 @@ def test_full_workflow(tool_arguments):
     assert check_file_exists(args_line_footprint_fixed["out_footprint"]), (
         "Line footprint fixed output file was not created!"
     )
+
+# clean up files for workflow
+def test_cleanup_output_files_workflow(test_output_files):
+    """Test to clean up generated output files after the test."""
+    time.sleep(1)  # Wait a little to allow file system operations to complete
+    for file_path in test_output_files:
+        if file_path.exists():
+            file_path.unlink()
+            assert not file_path.exists(), f"Failed to remove {file_path}"

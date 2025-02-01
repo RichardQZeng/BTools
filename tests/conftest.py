@@ -63,7 +63,7 @@ def tool_arguments(testdata_dir):
             'corridor_thresh': 3.0,
             'max_ln_width': 32.0,
             'exp_shk_cell': 0,
-            'out_footprint': testdata_dir.joinpath('footprint_abs.shp').as_posix(),
+            'out_footprint': testdata_dir.joinpath('footprint_abs.gpkg').as_posix(),
             'out_layer': 'footprint_abs',
             'processes': 8,
             'verbose': False
