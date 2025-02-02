@@ -10,7 +10,7 @@ Description:
     This script is part of the BERA Tools.
     Webpage: https://github.com/appliedgrg/beratools
 
-    Main entrance of BERA Tools.
+    Main entry point of BERA Tools.
 """
 import sys
 from pathlib import Path

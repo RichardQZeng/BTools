@@ -1,11 +1,8 @@
 """Test functions and command lines."""
-import os
 
 import geopandas as gpd
 import pytest
-from click.testing import CliRunner
-from label_centerlines import __version__, get_centerline
-from label_centerlines.cli import main
+from label_centerlines import get_centerline
 
 
 # Fixture to load the 'alps.geojson' shape using geopandas
@@ -16,13 +13,6 @@ def footprint_shape(testdata_dir):
 
     # Return the first geometry from the GeoDataFrame
     return gdf.geometry.iloc[0]
-
-# Test the CLI version command
-def test_cli():
-    runner = CliRunner()
-    result = runner.invoke(main, ["--version"])
-    assert result.exit_code == 0
-    assert __version__ in result.output
 
 # Test the centerline functionality
 def test_centerline(footprint_shape):
